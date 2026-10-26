@@ -35,43 +35,16 @@ management in [Bearer tokens](../bearer-tokens.md).
 
 ## Schema migrations
 
-The schema is managed by [Alembic](https://alembic.sqlalchemy.org/) migrations, embedded in the
-package (no `alembic.ini` file to provide):
-
-```bash
-security-review-controller db upgrade   # creates or migrates the schema, then seeds the default rules
-security-review-controller db status    # {"current": "0032", "head": "0032", "up_to_date": true}
-```
-
-- `db status` returns code `1` if the schema is not up to date: handy for a script or a probe.
-- The **HTTP MCP server never migrates**: it refuses to start (code `2`, message
-  `run security-review-controller db upgrade first`) while the database is not at the expected
-  revision. Under Kubernetes, the pod restarts until the migration is done.
-- The controller, the stdio MCP server and the CLI commands migrate at start-up: with Docker
-  Compose and Kubernetes, the controller migrates when it starts, there is nothing to do.
-- On PostgreSQL, a migration takes an advisory lock: instances that start together (several
-  replicas, a `db upgrade` run by hand) wait for each other, and the next one finds the schema
-  up to date.
-
-### Dedicated migration job
-
-By default, nothing has to be configured. `SECREVIEW_DB_AUTO_UPGRADE=false` is only for an
-operator who keeps migrations out of the application, for instance when:
-
-- the database account of the application has no right to change the schema (no DDL): a job
-  runs `security-review-controller db upgrade` with a privileged account;
-- a new image must not change the schema by itself: the migration is run after a backup, or
-  during a maintenance window.
-
-The controller, the stdio MCP server and the CLI commands then only check the schema: like the
-HTTP MCP server, they refuse to start (code `2`) until `db upgrade` has been run.
+The controller migrates the schema when it starts; the HTTP MCP server never does. Commands,
+locks between replicas and dedicated migration job: see
+[Database](../database.md#schema-migrations).
 
 ## Background tasks
 
 | Task | Enabled by | Details |
 |---|---|---|
 | Daily update of the OSV advisories | `SECREVIEW_OSV_AUTO_UPDATE=true` (off by default) | [Automatic update by the controller](../../review/analysis/dependencies.md#automatic-update-by-the-controller) |
-| Purge of the reports without findings and of the audit log | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Retention](../../reference/configuration.md#retention-of-reports-without-findings), [audit retention](../audit-log.md#retention) |
+| Purge of the reports without findings and of the audit log | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Retention](../database.md#retention-of-reports-without-findings), [audit retention](../audit-log.md#retention) |
 | Forwarding of the audit log to syslog | a syslog server set in the environment or in the interface | [Forwarding to syslog](../audit-log.md#forwarding-to-syslog) |
 | Automatic sending of the findings by the connectors | a connector switched on, a severity threshold on the project; `SECREVIEW_CONNECTORS_ENABLED=false` locks everything | [Connectors](../../usage/connectors/index.md) |
 

@@ -46,6 +46,7 @@ Routes, démarrage, migrations du schéma, tâches de fond et exposition de chaq
     Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL
     (extra `postgres` du paquet PyPI, inclus dans l'image), déployé avec
     [Docker Compose](../deployment/docker.md#docker-compose-avec-postgresql) ou [Kubernetes](../deployment/kubernetes.md#deploiement).
+    Migrations, conservation et sauvegarde : voir [Base de données](../database.md).
 
 En [mode local (stdio)](../../getting-started/stdio.md), seul `security-review-mcp local` est
 nécessaire : il crée et migre lui-même sa base SQLite locale.

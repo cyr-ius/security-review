@@ -35,45 +35,16 @@ dans [Jetons Bearer](../bearer-tokens.md).
 
 ## Migrations du schéma
 
-Le schéma est géré par des migrations [Alembic](https://alembic.sqlalchemy.org/), embarquées
-dans le paquet (aucun fichier `alembic.ini` à fournir) :
-
-```bash
-security-review-controller db upgrade   # crée ou migre le schéma, puis amorce les règles par défaut
-security-review-controller db status    # {"current": "0032", "head": "0032", "up_to_date": true}
-```
-
-- `db status` renvoie le code `1` si le schéma n'est pas à jour : pratique pour un script ou
-  une sonde.
-- Le **serveur MCP HTTP ne migre jamais** : il refuse de démarrer (code `2`, message
-  `run security-review-controller db upgrade first`) tant que la base n'est pas à la révision
-  attendue. Sous Kubernetes, le pod redémarre jusqu'à ce que la migration soit faite.
-- Le contrôleur, le serveur MCP stdio et les commandes CLI migrent au démarrage : avec Docker
-  Compose et Kubernetes, le contrôleur migre à son démarrage, il n'y a rien à faire.
-- Sur PostgreSQL, une migration prend un verrou consultatif (advisory lock) : des instances qui
-  démarrent ensemble (plusieurs réplicas, un `db upgrade` lancé à la main) s'attendent, et la
-  suivante trouve le schéma à jour.
-
-### Tâche de migration dédiée
-
-Par défaut, rien n'est à configurer. `SECREVIEW_DB_AUTO_UPGRADE=false` ne sert qu'à un
-exploitant qui sort les migrations de l'application, par exemple quand :
-
-- le compte de base de données de l'application n'a pas le droit de modifier le schéma (pas de
-  DDL) : une tâche lance `security-review-controller db upgrade` avec un compte privilégié ;
-- une nouvelle image ne doit pas modifier le schéma d'elle-même : la migration est lancée après
-  une sauvegarde, ou pendant une fenêtre de maintenance.
-
-Le contrôleur, le serveur MCP stdio et les commandes CLI vérifient alors seulement le schéma :
-comme le serveur MCP HTTP, ils refusent de démarrer (code `2`) tant que `db upgrade` n'a pas été
-lancé.
+Le contrôleur migre le schéma à son démarrage ; le serveur MCP HTTP ne le fait jamais. Commandes,
+verrou entre réplicas et tâche de migration dédiée : voir
+[Base de données](../database.md#migrations-du-schema).
 
 ## Tâches de fond
 
 | Tâche | Activée par | Détails |
 |---|---|---|
 | Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` (désactivée par défaut) | [Mise à jour automatique par le contrôleur](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
-| Purge des rapports sans finding et du journal d'audit | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Conservation](../../reference/configuration.md#conservation-des-rapports-sans-findings), [conservation de l'audit](../audit-log.md#conservation) |
+| Purge des rapports sans finding et du journal d'audit | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Conservation](../database.md#conservation-des-rapports-sans-findings), [conservation de l'audit](../audit-log.md#conservation) |
 | Envoi du journal d'audit vers syslog | un serveur syslog défini dans l'environnement ou dans l'interface | [Envoi vers syslog](../audit-log.md#envoi-vers-syslog) |
 | Envoi automatique des findings par les connecteurs | un connecteur activé, un seuil de sévérité sur le projet ; `SECREVIEW_CONNECTORS_ENABLED=false` verrouille tout | [Connecteurs](../../usage/connectors/index.md) |
 

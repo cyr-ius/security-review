@@ -81,9 +81,9 @@ Good to know:
 - **Hardening.** The containers of security-review-mcp run with a read-only file system and
   without any Linux capability.
 - **Data.** The `secreview-pg` volume holds the reports, the accounts and the tokens: back it up
-  (see [Backing up PostgreSQL](#backing-up-postgresql)). It is mounted on `/var/lib/postgresql`,
+  (see [Backing up PostgreSQL](../database.md#backing-up-postgresql)). It is mounted on `/var/lib/postgresql`,
   where PostgreSQL 18 keeps its data; a volume created by PostgreSQL 17 does not start with this
-  image (see [Upgrading PostgreSQL](#upgrading-postgresql)).
+  image (see [Upgrading PostgreSQL](../database.md#upgrading-postgresql)).
 
 The administration commands run in the controller container:
 
@@ -129,47 +129,6 @@ port `8000` unless `--port` is given: the `-p` option chooses the address and th
 host (`-p 127.0.0.1:8080:8000`: this machine only). Mounted files must be readable by the user of
 the container (UID `10001`). The MCP server
 refuses to start while the schema is not migrated (step 1).
-
-## Backing up PostgreSQL
-
-The `secreview-pg` volume holds the reports, the accounts and the token digests. Export it
-regularly (cron, systemd timer) and keep the files away from the server, readable by you only:
-
-```bash
-(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview-$(date +%F).dump)
-# Restore an export (the services are stopped during the restore)
-docker compose stop mcp controller
-docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview-2026-10-25.dump
-docker compose start controller mcp
-```
-
-## Upgrading PostgreSQL
-
-A major version of PostgreSQL cannot read data files created by a previous version. To
-upgrade a `secreview-pg` volume from PostgreSQL 17 to 18, export the database using the
-old image, recreate the volume, and then restore the export:
-
-```bash
-# 1. Using the previous Compose file (postgres:17-alpine, mounted at /var/lib/postgresql/data)
-docker compose stop mcp controller
-(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview.dump)
-docker compose down
-
-# 2. Verify the export (it should list the tables), then recreate the volume: the export
-#    is now the only copy of your data
-docker compose run --rm -T --no-deps --entrypoint pg_restore db --list < ~/secreview.dump | grep 'TABLE DATA'
-docker volume rm security-review-mcp_secreview-pg
-
-# 3. Using the current Compose file (postgres:18-alpine, mounted at /var/lib/postgresql)
-docker compose up -d db
-docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview.dump
-docker compose up -d
-```
-
-The controller then applies any pending Alembic revisions at start. The export
-contains reports, password hashes, and tokens; keep it outside the repository
-(ensuring it is readable only by you, using `umask 077`) and delete it once the
-restoration has been verified.
 
 ## Internal Rules and CLI
 

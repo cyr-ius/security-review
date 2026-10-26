@@ -81,6 +81,7 @@ plugins:
             Contributing: Contribuer
             Controller (FastAPI): Contrôleur (FastAPI)
             Controller: Contrôleur
+            Database: Base de données
             Dependency analysis: Analyse des dépendances
             Deploying the server: Mise en service du serveur
             Deployment: Déploiement
@@ -194,6 +195,7 @@ nav:
       - Audit log in detail: advanced/audit-log.md
       - Bearer tokens: advanced/bearer-tokens.md
       - Connectors in detail: advanced/connectors.md
+      - Database: advanced/database.md
       - Deployment:
           - Docker: advanced/deployment/docker.md
           - Kubernetes: advanced/deployment/kubernetes.md

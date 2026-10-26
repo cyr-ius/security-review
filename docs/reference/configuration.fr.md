@@ -19,9 +19,9 @@ Lues par le serveur MCP et par le contrôleur.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_DATABASE_URL` | Fichier SQLite de l'utilisateur (voir [Base de données](#base-de-donnees)) | URL SQLAlchemy de la base, **partagée** par les deux processus |
+| `SECREVIEW_DATABASE_URL` | Fichier SQLite de l'utilisateur (voir [Base de données](../advanced/database.md)) | URL SQLAlchemy de la base, **partagée** par les deux processus |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Journalise les requêtes SQL |
-| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à laisser tel quel, sauf si les migrations sont confiées à une [tâche dédiée](../advanced/architecture/controller.md#tache-de-migration-dediee), où `false` leur fait seulement vérifier le schéma. Le serveur MCP HTTP ne migre jamais |
+| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à laisser tel quel, sauf si les migrations sont confiées à une [tâche dédiée](../advanced/database.md#tache-de-migration-dediee), où `false` leur fait seulement vérifier le schéma. Le serveur MCP HTTP ne migre jamais |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Niveau de journalisation (sur stderr) |
 
 ### Écoute, TLS et reverse proxy
@@ -126,7 +126,7 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Âge en jours au-delà duquel `serve` supprime les [rapports sans findings](#conservation-des-rapports-sans-findings) ; `0` conserve tous les rapports |
+| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Âge en jours au-delà duquel `serve` supprime les [rapports sans findings](../advanced/database.md#conservation-des-rapports-sans-findings) ; `0` conserve tous les rapports |
 | `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Validité maximale en jours d'une [décision](../usage/triage.md) `accepted` ou `false_positive` : sa date d'expiration ne peut pas être plus lointaine |
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Une personne peut [accepter un risque](../usage/triage.md) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif n'en exige jamais |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Gravité minimale (`critical`, `high`, `medium`, `low`, `info`) dont l'[acceptation de risque](../usage/triage.md) exige un motif et une date d'expiration. Un finding moins grave est accepté par une simple validation, qui le ferme sans motif ni date. Vide : toute acceptation les exige |
@@ -180,36 +180,5 @@ Les règles internes non plus : elles sont stockées en base et gérées avec
 
 ## Base de données
 
-Une base de donnée SQLite est crée par défaut, dans le dossier de données de l'utilisateur :
-`~/.local/share/security-review-mcp/security_reports.db` quand `XDG_DATA_HOME` n'est pas défini.
-
-Pour PostgreSQL (extra `postgres`, mode partagé uniquement : le serveur stdio n'accepte que SQLite) :
-
-```bash
-SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
-```
-
-Un PostgreSQL prêt à l'emploi : [Docker Compose](../advanced/deployment/docker.md#docker-compose-avec-postgresql) ou
-[Kubernetes](../advanced/deployment/kubernetes.md#deploiement).
-
-Le schéma est géré par des migrations Alembic embarquées dans le paquet : **security-review-controller**
- - `security-review-controller db upgrade` crée ou migre la base et amorce les règles par défaut,
- - `security-review-controller db status` affiche la révision (code `1` si elle n'est pas à jour). Voir
-[Migrations du schéma](../advanced/architecture/controller.md#migrations-du-schema).
-
-### Conservation des rapports sans findings
-
-Le contrôleur supprime ces rapports dès qu'ils ont plus de
-`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` jours (`90` par défaut) : au démarrage, puis
-chaque jour. Le dernier rapport de chaque projet est toujours conservé, si bien qu'un projet ne
-disparaît jamais de la liste, et un rapport avec des findings n'est jamais supprimé, quel que
-soit leur statut. `0` désactive la purge.
-
-La même purge peut être lancée à la demande, par exemple depuis une tâche planifiée quand le
-contrôleur ne tourne pas :
-
-```bash
-security-review-controller db prune              # conservation de SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
-security-review-controller db prune --days 30    # une autre durée, pour cette exécution seulement
-# {"retention_days": 30, "deleted": 4}
-```
+SQLite ou PostgreSQL, migrations du schéma, conservation des rapports sans findings,
+sauvegarde et mise à niveau : voir [Base de données](../advanced/database.md).

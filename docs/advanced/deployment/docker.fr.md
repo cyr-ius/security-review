@@ -85,9 +85,9 @@ Bon à savoir :
 - **Durcissement.** Les conteneurs de security-review-mcp tournent en système de fichiers en
   lecture seule, sans capacité Linux.
 - **Données.** Le volume `secreview-pg` contient les rapports, les comptes et les jetons :
-  sauvegardez-le (voir [Sauvegarde de PostgreSQL](#sauvegarde-de-postgresql)). Il est monté sur
+  sauvegardez-le (voir [Sauvegarde de PostgreSQL](../database.md#sauvegarde-de-postgresql)). Il est monté sur
   `/var/lib/postgresql`, où PostgreSQL 18 range ses données ; un volume créé par PostgreSQL 17 ne
-  démarre pas avec cette image (voir [Mise à niveau de PostgreSQL](#mise-a-niveau-de-postgresql)).
+  démarre pas avec cette image (voir [Mise à niveau de PostgreSQL](../database.md#mise-a-niveau-de-postgresql)).
 
 Les commandes d'administration s'exécutent dans le conteneur du contrôleur :
 
@@ -132,47 +132,6 @@ Dans l'image, les deux processus écoutent sur toutes les interfaces du conteneu
 (`SECREVIEW_HOST=0.0.0.0`), sur le port `8000` sauf `--port` : l'option `-p` choisit l'adresse et
 le port de l'hôte (`-p 127.0.0.1:8080:8000` : cette machine seulement). Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
 serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 1).
-
-## Sauvegarde de PostgreSQL
-
-Le volume `secreview-pg` contient les rapports, les comptes et les empreintes des jetons.
-Exportez-le régulièrement (cron, timer systemd) et conservez les fichiers hors du serveur,
-lisibles par vous seul :
-
-```bash
-(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview-$(date +%F).dump)
-# Restaurer un export (les services sont arrêtés pendant la restauration)
-docker compose stop mcp controller
-docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview-2026-10-25.dump
-docker compose start controller mcp
-```
-
-## Mise à niveau de PostgreSQL
-
-Une version majeure de PostgreSQL ne lit pas les fichiers de données de la précédente. Pour
-passer un volume `secreview-pg` de PostgreSQL 17 à 18, exportez la base avec l'ancienne image,
-recréez le volume puis restaurez l'export :
-
-```bash
-# 1. Avec le fichier Compose précédent (postgres:17-alpine, montage sur /var/lib/postgresql/data)
-docker compose stop mcp controller
-(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview.dump)
-docker compose down
-
-# 2. Vérifier l'export (il liste les tables), puis recréer le volume : l'export est désormais
-#    la seule copie des données
-docker compose run --rm -T --no-deps --entrypoint pg_restore db --list < ~/secreview.dump | grep 'TABLE DATA'
-docker volume rm security-review-mcp_secreview-pg
-
-# 3. Avec le fichier Compose actuel (postgres:18-alpine, montage sur /var/lib/postgresql)
-docker compose up -d db
-docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview.dump
-docker compose up -d
-```
-
-Le contrôleur applique ensuite au démarrage les révisions Alembic en attente, s'il y en a. L'export
-contient les rapports, les empreintes des mots de passe et des jetons : gardez-le hors du dépôt
-(lisible par vous seul, `umask 077`) et supprimez-le une fois la restauration vérifiée.
 
 ## Règles internes et CLI
 

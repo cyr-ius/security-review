@@ -72,7 +72,7 @@ expiry first: this is where you renew them, before or after their end.
 | False positive, acceptance with **No expiry** | Never expire: they last until someone reopens the finding |
 | Agent proposal | Removed by any decision on the finding, or by **Reject** |
 | Previous occurrence of a finding reported again | Kept in its report, but no longer counted |
-| Report without findings | Deleted after 90 days by default, except the latest report of each project ([retention](../reference/configuration.md#retention-of-reports-without-findings)) |
+| Report without findings | Deleted after 90 days by default, except the latest report of each project ([retention](../advanced/database.md#retention-of-reports-without-findings)) |
 | Report with findings, comments | Never deleted automatically, whatever the status of the findings |
 | Audit log | Events kept one year by default ([retention](audit-metrics.md#retention)) |
 

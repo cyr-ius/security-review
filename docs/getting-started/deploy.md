@@ -62,7 +62,8 @@ The MCP server is located at `http://127.0.0.1:8000/mcp`.
     If you lose it, simply run the command again (the previous password will be invalidated immediately).
 
 **More information:** see [Docker](../advanced/deployment/docker.md) in the **Advanced** section (opening to
-the team, TLS, OSV update, backups, PostgreSQL upgrade, without Docker Compose).
+the team, TLS, OSV update, without Docker Compose), and [Database](../advanced/database.md) for backups
+and the PostgreSQL upgrade.
 
 ## With Kubernetes
 

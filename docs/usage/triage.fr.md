@@ -76,7 +76,7 @@ leur fin.
 | Faux positif, acceptation **Sans expiration** | N'expirent jamais : ils durent jusqu'à ce que quelqu'un rouvre le finding |
 | Proposition d'un agent | Supprimée par toute décision sur le finding, ou par **Rejeter** |
 | Occurrence précédente d'un finding signalé de nouveau | Conservée dans son rapport, mais plus comptée |
-| Rapport sans findings | Supprimé après 90 jours par défaut, sauf le dernier rapport de chaque projet ([conservation](../reference/configuration.md#conservation-des-rapports-sans-findings)) |
+| Rapport sans findings | Supprimé après 90 jours par défaut, sauf le dernier rapport de chaque projet ([conservation](../advanced/database.md#conservation-des-rapports-sans-findings)) |
 | Rapport avec findings, commentaires | Jamais supprimés automatiquement, quel que soit le statut des findings |
 | Journal d'audit | Événements conservés un an par défaut ([conservation](audit-metrics.md#conservation)) |
 

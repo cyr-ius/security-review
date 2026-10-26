@@ -19,9 +19,9 @@ Read by the MCP server and by the controller.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_DATABASE_URL` | SQLite file of the user (see [Database](#database)) | SQLAlchemy URL of the database, **shared** by both processes |
+| `SECREVIEW_DATABASE_URL` | SQLite file of the user (see [Database](../advanced/database.md)) | SQLAlchemy URL of the database, **shared** by both processes |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Logs the SQL queries |
-| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; leave it as is unless migrations are run by a [dedicated job](../advanced/architecture/controller.md#dedicated-migration-job), where `false` makes them only check the schema. The HTTP MCP server never migrates |
+| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; leave it as is unless migrations are run by a [dedicated job](../advanced/database.md#dedicated-migration-job), where `false` makes them only check the schema. The HTTP MCP server never migrates |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Logging level (on stderr) |
 
 ### Listening, TLS and reverse proxy
@@ -126,7 +126,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Age in days beyond which `serve` deletes the [reports without findings](#retention-of-reports-without-findings); `0` keeps every report |
+| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Age in days beyond which `serve` deletes the [reports without findings](../advanced/database.md#retention-of-reports-without-findings); `0` keeps every report |
 | `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Longest validity in days of an `accepted` or `false_positive` [decision](../usage/triage.md): its expiry date may not be later |
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/triage.md) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive never needs one |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/triage.md) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
@@ -181,37 +181,5 @@ they are stored in the database and managed with `security-review-controller rul
 
 ## Database
 
-An SQLite database is created by default in the user's data folder:
-`~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set.
-
-For PostgreSQL (`postgres` extra, shared mode only: the stdio server accepts SQLite only):
-
-```bash
-SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
-```
-
-A PostgreSQL ready to use: [Docker Compose](../advanced/deployment/docker.md#docker-compose-with-postgresql) or
-[Kubernetes](../advanced/deployment/kubernetes.md#deployment).
-
-The schema is managed by Alembic migrations embedded in the package: **security-review-controller**
- - `security-review-controller db upgrade` creates or migrates the database and seeds the default
-rules,
- - `security-review-controller db status` shows the revision (code `1` if it is not up to date). See
-[Schema migrations](../advanced/architecture/controller.md#schema-migrations).
-
-### Retention of reports without findings
-
-The controller deletes these reports once they are older than
-`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` days (default `90`): at the start, then every
-day. The latest report of each project is always kept, so a project never disappears from the
-list, and a report with findings is never deleted, whatever their status. `0` disables the
-purge.
-
-The same purge can be run on demand, for example from a scheduled job when the controller is
-not running:
-
-```bash
-security-review-controller db prune              # retention of SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
-security-review-controller db prune --days 30    # another retention, for this run only
-# {"retention_days": 30, "deleted": 4}
-```
+SQLite or PostgreSQL, schema migrations, retention of the reports without findings,
+backup and upgrade: see [Database](../advanced/database.md).

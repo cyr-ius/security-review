@@ -28,7 +28,7 @@ token.
 In HTTP, `security-review-mcp serve`:
 
 1. **checks** the schema of the database and refuses to start (code `2`) while the controller has
-   not migrated it: it never migrates (see [Schema migrations](controller.md#schema-migrations));
+   not migrated it: it never migrates (see [Schema migrations](../database.md#schema-migrations));
 2. checks the TLS settings, loads the rules of the database;
 3. serves `/mcp`. While no token exists, it stays **closed**: a client only reaches the
    enrollment server, unless the server listens on localhost or

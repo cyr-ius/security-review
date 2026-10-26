@@ -40,8 +40,8 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | Commande | Rôle | Page |
 |---|---|---|
 | `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Contrôleur](../advanced/architecture/controller.md), [TLS](../advanced/tls.md) |
-| `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Migrations du schéma](../advanced/architecture/controller.md#migrations-du-schema) |
-| `db prune [--days N]` | Supprime les rapports sans findings de plus de `N` jours (par défaut `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), sauf le dernier de chaque projet | [Conservation](configuration.md#conservation-des-rapports-sans-findings) |
+| `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Migrations du schéma](../advanced/database.md#migrations-du-schema) |
+| `db prune [--days N]` | Supprime les rapports sans findings de plus de `N` jours (par défaut `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), sauf le dernier de chaque projet | [Conservation](../advanced/database.md#conservation-des-rapports-sans-findings) |
 | `token create --label NOM [--role ROLE] [--project P …] [--expires-in-days N]` | Crée un jeton Bearer, éventuellement limité à plusieurs projets et avec une validité, et affiche son secret une fois | [Jetons Bearer](../advanced/bearer-tokens.md), [rôles](../usage/tokens.md) |
 | `token list [--project P]` / `token revoke ID\|LABEL` | Liste ou révoque les jetons | [Jetons Bearer](../advanced/bearer-tokens.md) |
 | `token rotate ID\|LABEL [--grace-hours H] [--expires-in-days N]` | Remplace le secret d'un jeton (même label, rôle et projets) et affiche le nouveau une fois ; l'ancien reste valable `H` heures (`0` à `168`) | [Expiration et renouvellement](../advanced/bearer-tokens.md#expiration-et-renouvellement-des-jetons) |
@@ -57,7 +57,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 
 `serve` et les autres commandes migrent le schéma au démarrage si nécessaire : `db upgrade` ne
-sert qu'à une [tâche de migration dédiée](../advanced/architecture/controller.md#tache-de-migration-dediee).
+sert qu'à une [tâche de migration dédiée](../advanced/database.md#tache-de-migration-dediee).
 
 ## `security-review-ci`
 

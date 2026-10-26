@@ -27,7 +27,7 @@ uv pip install security-review
 ## 2. Choisir la base de données
 
 Les deux processus doivent utiliser **la même base** : donnez-leur le même
-`SECREVIEW_DATABASE_URL` (voir [Configuration](../../reference/configuration.md#base-de-donnees)).
+`SECREVIEW_DATABASE_URL` (voir [Base de données](../database.md#sqlite-ou-postgresql)).
 En tout-en-un, SQLite suffit : donnez un chemin absolu pour que les deux processus ouvrent le
 même fichier quel que soit le répertoire d'où ils sont lancés.
 

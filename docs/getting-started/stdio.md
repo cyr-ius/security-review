@@ -47,7 +47,7 @@ security-review-mcp local   # started by the host, not by hand
 A SQLite database is created locally (`~/.local/share/security-review-mcp/security_reports.db`,
 or under `$XDG_DATA_HOME` when it is set).
 This is the only file written by the server; delete it to remove all traces. `local` ignores
-remote databases, hence [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database): a
+remote databases, hence [`SECREVIEW_DATABASE_URL`](../advanced/database.md#sqlite-or-postgresql): a
 development container that points it to PostgreSQL does not change the database of the local
 mode.
 

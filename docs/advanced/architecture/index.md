@@ -45,6 +45,7 @@ The routes, start-up, schema migrations, background tasks and exposure of each p
     they are in different pods or on different machines, use PostgreSQL (`postgres` extra
     of the PyPI package, included in the image), deployed with
     [Docker Compose](../deployment/docker.md#docker-compose-with-postgresql) or [Kubernetes](../deployment/kubernetes.md#deployment).
+    Migrations, retention and backup: see [Database](../database.md).
 
 In [local mode (stdio)](../../getting-started/stdio.md), only `security-review-mcp local` is
 needed: it creates and migrates its local SQLite database itself.

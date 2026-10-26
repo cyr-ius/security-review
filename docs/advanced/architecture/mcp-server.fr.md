@@ -28,7 +28,7 @@ jeton.
 En HTTP, `security-review-mcp serve` :
 
 1. **vérifie** le schéma de la base et refuse de démarrer (code `2`) tant que le contrôleur ne
-   l'a pas migré : il ne migre jamais (voir [Migrations du schéma](controller.md#migrations-du-schema)) ;
+   l'a pas migré : il ne migre jamais (voir [Migrations du schéma](../database.md#migrations-du-schema)) ;
 2. vérifie les réglages TLS, charge les règles de la base ;
 3. sert `/mcp`. Tant qu'aucun jeton n'existe, il reste **fermé** : un client n'atteint que
    le serveur d'enrôlement, sauf si le serveur écoute sur localhost ou avec

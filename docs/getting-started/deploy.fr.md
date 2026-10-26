@@ -63,8 +63,8 @@ Le serveur MCP sur `http://127.0.0.1:8000/mcp`.
     Si vous le perdez, relancez la commande (l'ancien est aussitôt invalidé).
 
 **Pour plus d'informations :** voir [Docker](../advanced/deployment/docker.md) dans la section **Avancé**
-(ouverture à l'équipe, TLS, mise à jour OSV, sauvegardes, mise à niveau de PostgreSQL, sans Docker
-Compose).
+(ouverture à l'équipe, TLS, mise à jour OSV, sans Docker Compose), et [Base de données](../advanced/database.md)
+pour les sauvegardes et la mise à niveau de PostgreSQL.
 
 ## Avec Kubernetes
 

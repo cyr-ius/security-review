@@ -39,8 +39,8 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | Command | Role | Page |
 |---|---|---|
 | `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [Controller](../advanced/architecture/controller.md), [TLS](../advanced/tls.md) |
-| `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Schema migrations](../advanced/architecture/controller.md#schema-migrations) |
-| `db prune [--days N]` | Deletes the reports without findings older than `N` days (default `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), except the latest of each project | [Retention](configuration.md#retention-of-reports-without-findings) |
+| `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Schema migrations](../advanced/database.md#schema-migrations) |
+| `db prune [--days N]` | Deletes the reports without findings older than `N` days (default `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), except the latest of each project | [Retention](../advanced/database.md#retention-of-reports-without-findings) |
 | `token create --label NAME [--role ROLE] [--project P …] [--expires-in-days N]` | Creates a Bearer token, possibly limited to several projects and with a validity, and shows its secret once | [Bearer tokens](../advanced/bearer-tokens.md), [roles](../usage/tokens.md) |
 | `token list [--project P]` / `token revoke ID\|LABEL` | Lists or revokes the tokens | [Bearer tokens](../advanced/bearer-tokens.md) |
 | `token rotate ID\|LABEL [--grace-hours H] [--expires-in-days N]` | Replaces the secret of a token (same label, role and projects) and shows the new one once; the previous one works for `H` more hours (`0` to `168`) | [Expiry and rotation](../advanced/bearer-tokens.md#expiry-and-rotation-of-tokens) |
@@ -56,7 +56,7 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../review/analysis/dependencies.md#automatic-update-by-the-controller) |
 
 `serve` and the other commands migrate the schema at start-up when needed: `db upgrade` is
-only useful to a [dedicated migration job](../advanced/architecture/controller.md#dedicated-migration-job).
+only useful to a [dedicated migration job](../advanced/database.md#dedicated-migration-job).
 
 ## `security-review-ci`
 
