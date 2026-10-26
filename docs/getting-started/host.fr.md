@@ -146,8 +146,8 @@ créer votre jeton, puis demande le projet à la revue suivante (voir
    nom du dépôt en général). Si vous pouvez créer des projets, un nouveau projet est créé avec
    vous pour membre et la revue continue. Sinon l'agent s'arrête et vous indique que le projet
    est demandé : un administrateur le valide dans l'écran **Projets**, ce qui vous en donne
-   l'accès (pour un projet existant, l'administrateur vous ajoute à son groupe
-   `project:<projet>`). L'accès s'applique aussitôt : relancez la revue, sans rien
+   l'accès. Pour un projet qui existe déjà, la demande est une demande d'accès, validée de la
+   même façon. L'accès s'applique aussitôt : relancez la revue, sans rien
    reconfigurer.
 
 Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'hôte reçoit `401` avec un

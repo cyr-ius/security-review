@@ -97,11 +97,16 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
       the user as its member (group `project:<project>`), and the review goes on;
     - otherwise the answer is `requested`, and the agent stops before reviewing, so that no
       review is lost. A new project is **pending**: it is not a project yet and gives no access.
-      A project that already exists, or is already pending, is unchanged, and the answer is the
-      same, so that it does not tell which projects exist.
+      For a project that already exists, the user **requests access** to it the same way
+      (never at once, even with `projects.create`). The answer is the same in both cases, so
+      that it does not tell which projects exist. A user files one request per project; nothing
+      is recorded for a token without a user on an existing project, or for a user who already
+      reads it.
 3. **Approval.** A user holding `projects.create` (the `admin` role among others) approves or
-   rejects the request in the **Pending projects** section of the **Projects** screen, or from
-   the CLI:
+   rejects the request in the **Pending projects** section of the **Projects** screen, where
+   each request is marked **New project** or **Access request**, or from the CLI (`existing`:
+   `true` for an access request). Approving an access request also takes `users.manage`, as
+   adding a member to a group does: `projects.create` alone never opens an existing project.
 
     ```bash
     security-review-controller project list          # requester, address, expiry
@@ -109,19 +114,19 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
     security-review-controller project reject 4
     ```
 
-    The approval creates the project, with its group `project:<project>`, and adds the
-    **requester** to it: their personal token reaches the project from the next request, without
-    reconfiguration. A request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`
-    (7 days by default) is deleted. For a project that already exists, an administrator adds the
-    user to its group (**Groups** screen, see [access control](access-control.md#project-groups)).
+    The approval adds the **requester** to the project group `project:<project>` (see
+    [access control](access-control.md#project-groups)), created for a new project: their
+    personal token reaches the project from the next request, without reconfiguration. A
+    request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)
+    is deleted.
 
 `save_security_report` refuses a project the token does not reach and points to
 `request_project`. When a user with `projects.create`
 [creates the project](access-control.md#creating-a-project) on the **Projects** screen, its
-pending request is settled.
+own pending request is settled; those of other users become access requests.
 
-Safeguards: at most 20 projects are pending at a time, a user (or a token without a user)
-requests at most 5 projects per hour, and a pending project expires after
+Safeguards: at most 20 requests are pending at a time, a user (or a token without a user)
+requests at most 5 projects per hour, and a pending request expires after
 `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Every request, approval, rejection and expiry is
 written to the [audit log](audit-metrics.md) (`enrollment.requested`, `enrollment.approved`,
 `enrollment.rejected`, with the token, the requesting user and the client address). To disable

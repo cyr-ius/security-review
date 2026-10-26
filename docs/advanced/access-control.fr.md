@@ -76,8 +76,9 @@ Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 
 Le **groupe de projet** d'un projet est un groupe non ouvert au OIDC dont le seul rôle est
 `reader` sur ce seul projet. La validation d'un projet demandé par un agent
-([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) le crée avec
-l'utilisateur demandeur pour membre, et la [création d'un projet](#creation-dun-projet) le crée
+([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) y ajoute
+l'utilisateur demandeur (en le créant pour un nouveau projet ; pour un projet existant, la
+demande est une demande d'accès, que seul un utilisateur portant `users.manage` valide), et la [création d'un projet](#creation-dun-projet) le crée
 avec son créateur. Un groupe existant de ce
 type est réutilisé (même créé par un administrateur, quel que soit son nom) ; sinon le groupe
 `project:<projet>` est créé (avec un numéro, par exemple `project:shop (2)`, quand un autre groupe
@@ -101,7 +102,8 @@ enregistrer les rapports de son agent. Le projet apparaît sur l'écran **Projet
 Le nom est [normalisé](../usage/prompts-tools.md#nom-du-projet) (`Mobile App` crée
 `mobile-app`). Seul un **nouveau** projet peut être créé : un nom qui a déjà un rapport, qu'un rôle d'un groupe
 cite (projet validé compris), ou qu'un jeton atteint est refusé (409) ; un projet encore en
-attente n'est pas encore connu : le créer solde sa demande, pour que cette
+attente n'est pas encore connu : le créer solde la demande de son créateur (celles des autres
+utilisateurs deviennent des demandes d'accès), pour que cette
 permission n'ouvre jamais les rapports d'un projet existant. Le créateur n'obtient que `reader` ;
 un administrateur donne le triage ou d'autres membres par les groupes, comme d'habitude. Chaque
 création est inscrite au journal d'audit (`project.created`).

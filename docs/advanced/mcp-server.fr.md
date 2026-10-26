@@ -99,11 +99,17 @@ premier jeton (sauf sur un [serveur ouvert](bearer-tokens.md), qui n'a pas besoi
       continue ;
     - sinon la réponse est `requested`, et l'agent s'arrête avant la revue, pour qu'aucune revue
       ne soit perdue. Un nouveau projet est **en attente** : ce n'est pas encore un projet et il
-      ne donne aucun accès. Un projet qui existe déjà, ou déjà en attente, reste inchangé, et la
-      réponse est la même, pour ne pas révéler quels projets existent.
+      ne donne aucun accès. Pour un projet qui existe déjà, l'utilisateur **demande l'accès** de
+      la même façon (jamais immédiatement, même avec `projects.create`). La réponse est la même
+      dans les deux cas, pour ne pas révéler quels projets existent. Un utilisateur dépose une
+      demande par projet ; rien n'est enregistré pour un jeton sans utilisateur sur un projet
+      existant, ni pour un utilisateur qui le lit déjà.
 3. **Validation.** Un utilisateur qui porte `projects.create` (entre autres le rôle `admin`)
    valide ou refuse la demande dans la section **Projets en attente** de l'écran **Projets**,
-   ou en CLI :
+   où chaque demande est marquée **Nouveau projet** ou **Demande d'accès**, ou en CLI
+   (`existing` : `true` pour une demande d'accès). Valider une demande d'accès demande aussi
+   `users.manage`, comme l'ajout d'un membre à un groupe : `projects.create` seul n'ouvre jamais
+   un projet existant.
 
     ```bash
     security-review-controller project list          # demandeur, adresse, expiration
@@ -111,20 +117,19 @@ premier jeton (sauf sur un [serveur ouvert](bearer-tokens.md), qui n'a pas besoi
     security-review-controller project reject 4
     ```
 
-    La validation crée le projet, avec son groupe `project:<projet>`, et y ajoute le
-    **demandeur** : son jeton personnel atteint le projet dès la requête suivante, sans
-    reconfiguration. Une demande que personne n'a validée sous
-    `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut) est supprimée. Pour un projet
-    qui existe déjà, un administrateur ajoute l'utilisateur à son groupe (écran **Groupes**,
-    voir [contrôle d'accès](access-control.md#groupes-de-projet)).
+    La validation ajoute le **demandeur** au groupe de projet `project:<projet>` (voir
+    [contrôle d'accès](access-control.md#groupes-de-projet)), créé pour un nouveau projet : son
+    jeton personnel atteint le projet dès la requête suivante, sans reconfiguration. Une demande
+    que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut)
+    est supprimée.
 
 `save_security_report` refuse un projet que le jeton n'atteint pas et renvoie vers
 `request_project`. Quand un utilisateur portant `projects.create`
-[crée le projet](access-control.md#creation-dun-projet) depuis l'écran **Projets**, sa demande
-en attente est soldée.
+[crée le projet](access-control.md#creation-dun-projet) depuis l'écran **Projets**, sa propre
+demande en attente est soldée ; celles des autres utilisateurs deviennent des demandes d'accès.
 
-Garde-fous : au plus 20 projets sont en attente à la fois, un utilisateur (ou un jeton sans
-utilisateur) demande au plus 5 projets par heure, et un projet en attente expire après
+Garde-fous : au plus 20 demandes sont en attente à la fois, un utilisateur (ou un jeton sans
+utilisateur) demande au plus 5 projets par heure, et une demande en attente expire après
 `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Chaque demande, validation, refus et expiration est
 écrit dans le [journal d'audit](audit-metrics.md) (`enrollment.requested`,
 `enrollment.approved`, `enrollment.rejected`, avec le jeton, l'utilisateur demandeur et

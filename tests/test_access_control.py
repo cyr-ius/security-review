@@ -605,12 +605,13 @@ def test_a_requested_project_waits_for_an_approval_that_gives_its_user_access():
     assert {key: str(value).replace("shop", "P") for key, value in known.items()} == {
         key: str(value).replace("mobile-app", "P") for key, value in requested.items()
     }
-    (pending,) = access_control.list_enrollments()
+    pending, _ = access_control.list_enrollments()
     assert (pending["project"], pending["requested_by"], pending["requested_from"]) == (
         "mobile-app",
         "alice",
         "10.0.0.1",
     )
+    assert pending["existing"] is False
     with session_scope() as session:
         # Pending: not a project yet, and alice reads nothing
         assert not access_control.project_exists(session, "mobile-app")
@@ -619,7 +620,7 @@ def test_a_requested_project_waits_for_an_approval_that_gives_its_user_access():
     approved = access_control.approve_enrollment(pending["id"], "user:root")
 
     assert approved["group"] == "project:mobile-app"
-    assert access_control.list_enrollments() == []
+    assert [item["project"] for item in access_control.list_enrollments()] == ["shop"]
     assert grants_of(alice["id"])["reports.read"] == frozenset({"mobile-app"})
     events = audit.list_events(project="mobile-app")["events"]
     approved_event = next(e for e in events if e["action"] == "enrollment.approved")
@@ -649,15 +650,50 @@ def test_a_creator_gets_a_new_requested_project_at_once():
     assert (created["project"], created["status"]) == ("mobile-app", "created")
     assert existing["status"] == "requested"
     assert grants_of(carol["id"])["reports.read"] == frozenset({"mobile-app"})
-    assert access_control.list_enrollments() == []
+    assert [item["project"] for item in access_control.list_enrollments()] == ["shop"]
     (event,) = audit.list_events(action="project.created")["events"]
     assert (event["project"], event["actor"]) == ("mobile-app", "token:carol:agent")
+
+
+def test_a_user_asks_to_join_an_existing_project():
+    """An existing project is requested like a new one, once per user, and its approval adds
+    the user to the project group; nothing is recorded for a user who already reaches it."""
+    from security_review_mcp.reports import services
+
+    alice = web_users.create_user("alice", PASSWORD)
+    dave = web_users.create_user("dave", PASSWORD)
+    bob = web_users.create_user("bob", PASSWORD)
+    services.save_report("shop", "Review", [])
+    group = ensure_project_group("shop")
+    with session_scope() as session:
+        access_control.add_user_to_group(session, bob["id"], group["id"])
+
+    for owner in ("alice", "alice", "dave", "bob", None):
+        assert access_control.request_project("shop", owner)["status"] == "requested"
+    pending = access_control.list_enrollments()
+    assert [(item["requested_by"], item["existing"]) for item in pending] == [
+        ("alice", True),
+        ("dave", True),
+    ]
+
+    # projects.create alone never opens an existing project
+    with pytest.raises(access_control.AccessGrantDenied):
+        access_control.approve_enrollment(pending[0]["id"], "user:carol")
+    approved = access_control.approve_enrollment(
+        pending[0]["id"], "user:root", may_grant_access=True
+    )
+
+    assert approved["group_id"] == group["id"]
+    assert grants_of(alice["id"])["reports.read"] == frozenset({"shop"})
+    assert grants_of(dave["id"]) == {}
+    assert [item["requested_by"] for item in access_control.list_enrollments()] == ["dave"]
 
 
 def test_enrollments_are_bounded_and_expire(monkeypatch):
     from datetime import timedelta
 
     from security_review_mcp.config import get_settings
+    from security_review_mcp.reports import services
     from security_review_mcp.storage.models import ProjectEnrollment, utcnow
 
     monkeypatch.setattr(access_control, "MAX_PENDING_PROJECTS", 2)
@@ -667,6 +703,10 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
 
     with pytest.raises(ValueError, match="Too many projects"):
         access_control.request_project("third", "u3")
+    # The same refusal for a known project, so that a full queue does not tell it exists
+    services.save_report("shop", "Review", [])
+    with pytest.raises(ValueError, match="Too many projects"):
+        access_control.request_project("shop", "u3")
     # A pending project is never refused by the limit, nor requested twice
     access_control.request_project("first", "u3")
     access_control.request_project("first", "u1")

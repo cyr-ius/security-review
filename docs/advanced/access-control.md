@@ -72,8 +72,9 @@ group, or closing it to OIDC, removes its OIDC members at once.
 
 The **project group** of a project is a group not open to OIDC whose only role is `reader` on
 that project alone. The approval of a project requested by an agent
-([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) creates it with the
-requesting user as its member, and [creating a project](#creating-a-project) creates it with its
+([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) adds the
+requesting user to it (creating it for a new project; for an existing project, the request is
+an access request, which only a user holding `users.manage` approves), and [creating a project](#creating-a-project) creates it with its
 creator. An existing group of this
 kind is reused (even one made by an administrator, whatever its name); otherwise the group
 `project:<project>` is created (with a number, such as `project:shop (2)`, when another group
@@ -96,7 +97,8 @@ then save the reports of its agent there. The project shows on the **Projects** 
 The name is [normalized](../usage/prompts-tools.md#project-name) (`Mobile App` creates
 `mobile-app`). Only a **new** project can be created: a name that already has a report, that a role of a group
 names (an approved project included), or that a token reaches is refused (409); a project
-still pending is not known yet: creating it settles its request, so that this
+still pending is not known yet: creating it settles the creator's own request (the requests of
+other users become access requests), so that this
 permission never opens the reports of an existing project. The creator only gets `reader`; an
 administrator gives triage or other members through the groups as usual. Each creation is
 written to the audit log (`project.created`).

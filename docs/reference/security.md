@@ -74,11 +74,13 @@
   MCP token in the web interface, after logging in: nothing is written without a token, and the
   MCP server serves no other public route than `/healthz`. No token is ever created for a
   client. With a token, `request_project` creates a new project only for a user holding
-  `projects.create` (never an existing project); otherwise the project is **pending** until a
-  user with `projects.create` approves it on the controller, which creates its project group
-  with the requesting user (authenticated by the token, never declared) as its only member. The
+  `projects.create` (never an existing project); otherwise the request is **pending** until a
+  user with `projects.create` approves it on the controller, which adds the requesting user
+  (authenticated by the token, never declared) to the project group, created for a new project.
+  For an existing project, the request is an access request, never granted at once, and only
+  approved by a user who also holds `users.manage`. The
   answer is the same whether the project existed or not. The requests are bounded (20 pending
-  projects, 5 per user or token and per hour), and a request nobody approved within
+  requests, one per user and project, 5 per user or token and per hour), and a request nobody approved within
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted: check the requester before approving.
   Every request is audited. See
   [enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests).

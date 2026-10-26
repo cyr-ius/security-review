@@ -692,8 +692,11 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     assert new["next_steps"].replace("billing", "P") == known["next_steps"].replace("shop-api", "P")
     is_error, text = alice.call("save_security_report", {"project": "billing", **review})
     assert is_error and "request_project" in text
-    (pending,) = access_control.list_enrollments()
-    assert (pending["project"], pending["requested_by"]) == ("billing", "alice")
+    pending = access_control.list_enrollments()
+    assert [(item["project"], item["existing"]) for item in pending] == [
+        ("billing", False),
+        ("shop-api", True),
+    ]
     events = audit.list_events(action="enrollment.requested")["events"]
     assert {event["actor"] for event in events} == {"token:alice:agent"}
 

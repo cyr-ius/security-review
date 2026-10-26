@@ -1153,6 +1153,19 @@ def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
     assert response.status_code == 409
     response = accounts.post("/api/v1/projects", json={"project": ""}, headers=headers)
     assert response.status_code == 422
+    # Nor through an access request it approves itself: that takes users.manage
+    access_control.request_project("shop-api", "carol")
+    (pending,) = accounts.get("/api/v1/projects/pending", headers=headers).json()
+    assert pending["existing"] is True
+    url = f"/api/v1/projects/pending/{pending['id']}/approve"
+    assert accounts.post(url, headers=headers).status_code == 403
+    assert "shop-api" not in [
+        item["project"] for item in accounts.get("/api/v1/projects", headers=headers).json()
+    ]
+    assert accounts.post(url, headers=admin).status_code == 200
+    assert "shop-api" in [
+        item["project"] for item in accounts.get("/api/v1/projects", headers=headers).json()
+    ]
 
 
 def test_creating_a_project_needs_the_permission_and_a_web_session(accounts, secured):

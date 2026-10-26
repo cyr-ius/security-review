@@ -66,7 +66,14 @@
             <tbody>
               @for (request of pending.value() ?? []; track request.id) {
                 <tr>
-                  <td class="text-break">{{ request.project }}</td>
+                  <td class="text-break">
+                    {{ request.project }}
+                    @if (request.existing) {
+                      <span class="badge text-bg-info">{{ 'projects.requestAccess' | t }}</span>
+                    } @else {
+                      <span class="badge text-bg-secondary">{{ 'projects.requestNew' | t }}</span>
+                    }
+                  </td>
                   <td class="text-break">{{ request.requested_by ?? '—' }}</td>
                   <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
                   <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
@@ -75,7 +82,12 @@
                     <button
                       type="button"
                       class="btn btn-sm btn-success me-1"
-                      [disabled]="deciding()"
+                      [disabled]="deciding() || (request.existing && !canGrantAccess())"
+                      [attr.title]="
+                        request.existing && !canGrantAccess()
+                          ? ('projects.accessNeedsUsersManage' | t)
+                          : null
+                      "
                       [attr.aria-label]="
                         'projects.approveRequest' | t: { project: request.project }
                       "

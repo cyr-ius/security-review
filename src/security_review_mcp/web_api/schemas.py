@@ -180,6 +180,8 @@ class PendingProject(BaseModel):
 
     id: int
     project: str
+    # The project already exists: the request asks for an access to it
+    existing: bool
     # Free text given by the client (not verified), its address and its token (or anonymous)
     requested_by: str | None
     requested_from: str | None
@@ -190,7 +192,8 @@ class PendingProject(BaseModel):
 
 
 class PendingProjectApproved(PendingProject):
-    """An approved project: its project group, created without any member."""
+    """An approved project: its project group (created for a new project), which the
+    requesting user joined."""
 
     group_id: int
     group: str

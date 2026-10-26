@@ -79,11 +79,14 @@
   jeton MCP personnel dans l'interface web, après s'être connecté : rien n'est écrit sans jeton,
   et le serveur MCP ne sert aucune autre route publique que `/healthz`. Aucun jeton n'est jamais
   créé pour un client. Avec un jeton, `request_project` ne crée un nouveau projet que pour un
-  utilisateur portant `projects.create` (jamais un projet existant) ; sinon le projet reste
-  **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` le valide sur le
-  contrôleur, ce qui crée son groupe de projet avec l'utilisateur demandeur (authentifié par le
-  jeton, jamais déclaré) pour seul membre. La réponse est la même que le projet existe ou non.
-  Les demandes sont bornées (20 projets en attente, 5 par utilisateur ou jeton et par heure), et
+  utilisateur portant `projects.create` (jamais un projet existant) ; sinon la demande reste
+  **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` la valide sur le
+  contrôleur, ce qui ajoute l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
+  au groupe de projet, créé pour un nouveau projet. Pour un projet existant, la demande est une
+  demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
+  porte aussi `users.manage`. La réponse est la même que le projet existe ou
+  non. Les demandes sont bornées (20 demandes en attente, une par utilisateur et par projet, 5
+  par utilisateur ou jeton et par heure), et
   une demande que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est
   supprimée : vérifiez le demandeur avant de valider. Chaque demande est auditée. Voir
   [l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).

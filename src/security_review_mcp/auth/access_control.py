@@ -24,9 +24,10 @@
   that project.
 - The MCP agent of a user **requests** a project its token does not reach (see
   request_project): a new project is created at once for a user with ``projects.create``;
-  otherwise it waits (``ProjectEnrollment``) until a user with ``projects.create`` approves it,
-  which creates its project group with the requesting user as its member, or rejects it; a
-  request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.
+  otherwise, and always for a project that already exists, the request waits
+  (``ProjectEnrollment``) until a user with ``projects.create`` approves it, which adds the
+  requesting user to the project group (created for a new project), or rejects it; a request
+  nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.
 - A user with ``projects.create`` may create a **new** project (see create_project): the
   controller creates its project group and adds the user to it, so that the user reads the
   project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
@@ -60,7 +61,7 @@ from typing import Any
 
 from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, col, func, or_, select
 
 from ..config import Settings, get_settings
 from ..http_server import Role
@@ -153,6 +154,10 @@ ENROLLMENT_WINDOW_SECONDS = 3600
 MAX_REQUESTED_BY_CHARS = 200
 MAX_ADDRESS_CHARS = 64
 _enrollment_limit = RateLimit("enrollment", ENROLLMENT_WINDOW_SECONDS)
+
+
+class AccessGrantDenied(PermissionError):
+    """The approver may not give access to an existing project (see approve_enrollment)."""
 
 
 class EnrollmentThrottled(ValueError):
@@ -1048,9 +1053,15 @@ def _create_project(
     """Create the unknown ``project`` (cleaned) with ``user_id`` as its first member."""
     group = ensure_project_group(session, project, actor)
     add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
-    # A request for the same project is settled by its creation
+    # The request of this user, or without a user, is settled; the others now ask for an access
     for pending in session.exec(
-        select(ProjectEnrollment).where(ProjectEnrollment.project == project)
+        select(ProjectEnrollment).where(
+            ProjectEnrollment.project == project,
+            or_(
+                ProjectEnrollment.requested_by_user_id == user_id,
+                col(ProjectEnrollment.requested_by_user_id).is_(None),
+            ),
+        )
     ).all():
         session.delete(pending)
     audit.record(
@@ -1194,12 +1205,14 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-def _enrollment_public(row: ProjectEnrollment) -> dict[str, Any]:
-    """A pending project, with the date its request expires."""
+def _enrollment_public(session: Session, row: ProjectEnrollment) -> dict[str, Any]:
+    """A pending project, with the date its request expires; ``existing``: the project is
+    already known, so the request asks for an access to it."""
     ttl = timedelta(days=get_settings().project_enrollment_ttl_days)
     return {
         "id": row.id,
         "project": row.project,
+        "existing": project_exists(session, row.project),
         "requested_by": row.requested_by,
         "requested_from": row.requested_from,
         "requested_with": row.requested_with,
@@ -1257,11 +1270,14 @@ def request_project(
 
     ``owner`` is the username of the web user who owns the token (None: a token without a
     user). An unknown project is created at once, with that user as its first member, when the
-    user holds ``projects.create``; otherwise it waits for a user with ``projects.create`` (see
-    approve_enrollment), which gives the requesting user access to it. A project already known,
-    or already pending, is unchanged, and the answer is then the same, so that it does not tell
-    whether a project exists. Every request is audited (``actor``: the token of the caller),
-    with the user and the client address ``requested_from``.
+    user holds ``projects.create``; otherwise the request waits for a user with
+    ``projects.create`` (see approve_enrollment), which gives the requesting user access to the
+    project. A known project is never opened at once: the user asks for an access to it the same
+    way, and the answer is the same as for a new project, so that it does not tell whether a
+    project exists. A user has one request per project; nothing is recorded for a known project
+    without a user to give access to, or that the user already reaches. Every request is audited
+    (``actor``: the token of the caller), with the user and the client address
+    ``requested_from``.
 
     Returns:
         ``project``, ``status`` (``created`` or ``requested``) and ``next_steps``, what the
@@ -1297,22 +1313,36 @@ def request_project(
                 "next_steps": f"Project '{cleaned}' was created and the user is a member of "
                 "it: the review can go on.",
             }
+        user_id = user.id if user is not None else None
         pending = session.exec(
-            select(ProjectEnrollment).where(ProjectEnrollment.project == cleaned)
+            select(ProjectEnrollment).where(
+                ProjectEnrollment.project == cleaned,
+                col(ProjectEnrollment.requested_by_user_id).is_(None)
+                if user_id is None
+                else ProjectEnrollment.requested_by_user_id == user_id,
+            )
         ).first()
-        requested = pending is None and not known
-        if requested:
+        # A known project: there must be a user who does not reach it yet to give access to
+        useless = known and (
+            user_id is None
+            or allows(user_grants(session, user_id), Permission.REPORTS_READ, cleaned)
+        )
+        requested = pending is None and not useless
+        # Checked before knowing whether a row is added, so that a full queue does not tell
+        # whether the project exists
+        if pending is None:
             count = session.exec(select(func.count()).select_from(ProjectEnrollment)).one()
             if count >= MAX_PENDING_PROJECTS:
                 raise ValueError(
                     "Too many projects are waiting for an administrator; ask one to create the "
                     "project"
                 )
+        if requested:
             session.add(
                 ProjectEnrollment(
                     project=cleaned,
                     requested_by=owner,
-                    requested_by_user_id=user.id if user is not None else None,
+                    requested_by_user_id=user_id,
                     requested_from=requested_from,
                     requested_with=actor,
                 )
@@ -1320,7 +1350,7 @@ def request_project(
             try:
                 session.flush()
             except IntegrityError:
-                # Same project requested at the same time: the first request stands
+                # Same project requested at the same time by the same user: the first stands
                 raise ValueError(f"Project '{cleaned}' was requested concurrently; retry") from None
         audit.record(
             session,
@@ -1329,7 +1359,12 @@ def request_project(
             "project",
             cleaned,
             cleaned,
-            {"requested": requested, "requested_by": owner, "requested_from": requested_from},
+            {
+                "requested": requested,
+                "existing": known,
+                "requested_by": owner,
+                "requested_from": requested_from,
+            },
         )
     return {
         "project": cleaned,
@@ -1342,11 +1377,10 @@ def enrollment_next_steps(project: str, web_url: str | None) -> str:
     """What the user does after requesting ``project``, which the token does not reach yet."""
     where = f" ({web_url})" if web_url else ""
     return (
-        f"The token does not reach project '{project}' yet: do not review the code now. A new "
-        "project waits for an administrator to approve it on the Projects screen of the web "
-        f"interface{where}, which gives the user access to it; for an existing project, an "
-        f"administrator adds the user to the group '{PROJECT_GROUP_PREFIX}{project}'. Then the "
-        "user runs the review again."
+        f"The token does not reach project '{project}' yet: do not review the code now. The "
+        "request waits for an administrator to approve it on the Projects screen of the web "
+        f"interface{where}, which gives the user access to the project. Then the user runs the "
+        "review again."
     )
 
 
@@ -1357,7 +1391,7 @@ def list_enrollments() -> list[dict[str, Any]]:
         rows = session.exec(
             select(ProjectEnrollment).order_by(col(ProjectEnrollment.created_at))
         ).all()
-        return [_enrollment_public(row) for row in rows]
+        return [_enrollment_public(session, row) for row in rows]
 
 
 def pending_project_count() -> int:
@@ -1379,17 +1413,28 @@ def _pending(session: Session, enrollment_id: int) -> ProjectEnrollment:
     return row
 
 
-def approve_enrollment(enrollment_id: int, actor: str | None = None) -> dict[str, Any]:
-    """Approve a pending project: its project group is created, with the user who requested it
-    as its only member (none for a token without a user, or a user deleted since).
+def approve_enrollment(
+    enrollment_id: int, actor: str | None = None, *, may_grant_access: bool = False
+) -> dict[str, Any]:
+    """Approve a pending project: the user who requested it (none for a token without a user,
+    or a user deleted since) is added to its project group, created when missing. For a new
+    project, the group is created with that user as its only member; for a known project, the
+    user joins it, which only an approver who manages the users may do (``may_grant_access``):
+    ``projects.create`` alone never opens an existing project, not even to its holder.
 
     Raises:
         NotFoundError: Unknown or expired request.
+        AccessGrantDenied: The project exists and ``may_grant_access`` is false.
         ValueError: MAX_GROUPS groups already stored.
     """
     with session_scope() as session:
         row = _pending(session, enrollment_id)
-        approved = _enrollment_public(row)
+        approved = _enrollment_public(session, row)
+        if approved["existing"] and not may_grant_access:
+            raise AccessGrantDenied(
+                f"Project '{row.project}' already exists: only a user who manages the users "
+                "may give access to it"
+            )
         group = ensure_project_group(session, row.project, actor)
         if row.requested_by_user_id is not None and session.get(WebUser, row.requested_by_user_id):
             add_user_to_group(session, row.requested_by_user_id, group.id, actor)  # type: ignore[arg-type]
@@ -1408,7 +1453,7 @@ def reject_enrollment(enrollment_id: int, actor: str | None = None) -> dict[str,
     """
     with session_scope() as session:
         row = _pending(session, enrollment_id)
-        rejected = _enrollment_public(row)
+        rejected = _enrollment_public(session, row)
         session.delete(row)
         _audit_enrollment(session, audit.AuditAction.ENROLLMENT_REJECTED, actor, row)
         return rejected

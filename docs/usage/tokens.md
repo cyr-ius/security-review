@@ -137,8 +137,8 @@ For a project it does not reach, an administrator gives the account access to th
 group that reads it), or the user creates it from **Projects** if it is new and they hold
 `projects.create` (see [Creating a project](../advanced/access-control.md#creating-a-project)).
 The agent asks for it itself with `request_project` before a review: a new project is created at
-once when the user holds `projects.create`, otherwise it waits for an approval, which gives the
-user access to it ([enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)). When the server refuses the token (unknown, revoked or expired), the agent
+once when the user holds `projects.create`, otherwise, and always for an existing project, the
+request waits for an approval, which gives the user access to it ([enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)). When the server refuses the token (unknown, revoked or expired), the agent
 receives a `401` that tells the user to sign in again and create a new one.
 
 A personal `mcp` token also works as a personal `ci` token on the pipeline routes: one

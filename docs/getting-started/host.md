@@ -147,8 +147,8 @@ your token, then requests the project at the next review (see
    (usually the repository name). If you may create projects, a new project is created with you
    as its member and the review goes on. Otherwise the agent stops and tells you that the
    project is requested: an administrator approves it on the **Projects** screen, which gives you
-   access to it (for an existing project, the administrator adds you to its group
-   `project:<project>`). Access applies at once: run the review again, without reconfiguring
+   access to it. For a project that already exists, the request is an access request, approved
+   the same way. Access applies at once: run the review again, without reconfiguring
    anything.
 
 When the server refuses the token (unknown, revoked or expired), the host gets `401` with a

@@ -190,7 +190,8 @@ son [groupe de projet](access-control.md#groupes-de-projet) `project:<projet>`, 
 l'utilisateur demandeur pour membre, et jamais un jeton ni un compte. Pour qu'un autre
 développeur lise le projet (et que son jeton MCP personnel l'atteigne), un administrateur ajoute
 son compte à ce groupe, depuis l'écran
-**Groupes** (ou **Utilisateurs**). Avec le OIDC, le compte existe une fois que le développeur
+**Groupes** (ou **Utilisateurs**), ou valide la demande d'accès déposée par son agent dans
+l'écran **Projets**. Avec le OIDC, le compte existe une fois que le développeur
 s'est connecté (avec `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), ou un administrateur le crée
 auparavant dans **Utilisateurs**. L'accès apparaît ensuite dans les groupes du compte, où il se
 modifie comme les autres.

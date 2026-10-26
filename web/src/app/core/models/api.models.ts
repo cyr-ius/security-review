@@ -490,6 +490,8 @@ export type DevStandardWrite = Pick<
 export interface PendingProject {
   id: number;
   project: string;
+  /** The project already exists: the request asks for an access to it. */
+  existing: boolean;
   /** Free text given by the client (not verified), its address and its token (or anonymous). */
   requested_by: string | null;
   requested_from: string | null;
@@ -497,6 +499,12 @@ export interface PendingProject {
   created_at: string;
   /** The request is deleted at this date unless it is approved. */
   expires_at: string;
+}
+
+/** POST /api/v1/projects/pending/{id}/approve: the project group the requester joined. */
+export interface PendingProjectApproved extends PendingProject {
+  group_id: number;
+  group: string;
 }
 
 /** GET /api/v1/projects */

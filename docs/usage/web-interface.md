@@ -65,7 +65,8 @@ shown), and the browser remembers the chosen sort for the next visits.
   [Creating a project](../advanced/access-control.md#creating-a-project)), and the
   **Pending projects** section lists the projects requested by the MCP agents of users
   ([enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests): requester, address, request
-  and expiry dates): **Approve** creates the project and gives the requester access to it, **Reject** deletes the
+  and expiry dates), each marked **New project** or **Access request** (a project that already
+  exists): **Approve** gives the requester access to the project, created when new (an access request also takes `users.manage`), **Reject** deletes the
   request; a request not approved before its expiry is deleted. With `projects.delete`, the
   trash button of a row deletes the project and everything that refers to it (see
   [Deleting a project](../advanced/access-control.md#deleting-a-project)).
@@ -166,9 +167,9 @@ shown), and the browser remembers the chosen sort for the next visits.
   are managed from the CLI only. The secret is shown only once; only its digest is stored, in the database. A
   revocation takes effect at the next request. The
   [enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests) creates no token: a project
-  requested by an agent waits in **Projects**, and its approval gives the requester access to
-  it; an administrator gives another developer access by adding them to its group
-  `project:<project>` (**Groups** screen).
+  requested by an agent, new or existing, waits in **Projects**, and its approval gives the
+  requester access to it; an administrator can also give a developer access by adding them to
+  its group `project:<project>` (**Groups** screen).
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md): triage
   decisions, agent proposals, tokens and project requests, newest first, with who made
   them; filter by event and project, search event details, sort by date/action/actor/target/project,

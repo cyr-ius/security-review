@@ -183,7 +183,7 @@ with its [project group](access-control.md#project-groups) `project:<project>`, 
 requesting user as its member, and never a token nor an account. To let another developer read
 the project (and their personal MCP token reach it), an administrator adds their account to that
 group, from the **Groups** screen (or
-**Users**). With OIDC, the account exists once the developer has logged in (with
+**Users**), or approves the access request filed by their agent on the **Projects** screen. With OIDC, the account exists once the developer has logged in (with
 `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), or an administrator creates it beforehand in **Users**.
 The access then shows in the groups of the account, where it is changed like the others.
 

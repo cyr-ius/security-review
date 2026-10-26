@@ -33,6 +33,7 @@ from .deps import (
     actor_of,
     check_report_scope,
     ensure_report_scope,
+    has_permission,
     in_scope,
     permission_scope,
     scoped_project,
@@ -139,14 +140,20 @@ async def pending_projects(identity: ProjectCreator) -> list[PendingProject]:
 async def approve_pending_project(
     enrollment_id: EnrollmentIdPath, identity: ProjectCreator
 ) -> PendingProjectApproved:
-    """Approve a requested project (``projects.create``): its project group is created without
-    any member, so that the project exists; the caller gains no access."""
+    """Approve a requested project (``projects.create``): the requesting user joins its project
+    group, created for a new project; the caller gains no access. Giving access to an existing
+    project also takes ``users.manage``, as adding a member to a group does."""
     try:
         approved = await run_in_threadpool(
-            access_control.approve_enrollment, enrollment_id, actor_of(identity)
+            access_control.approve_enrollment,
+            enrollment_id,
+            actor_of(identity),
+            may_grant_access=has_permission(identity, Permission.USERS_MANAGE),
         )
     except services.NotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except access_control.AccessGrantDenied as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Project %s approved by %s", approved["project"], identity.client)
