@@ -1,9 +1,14 @@
 # Three services, three roles
 
-All the products are installed via the same PyPI package, `security-review`, and delivered within the same Docker image.
-The MCP server and the controller never call one another: they share the same **database**,
-where reports, rules, and tokens are stored. The pipeline client `security-review-ci` has no
-access to the database: it calls the REST API of the controller.
+All components are installed via a single PyPI package, `security-review`, and delivered within the same Docker image.
+The MCP server and the controller never communicate directly with each other; instead, they share a common **database** where reports, rules, and tokens are stored.
+
+The `security-review-ci` pipeline client does not have direct access to the database; it interacts with the controller via its REST API.
+
+There are two possible deployment options:
+
+- An all-in-one installation on a developer's machine. See [Local mode](../getting-started/stdio.md)
+- A modular installation on servers or within containers. See [Shared mode](../getting-started/deploy.md)
 
 ```mermaid
 flowchart LR

@@ -1,9 +1,17 @@
 # Trois services, trois rôles
 
 L'ensemble des produits est installé par le même paquet PyPI, `security-review`, et livré dans la même image Docker.
-Le serveur MCP et le contrôleur ne s'appellent jamais entre eux : ils partagent la même **base
-de données**, où sont stockés les rapports, les règles et les jetons. Le client de pipeline
-`security-review-ci` n'a pas accès à la base : il appelle l'API REST du contrôleur.
+Le serveur MCP et le contrôleur ne s'appellent jamais entre eux, ils partagent la même **base
+de données**, où sont stockés les rapports, les règles et les jetons.
+
+Le client de pipeline `security-review-ci` n'a pas accès à la base : il appelle l'API REST du contrôleur.
+
+Deux installations possibles :
+
+ - Une installation all-in-one dans le poste du dévellopeur. Voir [Mode local](../getting-started/stdio.md)
+ - Une installation modulaire sur des serveurs ou dans des containers; Voir [Mode partagé](../getting-started/deploy.md)
+
+## Les composants d'infrastructure
 
 ```mermaid
 flowchart LR
