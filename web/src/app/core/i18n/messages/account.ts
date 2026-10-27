@@ -22,8 +22,6 @@ export const account = defineMessages({
     'account.refused': 'Password refused.',
     'account.failed': 'The password change failed.',
     'apiTokens.title': 'Personal tokens',
-    'apiTokens.helpLink': 'Help on personal tokens',
-    'apiTokens.helpUrl': 'https://cyr-ius.github.io/security-review/usage/tokens/#personal-tokens',
     'apiTokens.help':
       'One token per usage: REST API (Swagger, scripts), MCP (your agent) or CI (security-review-ci on your workstation). It acts with your current rights and stops working if you lose them. You hold one of each: revoke it to create another. If your MCP client signs in through the browser (OAuth), it needs no token.',
     'apiTokens.create': 'Create a token',
@@ -53,9 +51,6 @@ export const account = defineMessages({
     'account.refused': 'Mot de passe refusé.',
     'account.failed': 'Le changement de mot de passe a échoué.',
     'apiTokens.title': 'Jetons personnels',
-    'apiTokens.helpLink': 'Aide sur les jetons personnels',
-    'apiTokens.helpUrl':
-      'https://cyr-ius.github.io/security-review/fr/usage/tokens/#jetons-personnels',
     'apiTokens.help':
       "Un jeton par usage : API REST (Swagger, scripts), MCP (votre agent) ou CI (security-review-ci sur votre poste). Il agit avec vos droits actuels et cesse de fonctionner si vous les perdez. Vous en avez un de chaque : révoquez-le pour en créer un autre. Si votre client MCP se connecte par le navigateur (OAuth), il n'a pas besoin de jeton.",
     'apiTokens.create': 'Créer un jeton',
@@ -85,8 +80,6 @@ export const account = defineMessages({
     'account.refused': 'Contraseña rechazada.',
     'account.failed': 'El cambio de contraseña ha fallado.',
     'apiTokens.title': 'Tokens personales',
-    'apiTokens.helpLink': 'Ayuda sobre los tokens personales',
-    'apiTokens.helpUrl': 'https://cyr-ius.github.io/security-review/usage/tokens/#personal-tokens',
     'apiTokens.help':
       'Un token por uso: API REST (Swagger, scripts), MCP (su agente) o CI (security-review-ci en su equipo). Actúa con sus permisos actuales y deja de funcionar si los pierde. Tiene uno de cada tipo: revóquelo para crear otro. Si su cliente MCP inicia sesión con el navegador (OAuth), no necesita token.',
     'apiTokens.create': 'Crear un token',

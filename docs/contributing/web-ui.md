@@ -76,6 +76,10 @@ export const tokens = defineMessages({
   validators through `message: () => ...`). A message shown later (success, error) is kept as
   `msg(key, parameters)` and translated in the template, so that it follows a change of language.
 - The title of the routes is a key, translated by `I18nTitleStrategy`.
+- A link to the documentation is a circled question mark next to the title:
+  `<app-help-link topic="tokens" />`. The topics, with their page and the anchor of the heading
+  in English and in French, are in `core/constants/doc-links.ts`; check them after renaming a
+  heading of `docs/`.
 
 The keys are typed: an unknown key, or a key missing in one of the three languages, fails
 `npm run build`.

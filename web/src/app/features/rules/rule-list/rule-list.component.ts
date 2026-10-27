@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { MarkdownFieldComponent } from '../../../shared/components/markdown-field/markdown-field.component';
 import {
   CustomRule,
@@ -60,6 +61,7 @@ type RuleSortKey = 'id' | 'severity' | 'updated';
 @Component({
   selector: 'app-rule-list',
   imports: [
+    HelpLinkComponent,
     MarkdownFieldComponent,
     PackTransferComponent,
     DatePipe,

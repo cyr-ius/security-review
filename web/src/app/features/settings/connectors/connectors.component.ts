@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Message, msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { ConnectorTarget, ConnectorInfo } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
@@ -42,6 +43,7 @@ const PLUGIN_LOOK = { icon: 'bi-puzzle', about: 'connectors.about.plugin' as Mes
 @Component({
   selector: 'app-connectors',
   imports: [
+    HelpLinkComponent,
     ConnectorConnectionComponent,
     ConnectorTargetsComponent,
     RefreshButtonComponent,

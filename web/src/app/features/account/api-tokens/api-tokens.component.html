@@ -1,15 +1,6 @@
 <section class="card card-body mt-4" aria-labelledby="api-tokens-title">
   <h2 id="api-tokens-title" class="h5">
-    {{ 'apiTokens.title' | t }}
-    <a
-      class="link-secondary ms-1"
-      [href]="'apiTokens.helpUrl' | t"
-      target="_blank"
-      rel="noopener noreferrer"
-      [title]="'apiTokens.helpLink' | t"
-      [attr.aria-label]="'apiTokens.helpLink' | t"
-      ><i class="bi bi-question-circle" aria-hidden="true"></i
-    ></a>
+    {{ 'apiTokens.title' | t }} <app-help-link topic="personalTokens" />
   </h2>
   <p class="text-body-secondary small">{{ 'apiTokens.help' | t }}</p>
 

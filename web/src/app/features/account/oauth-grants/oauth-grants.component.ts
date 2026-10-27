@@ -4,6 +4,7 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { OAuthGrant } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 
@@ -13,7 +14,7 @@ import { ApiService } from '../../../core/services/api.service';
  */
 @Component({
   selector: 'app-oauth-grants',
-  imports: [DatePipe, TranslatePipe],
+  imports: [HelpLinkComponent, DatePipe, TranslatePipe],
   templateUrl: './oauth-grants.component.html',
 })
 export class OAuthGrantsComponent {

@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import {
   Finding,
   RiskAcceptance,
@@ -42,6 +43,7 @@ type StateFilter = '' | 'active' | 'expired';
 @Component({
   selector: 'app-risk-acceptance-list',
   imports: [
+    HelpLinkComponent,
     DatePipe,
     RouterLink,
     RefreshButtonComponent,

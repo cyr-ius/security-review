@@ -76,6 +76,10 @@ export const tokens = defineMessages({
   Forms via `message: () => ...`). Un message affiché plus tard (succès, erreur) est gardé sous la
   forme `msg(clé, paramètres)` et traduit dans le template, pour suivre un changement de langue.
 - Le titre des routes est une clé, traduite par `I18nTitleStrategy`.
+- Un lien vers la documentation est un point d'interrogation cerclé à côté du titre :
+  `<app-help-link topic="tokens" />`. Les sujets, avec leur page et l'ancre du titre en anglais
+  et en français, sont dans `core/constants/doc-links.ts` ; vérifiez-les après avoir renommé un
+  titre de `docs/`.
 
 Les clés sont typées : une clé inconnue, ou absente d'une des trois langues, fait échouer
 `npm run build`.

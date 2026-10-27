@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/passwords';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 import { AuthSource, WebUser } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -44,6 +45,7 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
 @Component({
   selector: 'app-user-list',
   imports: [
+    HelpLinkComponent,
     DatePipe,
     FormField,
     PasswordPolicyComponent,

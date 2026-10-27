@@ -6,6 +6,7 @@ import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { TOKEN_ROLE_LABELS } from '../../../core/constants/labels';
 import { MessageKey } from '../../../core/i18n/messages';
 import { PersonalTokenRole, ProjectToken } from '../../../core/models/api.models';
@@ -22,7 +23,7 @@ import { AuthService } from '../../../core/services/auth.service';
  */
 @Component({
   selector: 'app-api-tokens',
-  imports: [DatePipe, FormField, TranslatePipe],
+  imports: [HelpLinkComponent, DatePipe, FormField, TranslatePipe],
   templateUrl: './api-tokens.component.html',
   styleUrl: './api-tokens.component.css',
 })

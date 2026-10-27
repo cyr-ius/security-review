@@ -26,6 +26,8 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 - En bas de la barre : **Mon compte** (mot de passe, jetons personnels) et la version, un lien
   vers **À propos**.
 - Cliquez sur l'en-tête d'une colonne pour trier un tableau ; le navigateur mémorise le tri.
+- Le point d'interrogation cerclé à côté d'un titre ouvre la page de cette documentation qui
+  explique l'écran (en français pour une interface en français, sinon en anglais).
 - Si le contrôleur ne répond plus, la page **Backend indisponible** s'ouvre : **Réessayer** vous
   ramène à votre page dès qu'il répond de nouveau.
 

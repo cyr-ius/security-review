@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { AppSettings, ProxyUpdate } from '../../../core/models/api.models';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SettingsPage } from '../settings-page';
@@ -91,7 +92,7 @@ type ProxyField = 'url' | 'no_proxy';
  */
 @Component({
   selector: 'app-general-settings',
-  imports: [FormField, NgTemplateOutlet, RefreshButtonComponent, TranslatePipe],
+  imports: [HelpLinkComponent, FormField, NgTemplateOutlet, RefreshButtonComponent, TranslatePipe],
   templateUrl: './general-settings.component.html',
   styleUrl: '../settings.css',
 })

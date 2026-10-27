@@ -25,6 +25,8 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 - At the bottom of the sidebar: **My account** (password, personal tokens) and the version, a
   link to **About**.
 - Click a column header to sort a table; the browser remembers the sort.
+- The circled question mark next to a title opens the page of this documentation that explains
+  the screen (in French for a French interface, else in English).
 - If the controller stops answering, the **Backend unavailable** page opens: **Retry** brings
   you back to your page once it answers again.
 

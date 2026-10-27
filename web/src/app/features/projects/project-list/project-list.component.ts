@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import {
   PendingProject,
   SEVERITIES,
@@ -36,6 +37,7 @@ const MAX_PROJECT_CHARS = 200;
 @Component({
   selector: 'app-project-list',
   imports: [
+    HelpLinkComponent,
     RouterLink,
     DatePipe,
     FormField,
