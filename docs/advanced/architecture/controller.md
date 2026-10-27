@@ -68,7 +68,9 @@ interface, personal tokens) and to the pipeline runners. Behind a reverse proxy 
   its address for the login throttling and the rate limit;
 - set `SECREVIEW_CONTROLLER_URL` to the public root URL of the controller, without `/ui` (or
   fill in the **General** screen): the controller copies it to the database at start and the MCP server
-  reads it there, so that an agent without a valid token knows where to create one.
+  reads it there, so that an agent without a valid token knows where to create one. While it is
+  unknown, a banner at the top of the web interface tells the administrators (permission
+  `settings.manage`) and links to the field.
 
 ## Several replicas
 

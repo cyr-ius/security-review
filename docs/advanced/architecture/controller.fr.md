@@ -71,7 +71,9 @@ Ingress :
 - réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du contrôleur, sans `/ui` (ou
   renseignez l'écran
   **Général**) : le contrôleur la recopie en base au démarrage et le serveur
-  MCP l'y lit, pour qu'un agent sans jeton valide sache où en créer un.
+  MCP l'y lit, pour qu'un agent sans jeton valide sache où en créer un. Tant qu'elle est
+  inconnue, un bandeau en haut de l'interface web le signale aux administrateurs (permission
+  `settings.manage`) et renvoie au champ.
 
 ## Plusieurs réplicas
 

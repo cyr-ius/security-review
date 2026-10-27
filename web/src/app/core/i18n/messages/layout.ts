@@ -26,6 +26,9 @@ export const layout = defineMessages({
     'layout.expandMenu': 'Expand the menu',
     'layout.collapseMenu': 'Reduce the menu to its icons',
     'layout.connected': 'Connected',
+    'layout.controllerUrlMissing':
+      'The public address of the Controller server is not set: the MCP server cannot give the web interface to the clients without a token, and the connectors cannot link to it.',
+    'layout.controllerUrlSet': 'Set the address',
     'theme.auto': 'automatic (system)',
     'theme.light': 'light',
     'theme.dark': 'dark',
@@ -55,6 +58,9 @@ export const layout = defineMessages({
     'layout.expandMenu': 'Déplier le menu',
     'layout.collapseMenu': 'Réduire le menu à ses icônes',
     'layout.connected': 'Connecté',
+    'layout.controllerUrlMissing':
+      'L’adresse publique du serveur Controller n’est pas définie : le serveur MCP ne peut pas donner l’interface web aux clients sans jeton, ni les connecteurs y renvoyer.',
+    'layout.controllerUrlSet': 'Définir l’adresse',
     'theme.auto': 'automatique (système)',
     'theme.light': 'clair',
     'theme.dark': 'sombre',
@@ -84,6 +90,9 @@ export const layout = defineMessages({
     'layout.expandMenu': 'Desplegar el menú',
     'layout.collapseMenu': 'Reducir el menú a sus iconos',
     'layout.connected': 'Conectado',
+    'layout.controllerUrlMissing':
+      'La dirección pública del servidor Controller no está definida: el servidor MCP no puede dar la interfaz web a los clientes sin token, ni los conectores enlazar con ella.',
+    'layout.controllerUrlSet': 'Definir la dirección',
     'theme.auto': 'automático (sistema)',
     'theme.light': 'claro',
     'theme.dark': 'oscuro',

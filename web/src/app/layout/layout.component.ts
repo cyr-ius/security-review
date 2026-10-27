@@ -8,6 +8,7 @@ import { MessageKey } from '../core/i18n/messages';
 import { Permission } from '../core/models/api.models';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
+import { ControllerUrlService } from '../core/services/controller-url.service';
 import { ThemeService } from '../core/services/theme.service';
 import { LanguageSelectComponent } from '../shared/components/language-select/language-select.component';
 import { ThemeButtonComponent } from '../shared/components/theme-button/theme-button.component';
@@ -56,6 +57,7 @@ export class LayoutComponent {
   readonly auth = inject(AuthService);
   private readonly api = inject(ApiService);
   readonly theme = inject(ThemeService);
+  readonly controllerUrl = inject(ControllerUrlService);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
 

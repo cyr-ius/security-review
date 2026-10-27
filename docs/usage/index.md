@@ -59,7 +59,7 @@ together. The changes go to the form, which still saves or cancels them.
 
 | Screen | What for |
 |---|---|
-| **General** | Report language, controller address and outgoing proxy (OSV download and OIDC login) |
+| **General** | Report language, controller address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every screen links to it |
 | **Users**, **Groups**, **Roles** | The accounts and what they may do ([roles, groups and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |
