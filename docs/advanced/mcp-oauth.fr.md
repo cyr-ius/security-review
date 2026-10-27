@@ -19,8 +19,8 @@ Sur le **contrôleur** seulement :
 
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
-SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # public URL of the MCP endpoint
-SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http on localhost only)
+SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # URL publique du point d'accès MCP
+SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
 ```
 
 Au démarrage, le contrôleur enregistre `SECREVIEW_MCP_URL` en base ; le serveur MCP l'y lit
@@ -43,7 +43,8 @@ le contrôleur, chacun avec tous ses chemins), comme le font les fichiers Compos
 l'[exemple d'Ingress Kubernetes](deployment/kubernetes.md#image-exposition-et-administration),
 ces chemins arrivent déjà au bon processus : rien à ajouter. Avec un seul hôte pour les deux,
 routez par chemin : `/mcp` et `/.well-known/oauth-protected-resource` vers le serveur MCP, tout
-le reste vers le contrôleur. L'issuer doit être en `https` : le contrôleur refuse de démarrer
+le reste vers le contrôleur (exemples nginx, Apache, HAProxy et Traefik :
+[Reverse proxy](deployment/reverse-proxy.md)). L'issuer doit être en `https` : le contrôleur refuse de démarrer
 avec une URL en `http` hors localhost.
 
 Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste,
@@ -51,7 +52,7 @@ ce qu'utilisent Claude Code et VS Code. Un client qui revient par un site web ou
 schéma d'URI demande que son hôte ou son schéma soit listé :
 
 ```bash
-SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=vscode.dev     # https only
+SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=vscode.dev     # https seulement
 SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES=cursor
 ```
 

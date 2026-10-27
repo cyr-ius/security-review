@@ -91,6 +91,7 @@ plugins:
             Three services, three roles: Trois services, trois rôles
             How a review works: Fonctionnement d'une revue
             Kubernetes: Kubernetes
+            Reverse proxy: Reverse proxy
             Local mode (stdio): Mode local (stdio)
             Manual installation (without containers): Installation manuelle (sans conteneur)
             MCP server: Serveur MCP
@@ -199,6 +200,7 @@ nav:
       - Database: advanced/database.md
       - Deployment:
           - Docker: advanced/deployment/docker.md
+          - Reverse proxy: advanced/deployment/reverse-proxy.md
           - Kubernetes: advanced/deployment/kubernetes.md
           - Manual installation (without containers): advanced/deployment/manual-install.md
           - "Installation: other cases": advanced/deployment/installation.md

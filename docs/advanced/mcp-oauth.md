@@ -40,7 +40,8 @@ controller, each with every path), as the Compose files and the
 [Kubernetes Ingress example](deployment/kubernetes.md#image-exposure-and-administration) do,
 these paths already reach the right process: nothing to add. With a single host for both,
 route by path: `/mcp` and `/.well-known/oauth-protected-resource` to the MCP server, everything
-else to the controller. The issuer must be in `https`: the controller refuses to start with
+else to the controller (nginx, Apache, HAProxy and Traefik examples:
+[Reverse proxy](deployment/reverse-proxy.md)). The issuer must be in `https`: the controller refuses to start with
 an `http` URL outside localhost.
 
 By default a client may only send the browser back to the loopback interface of the

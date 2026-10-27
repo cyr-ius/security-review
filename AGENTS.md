@@ -342,7 +342,7 @@ essentielles.
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`review/gate`, `advanced/architecture/ci`, `review/analysis/code-scan`, `advanced/reports/sarif`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration`, `.env.example` |
 | Transport HTTP, authentification, TLS, enrôlement, connexion OAuth des clients MCP | `docs/advanced/bearer-tokens`, `docs/advanced/mcp-oauth`, `docs/advanced/tls`, `docs/advanced/architecture/mcp-server` (enrôlement), `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
-| Séparation MCP / contrôleur, Compose, Kubernetes | `docs/advanced/architecture/index`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
+| Séparation MCP / contrôleur, Compose, Kubernetes, reverse proxy | `docs/advanced/architecture/index`, `docs/getting-started/deploy`, `docs/advanced/deployment/reverse-proxy`, `docker-compose.yml`, `examples/kubernetes/` |
 | La base de données (SQLite / PostgreSQL, migrations, conservation, sauvegarde, mise à niveau) | `docs/advanced/database` |
 | Le serveur MCP (routes, transports, démarrage, réponse selon le jeton, enrôlement, garanties, exposition, réplicas) | `docs/advanced/architecture/mcp-server` |
 | Le client de pipeline `security-review-ci` (installation, jeton `ci`, commandes, exemples par plateforme CI/CD, tendance) | `docs/advanced/architecture/ci` (+ `review/gate`) |

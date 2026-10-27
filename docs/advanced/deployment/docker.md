@@ -60,7 +60,7 @@ Good to know:
   commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
   as generated above.
 - **Open to the team.** The ports are published on every interface of the server, in plain
-  HTTP: enable the [built-in TLS](../tls.md) or put a reverse proxy in front before the team
+  HTTP: enable the [built-in TLS](../tls.md) or put a [reverse proxy](reverse-proxy.md) in front before the team
   connects. To keep a port on the server only (behind a reverse proxy on the same machine, for
   example), prefix it with `127.0.0.1` (`"127.0.0.1:8000:8000"`). Only the `ports` choose the exposure: inside its container, each process
   listens on every interface (`SECREVIEW_HOST=0.0.0.0`, set by the image, not to be changed).
