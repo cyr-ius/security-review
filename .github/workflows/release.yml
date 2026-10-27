@@ -27,12 +27,24 @@ jobs:
           name: ${{ inputs.artifact }}
           path: dist/
 
-      # Pre-release when the tag carries a PEP 440 pre-release suffix (a, b, rc, dev)
+      # Pre-release when the tag carries a PEP 440 pre-release suffix (a, b, rc, dev):
+      # workflow expressions have no regex function, so the shell computes the flag
+      - name: Detect pre-release
+        id: kind
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ "$TAG" =~ (a|b|rc|\.dev)[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ inputs.tag }}
           name: ${{ inputs.tag }}
           generate_release_notes: true
-          prerelease: ${{ matches(inputs.tag, '(a|b|rc|\\.dev)[0-9]+$') }}
+          prerelease: ${{ steps.kind.outputs.prerelease }}
           files: dist/*
