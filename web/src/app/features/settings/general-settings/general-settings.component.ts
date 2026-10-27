@@ -144,6 +144,14 @@ export class GeneralSettingsComponent extends SettingsPage {
     );
   }
 
+  /** Delete the stored value that SECREVIEW_CONTROLLER_URL hides. */
+  async deleteStoredControllerUrl(): Promise<void> {
+    await this.run(
+      () => firstValueFrom(this.api.setControllerUrl(null)),
+      msg('settings.storedDeleted'),
+    );
+  }
+
   /** Root URL of this controller in the browser (base of the Angular application without /ui). */
   readonly currentUrl = inject(DOCUMENT)
     .baseURI.replace(/\/+$/, '')
