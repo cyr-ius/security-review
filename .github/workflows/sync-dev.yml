@@ -5,6 +5,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: write
+
 jobs:
   sync-dev:
     if: "startsWith(github.event.head_commit.message, 'chore(main): release')"
