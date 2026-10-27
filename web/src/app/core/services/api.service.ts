@@ -28,6 +28,9 @@ import {
   GroupCatalog,
   Identity,
   LoginSession,
+  OAuthGrant,
+  OAuthPendingRequest,
+  OAuthRedirect,
   OidcSettings,
   OidcSettingsUpdate,
   OidcTestResult,
@@ -351,6 +354,26 @@ export class ApiService {
 
   deleteMyToken(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/me/tokens/${encodeURIComponent(id)}`);
+  }
+
+  /** A pending OAuth request of an MCP client (consent screen). */
+  oauthRequest(request: string): Observable<OAuthPendingRequest> {
+    return this.http.post<OAuthPendingRequest>(`${API_URL}/oauth/request`, { request });
+  }
+
+  /** Approve or deny a pending OAuth request: the answer gives where the browser goes. */
+  oauthDecide(request: string, approve: boolean): Observable<OAuthRedirect> {
+    const decision = approve ? 'approve' : 'deny';
+    return this.http.post<OAuthRedirect>(`${API_URL}/oauth/${decision}`, { request });
+  }
+
+  /** The MCP clients the logged-in user approved. */
+  myOAuthGrants(): Observable<OAuthGrant[]> {
+    return this.http.get<OAuthGrant[]>(`${API_URL}/me/oauth-grants`);
+  }
+
+  deleteMyOAuthGrant(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/me/oauth-grants/${encodeURIComponent(id)}`);
   }
 
   /** Change the projects of a token (null: every project); its secret stays the same. */

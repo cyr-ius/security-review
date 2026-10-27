@@ -122,4 +122,5 @@
 
 @if (auth.identity()?.auth_source && !auth.identity()?.must_change_password) {
   <app-api-tokens />
+  <app-oauth-grants />
 }

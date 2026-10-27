@@ -61,6 +61,10 @@ request; it stops while the account must change a password set by an administrat
 deleted with the account. Only one token per usage is allowed by default: revoke it to create
 another. It cannot be rotated: revoke it and create a new one.
 
+With the [OAuth login of MCP clients](../advanced/mcp-oauth.md), the MCP agent needs no personal
+token: the clients you approved are listed in **My account** > **Connected MCP clients**, where
+you revoke them.
+
 ### Personal MCP and CI tokens
 
 The personal **MCP / CI** token connects your MCP agent. It is offered only when your groups

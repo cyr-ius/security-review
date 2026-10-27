@@ -101,6 +101,11 @@ racine du dépôt, sans `headers` :
 
 ## Obtenir un jeton
 
+Si l'administrateur a activé la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), aucun
+jeton n'est nécessaire : déclarez le serveur avec sa seule URL, sans en-tête `Authorization` ; à
+la première connexion, l'hôte ouvre le navigateur, où vous vous connectez et l'autorisez.
+Sinon :
+
 En mode partagé, quand le serveur exige un jeton, vous utilisez un **jeton MCP personnel**, créé dans
 l'interface web. Inutile d'en réclamer un à un administrateur avant de commencer : configurez
 l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent vous indique où

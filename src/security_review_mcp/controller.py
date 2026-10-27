@@ -13,7 +13,7 @@ import logging
 import sys
 
 from . import app_settings, cli, connectors, http_server, web_api
-from .auth import oidc, token_store, web_users
+from .auth import oauth_server, oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
 from .observability import audit_syslog
@@ -71,6 +71,14 @@ def serve(argv: list[str]) -> None:
 
     try:
         init_db()
+        # The MCP server reads the URL of the controller, and of its own endpoint while the
+        # OAuth login is enabled, in the database; the OAuth routes need them (create_app)
+        app_settings.sync_controller_url(settings)
+        app_settings.sync_mcp_oauth(settings)
+        if not settings.mcp_oauth_enabled and (
+            revoked := oauth_server.revoke_all_grants("environment")
+        ):
+            logger.warning("OAuth login of the MCP clients off: %d grants revoked", revoked)
         store = token_store.DatabaseTokenStore(include_users=True)
         tls = http_server.tls_options(settings)
         signer = oidc.session_signer(settings)
@@ -83,8 +91,6 @@ def serve(argv: list[str]) -> None:
         audit_syslog.validate_settings(settings)
         connectors.validate_settings(settings)
         bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
-        # The MCP server reads the URL of the controller in the database
-        app_settings.sync_controller_url(settings)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()

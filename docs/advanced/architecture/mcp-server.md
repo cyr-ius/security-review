@@ -9,8 +9,9 @@ reports. It never calls the [controller](controller.md): both share the database
 
 | Route | Used by | Credential |
 |---|---|---|
-| `/mcp` | the agents: [prompts, tools and resources](../../review/prompts-tools.md) | `mcp` token (personal or not) or `admin` token |
-| `/mcp` without a token | an agent not yet connected: [enrollment server](../../review/prompts-tools.md#enrollment-server), which tells how to get a token | none |
+| `/mcp` | the agents: [prompts, tools and resources](../../review/prompts-tools.md) | `mcp` token (personal or not), `admin` token, or [OAuth](../mcp-oauth.md) access token |
+| `/mcp` without a token | an agent not yet connected: [enrollment server](../../review/prompts-tools.md#enrollment-server), which tells how to get a token; with the [OAuth login](../mcp-oauth.md), a `401` that starts it | none |
+| `/.well-known/oauth-protected-resource/mcp` | the hosts, with the [OAuth login](../mcp-oauth.md) on: protected resource metadata (RFC 9728), which names the controller as authorization server (404 otherwise) | none |
 | `/healthz` | probes (Docker `HEALTHCHECK`, Kubernetes) | none |
 
 It serves no web page, no other route of the REST API, and no route that writes without a
@@ -150,3 +151,8 @@ its URL when it is known, as above) and to create a new personal MCP token, then
 it in the [host configuration](../../getting-started/host.md#getting-a-token). Such a client never
 reaches the review tools nor the enrollment server. The rejection is logged as a warning by the
 MCP server (`Rejected unauthenticated request` / `Rejected expired token`).
+
+With the [OAuth login](../mcp-oauth.md) on, this `401` also carries the
+`resource_metadata` parameter in its `WWW-Authenticate` challenge, so that a host that supports
+OAuth signs in again by itself, and a request without a token gets the same `401` (without
+`error`) instead of the enrollment server.

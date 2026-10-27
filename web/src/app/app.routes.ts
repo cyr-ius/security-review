@@ -22,6 +22,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    // Consent screen of the OAuth login of the MCP clients, outside the layout
+    path: 'oauth/authorize',
+    title: 'oauth.title',
+    canActivate: [backendGuard, authGuard],
+    loadComponent: () =>
+      import('./features/oauth/oauth-consent.component').then((m) => m.OAuthConsentComponent),
+  },
+  {
     path: '',
     canActivate: [backendGuard, authGuard],
     canActivateChild: [passwordChangeGuard],

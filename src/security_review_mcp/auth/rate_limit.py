@@ -186,8 +186,9 @@ class LoginThrottle:
 class RateLimitMiddleware:
     """Refuse (429) the REST API requests of an address over its limit.
 
-    Only ``/api/`` is counted (the files of the web interface are not); the login routes
-    (``auth_prefix``) have their own, stricter, limit.
+    Only ``/api/`` and the OAuth routes (``counted``) are counted (the files of the web
+    interface are not); the login routes (``auth_prefix``, one or several prefixes) have their
+    own, stricter, limit.
     """
 
     def __init__(
@@ -196,21 +197,23 @@ class RateLimitMiddleware:
         max_requests: int,
         max_auth_requests: int,
         window: float,
-        auth_prefix: str,
+        auth_prefix: str | tuple[str, ...],
         clock: Callable[[], float] = time.time,
+        counted: tuple[str, ...] = (),
     ) -> None:
         self.app = app
         self.max_requests = max_requests
         self.max_auth_requests = max_auth_requests
         self.window = int(window)
         self.auth_prefix = auth_prefix
+        self.counted = ("/api/", *counted)
         self.requests = RateLimit("api", window, clock)
         self.logins = RateLimit("auth", window, clock)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Count an API request of the client address, or refuse it."""
         path = scope.get("path", "")
-        if scope["type"] != "http" or not path.startswith("/api/"):
+        if scope["type"] != "http" or not path.startswith(self.counted):
             await self.app(scope, receive, send)
             return
         client = scope.get("client")

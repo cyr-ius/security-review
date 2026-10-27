@@ -212,6 +212,32 @@ def test_only_mcp_clients_without_a_token_reach_the_enrollment_server():
     assert client.get("/mcp", headers=bearer(dev)).text == "dev/mcp"
 
 
+def test_with_the_oauth_login_a_client_without_a_token_is_sent_to_the_controller():
+    token_store.create_token("ops", Role.ADMIN)
+    oauth = http_server.OAuthResource("https://mcp.example/mcp", "https://secreview.example")
+    app = http_server.build_mcp_app(
+        server.mcp, "127.0.0.1", STORE, server.enrollment_mcp, oauth=lambda: oauth
+    )
+    client = TestClient(app)
+
+    # Not the enrollment server: a 401 whose challenge starts the login (RFC 9728 §5.1)
+    for headers in ({}, bearer("x" * 40)):
+        response = client.post("/mcp", headers=headers)
+        assert response.status_code == 401
+        challenge = response.headers["www-authenticate"]
+        assert (
+            'resource_metadata="https://mcp.example/.well-known/oauth-protected-resource/mcp"'
+            in (challenge)
+        )
+    metadata = client.get("/.well-known/oauth-protected-resource/mcp")
+    assert metadata.json()["resource"] == "https://mcp.example/mcp"
+    assert metadata.json()["authorization_servers"] == ["https://secreview.example"]
+    # Read only, and absent while the controller does not serve the login
+    assert client.post("/.well-known/oauth-protected-resource/mcp").status_code == 404
+    off = http_server.build_mcp_app(server.mcp, "127.0.0.1", STORE, oauth=lambda: None)
+    assert TestClient(off).get("/.well-known/oauth-protected-resource/mcp").status_code == 404
+
+
 def test_a_rejected_token_gets_a_401_that_says_how_to_get_a_new_one():
     token_store.create_token("ops", Role.ADMIN)
     old = token_store.create_token("old", Role.MCP, expires_in_days=1)["token"]

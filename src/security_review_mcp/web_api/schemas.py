@@ -761,6 +761,40 @@ class PersonalTokenCreate(BaseModel):
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
 
 
+class OAuthRequestRef(BaseModel):
+    """Body of the consent routes: the handle of a pending OAuth request, from the URL of the
+    consent screen."""
+
+    request: str = Field(min_length=1, max_length=100)
+
+
+class OAuthPendingRequest(BaseModel):
+    """A pending OAuth request, shown by the consent screen: the MCP client (its name is chosen
+    by the client itself) and the host it goes back to."""
+
+    client_id: str
+    client_name: str | None = None
+    redirect_host: str
+    expires_at: str
+
+
+class OAuthRedirect(BaseModel):
+    """Where the browser goes after a decision: the client, with a code or an error."""
+
+    redirect_url: str
+
+
+class OAuthGrantPublic(BaseModel):
+    """An MCP client approved by the logged-in user (never its tokens)."""
+
+    id: str
+    client_id: str
+    client_name: str | None = None
+    created_at: str
+    last_used_at: str | None = None
+    expires_at: str
+
+
 class ProjectTokenProjects(BaseModel):
     """Body of PUT /project-tokens/{id}/projects."""
 

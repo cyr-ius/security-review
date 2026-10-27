@@ -104,6 +104,18 @@ Read by `security-review-controller` only.
 | `SECREVIEW_OIDC_CAFILE` | — | CA bundle to reach the provider (internal CA); the proxy is the one of `HTTPS_PROXY` |
 | `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/oidc.md#oidc-only)); a variable only, never changed in the interface |
 
+### OAuth login of MCP clients
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Enables the [OAuth login of the MCP clients](../advanced/mcp-oauth.md): the controller becomes their authorization server (routes `/authorize`, `/token`, `/register`, `/revoke` at the root of `SECREVIEW_CONTROLLER_URL`, which must be set, in https outside localhost) and the MCP server sends a client without a token to it |
+| `SECREVIEW_MCP_URL` | — | Public URL of the MCP endpoint (`https://…/mcp`, ASCII: punycode for a non-ASCII host), required with OAuth: the resource of the tokens. Stored in the database at start, where the MCP server reads it |
+| `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Lifetime of an access token (5 to 1440 minutes) |
+| `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Lifetime of a refresh token (1 to 365 days), extended at each refresh; `SECREVIEW_TOKEN_MAX_DAYS`, when set, bounds the whole grant from its approval |
+| `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients registered at once; a client nobody approved within a day is deleted |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` | — | Hosts reached over https accepted as redirect URI of a client, comma separated (`vscode.dev`); empty: the loopback interface only |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` | — | Custom URI schemes accepted as redirect URI, comma separated (`cursor`); empty: none |
+
 ### Outgoing proxy
 
 | Variable | Default | Role |

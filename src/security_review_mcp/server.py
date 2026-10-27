@@ -146,6 +146,32 @@ class EnrollmentWebUrl:
 enrollment_web_url = EnrollmentWebUrl()
 
 
+class StoredOAuthResource:
+    """The OAuth login of the MCP clients, as the controller publishes it in the database (URL
+    of the MCP endpoint and of the controller, see app_settings.sync_mcp_oauth), None while it
+    is off. Read again at most every ``ttl`` seconds, like EnrollmentWebUrl."""
+
+    def __init__(self, ttl: float = WEB_URL_CACHE_SECONDS) -> None:
+        self.ttl = ttl
+        self._lock = threading.Lock()
+        self._value: http_server.OAuthResource | None = None
+        self._read_at: float | None = None
+
+    def __call__(self) -> http_server.OAuthResource | None:
+        with self._lock:
+            now = time.monotonic()
+            if self._read_at is None or now - self._read_at >= self.ttl:
+                resource, issuer = app_settings.mcp_oauth_resource(), app_settings.controller_url()
+                self._value = (
+                    http_server.OAuthResource(resource, issuer) if resource and issuer else None
+                )
+                self._read_at = now
+            return self._value
+
+
+oauth_resource = StoredOAuthResource()
+
+
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
 
@@ -1097,7 +1123,10 @@ def serve(argv: list[str]) -> None:
         enrollment_mcp if settings.enrollment else None,
         allow_open=allow_open,
         web_url=enrollment_web_url,
+        oauth=oauth_resource,
     )
+    if oauth_resource() is not None:
+        logger.info("OAuth login of the MCP clients served by the controller")
     http_server.serve(
         app,
         args.host,

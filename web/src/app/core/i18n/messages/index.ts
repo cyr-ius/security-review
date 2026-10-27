@@ -19,6 +19,7 @@ import { settings } from './settings';
 import { trend } from './trend';
 import { exports } from './exports';
 import { connectors } from './connectors';
+import { oauth } from './oauth';
 
 /** Messages of every screen; add the catalog of a new screen here. */
 const CATALOGS = [
@@ -42,6 +43,7 @@ const CATALOGS = [
   trend,
   exports,
   connectors,
+  oauth,
 ] as const;
 
 type KeysOf<C> = C extends { en: Record<infer K, string> } ? K : never;

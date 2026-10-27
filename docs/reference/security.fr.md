@@ -53,6 +53,18 @@
   de l'interface web donnée dans cette description (`SECREVIEW_CONTROLLER_URL` + `/ui`) est une
   URL publique : elle ne contient aucun identifiant
   (refusé au démarrage et dans l'interface web, où chaque modification est auditée).
+- **Connexion OAuth des clients MCP** (`SECREVIEW_MCP_OAUTH_ENABLED`, désactivée par défaut) :
+  le contrôleur est le serveur d'autorisation, le serveur MCP ne fait que vérifier les jetons en
+  base. Tout client est public (PKCE `S256`, aucun secret client conservé), ses URI de
+  redirection visent l'interface loopback, sauf hôte https ou schéma listé par l'opérateur
+  (aucun autre site ne reçoit de code) ; au plus 10 000 demandes sont en attente à la fois ; les
+  codes sont à usage
+  unique (60 secondes), seules les empreintes SHA-256 des jetons sont conservées, un
+  rafraîchissement remplace les deux jetons et un jeton de rafraîchissement réutilisé révoque
+  l'autorisation. Autoriser un client exige une session web et `mcp_tokens.create` ; un jeton
+  agit comme un jeton `mcp` personnel de son utilisateur, sur le serveur MCP seulement, et est
+  supprimé avec l'utilisateur ; un contrôleur démarré avec la connexion désactivée révoque
+  toutes les autorisations (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
   renouvellements et révocations de jetons et les demandes de projet sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,

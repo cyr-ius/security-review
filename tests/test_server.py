@@ -900,6 +900,7 @@ CONTROLLER_MODULES = (
     "security_review_mcp.controller",
     "security_review_mcp.deps.advisory_sync",
     "security_review_mcp.auth.oidc",
+    "security_review_mcp.auth.oauth_server",
     "security_review_mcp.observability.audit_syslog",
     "security_review_mcp.connectors",
     "security_review_mcp.update_check",

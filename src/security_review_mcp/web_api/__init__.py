@@ -20,12 +20,17 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from mcp.server.auth.handlers.metadata import MetadataHandler
+from mcp.server.auth.routes import build_metadata, cors_middleware, create_auth_routes
+from mcp.server.auth.settings import ClientRegistrationOptions, RevocationOptions
+from pydantic import AnyHttpUrl, ConfigDict, TypeAdapter
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.routing import BaseRoute, Route
 from starlette.types import Scope
 
-from .. import __version__
-from ..auth import oidc, rate_limit
+from .. import __version__, app_settings
+from ..auth import oauth_server, oidc, rate_limit
 from ..config import get_settings, secret_value
 from ..http_server import (
     API_HEALTH_PATH,
@@ -35,6 +40,7 @@ from ..http_server import (
     HEALTH_PATH,
     LOOPBACK_HOSTS,
     METRICS_PATH,
+    OAUTH_METADATA_PATH,
     OPENAPI_PATH,
     BodyLimit,
 )
@@ -48,6 +54,7 @@ from . import (
     ci_client_routes,
     ci_routes,
     connector_routes,
+    oauth_routes,
     report_routes,
     rule_routes,
     token_routes,
@@ -125,6 +132,7 @@ for _domain in (
     admin_routes,
     access_routes,
     connector_routes,
+    oauth_routes,
 ):
     api_router.include_router(_domain.router)
 
@@ -161,6 +169,50 @@ def resolve_ui_dir(configured: str | None) -> Path | None:
 
 
 # ── Application ──────────────────────────────────────────────────────────────
+
+
+def oauth_routes_of(issuer: str | None) -> list[BaseRoute]:
+    """Routes of the OAuth authorization server of the MCP clients (see oauth_server): those of
+    the MCP SDK, at the root of the controller URL, its issuer. Every client is public (PKCE)
+    with the single ``mcp`` scope; registration and revocation are served.
+
+    Raises:
+        ValueError: If the controller URL is unknown, or not https outside the loopback
+            interface.
+    """
+    if issuer is None:
+        raise ValueError(
+            "SECREVIEW_MCP_OAUTH_ENABLED needs the public URL of the controller: set "
+            "SECREVIEW_CONTROLLER_URL"
+        )
+    # RFC 8414 compares the issuer as a string: no slash added to a URL without path
+    url = TypeAdapter(AnyHttpUrl, config=ConfigDict(url_preserve_empty_path=True)).validate_python(
+        issuer
+    )
+    scopes = [oauth_server.SCOPE]
+    registration = ClientRegistrationOptions(
+        enabled=True, valid_scopes=scopes, default_scopes=scopes
+    )
+    revocation = RevocationOptions(enabled=True)
+    routes = create_auth_routes(
+        oauth_server.OAuthProvider(issuer),
+        url,
+        client_registration_options=registration,
+        revocation_options=revocation,
+    )
+    # The metadata of the SDK offer secret-based client methods: every client is public here
+    metadata = build_metadata(url, None, registration, revocation)
+    metadata.token_endpoint_auth_methods_supported = ["none"]
+    metadata.revocation_endpoint_auth_methods_supported = ["none"]
+    served = Route(
+        OAUTH_METADATA_PATH,
+        endpoint=cors_middleware(MetadataHandler(metadata).handle, ["GET", "OPTIONS"]),
+        methods=["GET", "OPTIONS"],
+    )
+    return [
+        served,
+        *(route for route in routes if getattr(route, "path", None) != OAUTH_METADATA_PATH),
+    ]
 
 
 def create_app(
@@ -208,6 +260,9 @@ def create_app(
     app.include_router(ci_routes.router)
     if settings.ci_client_download_enabled:
         app.include_router(ci_client_routes.router)
+
+    if settings.mcp_oauth_enabled:
+        app.router.routes.extend(oauth_routes_of(app_settings.controller_url()))
 
     @app.get(HEALTH_PATH, include_in_schema=False)
     async def healthz() -> HealthStatus:
