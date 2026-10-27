@@ -118,13 +118,19 @@ Secrets au démarrage : après un changement, redémarrez-les
 ## Image, exposition et administration
 
 Le manifeste utilise l'image publiée `ghcr.io/cyr-ius/security-review:latest`, qui
-contient le pilote PostgreSQL : épinglez une version (`X.Y.Z`) en production. Les manifestes
-ne contiennent pas d'Ingress : exposez chaque Service par son propre Ingress avec TLS.
+contient le pilote PostgreSQL : épinglez une version (`X.Y.Z`) en production. Exposez chaque
+Service par son propre Ingress avec TLS : un exemple, commenté, termine `security-review.yaml`
+(un hôte par service, ingress-nginx et cert-manager).
 
 | Service | Atteint par | Ingress |
 |---|---|---|
-| `secreview-mcp` | les agents (MCP sur `/mcp`) | vers tous les postes des développeurs |
-| `secreview-controller` | les personnes (interface web `/ui`, jetons MCP et CI personnels) et la CI (`security-review-ci` appelle `/api/v1/ci`) | vers les développeurs et les runners de CI ; `kubectl port-forward` suffit pour un premier essai |
+| `secreview-mcp` | les agents (MCP sur `/mcp`, et `/.well-known/oauth-protected-resource` avec la [connexion OAuth](../mcp-oauth.md)) | vers tous les postes des développeurs |
+| `secreview-controller` | les personnes (interface web `/ui`, jetons MCP et CI personnels), la CI (`security-review-ci` appelle `/api/v1/ci`) et, avec la connexion OAuth, les hôtes MCP (`/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke`) | vers les développeurs et les runners de CI ; `kubectl port-forward` suffit pour un premier essai |
+
+Avec un hôte par Service, chaque chemin va à son Service : les chemins OAuth n'ont besoin
+d'aucune règle propre. Avec un seul hôte pour les deux, routez `/mcp` et
+`/.well-known/oauth-protected-resource` vers `secreview-mcp`, tout le reste vers
+`secreview-controller`.
 
 Ensuite, dans la ConfigMap :
 
@@ -132,6 +138,9 @@ Ensuite, dans la ConfigMap :
   renseignez l'écran **Général** : le serveur MCP donne son interface web (`/ui`) aux clients
   sans jeton valide, pour que l'utilisateur sache où créer un
   jeton MCP personnel ;
+- pour que les hôtes MCP se connectent par le navigateur plutôt qu'avec un jeton MCP personnel,
+  réglez `SECREVIEW_MCP_OAUTH_ENABLED` et `SECREVIEW_MCP_URL` (URL publique de `/mcp`), avec
+  `SECREVIEW_CONTROLLER_URL` en `https` (voir [Connexion OAuth des clients MCP](../mcp-oauth.md)) ;
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods de l'ingress
   controller : sinon tous les clients partagent leur adresse pour la limitation des connexions,
   la limite de débit et le journal d'audit.

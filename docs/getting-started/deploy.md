@@ -110,7 +110,9 @@ For the team, expose each Service through an Ingress with TLS: `secreview-mcp` f
 (`security-review-ci` calls the controller). Then set, in the ConfigMap of the manifest,
 `SECREVIEW_CONTROLLER_URL` (public root URL of the controller) and `SECREVIEW_FORWARDED_ALLOW_IPS` (address
 range of the ingress controller pods: without it, every client seems to come from the same
-address, the one of the Ingress).
+address, the one of the Ingress). To let the MCP hosts sign in through the browser instead of a
+personal token, see [OAuth login of MCP clients](../advanced/mcp-oauth.md): with one Ingress per
+Service, the OAuth paths need no extra rule.
 
 **More information:** see [Kubernetes](../advanced/deployment/kubernetes.md) in the **Advanced** section
 (existing PostgreSQL, content of the manifests, Secrets, exposure, OSV update, several replicas).

@@ -114,13 +114,18 @@ Changing `SECREVIEW_SECRET_KEY` ends every web session.
 ## Image, exposure and administration
 
 The manifest uses the published image `ghcr.io/cyr-ius/security-review:latest`, which
-contains the PostgreSQL driver: pin a version (`X.Y.Z`) in production. The manifests contain
-no Ingress: expose each Service through its own Ingress with TLS.
+contains the PostgreSQL driver: pin a version (`X.Y.Z`) in production. Expose each Service
+through its own Ingress with TLS: an example, commented, ends `security-review.yaml` (one host per
+service, ingress-nginx and cert-manager).
 
 | Service | Reached by | Ingress |
 |---|---|---|
-| `secreview-mcp` | the agents (MCP on `/mcp`) | to every developer workstation |
-| `secreview-controller` | the people (web interface `/ui`, personal MCP and CI tokens) and the CI (`security-review-ci` calls `/api/v1/ci`) | to the developers and to the CI runners; `kubectl port-forward` is enough for a first test |
+| `secreview-mcp` | the agents (MCP on `/mcp`, and `/.well-known/oauth-protected-resource` with the [OAuth login](../mcp-oauth.md)) | to every developer workstation |
+| `secreview-controller` | the people (web interface `/ui`, personal MCP and CI tokens), the CI (`security-review-ci` calls `/api/v1/ci`) and, with the OAuth login, the MCP hosts (`/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke`) | to the developers and to the CI runners; `kubectl port-forward` is enough for a first test |
+
+With one host per Service, every path goes to its Service: the OAuth paths need no rule of
+their own. With a single host for both, route `/mcp` and `/.well-known/oauth-protected-resource`
+to `secreview-mcp`, everything else to `secreview-controller`.
 
 Then, in the ConfigMap:
 
@@ -128,6 +133,9 @@ Then, in the ConfigMap:
   fill in the **General** screen: the MCP server gives its web interface (`/ui`) to the clients
   without a valid token, so that the user knows where to create
   a personal MCP token;
+- to let the MCP hosts sign in through the browser instead of a personal MCP token, set
+  `SECREVIEW_MCP_OAUTH_ENABLED` and `SECREVIEW_MCP_URL` (public URL of `/mcp`), with
+  `SECREVIEW_CONTROLLER_URL` in `https` (see [OAuth login of MCP clients](../mcp-oauth.md));
 - set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address range of the ingress controller pods:
   otherwise every client shares their address for the login throttling, the rate limit and the
   audit log.

@@ -67,7 +67,11 @@ Good to know:
   For the built-in TLS, uncomment in `controller` and `mcp` the TLS variables
   (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) and the `volumes` that mounts the
   certificate files read-only from `./tls` (see [Certificate Authority](../tls.md#certificate-authority)).
-  The controller exposes no write route without a token: it can stay internal.
+  The controller exposes no write route without a token: it can stay internal, unless the
+  [OAuth login of MCP clients](../mcp-oauth.md) is on: the MCP hosts then reach its OAuth routes
+  (uncomment `SECREVIEW_MCP_OAUTH_ENABLED` and `SECREVIEW_MCP_URL` in `controller`; behind a
+  single reverse proxy host, route `/mcp` and `/.well-known/oauth-protected-resource` to `mcp`,
+  everything else to `controller`).
   Add to `.env` the public root URL of the controller (`SECREVIEW_CONTROLLER_URL=https://…`):
   the controller copies it to the database at start, so that the MCP server gives the link of
   the web interface (`/ui`) to an agent without a token, and the connectors link their tickets to the reports. Without it, set

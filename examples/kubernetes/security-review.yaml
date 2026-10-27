@@ -48,6 +48,11 @@ data:
   # 401) so that the user knows where to create a personal MCP token. Unset: set it in the web
   # interface (General).
   # SECREVIEW_CONTROLLER_URL: https://secreview.example.com
+  # OAuth login of the MCP clients (read by the controller, which needs the URL above in https):
+  # the hosts sign in through the browser instead of a personal MCP token. Publish the OAuth
+  # paths: see the Ingress at the end of this file.
+  # SECREVIEW_MCP_OAUTH_ENABLED: "true"
+  # SECREVIEW_MCP_URL: https://mcp.secreview.example.com/mcp
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -254,3 +259,41 @@ spec:
               kubernetes.io/metadata.name: ingress-nginx
       ports:
         - port: 8000
+---
+# Ingress (ingress-nginx, TLS by cert-manager: adapt the class, the issuer and the hosts). One
+# host per service: every path of a host goes to its service, so the OAuth paths reach the right
+# process with no extra rule (protected resource metadata on the MCP host, authorization server
+# on the controller host). Uncomment to use it.
+#
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: secreview
+#   annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt
+#     # Long MCP streams (server-sent events) and large scans of security-review-ci
+#     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+#     nginx.ingress.kubernetes.io/proxy-body-size: 64m
+# spec:
+#   ingressClassName: nginx
+#   tls:
+#     - hosts: [secreview.example.com, mcp.secreview.example.com]
+#       secretName: secreview-tls
+#   rules:
+#     - host: secreview.example.com          # controller: web interface, REST API, OAuth
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend: {service: {name: secreview-controller, port: {name: http}}}
+#     - host: mcp.secreview.example.com      # MCP server: /mcp and its OAuth metadata
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend: {service: {name: secreview-mcp, port: {name: http}}}
+#
+# With a single host for both, route by path instead: /mcp and
+# /.well-known/oauth-protected-resource to secreview-mcp; everything else to
+# secreview-controller (/ui, /api, /.well-known/oauth-authorization-server, /authorize,
+# /token, /register, /revoke).

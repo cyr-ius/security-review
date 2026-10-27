@@ -111,7 +111,10 @@ Pour l'équipe, exposez chaque Service par un Ingress avec TLS : `secreview-mcp`
 CI (`security-review-ci` appelle le contrôleur). Renseignez alors, dans la ConfigMap du
 manifeste, `SECREVIEW_CONTROLLER_URL` (URL publique racine du contrôleur) et
 `SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
-réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress).
+réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress). Pour que les
+hôtes MCP se connectent par le navigateur plutôt qu'avec un jeton personnel, voir
+[Connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : avec un Ingress par Service, les
+chemins OAuth n'ont besoin d'aucune règle supplémentaire.
 
 **Pour plus d'informations :** voir [Kubernetes](../advanced/deployment/kubernetes.md) dans la section
 **Avancé** (PostgreSQL existant, contenu des manifestes, Secrets, exposition, mise à jour OSV,

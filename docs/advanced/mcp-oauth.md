@@ -35,6 +35,14 @@ Behind a reverse proxy, publish these public paths:
 | `/.well-known/oauth-protected-resource/mcp` (protected resource metadata, RFC 9728) | MCP server |
 | `/.well-known/oauth-authorization-server` (metadata, RFC 8414), `/authorize`, `/token`, `/register`, `/revoke` | controller |
 
+With one host per service (`mcp.example.com` to the MCP server, `secreview.example.com` to the
+controller, each with every path), as the Compose files and the
+[Kubernetes Ingress example](deployment/kubernetes.md#image-exposure-and-administration) do,
+these paths already reach the right process: nothing to add. With a single host for both,
+route by path: `/mcp` and `/.well-known/oauth-protected-resource` to the MCP server, everything
+else to the controller. The issuer must be in `https`: the controller refuses to start with
+an `http` URL outside localhost.
+
 By default a client may only send the browser back to the loopback interface of the
 workstation, which is what Claude Code and VS Code use. A client that comes back through a web
 site or its own URI scheme needs its host or scheme listed:

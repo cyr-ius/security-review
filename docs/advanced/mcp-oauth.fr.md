@@ -38,6 +38,14 @@ Derrière un reverse proxy, publiez ces chemins publics :
 | `/.well-known/oauth-protected-resource/mcp` (métadonnées de la ressource protégée, RFC 9728) | serveur MCP |
 | `/.well-known/oauth-authorization-server` (métadonnées, RFC 8414), `/authorize`, `/token`, `/register`, `/revoke` | contrôleur |
 
+Avec un hôte par service (`mcp.example.com` vers le serveur MCP, `secreview.example.com` vers
+le contrôleur, chacun avec tous ses chemins), comme le font les fichiers Compose et
+l'[exemple d'Ingress Kubernetes](deployment/kubernetes.md#image-exposition-et-administration),
+ces chemins arrivent déjà au bon processus : rien à ajouter. Avec un seul hôte pour les deux,
+routez par chemin : `/mcp` et `/.well-known/oauth-protected-resource` vers le serveur MCP, tout
+le reste vers le contrôleur. L'issuer doit être en `https` : le contrôleur refuse de démarrer
+avec une URL en `http` hors localhost.
+
 Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste,
 ce qu'utilisent Claude Code et VS Code. Un client qui revient par un site web ou par son propre
 schéma d'URI demande que son hôte ou son schéma soit listé :
