@@ -12,7 +12,7 @@ de lecture côté hôte : la commande `guard` du [client de pipeline](../../adva
 Avant l'appel d'outil, `security-review-ci guard` lit l'événement du hook sur son entrée
 standard, trouve les fichiers que l'appel lit et les analyse localement avec les
 [règles `AI-*`](../rules.md#regles-par-defaut-par-plateforme) (sans accès réseau, sans
-contrôleur, sans jeton), puis :
+serveur Controller, sans jeton), puis :
 
 | Résultat | Décision | Ce que reçoit l'assistant |
 |---|---|---|
@@ -84,7 +84,7 @@ fournit que l'exemple de Claude Code.
   web ne passent pas par la garde.
 - Les règles sont une copie des règles `AI-*` par défaut : une règle modifiée par un
   administrateur dans l'interface web ne s'applique pas à la garde, qui fonctionne sans le
-  contrôleur.
+  serveur Controller.
 - Les règles sont un premier filtre : un texte adressé à un assistant peut être formulé d'une
   infinité de façons. La [règle de donnée non fiable](../prompts-tools.md#statut-dun-finding)
   des prompts de revue et le fait qu'[un agent ne ferme jamais un finding](../../reference/security.md#securite-du-serveur-lui-meme)

@@ -16,7 +16,7 @@ Chaque événement, l'API, la ligne de commande et les variables sont dans
 | Jetons | Création, renouvellement, révocation, changement de projets |
 | Comptes et droits | Connexions et échecs de connexion, déconnexions, rôles, groupes et leurs membres |
 | Projets | Demande par un agent, validation, refus, création, suppression |
-| Réglages | Serveur syslog, adresse du contrôleur, connecteurs |
+| Réglages | Serveur syslog, adresse du serveur Controller, connecteurs |
 
 Chaque événement donne sa date, son **auteur** (une personne `user:<nom>`, un jeton
 `token:<label>`, la ligne de commande `cli`...), sa cible, son projet et ses détails.
@@ -35,7 +35,7 @@ Un administrateur peut changer cette durée ou borner le nombre d'événements c
 
 ## Envoi vers syslog
 
-Pour garder les événements hors de la base (SIEM, journal central), le contrôleur peut aussi les
+Pour garder les événements hors de la base (SIEM, journal central), le serveur Controller peut aussi les
 envoyer un par un à un serveur syslog. Dans l'écran **Journal d'audit**, le bouton **Syslog** (à
 côté de **Actualiser**) ouvre la fenêtre **Envoi vers syslog** : **Aucun envoi**, ou **Défini
 ici** avec l'adresse du serveur et sa facility. Le changement s'applique en quelques secondes.

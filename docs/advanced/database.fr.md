@@ -1,6 +1,6 @@
 # Base de données
 
-Le contrôleur et le serveur MCP partagent une même base : rapports et findings, règles,
+Le serveur Controller et le serveur MCP partagent une même base : rapports et findings, règles,
 comptes, empreintes des jetons, réglages et journal d'audit. Cette page regroupe ce qui la
 concerne : choix du moteur, migrations du schéma, conservation, sauvegarde et mise à niveau. Les
 variables sont listées dans [Configuration](../reference/configuration.md#base-de-donnees-et-journaux).
@@ -41,8 +41,8 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
 - Le **serveur MCP HTTP ne migre jamais** : il refuse de démarrer (code `2`, message
   `run security-review-controller db upgrade first`) tant que la base n'est pas à la révision
   attendue. Sous Kubernetes, le pod redémarre jusqu'à ce que la migration soit faite.
-- Le contrôleur, le serveur MCP stdio et les commandes CLI migrent au démarrage : avec Docker
-  Compose et Kubernetes, le contrôleur migre à son démarrage, il n'y a rien à faire.
+- Le serveur Controller, le serveur MCP stdio et les commandes CLI migrent au démarrage : avec Docker
+  Compose et Kubernetes, le serveur Controller migre à son démarrage, il n'y a rien à faire.
 - Sur PostgreSQL, une migration prend un verrou consultatif (advisory lock) : des instances qui
   démarrent ensemble (plusieurs réplicas, un `db upgrade` lancé à la main) s'attendent, et la
   suivante trouve le schéma à jour.
@@ -57,20 +57,20 @@ exploitant qui sort les migrations de l'application, par exemple quand :
 - une nouvelle image ne doit pas modifier le schéma d'elle-même : la migration est lancée après
   une sauvegarde, ou pendant une fenêtre de maintenance.
 
-Le contrôleur, le serveur MCP stdio et les commandes CLI vérifient alors seulement le schéma :
+Le serveur Controller, le serveur MCP stdio et les commandes CLI vérifient alors seulement le schéma :
 comme le serveur MCP HTTP, ils refusent de démarrer (code `2`) tant que `db upgrade` n'a pas été
 lancé.
 
 ## Conservation des rapports sans findings
 
-Le contrôleur supprime ces rapports dès qu'ils ont plus de
+Le serveur Controller supprime ces rapports dès qu'ils ont plus de
 `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` jours (`90` par défaut) : au démarrage, puis
 chaque jour. Le dernier rapport de chaque projet est toujours conservé, si bien qu'un projet ne
 disparaît jamais de la liste, et un rapport avec des findings n'est jamais supprimé, quel que
 soit leur statut. `0` désactive la purge.
 
 La même purge peut être lancée à la demande, par exemple depuis une tâche planifiée quand le
-contrôleur ne tourne pas :
+serveur Controller ne tourne pas :
 
 ```bash
 security-review-controller db prune              # conservation de SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
@@ -119,7 +119,7 @@ docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exis
 docker compose up -d
 ```
 
-Le contrôleur applique ensuite au démarrage les révisions Alembic en attente, s'il y en a. L'export
+Le serveur Controller applique ensuite au démarrage les révisions Alembic en attente, s'il y en a. L'export
 contient les rapports, les empreintes des mots de passe et des jetons : gardez-le hors du dépôt
 (lisible par vous seul, `umask 077`) et supprimez-le une fois la restauration vérifiée.
 

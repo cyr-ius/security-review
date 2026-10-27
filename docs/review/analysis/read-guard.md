@@ -11,7 +11,7 @@ called by a hook of the coding agent before each tool call.
 
 Before the tool call, `security-review-ci guard` reads the hook event on its standard input,
 finds the files that the call reads and scans them locally with the
-[`AI-*` rules](../rules.md#default-rules-by-platform) (no network access, no controller, no
+[`AI-*` rules](../rules.md#default-rules-by-platform) (no network access, no Controller server, no
 token), then:
 
 | Result | Decision | What the assistant gets |
@@ -82,7 +82,7 @@ ships the example of Claude Code.
   file read by a script, a pipe from another command or a web page does not go through the
   guard.
 - The rules are a copy of the default `AI-*` rules: a rule changed by an administrator in the
-  web interface does not apply to the guard, which runs without the controller.
+  web interface does not apply to the guard, which runs without the Controller server.
 - The rules are a first pass: text addressed to an assistant can be worded in endless ways. The
   [untrusted data rule](../prompts-tools.md#status-of-a-finding) of the review prompts and
   the fact that [an agent never closes a finding](../../reference/security.md#security-of-the-server-itself)

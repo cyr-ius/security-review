@@ -3,8 +3,8 @@
 The [audit log](../usage/audit-metrics.md) page describes the log in the web interface. This
 page gives every event, the API, the command line and the variables.
 
-The controller keeps an **audit log** of the security-relevant changes. It reads the database
-shared with the MCP server: every replica answers the same thing. The metrics of the controller
+The Controller server keeps an **audit log** of the security-relevant changes. It reads the database
+shared with the MCP server: every replica answers the same thing. The metrics of the Controller server
 are in [Prometheus metrics](../reference/metrics.md).
 
 Every change below writes an event in the same transaction as the change itself: an event
@@ -35,7 +35,7 @@ exists exactly when the change was committed.
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
 | `user.logout` | A web user logs out with **Log out** (address) |
 | `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
-| `controller_url.changed` | The public URL of the controller, whose web interface is given to the agents without a token, is changed on the **General** screen, or copied from `SECREVIEW_CONTROLLER_URL` by the controller at start (actor `environment`); `null`: stored value deleted |
+| `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** screen, or copied from `SECREVIEW_CONTROLLER_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** screen |
 | `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, by the client (`/revoke`), or with its user |
@@ -87,7 +87,7 @@ security-review-controller audit prune --max-events 100000
 
 ## Forwarding to syslog
 
-The controller can also send each event to a syslog server, to keep it outside the database
+The Controller server can also send each event to a syslog server, to keep it outside the database
 (SIEM, central log). Disabled by default:
 
 ```bash
@@ -96,7 +96,7 @@ SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # default
 ```
 
 To encrypt the events, use `tls://host:port` (syslog over TLS, RFC 5425, port 6514 by default):
-the controller verifies the certificate of the server and its host name with the system CA
+the Controller server verifies the certificate of the server and its host name with the system CA
 bundle, or with `SECREVIEW_AUDIT_SYSLOG_CAFILE` (internal certificate authority, a variable
 only). Each message is then framed by its length (octet counting), as RFC 5425 requires: on
 rsyslog, `imtcp` with `StreamDriver.Mode="1"`; on syslog-ng, the `syslog()` source with
@@ -123,11 +123,11 @@ as JSON, the same fields as `audit list`:
 <134>secreview-audit: {"action":"user.login","actor":"user:alice","created_at":"…","details":{"address":"10.0.0.8","method":"password"},"id":12,"project":null,"target_id":"2","target_type":"user"}
 ```
 
-- The controller forwards the events of **every** process, MCP server and CLI included, from the
+- The Controller server forwards the events of **every** process, MCP server and CLI included, from the
   database: the MCP server keeps making no outgoing connection. An event leaves about 5 to 15
   seconds after it is written; the history before the forwarding is enabled (at start or in
   the web interface) is not sent.
-- Each event is sent **once**, even with several replicas of the controller: the id of the last
+- Each event is sent **once**, even with several replicas of the Controller server: the id of the last
   forwarded event is kept in the database, and a replica moves it forward before sending. A batch
   whose sending fails is logged and not sent again (at most once).
 - `udp://` and `tcp://` send the events in clear: use them on a trusted network or towards a

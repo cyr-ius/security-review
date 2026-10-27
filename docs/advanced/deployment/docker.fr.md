@@ -21,7 +21,7 @@ Les images portent un SBOM et une attestation de provenance (`docker buildx imag
 
 Un seul fichier,
 [`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
-démarre tout avec l'image publiée : PostgreSQL, la migration du schéma, le contrôleur et le
+démarre tout avec l'image publiée : PostgreSQL, la migration du schéma, le serveur Controller et le
 serveur MCP. Les commandes qui le téléchargent et le démarrent sont dans
 [Mise en service du serveur](../../getting-started/deploy.md#avec-docker-compose).
 
@@ -55,7 +55,7 @@ Bon à savoir :
 
 - **Ordre de démarrage.** `controller` attend que PostgreSQL soit prêt, puis crée ou met à jour
   les tables ; `mcp`, qui les vérifie seulement, attend que `controller` soit en bonne santé.
-  Après une mise à jour de l'image, `docker compose up -d` suffit : le contrôleur applique les
+  Après une mise à jour de l'image, `docker compose up -d` suffit : le serveur Controller applique les
   nouvelles migrations.
 - **Conservez `.env`.** Il contient le mot de passe de la base et le secret des sessions ; ne le
   commitez jamais. Le mot de passe est inséré tel quel dans l'URL de connexion : gardez des
@@ -70,18 +70,18 @@ Bon à savoir :
   décommentez dans `controller` et `mcp` les variables TLS (`SECREVIEW_TLS_CERTFILE`,
   `SECREVIEW_TLS_KEYFILE`) et le `volumes` qui monte en lecture seule les fichiers du certificat
   depuis `./tls` (voir
-  [Autorité de certification](../tls.md#autorite-de-certification)). Le contrôleur n'expose aucune
+  [Autorité de certification](../tls.md#autorite-de-certification)). Le serveur Controller n'expose aucune
   route d'écriture sans jeton : il peut rester interne, sauf si la
   [connexion OAuth des clients MCP](../mcp-oauth.md) est active : les hôtes MCP atteignent alors
   ses routes OAuth (décommentez `SECREVIEW_MCP_OAUTH_ENABLED` et `SECREVIEW_MCP_URL` dans
   `controller` ; derrière un seul hôte de reverse proxy, routez `/mcp` et
   `/.well-known/oauth-protected-resource` vers `mcp`, tout le reste vers `controller`).
-  Ajoutez à `.env` l'URL publique racine du contrôleur (`SECREVIEW_CONTROLLER_URL=https://…`) :
-  le contrôleur la recopie en base au démarrage, pour que le serveur MCP donne le lien de
+  Ajoutez à `.env` l'URL publique racine du serveur Controller (`SECREVIEW_CONTROLLER_URL=https://…`) :
+  le serveur Controller la recopie en base au démarrage, pour que le serveur MCP donne le lien de
   l'interface web (`/ui`) à un agent sans jeton et que les connecteurs relient leurs tickets aux rapports. Sans elle, renseignez
   l'écran **Général**.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
-  dépendances répond qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au
+  dépendances répond qu'aucune base n'est chargée. Pour que le serveur Controller la télécharge au
   démarrage puis toutes les 24 h, décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et
   `SECREVIEW_OSV_ECOSYSTEMS`) dans le service `controller`, puis lancez `docker compose up -d`.
   Suivez l'import avec `docker compose logs -f controller`. Sans accès Internet, importez une
@@ -93,7 +93,7 @@ Bon à savoir :
   `/var/lib/postgresql`, où PostgreSQL 18 range ses données ; un volume créé par PostgreSQL 17 ne
   démarre pas avec cette image (voir [Mise à niveau de PostgreSQL](../database.md#mise-a-niveau-de-postgresql)).
 
-Les commandes d'administration s'exécutent dans le conteneur du contrôleur :
+Les commandes d'administration s'exécutent dans le conteneur du serveur Controller :
 
 ```bash
 docker compose exec controller security-review-controller token list
@@ -106,14 +106,14 @@ existante (voir [Architecture](../architecture/index.md)) :
 
 - le **serveur MCP** est le point d'entrée par défaut de l'image (`security-review-mcp`,
   commande par défaut `serve`, en HTTP streamable ; ajoutez `--transport stdio` pour le mode local) ;
-- le **contrôleur** (API REST, interface web, administration) se lance avec
+- le **serveur Controller** (API REST, interface web, administration) se lance avec
   `--entrypoint security-review-controller`, avec les [jetons](../bearer-tokens.md) et le [TLS](../tls.md) intégrés
   ou derrière un reverse proxy qui s'en charge.
 
 ```bash
 DB=postgresql+psycopg2://user:pass@db:5432/secreview
 
-# 1. Contrôleur : interface web et API, de préférence sur un réseau interne ; crée ou met
+# 1. Serveur Controller : interface web et API, de préférence sur un réseau interne ; crée ou met
 #    à jour le schéma (Alembic) au démarrage, donc à lancer en premier
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
     -e SECREVIEW_DATABASE_URL=$DB \
@@ -128,7 +128,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
     ghcr.io/cyr-ius/security-review serve --port 8443
 
-# 3. Mot de passe du compte admin, créé au premier démarrage du contrôleur
+# 3. Mot de passe du compte admin, créé au premier démarrage du serveur Controller
 docker exec secreview-controller security-review-controller user reset-password admin
 ```
 
@@ -140,7 +140,7 @@ serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 1).
 ## Règles internes et CLI
 
 Les [règles](../../review/rules.md#commande-rules) sont stockées dans la base : importez un
-dossier de packs TOML avec la CLI du contrôleur (les serveurs en cours d'exécution les
+dossier de packs TOML avec la CLI du serveur Controller (les serveurs en cours d'exécution les
 appliquent en quelques secondes) :
 
 ```bash

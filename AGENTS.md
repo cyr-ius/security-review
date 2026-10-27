@@ -362,6 +362,12 @@ essentielles.
 - Les deux versions d'une page disent la même chose : pas de section qui n'existe que dans une
   langue. Les exemples (commandes, sorties, JSON) sont identiques ; seuls le texte et les
   commentaires sont traduits.
+- Dans la doc, les README et les textes de l'interface web, le contrôleur s'appelle toujours
+  **serveur Controller** en français, **Controller server** en anglais et **servidor
+  Controller** en espagnol (« Controller » en anglais, avec sa majuscule, jamais seul) ; les
+  commandes, identifiants et clés (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`,
+  `settings.controllerUrlTitle`...) ne changent pas, ni les noms des configurations de
+  `.vscode/launch.json`.
 - L'interface web est traduite (anglais, français, espagnol) : chaque version de la doc cite les
   libellés de l'interface dans sa langue, tels qu'ils s'affichent (**Tokens** / **Jetons**).
 - Tout texte affiché par l'interface passe par les catalogues de `web/src/app/core/i18n/messages/`,

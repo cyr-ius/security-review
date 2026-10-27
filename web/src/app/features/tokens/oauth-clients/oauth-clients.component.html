@@ -8,7 +8,9 @@
       <p class="text-body-secondary small">{{ 'oauth.adminHelp' | t }}</p>
 
       <dl class="row small mb-3">
-        <dt class="col-sm-3">{{ 'oauth.mcpUrl' | t }}</dt>
+        <dt class="col-sm-3">
+          {{ 'oauth.mcpUrl' | t }} <em class="fw-normal">{{ 'oauth.mcpUrlHint' | t }}</em>
+        </dt>
         <dd class="col-sm-9">
           <code>{{ data.mcp_url }}</code>
         </dd>

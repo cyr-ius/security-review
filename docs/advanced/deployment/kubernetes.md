@@ -4,7 +4,7 @@ Two manifests deploy everything in the `secreview` namespace:
 [`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
 (PostgreSQL, official image) and
 [`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
-(controller and MCP server, published image `ghcr.io/cyr-ius/security-review:latest`).
+(Controller server and MCP server, published image `ghcr.io/cyr-ius/security-review:latest`).
 
 ## Deployment
 
@@ -45,11 +45,11 @@ replication, backups and upgrades.
 - a **`secreview-config` ConfigMap** shared by both processes;
 - one Service per process, `readiness` and `liveness` probes on `/healthz`, non-root
   containers with a read-only file system, without any Linux capability;
-- a **NetworkPolicy** that limits access to the controller to the pods of the namespace and to
+- a **NetworkPolicy** that limits access to the Controller server to the pods of the namespace and to
   the ingress controller (adapt its label).
 
-The controller also reads the **`secreview-controller` Secret**, created by hand (see
-[Secrets](#secrets)), with `SECREVIEW_SECRET_KEY`: without it, the controller draws a random
+The Controller server also reads the **`secreview-controller` Secret**, created by hand (see
+[Secrets](#secrets)), with `SECREVIEW_SECRET_KEY`: without it, the Controller server draws a random
 session secret at every start, so the web sessions would end at every restart and would not be
 shared by the replicas (see [Login and sessions](../architecture/controller.md#login-and-sessions)).
 
@@ -129,7 +129,7 @@ to `secreview-mcp`, everything else to `secreview-controller`.
 
 Then, in the ConfigMap:
 
-- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the controller (`https://…`), or
+- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the Controller server (`https://…`), or
   fill in the **General** screen: the MCP server gives its web interface (`/ui`) to the clients
   without a valid token, so that the user knows where to create
   a personal MCP token;
@@ -140,8 +140,8 @@ Then, in the ConfigMap:
   otherwise every client shares their address for the login throttling, the rate limit and the
   audit log.
 
-The NetworkPolicy of the controller lets in the ingress controller of the `ingress-nginx`
-namespace: adapt its label to yours. Administration commands run in the pod of the controller:
+The NetworkPolicy of the Controller server lets in the ingress controller of the `ingress-nginx`
+namespace: adapt its label to yours. Administration commands run in the pod of the Controller server:
 
 ```bash
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \
@@ -150,7 +150,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 
 ## OSV update
 
-For the [daily update of the OSV advisories](../../review/analysis/dependencies.md#automatic-update-by-the-controller),
+For the [daily update of the OSV advisories](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server),
 uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
 and `NO_PROXY`, in the `secreview-controller` Secret if the proxy holds credentials) on the
 `controller` container, and allow its egress to `osv-vulnerabilities.storage.googleapis.com` (`SECREVIEW_OSV_URL`),
@@ -164,5 +164,5 @@ REST API (`/api/docs`) stays disabled unless you uncomment `SECREVIEW_SWAGGER_EN
     MCP sessions (streamable HTTP transport) are kept in memory by the pod that opened them.
     Before raising `replicas`, configure the Ingress to send every request of a session to the
     same pod (affinity on the `Mcp-Session-Id` header, or failing that cookie or address
-    affinity). The controller can have several replicas: their migrations wait for each other
+    affinity). The Controller server can have several replicas: their migrations wait for each other
     (PostgreSQL advisory lock), and `SECREVIEW_SECRET_KEY` lets them share the web sessions.

@@ -1,9 +1,9 @@
 # Prometheus metrics
 
 The metrics are read in the database shared with the MCP server: every replica of the
-controller answers the same thing (see also the [audit log](../advanced/audit-log.md)).
+Controller server answers the same thing (see also the [audit log](../advanced/audit-log.md)).
 
-`GET /metrics` on the **controller** answers in the Prometheus text format (`0.0.4`). The MCP
+`GET /metrics` on the **Controller server** answers in the Prometheus text format (`0.0.4`). The MCP
 server has no metrics endpoint. It needs a token of role `metrics`, which reaches nothing else
 (neither the REST API nor MCP), or `admin`:
 

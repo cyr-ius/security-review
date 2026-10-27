@@ -1,6 +1,6 @@
 # Écrire un connecteur
 
-Un connecteur tiers est un paquet Python que le contrôleur charge pour envoyer les findings
+Un connecteur tiers est un paquet Python que le serveur Controller charge pour envoyer les findings
 vers un autre système. Cette page s'adresse à ses développeurs ; pour installer et autoriser un
 connecteur, voir [Connecteurs tiers](../usage/connectors/third-party.md).
 
@@ -26,7 +26,7 @@ class AcmeConnector(Connector):
     kind = "acme"  # identifier: exports, URLs, SECREVIEW_ACME_* variables
     name = "Acme Risk"  # display name
     url_placeholder = "https://risk.acme.example/api"
-    fields = (  # the URL field is added by the controller
+    fields = (  # the URL field is added by the Controller server
         ConnectorField(
             name="api_key",
             label="API key",
@@ -71,13 +71,13 @@ acme = "acme_connector:AcmeConnector"
 | `kind` | Lettres minuscules, chiffres et `_` (2 à 20 caractères, pas `connectors`) ; enregistré avec les exports |
 | `fields` | `ConnectorField` : `name`, `label`, `secret`, `required`, `default`, `help`, `placeholder`, `pattern` (correspondance complète), `max_length`, `translations` (`{"fr": {"label": ..., "help": ...}}`) |
 | `destination` | Ce qu'un administrateur choisit par projet ; surchargez `check_destination` pour la normaliser |
-| `auth_headers(values)` | En-têtes d'authentification, ajoutés par le contrôleur à chaque requête |
+| `auth_headers(values)` | En-têtes d'authentification, ajoutés par le serveur Controller à chaque requête |
 | `export_finding(connection, destination, content)` | Crée l'enregistrement du finding et renvoie `ExportedFinding(key, url)` (lien `https://`) |
 | `test_connection(connection)` | Requête en lecture seule qui exige des identifiants valides |
 
-## Garanties du contrôleur
+## Garanties du serveur Controller
 
-Ce que le contrôleur garantit, quel que soit le connecteur :
+Ce que le serveur Controller garantit, quel que soit le connecteur :
 
 - `connection.http.request(method, path, json_body=..., query=...)` est la seule sortie : `path`
   est relatif à l'URL configurée (aucun autre hôte), en HTTPS, par le proxy sortant, **sans suivre

@@ -51,7 +51,7 @@ Le serveur MCP n'appelle aucun service externe : il consulte une base d'avis OSV
 base de données. Deux façons de l'alimenter :
 
 - **import manuel** (aucun accès réseau requis) ;
-- **mise à jour quotidienne par le contrôleur**, s'il a le droit de sortir sur Internet,
+- **mise à jour quotidienne par le serveur Controller**, s'il a le droit de sortir sur Internet,
   directement ou par un proxy.
 
 ### Import manuel
@@ -67,23 +67,23 @@ security-review-controller advisories import Maven.zip --ecosystem Maven   # fil
 security-review-controller advisories status
 ```
 
-### Mise à jour automatique par le contrôleur
+### Mise à jour automatique par le serveur Controller
 
 Avec `SECREVIEW_OSV_AUTO_UPDATE=true`, `security-review-controller serve` télécharge les
 exports `all.zip` de chaque écosystème et les importe, puis recommence toutes les 24 heures :
 
 ```bash
 SECREVIEW_OSV_AUTO_UPDATE=true
-# Facultatif : proxy HTTP sortant du contrôleur (identifiants acceptés, jamais journalisés)
+# Facultatif : proxy HTTP sortant du serveur Controller (identifiants acceptés, jamais journalisés)
 HTTPS_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 ```
 
 - **Désactivée par défaut**. Le serveur MCP, lui, ne se connecte jamais à l'extérieur.
 - L'échéance dépend de l'âge de la base (dernier import, manuel ou automatique) : un
-  redémarrage ou une seconde réplique du contrôleur ne retélécharge pas avant la fin de
+  redémarrage ou une seconde réplique du serveur Controller ne retélécharge pas avant la fin de
   l'intervalle (`SECREVIEW_OSV_UPDATE_INTERVAL_HOURS`, 24 par défaut). Une base vide ou trop
   ancienne est mise à jour dès le démarrage.
-- **Proxy** : le téléchargement passe par le proxy sortant du contrôleur, donné par les
+- **Proxy** : le téléchargement passe par le proxy sortant du serveur Controller, donné par les
   variables standard `HTTPS_PROXY` (sinon `HTTP_PROXY` ; noms en minuscules acceptés ;
   `http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`, tunnel
   `CONNECT` vers le site HTTPS), sauf vers les hôtes de `NO_PROXY`. Le même proxy sert à la
@@ -122,7 +122,7 @@ NO_PROXY=.corp.example,10.0.0.5
 ```
 
 Le proxy peut aussi être choisi par un administrateur dans la section
-**Proxy sortant du contrôleur** de l'écran [**Général**](../../usage/index.md#ecrans) de l'interface web, pour les variables
+**Proxy sortant du serveur Controller** de l'écran [**Général**](../../usage/index.md#ecrans) de l'interface web, pour les variables
 non définies : `HTTPS_PROXY` (sinon `HTTP_PROXY`) et `NO_PROXY`, quand elles sont définies,
 sont prioritaires sur les valeurs de l'écran. Elles s'appliquent au téléchargement suivant. L'écran **Base OSV** affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
@@ -130,7 +130,7 @@ maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponib
 `SECREVIEW_OSV_AUTO_UPDATE=true`.
 
 Pour déclencher une mise à jour à la demande (ou depuis un `CronJob` plutôt que depuis le
-contrôleur), avec les mêmes paramètres :
+serveur Controller), avec les mêmes paramètres :
 
 ```bash
 security-review-controller advisories update                  # écosystèmes de SECREVIEW_OSV_ECOSYSTEMS
@@ -138,13 +138,13 @@ security-review-controller advisories update --ecosystem npm  # option répétab
 # code de sortie : 0 = tout importé, 2 = au moins un écosystème en échec ou paramètre invalide
 ```
 
-Le contrôleur télécharge au plus quelques centaines de Mio par jour (l'export npm est le plus
+Le serveur Controller télécharge au plus quelques centaines de Mio par jour (l'export npm est le plus
 gros) : prévoyez l'espace correspondant dans son dossier temporaire (`/tmp`).
 
 ## Scan dans un pipeline (`security-review-ci scan-deps`)
 
 Dans un pipeline, le [client de pipeline](../../advanced/architecture/ci.md)
-envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis et, avec
+envoie les fichiers de dépendances au serveur Controller, qui les compare à sa base d'avis et, avec
 `--save`, enregistre un rapport `dependency-scan` du projet. Le pipeline n'a besoin ni de la
 base ni du paquet, seulement d'un [jeton `ci`](../../advanced/architecture/ci.md#jeton-ci-et-projets-visibles)
 (ou `admin`) du projet :
@@ -163,7 +163,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
   `--author` enregistre le nom d'utilisateur du développeur avec lui (voir
   [auteur d'un rapport](../prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil.
-- Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du contrôleur, la requête à
+- Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur Controller, la requête à
   `SECREVIEW_MAX_SCAN_REQUEST_MB`. Les liens symboliques ne sont pas lus.
 
 ## Scan depuis un poste de travail (hook de commit)
@@ -173,7 +173,7 @@ Mise en place pas à pas, avec la revue par un agent : [Hooks de commit](../../g
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
 [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
-envoyés au contrôleur exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
+envoyés au serveur Controller exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
 Python : installez le client avec uv (voir [Installation](../../advanced/architecture/ci.md#installation)).
 
 ```bash
@@ -181,7 +181,7 @@ uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_CI_TOKEN=<personal ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
-# code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (contrôleur injoignable, jeton refusé...)
+# code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (serveur Controller injoignable, jeton refusé...)
 ```
 
 Hook de commit ([prek](https://prek.j178.dev) ou [pre-commit](https://pre-commit.com)), lancé
@@ -197,14 +197,14 @@ repos:
         name: dependency scan
         entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
         language: python
-        additional_dependencies: ["security-review-ci==X.Y.Z"] # version de votre contrôleur
+        additional_dependencies: ["security-review-ci==X.Y.Z"] # version de votre serveur Controller
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
 
 Avec le client déjà installé (`uv tool install`), `language: system` le lance depuis le `PATH`.
 
 `--skip-unconfigured` laisse passer le commit, avec un avertissement, quand
-`SECREVIEW_CONTROLLER_URL` n'est pas défini (contributeurs sans contrôleur). Les deux variables
+`SECREVIEW_CONTROLLER_URL` n'est pas défini (contributeurs sans serveur Controller). Les deux variables
 sont lues dans l'environnement uniquement, jamais dans le fichier `.env`.
 
 ## Lire le résultat

@@ -6,13 +6,13 @@ Traefik.
 
 ## What the proxy must do
 
-**Route each path to its process.** The MCP server and the controller are two processes (see
+**Route each path to its process.** The MCP server and the Controller server are two processes (see
 [Architecture](architecture/index.md)):
 
 | Paths | Process | Port (Compose files) |
 |---|---|---|
 | `/mcp`, `/.well-known/oauth-protected-resource/…` ([OAuth login](mcp-oauth.md)) | MCP server | `8000` |
-| everything else: `/ui`, `/api`, `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | controller | `8080` |
+| everything else: `/ui`, `/api`, `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | Controller server | `8080` |
 
 With **one host per process** (`mcp.secreview.example.com` and `secreview.example.com`), each host
 sends every path to its process: no path rule. With **a single host**, route by path as in the
@@ -21,7 +21,7 @@ examples below.
 **Declare the public URLs.** The servers give the clients absolute URLs built from the settings,
 never from the `Host` header: they must be those of the proxy, as seen from the workstations.
 
-| Variable (controller) | One host per process | Single host |
+| Variable (Controller server) | One host per process | Single host |
 |---|---|---|
 | `SECREVIEW_CONTROLLER_URL` | `https://secreview.example.com` | `https://secreview.example.com` |
 | `SECREVIEW_MCP_URL` (OAuth login) | `https://mcp.secreview.example.com/mcp` | `https://secreview.example.com/mcp` |
@@ -32,7 +32,7 @@ The hosts then use the same address as `SECREVIEW_MCP_URL`.
 buffering, and a read timeout long enough for a review (one hour below).
 
 **Let the bodies through.** A scan of `security-review-ci` sends up to
-`SECREVIEW_MAX_SCAN_REQUEST_MB` (64 MiB) to the controller, an MCP request up to
+`SECREVIEW_MAX_SCAN_REQUEST_MB` (64 MiB) to the Controller server, an MCP request up to
 `SECREVIEW_MAX_MCP_REQUEST_MB` (16 MiB): the proxy limit must not be lower.
 
 **Give the client address.** The proxy sends `X-Forwarded-For` and `X-Forwarded-Proto`; both
@@ -42,7 +42,7 @@ containers see the address of the Docker bridge, not `127.0.0.1`: set for instan
 `SECREVIEW_FORWARDED_ALLOW_IPS=172.16.0.0/12` (the range of your Docker networks).
 
 The examples use a single host `secreview.example.com`, TLS terminated by the proxy and the ports
-of the Compose files on `127.0.0.1`. For one host per process, keep the controller part on
+of the Compose files on `127.0.0.1`. For one host per process, keep the Controller server part on
 `secreview.example.com` and give the MCP part its own host, without path rule. When the proxy
 runs on another machine than the processes, the tokens would cross the network in clear: enable
 the [built-in TLS](tls.md) of both processes and proxy to `https://…` instead of
@@ -77,7 +77,7 @@ server {
         proxy_pass http://secreview_mcp;
     }
 
-    # Controller: web interface, REST API, OAuth authorization server
+    # Controller server: web interface, REST API, OAuth authorization server
     location / {
         proxy_pass http://secreview_controller;
     }
@@ -108,7 +108,7 @@ Modules `proxy`, `proxy_http`, `ssl` and `headers` (`a2enmod proxy proxy_http ss
     ProxyPassReverse /mcp http://127.0.0.1:8000/mcp
     ProxyPass        /.well-known/oauth-protected-resource http://127.0.0.1:8000/.well-known/oauth-protected-resource
 
-    # Controller: everything else
+    # Controller server: everything else
     ProxyPass        / http://127.0.0.1:8080/
     ProxyPassReverse / http://127.0.0.1:8080/
 </VirtualHost>
@@ -183,7 +183,7 @@ services (`traefik.http.routers.secreview-mcp.rule=…`), each with
 
 ```bash
 curl -s https://secreview.example.com/.well-known/oauth-protected-resource/mcp   # MCP server (OAuth on)
-curl -s https://secreview.example.com/.well-known/oauth-authorization-server     # controller (OAuth on)
+curl -s https://secreview.example.com/.well-known/oauth-authorization-server     # Controller server (OAuth on)
 curl -si -X POST https://secreview.example.com/mcp | head -1                     # 401 (OAuth on)
 curl -s https://secreview.example.com/api/health                                 # {"status":"ok"}
 ```

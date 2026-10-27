@@ -16,11 +16,11 @@ At your identity provider, create an OIDC client (with or without a secret) and 
   sees it (behind a reverse proxy, the address of the proxy);
 - a claim that holds the **groups** of the user (often `groups`).
 
-The provider must be reachable in HTTPS by the controller, through the outgoing proxy if needed.
+The provider must be reachable in HTTPS by the Controller server, through the outgoing proxy if needed.
 
 ## Configuring OIDC in the interface
 
-An administrator fills in the **Sign-in** screen, without restarting the controller:
+An administrator fills in the **Sign-in** screen, without restarting the Controller server:
 
 1. **Issuer**, **Client ID**, **Client secret** (empty for a public client) and **Callback URL**;
 2. the **Groups claim**, and the **Administration groups** whose members become administrators;

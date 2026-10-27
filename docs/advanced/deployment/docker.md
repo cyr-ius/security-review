@@ -22,7 +22,7 @@ The images include an SBOM and a provenance attestation (accessible via `docker 
 One file,
 [`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
 starts everything with the published image: PostgreSQL, the migration of the schema, the
-controller and the MCP server. The commands that download it and start it are in
+Controller server and the MCP server. The commands that download it and start it are in
 [Deploying the server](../../getting-started/deploy.md#with-docker-compose).
 
 The command `printf` writes the `.env` file, readable by you only: the password of PostgreSQL
@@ -55,7 +55,7 @@ Good to know:
 
 - **Order of start-up.** `controller` waits until PostgreSQL is ready, then creates or updates
   the tables; `mcp`, which only checks them, waits until `controller` is healthy. After an image
-  update, `docker compose up -d` is enough: the controller applies the new migrations.
+  update, `docker compose up -d` is enough: the Controller server applies the new migrations.
 - **Keep `.env`.** It holds the password of the database and the secret of the sessions; never
   commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
   as generated above.
@@ -67,17 +67,17 @@ Good to know:
   For the built-in TLS, uncomment in `controller` and `mcp` the TLS variables
   (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) and the `volumes` that mounts the
   certificate files read-only from `./tls` (see [Certificate Authority](../tls.md#certificate-authority)).
-  The controller exposes no write route without a token: it can stay internal, unless the
+  The Controller server exposes no write route without a token: it can stay internal, unless the
   [OAuth login of MCP clients](../mcp-oauth.md) is on: the MCP hosts then reach its OAuth routes
   (uncomment `SECREVIEW_MCP_OAUTH_ENABLED` and `SECREVIEW_MCP_URL` in `controller`; behind a
   single reverse proxy host, route `/mcp` and `/.well-known/oauth-protected-resource` to `mcp`,
   everything else to `controller`).
-  Add to `.env` the public root URL of the controller (`SECREVIEW_CONTROLLER_URL=https://…`):
-  the controller copies it to the database at start, so that the MCP server gives the link of
+  Add to `.env` the public root URL of the Controller server (`SECREVIEW_CONTROLLER_URL=https://…`):
+  the Controller server copies it to the database at start, so that the MCP server gives the link of
   the web interface (`/ui`) to an agent without a token, and the connectors link their tickets to the reports. Without it, set
   it in the **General** screen.
 - **Vulnerability advisories.** The OSV database is **empty** at the first start: the dependency
-  analysis answers that no database is loaded. To let the controller download it at start-up,
+  analysis answers that no database is loaded. To let the Controller server download it at start-up,
   then every 24 hours, uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and `SECREVIEW_OSV_ECOSYSTEMS`) in
   the `controller` service, then run `docker compose up -d`. Follow the import with
   `docker compose logs -f controller`. Without Internet access, import an archive with
@@ -89,7 +89,7 @@ Good to know:
   where PostgreSQL 18 keeps its data; a volume created by PostgreSQL 17 does not start with this
   image (see [Upgrading PostgreSQL](../database.md#upgrading-postgresql)).
 
-The administration commands run in the controller container:
+The administration commands run in the Controller container:
 
 ```bash
 docker compose exec controller security-review-controller token list
@@ -102,14 +102,14 @@ The same image runs each process in its own container, on an existing PostgreSQL
 
 - the **MCP server** is the default entry point of the image (`security-review-mcp`, default
   command `serve`, in streamable HTTP; add `--transport stdio` for the local mode);
-- the **controller** (REST API, web interface, administration) is started with
+- the **Controller server** (REST API, web interface, administration) is started with
   `--entrypoint security-review-controller`, with the built-in [tokens](../bearer-tokens.md) and [TLS](../tls.md)
   or behind a reverse proxy that handles them.
 
 ```bash
 DB=postgresql+psycopg2://user:pass@db:5432/secreview
 
-# 1. Controller: web interface and API, preferably on an internal network; creates or
+# 1. Controller server: web interface and API, preferably on an internal network; creates or
 #    updates the schema (Alembic) at start, so start it first
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
     -e SECREVIEW_DATABASE_URL=$DB \
@@ -124,7 +124,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
     ghcr.io/cyr-ius/security-review serve --port 8443
 
-# 3. Password of the admin account, created at the first start of the controller
+# 3. Password of the admin account, created at the first start of the Controller server
 docker exec secreview-controller security-review-controller user reset-password admin
 ```
 
@@ -137,7 +137,7 @@ refuses to start while the schema is not migrated (step 1).
 ## Internal Rules and CLI
 
 [Rules](../../review/rules.md#rules-command) are stored in the database; you can import a
-directory of TOML packs using the controller CLI (running servers will
+directory of TOML packs using the Controller server CLI (running servers will
 apply them within seconds):
 
 ```bash

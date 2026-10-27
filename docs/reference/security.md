@@ -2,13 +2,13 @@
 
 ## Security of the server itself
 
-- **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
+- **Two processes**: the MCP server (exposed to the agents) and the Controller server (REST API, web
   interface, administration) run separately and only share the database (see
   [Architecture](../advanced/architecture/index.md)). The MCP server only accepts
-  the `mcp` and `admin` tokens, the controller only web sessions and `admin` and `api` tokens, plus `ci`
+  the `mcp` and `admin` tokens, the Controller server only web sessions and `admin` and `api` tokens, plus `ci`
   on its pipeline routes (`/api/v1/ci/`: gate, SARIF and trend in read only, scans that store
   reports of its projects) and nowhere else. The
-  controller exposes no write route without a token: and the
+  Controller server exposes no write route without a token: and the
   compromise of the exposed MCP server gives no access to the administration interface.
 - **HTTP transport**: Bearer token authentication and TLS are built in (see
   [Bearer tokens](../advanced/bearer-tokens.md) and [TLS](../advanced/tls.md)). Tokens are stored in the
@@ -48,26 +48,26 @@
   reaches the enrollment server. Each rejection is also logged as a warning by the MCP server
   (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
   `secreview_auth_rejections_total` [metric](metrics.md) only counts the
-  rejections of the controller. The address of the web interface given in that description
+  rejections of the Controller server. The address of the web interface given in that description
   (`SECREVIEW_CONTROLLER_URL` + `/ui`) is a public URL:
   it holds no credentials (refused at start-up and in the web interface, where each change is
   audited).
 - **OAuth login of the MCP clients** (`SECREVIEW_MCP_OAUTH_ENABLED`, off by default): the
-  controller is the authorization server, the MCP server only checks the tokens in the
+  Controller server is the authorization server, the MCP server only checks the tokens in the
   database. Every client is public (PKCE `S256`, no client secret kept), its redirect URIs point
   to the loopback interface unless an https host or a scheme is listed by the operator (no
   other site receives a code); at most 10,000 requests are pending at once; codes are single use (60 seconds), only the SHA-256
   digests of the tokens are stored, a refresh rotates both tokens and a reused refresh token
   revokes the grant. Approving a client needs a web session and `mcp_tokens.create`; a token
   acts as a personal `mcp` token of its user, on the MCP server only, and is deleted with the
-  user; a controller started with the login off revokes every grant (see
+  user; a Controller server started with the login off revokes every grant (see
   [OAuth login of MCP clients](../advanced/mcp-oauth.md)).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens and project requests are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-log.md)).
-- **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`
+- **Metrics**: `/metrics` exists on the Controller server only (the MCP server keeps `/mcp`
   and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token
   label or a secret, and every label value is escaped (see
@@ -76,7 +76,7 @@
   cannot be created, and one found without a project reaches none); a personal `ci` token
   reaches the projects its user may read now, like a personal `mcp` token, which never reaches
   the pipeline routes (one usage per token). It only reads the gate, the
-  SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
+  SARIF log and the trend of its projects; the other routes of the Controller server, `/mcp` and the
   web interface answer `403`, the other projects `404`. The pipeline client
   ([`security-review-ci`](../advanced/architecture/ci.md)) opens no
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
@@ -87,7 +87,7 @@
   MCP server serves no other public route than `/healthz`. No token is ever created for a
   client. With a token, `request_project` creates a new project only for a user holding
   `projects.create` (never an existing project); otherwise the request is **pending** until a
-  user with `projects.create` approves it on the controller, which adds the requesting user
+  user with `projects.create` approves it on the Controller server, which adds the requesting user
   (authenticated by the token, never declared) to the project group, created for a new project.
   For an existing project, the request is an access request, never granted at once, and only
   approved by a user who also holds `users.manage`. The
@@ -97,8 +97,8 @@
   Every request is audited. See
   [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
-  of the controller that make them (advisory download, OIDC, syslog, connectors, version check):
-  a test checks it. The controller only downloads the OSV advisories if an administrator enables it
+  of the Controller server that make them (advisory download, OIDC, syslog, connectors, version check):
+  a test checks it. The Controller server only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
@@ -109,9 +109,9 @@
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
   the history are scrubbed of them, but prefer `HTTPS_PROXY` (Kubernetes secret) if the
   database is not protected like a secret. See the
-  [automatic update](../review/analysis/dependencies.md#automatic-update-by-the-controller). With the
+  [automatic update](../review/analysis/dependencies.md#automatic-update-by-the-controller-server). With the
   [OIDC login](../advanced/oidc.md) (`SECREVIEW_OIDC_ENABLED`,
-  disabled by default), the controller also contacts the configured identity provider: HTTPS
+  disabled by default), the Controller server also contacts the configured identity provider: HTTPS
   only (HTTP only on localhost), redirects limited to HTTPS, answers bounded to 1 MiB, 10 second
   timeout. This configuration can also be
   [changed in the interface](../advanced/oidc.md#configuring-oidc-in-the-interface) by an
@@ -123,31 +123,31 @@
   secret. With `SECREVIEW_UPDATE_CHECK_ENABLED=true` (disabled by default), the **About** page
   asks `api.github.com` for the latest release of the repository: HTTPS only, through the
   outgoing proxy, redirects limited to HTTPS, answer bounded to 512 KiB, 10 second timeout, at
-  most one request per controller process every 6 hours (15 minutes after a failure); only the
+  most one request per Controller server process every 6 hours (15 minutes after a failure); only the
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. Once a
   connector is switched on in the **Connectors** screen (every one off by default, all locked
-  off by `SECREVIEW_CONNECTORS_ENABLED=false`), the controller sends the findings through it
+  off by `SECREVIEW_CONNECTORS_ENABLED=false`), the Controller server sends the findings through it
   (tickets in the configured Jira and ServiceNow, records of a third-party connector): HTTPS
   only, through the outgoing proxy, **no redirect**, answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
   never read as wiki markup; the secrets entered in the **Connectors** screen are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
   is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
-  URL through the client of the controller, see [connectors](../advanced/connectors.md#security). With
+  URL through the client of the Controller server, see [connectors](../advanced/connectors.md#security). With
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
   default; `settings.manage` permission, `udp://`, `tcp://` or `tls://` only, the change
-  audited), the controller sends the
+  audited), the Controller server sends the
   [audit events](../advanced/audit-log.md#forwarding-to-syslog) to that syslog server (UDP
   or TCP in clear, TLS with the certificate and host name of the server verified, or Unix
   socket; no proxy); the events hold no secret (masked details), and the MCP server still
   connects nowhere.
-- **Initial administrator**: created by the controller at its first start with a random
+- **Initial administrator**: created by the Controller server at its first start with a random
   password that nobody knows, never logged nor passed through a variable; the only way to a
   password is `security-review-controller user reset-password`, run by an operator, which
   prints it once. With `SECREVIEW_OIDC_ONLY=true` and OIDC enabled, the
   password login of the local accounts is refused (`403`); a disabled or invalid OIDC
   configuration never locks the local accounts out.
-- **Web interface** (controller): the REST API always requires a session or an `admin` or `api`
+- **Web interface** (Controller server): the REST API always requires a session or an `admin` or `api`
   token;
   without a user or a token, it answers `503` instead of granting anonymous rights. Only a
   session or an `api` token with the `findings.triage` permission, or an `admin` token, changes the status of a
@@ -170,16 +170,16 @@
   finding. A decision carried to the same issue raised by a later report (same project, rule,
   file and title: [finding reported again](../usage/triage.md#finding-reported-again))
   keeps its approver and its expiry date: a new report never extends it. Pages are served with a strict CSP and the anti-clickjacking headers, and every
-  answer of the controller (API, refusals included) carries `X-Content-Type-Options: nosniff`,
+  answer of the Controller server (API, refusals included) carries `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a closed CSP when the route sets
-  none and, over HTTPS (TLS of the controller, or `X-Forwarded-Proto` of a proxy listed in
+  none and, over HTTPS (TLS of the Controller server, or `X-Forwarded-Proto` of a proxy listed in
   `SECREVIEW_FORWARDED_ALLOW_IPS`), `Strict-Transport-Security: max-age=31536000`; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
   are disabled by default (`SECREVIEW_SWAGGER_ENABLED`); once enabled they are public, served
   from local files only with a strict CSP, and the data routes stay protected. The download of
   the pipeline client (`/api/ci-client/`, `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED`) is enabled
   by default (`false` disables it): it is public and read-only, serves only the wheel built from the
-  code of the controller, with its SHA-256, and tells the version of the controller. The check is made twice: by the Bearer
+  code of the Controller server, with its SHA-256, and tells the version of the Controller server. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
   authenticated identity. The API thus never grants rights by default, even if it is served
   without the middleware. Every JSON answer goes through its declared response model: a field
@@ -203,7 +203,7 @@
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to
   256 characters, with a lowercase letter, an uppercase letter, a digit and a character that is
-  neither (checked by the controller, generated passwords included); a password set by someone
+  neither (checked by the Controller server, generated passwords included); a password set by someone
   else (first administrator, creation or reset by an administrator) must be changed at the first
   login: until then the session only reaches **My account** (`403` elsewhere), user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
   whether the user name exists or not (dummy digest), and a failure always returns the same
@@ -219,7 +219,7 @@
   previous session. The session must also carry the identifier of the account: it never opens
   an account created again under the same internal number. The last administrator, local or
   OIDC (by its role or the role of its groups), can be neither deleted nor demoted. The password
-  of the initial `admin` account appears once in the logs of the controller: protect them and
+  of the initial `admin` account appears once in the logs of the Controller server: protect them and
   change it at the first login.
 - **OIDC login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
@@ -243,27 +243,27 @@
   read access to it: check who asked before approving. A session restricted to projects is
   restricted like a `--project` token. The session is a signed token (HMAC-SHA256, key derived
   from `SECREVIEW_SECRET_KEY`) that names the account, read again at every request: the
-  deletion of the account cuts it at once. It is accepted by the controller only, never by the
+  deletion of the account cuts it at once. It is accepted by the Controller server only, never by the
   MCP server. The return URL after login is limited to local paths. Codes, tokens and secrets
-  are never logged by the controller; the authorization code does appear in the access logs of
+  are never logged by the Controller server; the authorization code does appear in the access logs of
   a reverse proxy or of uvicorn, which is harmless: it is single-use and useless without the
   PKCE verifier of the cookie. The secret settings (`SECREVIEW_SECRET_KEY`,
   `SECREVIEW_OIDC_CLIENT_SECRET`, `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`)
   are typed as secrets: they never appear in a dump of the settings. Without
-  `SECREVIEW_SECRET_KEY`, the controller draws a random session secret at every start, kept in
+  `SECREVIEW_SECRET_KEY`, the Controller server draws a random session secret at every start, kept in
   memory only (a warning is logged): sessions end at restart.
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. For the whole repository scan,
   the pipeline client (`security-review-ci scan-code`), run by the operator on a folder they
   choose, reads the files without following symbolic links and sends their content to the
-  controller, which scans it without reading its own disk.
+  Controller server, which scans it without reading its own disk.
 - **Pipeline scans**: `POST /api/v1/ci/scan/code` and `/scan/deps` need a `ci` or `admin`
   token (a web session is refused) and stay within the projects
   of the token; they store a report only with `save`. The request body is bounded
   (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
   number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
   excerpts and in the stored report.
-- **Request bodies of the controller**: every body is bounded before it is parsed, `413`
+- **Request bodies of the Controller server**: every body is bounded before it is parsed, `413`
   beyond: 512 KiB for the JSON routes, public ones included (login, SSO), 8 MiB for the
   pack imports and `SECREVIEW_MAX_SCAN_REQUEST_MB` for the pipeline scans. The declared
   `Content-Length` is checked first, a chunked body as it is read.
@@ -282,7 +282,7 @@
   file directly: the scan never runs without rules. A default rule can be edited or disabled by
   an administrator, but not deleted (see [Rules](../review/rules.md#default-rules)).
 - **Development standards**: their content is handed as is to the AI assistant as instructions;
-  only the administrators of the controller write them (validated and bounded fields, 200
+  only the administrators of the Controller server write them (validated and bounded fields, 200
   standards of 50,000 characters at most). The MCP server only reads them, and the task given to
   the `development-standards` prompt is fenced so that it cannot escape. The prompt reminds that
   a standard never prevails over security (see

@@ -1,10 +1,10 @@
 # Bearer tokens
 
-The tokens of the [MCP server](architecture/mcp-server.md) and of the [controller](architecture/controller.md) are
-managed from the CLI of the controller. What each token may reach is in
+The tokens of the [MCP server](architecture/mcp-server.md) and of the [Controller server](architecture/controller.md) are
+managed from the CLI of the Controller server. What each token may reach is in
 [Tokens](../usage/tokens.md); the routes each process serves are in
 [What it serves](architecture/mcp-server.md#what-it-serves) (MCP server) and
-[What it serves](architecture/controller.md#what-it-serves) (controller).
+[What it serves](architecture/controller.md#what-it-serves) (Controller server).
 
 Tokens are stored in the database (`apitoken` table): only their SHA-256 digest is kept, the
 secret is shown only once, at creation. Manage them with the `token` command (see the
@@ -37,7 +37,7 @@ of a token is written to the [audit log](audit-log.md), with who made it.
 
 ## Before the first token
 
-While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
+While no token exists, the Controller server API answers `503` and the MCP server **stays closed**: a
 client without a token only reaches the [enrollment server](architecture/mcp-server.md#enrollment-personal-token-and-project-requests) (no tool),
 any other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp`
 is only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
@@ -98,8 +98,8 @@ The restriction also applies to the `report://` resource and to the `triage-repo
 With stdio, there is no token, hence no restriction.
 
 !!! tip
-    The `token` commands run on the controller side (or in its container), with the same
-    `SECREVIEW_DATABASE_URL` as the controller. Tokens are never passed as command-line
+    The `token` commands run on the Controller server side (or in its container), with the same
+    `SECREVIEW_DATABASE_URL` as the Controller server. Tokens are never passed as command-line
     arguments.
 
 ## Calling the REST API with a token

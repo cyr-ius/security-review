@@ -4,7 +4,7 @@ Les prompts de revue travaillent sur ce que l'agent leur donne, souvent le diff 
 `scan_code` est limité à `SECREVIEW_MAX_CONTENT_CHARS` par appel. Pour couvrir **tout** le
 dépôt, utilisez le [client de pipeline](../../advanced/architecture/ci.md)
 `security-review-ci scan-code` : il lit les fichiers du dépôt et envoie leur contenu au
-contrôleur, qui les scanne avec les [règles](../rules.md) de sa base.
+serveur Controller, qui les scanne avec les [règles](../rules.md) de sa base.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
@@ -22,7 +22,7 @@ utilisez un [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-person
 
 ## Sélection des fichiers
 
-Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
+Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre disque.
 
 - Les fichiers viennent de `git ls-files` (suivis + non suivis non ignorés : `.gitignore` est
   respecté). Hors dépôt git, ou avec `--no-git`, l'arborescence est parcourue en ignorant
@@ -41,14 +41,14 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
   les liens symboliques.
 
 !!! note "Le contenu quitte l'agent de build"
-    Le code source est envoyé au contrôleur (HTTPS, ou HTTP simple vers une adresse de bouclage
+    Le code source est envoyé au serveur Controller (HTTPS, ou HTTP simple vers une adresse de bouclage
     ou avec `--allow-http`). Excluez avec `--exclude` ce qui ne doit pas quitter l'agent.
 
-## Limites du contrôleur
+## Limites du serveur Controller
 
 | Variable | Défaut | Effet |
 |---|---|---|
-| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Taille de la requête : au-delà, le contrôleur répond `413` (code de sortie `2`) |
+| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Taille de la requête : au-delà, le serveur Controller répond `413` (code de sortie `2`) |
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Fichiers par requête : au-delà, `422` |
 | `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Un fichier plus grand n'est pas scanné et figure parmi les fichiers ignorés |
 
@@ -77,5 +77,5 @@ guide l'agent : inventaire, priorisation des points d'entrée, traçage des flux
 checklists, et une section **couverture** qui dit ce qui n'a pas été relu. Sans `scan_results`,
 le prompt demande à un agent qui peut lancer des commandes d'exécuter lui-même
 `security-review-ci scan-code` (avec un jeton `ci` personnel) : les fichiers arrivent au
-contrôleur tels quels, au lieu d'être recopiés par le modèle dans des appels à `scan_code`. Le
+serveur Controller tels quels, au lieu d'être recopiés par le modèle dans des appels à `scan_code`. Le
 prompt `dependency-review` fait de même avec `security-review-ci scan-deps`.

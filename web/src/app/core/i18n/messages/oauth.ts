@@ -34,8 +34,9 @@ export const oauth = defineMessages({
     'oauth.loadError': 'Could not load the connected MCP clients.',
     'oauth.adminTitle': 'MCP clients (OAuth login)',
     'oauth.adminHelp':
-      'Clients that log in through the browser instead of a personal token. Each approved client acts as a personal MCP token of the user who approved it. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The settings are variables of the controller.',
+      'Clients that log in through the browser instead of a personal token. Each approved client acts as a personal MCP token of the user who approved it. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The settings are variables of the Controller server.',
     'oauth.mcpUrl': 'MCP endpoint',
+    'oauth.mcpUrlHint': '(enter the public address of your MCP server)',
     'oauth.redirects': 'Accepted redirects',
     'oauth.loopback': 'loopback interface',
     'oauth.lifetimes': 'Token lifetimes',
@@ -87,8 +88,9 @@ export const oauth = defineMessages({
     'oauth.loadError': 'Impossible de charger les clients MCP connectés.',
     'oauth.adminTitle': 'Clients MCP (connexion OAuth)',
     'oauth.adminHelp':
-      'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Chaque client autorisé agit comme un jeton MCP personnel de l’utilisateur qui l’a autorisé. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les réglages sont des variables du contrôleur.',
+      'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Chaque client autorisé agit comme un jeton MCP personnel de l’utilisateur qui l’a autorisé. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les réglages sont des variables du serveur Controller.',
     'oauth.mcpUrl': 'Point d’accès MCP',
+    'oauth.mcpUrlHint': "(saisissez l'adresse publique de votre serveur MCP)",
     'oauth.redirects': 'Redirections acceptées',
     'oauth.loopback': 'interface loopback',
     'oauth.lifetimes': 'Durée des jetons',
@@ -140,8 +142,9 @@ export const oauth = defineMessages({
     'oauth.loadError': 'No se pudieron cargar los clientes MCP conectados.',
     'oauth.adminTitle': 'Clientes MCP (inicio de sesión OAuth)',
     'oauth.adminHelp':
-      'Los clientes que inician sesión con el navegador en lugar de un token personal. Cada cliente autorizado actúa como un token MCP personal del usuario que lo autorizó. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los ajustes son variables del controlador.',
+      'Los clientes que inician sesión con el navegador en lugar de un token personal. Cada cliente autorizado actúa como un token MCP personal del usuario que lo autorizó. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los ajustes son variables del servidor Controller.',
     'oauth.mcpUrl': 'Punto de acceso MCP',
+    'oauth.mcpUrlHint': '(introduzca la dirección pública de su servidor MCP)',
     'oauth.redirects': 'Redirecciones aceptadas',
     'oauth.loopback': 'interfaz loopback',
     'oauth.lifetimes': 'Duración de los tokens',

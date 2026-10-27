@@ -1,10 +1,10 @@
 # TLS et certificats
 
-Le [serveur MCP](architecture/mcp-server.md) et le [contrôleur](architecture/controller.md) servent eux-mêmes le HTTPS,
+Le [serveur MCP](architecture/mcp-server.md) et le [serveur Controller](architecture/controller.md) servent eux-mêmes le HTTPS,
 ou derrière un reverse proxy qui termine le TLS.
 
 Uvicorn sert directement en HTTPS quand un certificat est fourni, pour le serveur MCP comme pour
-le contrôleur (mêmes options, mêmes variables) :
+le serveur Controller (mêmes options, mêmes variables) :
 
 ```bash
 security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
@@ -103,7 +103,7 @@ Un reverse proxy ou un Ingress peut terminer le TLS à la place (laissez les var
 `SECREVIEW_TLS_*` vides). Réglez alors `SECREVIEW_FORWARDED_ALLOW_IPS` sur son adresse, pour que
 l'adresse du client soit lue dans `X-Forwarded-For` pour la limitation des connexions, la limite
 de débit et le journal d'audit (voir l'exposition du
-[serveur MCP](architecture/mcp-server.md#exposition-et-replicas) et du [contrôleur](architecture/controller.md#exposition)).
+[serveur MCP](architecture/mcp-server.md#exposition-et-replicas) et du [serveur Controller](architecture/controller.md#exposition)).
 
 !!! warning
     Si un processus écoute ailleurs que sur localhost sans TLS, un avertissement est journalisé :

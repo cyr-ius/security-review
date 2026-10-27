@@ -57,7 +57,7 @@ La page de chaque connecteur décrit où chaque champ arrive dans le système.
 
 ## Sécurité
 
-- Connexions sortantes du **contrôleur** uniquement, chaque connecteur désactivé par défaut
+- Connexions sortantes du **serveur Controller** uniquement, chaque connecteur désactivé par défaut
   (activé par un administrateur, ou verrouillé par `SECREVIEW_CONNECTORS_ENABLED=false`), en
   **HTTPS** avec vérification du certificat (`SECREVIEW_CONNECTORS_CAFILE` pour une autorité
   interne), par le [proxy sortant](../reference/configuration.md#proxy-sortant).
@@ -73,7 +73,7 @@ La page de chaque connecteur décrit où chaque champ arrive dans le système.
   après la suppression de l'URL, et un secret défini par une variable exige une URL définie par
   une variable, pour qu'un jeton enregistré ne parte jamais vers un autre hôte.
 - Un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme, et s'exécute
-  avec les droits du contrôleur : n'installez que du code de confiance.
+  avec les droits du serveur Controller : n'installez que du code de confiance.
 - Événements d'audit : `connector.changed` (connexion ou interrupteur), `connector.target_changed`
   (destination d'un projet), `finding.exported` (enregistrement créé ou réutilisé, avec sa clé ;
   acteur `auto` pour l'envoi automatique).
@@ -132,19 +132,19 @@ pour `incident`).
 ## Connecteurs tiers
 
 Un connecteur publié par un paquet Python (point d'entrée du groupe
-`security_review_mcp.connectors`) s'installe à côté du contrôleur, puis s'**autorise** par le nom
+`security_review_mcp.connectors`) s'installe à côté du serveur Controller, puis s'**autorise** par le nom
 de son point d'entrée : installer un paquet ne suffit pas.
 
 ```bash
-uv pip install secreview-acme-connector         # in the image or the environment of the controller
+uv pip install secreview-acme-connector         # in the image or the environment of the Controller server
 SECREVIEW_CONNECTORS_PLUGINS=acme               # comma separated
 SECREVIEW_ACME_URL=https://risk.acme.example/api
 SECREVIEW_ACME_API_KEY=...
 ```
 
-Le contrôleur charge les connecteurs autorisés au démarrage et refuse de démarrer si l'un
+Le serveur Controller charge les connecteurs autorisés au démarrage et refuse de démarrer si l'un
 manque, est écrit pour une autre version de l'API, ou déclare une variable du serveur lui-même
 (`SECREVIEW_<TYPE>_<CHAMP>` ne doit pas être un réglage existant). L'écran **Connecteurs**
 l'affiche sous forme de carte marquée **Tiers**, désactivé tant qu'il n'a pas été activé. Un
-connecteur s'exécute dans le contrôleur avec ses droits : n'installez et n'autorisez que du code
+connecteur s'exécute dans le serveur Controller avec ses droits : n'installez et n'autorisez que du code
 de confiance, comme toute dépendance.

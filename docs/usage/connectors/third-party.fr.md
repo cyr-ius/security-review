@@ -7,7 +7,7 @@ même interrupteur, même connexion, mêmes destinations et mêmes garanties (vo
 
 ## Installer un connecteur
 
-Un connecteur tiers est un paquet Python que l'opérateur installe à côté du contrôleur, puis
+Un connecteur tiers est un paquet Python que l'opérateur installe à côté du serveur Controller, puis
 **autorise** explicitement : l'installer ne suffit pas. Les commandes sont dans
 [Connecteurs en détail](../../advanced/connectors.md#connecteurs-tiers) ; l'écriture d'un connecteur
 est décrite dans [Écrire un connecteur](../../contributing/connectors.md).
@@ -16,5 +16,5 @@ Une fois autorisé, il apparaît dans l'écran **Connecteurs** sous forme de car
 désactivé tant qu'un administrateur ne l'a pas activé.
 
 !!! warning "Attention"
-    Un connecteur s'exécute dans le contrôleur, avec ses droits : n'installez et n'autorisez que
+    Un connecteur s'exécute dans le serveur Controller, avec ses droits : n'installez et n'autorisez que
     du code de confiance, comme toute dépendance.

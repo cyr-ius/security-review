@@ -1,7 +1,7 @@
 # Export SARIF
 
 Le [client de pipeline](../architecture/ci.md) télécharge le
-journal SARIF d'un projet par l'API REST du contrôleur, avec un jeton `ci` et sans accès à la
+journal SARIF d'un projet par l'API REST du serveur Controller, avec un jeton `ci` et sans accès à la
 base :
 
 ```bash

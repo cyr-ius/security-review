@@ -1,7 +1,7 @@
 # Installation manuelle (sans conteneur)
 
 Cette page installe security-review-mcp **tout-en-un** sur un seul serveur Linux, sans
-Docker : le **contrôleur**, le **serveur MCP** et leur **base SQLite** tournent sur la même
+Docker : le **serveur Controller**, le **serveur MCP** et leur **base SQLite** tournent sur la même
 machine, avec le même utilisateur. Elle convient à un essai, à une petite équipe ou à un
 serveur où les conteneurs ne sont pas autorisés.
 
@@ -9,10 +9,10 @@ Pour un déploiement d'équipe, préférez [Docker Compose](../../getting-starte
 ou [Kubernetes](kubernetes.md) : PostgreSQL est inclus, et les services redémarrent seuls.
 
 ```text
- agents (VS Code, Claude), CI ──▶ serveur MCP  :8000 ──┐
-                                                       ├──▶ fichier SQLite
- personnes (navigateur) ────────▶ contrôleur   :8080 ──┘
-                    └──────────────── un serveur ───────────────┘
+ agents (VS Code, Claude), CI ──▶ serveur MCP         :8000 ──┐
+                                                              ├──▶ fichier SQLite
+ personnes (navigateur) ────────▶ serveur Controller  :8080 ──┘
+                    └──────────────────── une machine ───────────────────┘
 ```
 
 ## 1. Installer le paquet
@@ -47,15 +47,15 @@ security-review-controller user create admin --group administrators   # mot de p
 
 Conservez le mot de passe : il ouvre l'interface web. Changez-le ensuite depuis **Mon compte**.
 
-## 4. Lancer le contrôleur
+## 4. Lancer le serveur Controller
 
 ```bash
 security-review-controller serve --host 127.0.0.1 --port 8080
 # interface web : http://127.0.0.1:8080/ui/
 ```
 
-Connectez-vous avec le compte `admin`. Le contrôleur est destiné aux personnes et aux pipelines :
-exposez-le avec TLS (voir [Contrôleur](../architecture/controller.md#exposition)).
+Connectez-vous avec le compte `admin`. Le serveur Controller est destiné aux personnes et aux pipelines :
+exposez-le avec TLS (voir [Serveur Controller](../architecture/controller.md#exposition)).
 
 ## 5. Lancer le serveur MCP
 
@@ -97,7 +97,7 @@ Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pip
   sans jeton, l'agent l'envoie vers l'interface web à la première revue, où il crée un jeton
   MCP personnel ; à la revue suivante, l'agent demande le projet, qu'un administrateur valide
   (écran **Projets**), ce qui lui en donne l'accès. Définissez
-  `SECREVIEW_CONTROLLER_URL` sur le contrôleur (ou l'écran **Général**) pour que
+  `SECREVIEW_CONTROLLER_URL` sur le serveur Controller (ou l'écran **Général**) pour que
   l'agent donne le lien : voir
   [Obtenir un jeton](../../getting-started/host.md#obtenir-un-jeton).
 - **Créé par l'administrateur** : `security-review-controller token create --label <nom>`, par
@@ -106,7 +106,7 @@ Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pip
 ## 7. Vérifier et se connecter
 
 ```bash
-curl http://127.0.0.1:8080/healthz   # contrôleur : {"status":"ok"}
+curl http://127.0.0.1:8080/healthz   # serveur Controller : {"status":"ok"}
 curl http://127.0.0.1:8000/healthz   # serveur MCP : {"status":"ok"}
 ```
 

@@ -2,7 +2,7 @@
 
 Le **serveur MCP** (`security-review-mcp`) est le processus des agents IA : il leur fournit les
 prompts de revue, les checklists, le scan par motifs et les normes de développement, et
-enregistre leurs rapports. Il n'appelle jamais le [contrôleur](controller.md) : les deux
+enregistre leurs rapports. Il n'appelle jamais le [serveur Controller](controller.md) : les deux
 partagent la base (voir [Architecture](index.md)).
 
 ## Ce qu'il sert
@@ -11,7 +11,7 @@ partagent la base (voir [Architecture](index.md)).
 |---|---|---|
 | `/mcp` | les agents : [prompts, outils et ressources](../../review/prompts-tools.md) | jeton `mcp` (personnel ou non), jeton `admin`, ou jeton d'accès [OAuth](../mcp-oauth.md) |
 | `/mcp` sans jeton | un agent pas encore connecté : [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement), qui explique comment obtenir un jeton ; avec la [connexion OAuth](../mcp-oauth.md), un `401` qui la démarre | aucun |
-| `/.well-known/oauth-protected-resource/mcp` | les hôtes, avec la [connexion OAuth](../mcp-oauth.md) active : métadonnées de la ressource protégée (RFC 9728), qui désignent le contrôleur comme serveur d'autorisation (404 sinon) | aucun |
+| `/.well-known/oauth-protected-resource/mcp` | les hôtes, avec la [connexion OAuth](../mcp-oauth.md) active : métadonnées de la ressource protégée (RFC 9728), qui désignent le serveur Controller comme serveur d'autorisation (404 sinon) | aucun |
 | `/healthz` | sondes (`HEALTHCHECK` Docker, Kubernetes) | aucun |
 
 Il ne sert aucune page web, aucune autre route de l'API REST, et aucune route qui écrit sans
@@ -28,7 +28,7 @@ jeton.
 
 En HTTP, `security-review-mcp serve` :
 
-1. **vérifie** le schéma de la base et refuse de démarrer (code `2`) tant que le contrôleur ne
+1. **vérifie** le schéma de la base et refuse de démarrer (code `2`) tant que le serveur Controller ne
    l'a pas migré : il ne migre jamais (voir [Migrations du schéma](../database.md#migrations-du-schema)) ;
 2. vérifie les réglages TLS, charge les règles de la base ;
 3. sert `/mcp`. Tant qu'aucun jeton n'existe, il reste **fermé** : un client n'atteint que
@@ -45,13 +45,13 @@ En stdio, `security-review-mcp local` migre lui-même sa base locale.
 | Jeton inconnu, révoqué ou expiré | `401` qui indique à l'utilisateur où créer un nouveau jeton ([jeton refusé](#jeton-refuse-se-reconnecter)) |
 | Jeton `mcp` ou `admin` valide | tous les prompts, outils et ressources, sur les projets du jeton ([jetons restreints à un projet](../bearer-tokens.md#jetons-restreints-a-un-projet)) |
 
-Les jetons et les règles sont lus en base : un jeton créé ou révoqué sur le contrôleur
+Les jetons et les règles sont lus en base : un jeton créé ou révoqué sur le serveur Controller
 s'applique à la requête suivante, une règle modifiée en 5 secondes.
 
 ## Ce qu'il ne fait jamais
 
-- Il ne fait **aucune connexion sortante** (la base OSV est importée par le contrôleur), et ne
-  charge aucun module du contrôleur.
+- Il ne fait **aucune connexion sortante** (la base OSV est importée par le serveur Controller), et ne
+  charge aucun module du serveur Controller.
 - Ses outils **ne lisent jamais le disque** à partir d'un chemin donné par le client : ils
   travaillent sur le contenu transmis.
 - Toute entrée est bornée (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,
@@ -93,7 +93,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
    pas rejeté : il atteint un serveur MCP restreint (même nom `security-review`) **sans aucun
    outil**, dont les prompts sont nommés comme les revues (`security-review`,
    `codebase-review`…). Ils invitent l'utilisateur à se connecter à l'interface web (son URL
-   vient de la base, où le contrôleur recopie sa
+   vient de la base, où le serveur Controller recopie sa
    [`SECREVIEW_CONTROLLER_URL`](../../reference/configuration.md#interface-web-et-sessions), suivie de `/ui`, ou l'écran
    **Général** l'enregistre ; relue au plus toutes les 30 secondes ; aucune :
    pas de lien), à créer un
@@ -162,7 +162,7 @@ Avec la [connexion OAuth](../mcp-oauth.md) active, ce `401` porte aussi le param
 reconnecte seul, et une requête sans jeton reçoit le même `401` (sans `error`) au lieu du
 serveur d'enrôlement.
 
-Quand le contrôleur ne propose pas de jeton MCP personnel (`SECREVIEW_PERSONAL_MCP_TOKENS=false`,
+Quand le serveur Controller ne propose pas de jeton MCP personnel (`SECREVIEW_PERSONAL_MCP_TOKENS=false`,
 enregistré en base à son démarrage), la description du `401`, les instructions et les prompts du
 serveur d'enrôlement invitent l'utilisateur à se connecter par la connexion OAuth, ou à demander
 un jeton MCP à un administrateur, plutôt qu'à créer un jeton personnel.

@@ -1,9 +1,9 @@
 # Configuration
 
-The MCP server and the controller read environment variables prefixed with `SECREVIEW_`, or a
+The MCP server and the Controller server read environment variables prefixed with `SECREVIEW_`, or a
 `.env` file in the current directory (see `.env.example`). The variables are grouped below by
 the process that reads them: [both](#both-processes), the [MCP server](#mcp-server)
-(`security-review-mcp`), the [controller](#controller) (`security-review-controller`) or the
+(`security-review-mcp`), the [Controller server](#controller-server) (`security-review-controller`) or the
 [clients](#clients).
 
 Some settings can also be set in the [web interface](../usage/index.md#screens): report
@@ -13,7 +13,7 @@ then locks the field).
 
 ## Both processes
 
-Read by the MCP server and by the controller.
+Read by the MCP server and by the Controller server.
 
 ### Database and logs
 
@@ -21,7 +21,7 @@ Read by the MCP server and by the controller.
 |---|---|---|
 | `SECREVIEW_DATABASE_URL` | SQLite file of the user (see [Database](../advanced/database.md)) | SQLAlchemy URL of the database, **shared** by both processes |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Logs the SQL queries |
-| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; leave it as is unless migrations are run by a [dedicated job](../advanced/database.md#dedicated-migration-job), where `false` makes them only check the schema. The HTTP MCP server never migrates |
+| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the Controller server, of the stdio MCP server and of the CLI commands; leave it as is unless migrations are run by a [dedicated job](../advanced/database.md#dedicated-migration-job), where `false` makes them only check the schema. The HTTP MCP server never migrates |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Logging level (on stderr) |
 
 ### Listening, TLS and reverse proxy
@@ -58,7 +58,7 @@ Read by `security-review-mcp` only.
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |
 
-## Controller
+## Controller server
 
 Read by `security-review-controller` only.
 
@@ -68,12 +68,12 @@ Read by `security-review-controller` only.
 |---|---|---|
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../advanced/architecture/controller.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; unset: a random secret at every start (sessions end at restart) |
-| `SECREVIEW_CONTROLLER_URL` | — | Public root URL of the controller (`https://…`, without `/ui`), the same as for [`security-review-ci`](#clients). Copied to the database at each start; the MCP server reads it there (it ignores its own variable) and gives the address of the web interface (`/ui`) to the clients without a valid token (instructions and prompts of the enrollment server, `401` of `/mcp`), so that the user knows where to sign in and create a personal MCP token; the connectors use it for their links. Unset, it is set in the [**General**](../usage/index.md#screens) screen; without any, no link is given |
+| `SECREVIEW_CONTROLLER_URL` | — | Public root URL of the Controller server (`https://…`, without `/ui`), the same as for [`security-review-ci`](#clients). Copied to the database at each start; the MCP server reads it there (it ignores its own variable) and gives the address of the web interface (`/ui`) to the clients without a valid token (instructions and prompts of the enrollment server, `401` of `/mcp`), so that the user knows where to sign in and create a personal MCP token; the connectors use it for their links. Unset, it is set in the [**General**](../usage/index.md#screens) screen; without any, no link is given |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_WEB_UI` | `true` | Serves the [web interface](../usage/index.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the web interface |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Serve the Swagger documentation (`/api/docs`) and the OpenAPI schema (`/api/openapi.json`), from the files of the web interface build |
-| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `true` | Serve the pipeline client on `/api/ci-client/` (public), so that developers install it with `uv --find-links`, without PyPI ([from the controller](../advanced/architecture/ci.md#from-the-controller)) |
+| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `true` | Serve the pipeline client on `/api/ci-client/` (public), so that developers install it with `uv --find-links`, without PyPI ([from the Controller server](../advanced/architecture/ci.md#from-the-controller-server)) |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | The **About** page searches GitHub for a newer release (HTTPS, through the outgoing proxy, cached 6 hours, see [security](security.md#security-of-the-server-itself)) |
 
 ### Rate limiting
@@ -108,7 +108,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Enables the [OAuth login of the MCP clients](../advanced/mcp-oauth.md): the controller becomes their authorization server (routes `/authorize`, `/token`, `/register`, `/revoke` at the root of `SECREVIEW_CONTROLLER_URL`, which must be set, in https outside localhost) and the MCP server sends a client without a token to it |
+| `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Enables the [OAuth login of the MCP clients](../advanced/mcp-oauth.md): the Controller server becomes their authorization server (routes `/authorize`, `/token`, `/register`, `/revoke` at the root of `SECREVIEW_CONTROLLER_URL`, which must be set, in https outside localhost) and the MCP server sends a client without a token to it |
 | `SECREVIEW_MCP_URL` | — | Public URL of the MCP endpoint (`https://…/mcp`, ASCII: punycode for a non-ASCII host), required with OAuth: the resource of the tokens. Stored in the database at start, where the MCP server reads it |
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Lifetime of an access token (5 to 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Lifetime of a refresh token (1 to 365 days), extended at each refresh; `SECREVIEW_TOKEN_MAX_DAYS`, when set, bounds the whole grant from its approval |
@@ -120,14 +120,14 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `HTTPS_PROXY` (else `HTTP_PROXY`) | — | Standard variable, without the `SECREVIEW_` prefix (lowercase name accepted): HTTP proxy of the outgoing connections of the controller, OSV download and OIDC provider (`http://[user:password@]host:port`, `host:port` meaning `http://host:port`); without it, the connection is direct, or uses the proxy chosen in the [**General**](../usage/index.md#screens) screen. When set (not empty), takes precedence over that screen |
+| `HTTPS_PROXY` (else `HTTP_PROXY`) | — | Standard variable, without the `SECREVIEW_` prefix (lowercase name accepted): HTTP proxy of the outgoing connections of the Controller server, OSV download and OIDC provider (`http://[user:password@]host:port`, `host:port` meaning `http://host:port`); without it, the connection is direct, or uses the proxy chosen in the [**General**](../usage/index.md#screens) screen. When set (not empty), takes precedence over that screen |
 | `NO_PROXY` | — | Standard variable: [hosts reached without the proxy](../review/analysis/dependencies.md#hosts-without-proxy), comma separated: domains (subdomains included), IP addresses, `*` (no CIDR ranges); the loopback is always direct. When set (not empty), takes precedence over the list of the **General** screen |
 
 ### OSV database
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../review/analysis/dependencies.md#automatic-update-by-the-controller) of the OSV database by `serve` |
+| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) of the OSV database by `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Age of the database beyond which `serve` updates it (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source of the `<URL>/<ecosystem>/all.zip` exports (HTTPS only, mirror possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Downloaded ecosystems, comma separated |
@@ -144,7 +144,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/triage.md) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Longest validity in days of a bearer token created or [rotated](../advanced/bearer-tokens.md#expiry-and-rotation-of-tokens) (CLI, web interface), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
 | `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/tokens.md#api-tokens), [MCP and CI](../usage/tokens.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
-| `SECREVIEW_PERSONAL_MCP_TOKENS` | `true` | A web user may create a personal MCP token in **My account**. `false` with the [OAuth login of MCP clients](../advanced/mcp-oauth.md): none is offered nor created, and the controller revokes those left at start (audited); the CI and REST API tokens stay. Stored in the database, where the MCP server reads it: a client without a valid token is then told to ask an administrator (or to use the OAuth login) instead of creating a personal token |
+| `SECREVIEW_PERSONAL_MCP_TOKENS` | `true` | A web user may create a personal MCP token in **My account**. `false` with the [OAuth login of MCP clients](../advanced/mcp-oauth.md): none is offered nor created, and the Controller server revokes those left at start (audited); the CI and REST API tokens stay. Stored in the database, where the MCP server reads it: a client without a valid token is then told to ask an administrator (or to use the OAuth login) instead of creating a personal token |
 
 ### Audit and metrics
 
@@ -161,7 +161,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Lock of the [connectors](../advanced/connectors.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
+| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Lock of the [connectors](../advanced/connectors.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the Controller server): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
 | `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../usage/connectors/index.md#sending-a-finding) (30 to 86400) |
 | `SECREVIEW_CONNECTORS_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
 | `SECREVIEW_CONNECTORS_PLUGINS` | — | [Third-party connectors](../usage/connectors/third-party.md) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
@@ -173,7 +173,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Maximum size of a request of [`security-review-ci scan-code` or `scan-deps`](../review/analysis/code-scan.md#limits-of-the-controller) (`413` beyond) |
+| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Maximum size of a request of [`security-review-ci scan-code` or `scan-deps`](../review/analysis/code-scan.md#limits-of-the-controller-server) (`413` beyond) |
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Maximum number of files of a scan request (`422` beyond) |
 | `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Size beyond which a file sent by `scan-code` is not scanned (listed as skipped) |
 
@@ -183,8 +183,8 @@ Read by the pipeline client `security-review-ci` (`SECREVIEW_CI_TOKEN` never by 
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_CI_TOKEN` | — | Bearer token sent by [`security-review-ci`](../advanced/architecture/ci.md) to the controller (`ci` token, personal or not); never used by the servers. `SECREVIEW_TOKEN`, its former name, is still read when it is not set, with a warning |
-| `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../advanced/architecture/ci.md) (default of `--url`); read from the environment only, never from `.env`. The controller reads the same variable for [its public URL](#web-interface-and-sessions) |
+| `SECREVIEW_CI_TOKEN` | — | Bearer token sent by [`security-review-ci`](../advanced/architecture/ci.md) to the Controller server (`ci` token, personal or not); never used by the servers. `SECREVIEW_TOKEN`, its former name, is still read when it is not set, with a warning |
+| `SECREVIEW_CONTROLLER_URL` | — | URL of the Controller server used by [`security-review-ci`](../advanced/architecture/ci.md) (default of `--url`); read from the environment only, never from `.env`. The Controller server reads the same variable for [its public URL](#web-interface-and-sessions) |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see

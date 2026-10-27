@@ -2,7 +2,7 @@
 
 In **local mode**, the host (VS Code, Claude…) starts `security-review-mcp local` itself on the
 developer workstation and talks to it through stdin / stdout: no network, no token, no
-controller.
+Controller server.
 
 ```mermaid
 flowchart LR
@@ -46,10 +46,7 @@ security-review-mcp local   # started by the host, not by hand
 
 A SQLite database is created locally (`~/.local/share/security-review-mcp/security_reports.db`,
 or under `$XDG_DATA_HOME` when it is set).
-This is the only file written by the server; delete it to remove all traces. `local` ignores
-remote databases, hence [`SECREVIEW_DATABASE_URL`](../advanced/database.md#sqlite-or-postgresql): a
-development container that points it to PostgreSQL does not change the database of the local
-mode.
+This is the only file written by the server; delete it to remove all traces.
 
 !!! note "`serve --transport stdio`"
     `security-review-mcp serve --transport stdio` also runs the server in stdio, but it reads

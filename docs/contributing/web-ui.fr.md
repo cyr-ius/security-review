@@ -1,7 +1,7 @@
 # Interface web (Angular)
 
 L'application Angular 22 (signaux, zoneless, Bootstrap 5) est dans `web/`. Sa build est écrite
-dans `src/security_review_mcp/webui/`, d'où le contrôleur la sert sur `/ui/` et le wheel l'embarque.
+dans `src/security_review_mcp/webui/`, d'où le serveur Controller la sert sur `/ui/` et le wheel l'embarque.
 
 ```bash
 cd web
@@ -12,7 +12,7 @@ npm run format                # Prettier
 ```
 
 `npm start` redirige `/api` vers `http://127.0.0.1:8080` (`web/proxy.conf.json`) : lancez le
-contrôleur en parallèle avec `security-review-controller serve --port 8080`, ou utilisez la
+serveur Controller en parallèle avec `security-review-controller serve --port 8080`, ou utilisez la
 configuration VS Code **Controller (debug: FastAPI + Angular)**, qui démarre les deux sous le débogueur : chaque enregistrement d'un
 fichier de `web/src/` recharge la page (styles et templates sans rechargement complet), et les
 points d'arrêt posés dans les fichiers `.ts` sont pris en compte. Dans le devcontainer, Chrome
@@ -94,4 +94,4 @@ npm --prefix web exec --no -- prettier --check <changed files>
 Une modification du catalogue de l'audit (`core/i18n/messages/audit.ts`) est aussi vérifiée par
 `uv run pytest tests/test_audit.py` : chaque type d'événement d'audit doit avoir son libellé
 dans les trois langues. Les routes REST appelées par l'interface sont décrites dans
-[Contrôleur (FastAPI)](controller.md).
+[Serveur Controller (FastAPI)](controller.md).

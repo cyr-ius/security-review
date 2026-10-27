@@ -29,7 +29,7 @@ export const connectors = defineMessages({
     'connectors.enabled': 'Connector enabled',
     'connectors.addTitle': 'Add a connector',
     'connectors.addHelp':
-      'Install the package of a third-party connector on the controller, then list its name in SECREVIEW_CONNECTORS_PLUGINS.',
+      'Install the package of a third-party connector on the Controller server, then list its name in SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.allowed': 'Allowed:',
     'connectors.tab.connection': 'Connection',
     'connectors.tab.projects': 'Projects',
@@ -39,7 +39,7 @@ export const connectors = defineMessages({
     'connectors.testFailed': 'Connection failed: {message}',
     'connectors.saved': 'Connection saved.',
     'connectors.targetsHelp':
-      'A project needs a destination to send its findings. With automatic sending, every new open finding at least that severe is sent by the controller; the findings of the reports saved before are only sent by hand.',
+      'A project needs a destination to send its findings. With automatic sending, every new open finding at least that severe is sent by the Controller server; the findings of the reports saved before are only sent by hand.',
     'connectors.targetsNone': 'No project has a destination yet.',
     'connectors.project': 'Project',
     'connectors.auto': 'Automatic sending',
@@ -79,7 +79,7 @@ export const connectors = defineMessages({
     'connectors.enabled': 'Connecteur activé',
     'connectors.addTitle': 'Ajouter un connecteur',
     'connectors.addHelp':
-      'Installez le paquet d’un connecteur tiers sur le contrôleur, puis ajoutez son nom à SECREVIEW_CONNECTORS_PLUGINS.',
+      'Installez le paquet d’un connecteur tiers sur le serveur Controller, puis ajoutez son nom à SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.allowed': 'Autorisés :',
     'connectors.tab.connection': 'Connexion',
     'connectors.tab.projects': 'Projets',
@@ -89,7 +89,7 @@ export const connectors = defineMessages({
     'connectors.testFailed': 'Échec de la connexion : {message}',
     'connectors.saved': 'Connexion enregistrée.',
     'connectors.targetsHelp':
-      "Un projet a besoin d'une destination pour envoyer ses findings. Avec l'envoi automatique, chaque nouveau finding ouvert au moins aussi sévère est envoyé par le contrôleur ; les findings des rapports enregistrés avant ne sont envoyés qu'à la main.",
+      "Un projet a besoin d'une destination pour envoyer ses findings. Avec l'envoi automatique, chaque nouveau finding ouvert au moins aussi sévère est envoyé par le serveur Controller ; les findings des rapports enregistrés avant ne sont envoyés qu'à la main.",
     'connectors.targetsNone': "Aucun projet n'a encore de destination.",
     'connectors.project': 'Projet',
     'connectors.auto': 'Envoi automatique',
@@ -129,7 +129,7 @@ export const connectors = defineMessages({
     'connectors.enabled': 'Conector activado',
     'connectors.addTitle': 'Añadir un conector',
     'connectors.addHelp':
-      'Instale el paquete de un conector de terceros en el controlador y añada su nombre a SECREVIEW_CONNECTORS_PLUGINS.',
+      'Instale el paquete de un conector de terceros en el servidor Controller y añada su nombre a SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.allowed': 'Autorizados:',
     'connectors.tab.connection': 'Conexión',
     'connectors.tab.projects': 'Proyectos',
@@ -139,7 +139,7 @@ export const connectors = defineMessages({
     'connectors.testFailed': 'Fallo de la conexión: {message}',
     'connectors.saved': 'Conexión guardada.',
     'connectors.targetsHelp':
-      'Un proyecto necesita un destino para enviar sus hallazgos. Con el envío automático, cada nuevo hallazgo abierto al menos así de grave lo envía el controlador; los hallazgos de los informes guardados antes solo se envían a mano.',
+      'Un proyecto necesita un destino para enviar sus hallazgos. Con el envío automático, cada nuevo hallazgo abierto al menos así de grave lo envía el servidor Controller; los hallazgos de los informes guardados antes solo se envían a mano.',
     'connectors.targetsNone': 'Ningún proyecto tiene destino todavía.',
     'connectors.project': 'Proyecto',
     'connectors.auto': 'Envío automático',

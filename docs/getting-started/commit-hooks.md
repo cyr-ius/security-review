@@ -5,7 +5,7 @@ The hooks are run by [prek](https://prek.j178.dev) (or [pre-commit](https://pre-
 
 | Hook | When | What it does | Blocks the commit |
 |---|---|---|---|
-| `scan-deps` | before the commit, when a manifest or a lockfile changes | Sends the dependency files to the controller, which checks them against its advisory database ([dependency analysis](../review/analysis/dependencies.md)) | Yes, when a vulnerable dependency reaches the threshold (`--fail-on`, default `high`) |
+| `scan-deps` | before the commit, when a manifest or a lockfile changes | Sends the dependency files to the Controller server, which checks them against its advisory database ([dependency analysis](../review/analysis/dependencies.md)) | Yes, when a vulnerable dependency reaches the threshold (`--fail-on`, default `high`) |
 | `agent-review` | after the commit | Has the coding agent of the developer (Claude Code, GitHub Copilot or Codex) review the commit with the MCP server and save a report ([agent review](../advanced/architecture/ci.md#agent-review-of-each-commit)) | Never |
 
 ## 1. Prepare the workstation (once)
@@ -13,7 +13,7 @@ The hooks are run by [prek](https://prek.j178.dev) (or [pre-commit](https://pre-
 To set up the hooks, install the `uv` manager. `uv` and `uvx` are the Python equivalent of `npm`
 and `npx`. They need no prerequisite: Python does not have to be installed on the workstation.
 
-PyPI or the controller can distribute the `security-review-ci` package.
+PyPI or the Controller server can distribute the `security-review-ci` package.
 
 | What | How |
 |---|---|
@@ -22,7 +22,7 @@ PyPI or the controller can distribute the `security-review-ci` package.
 | Your personal tokens | **My account** in the [web interface](../usage/tokens.md#personal-mcp-and-ci-tokens): a `ci` token for `scan-deps`, an `mcp` token (or the [OAuth login](../advanced/mcp-oauth.md)) for `agent-review`; both reach the projects you may read |
 | The CLI of your agent (for `agent-review`), signed in with your account | `npm install -g @anthropic-ai/claude-code`, `npm install -g @github/copilot` or `npm install -g @openai/codex` |
 
-`scan-deps` sends the dependency files to the controller: to do so, set the URL of the server
+`scan-deps` sends the dependency files to the Controller server: to do so, set the URL of the server
 and your token in the environment (your shell profile, never the `.env` file).
 
 ```bash
@@ -55,10 +55,10 @@ Here is an example of a `.pre-commit-config.yaml` file, committed at the root of
 Replace `shop-api` with the name of the project, and the files of `scan-deps` with those of your
 technologies.
 
-=== "Client from the controller"
+=== "Client from the Controller server"
 
-    The client is downloaded from the controller. To keep the address of your controller out of
-    the pre-commit file, see the **Client from the controller (variable mode)** tab.
+    The client is downloaded from the Controller server. To keep the address of your Controller server out of
+    the pre-commit file, see the **Client from the Controller server (variable mode)** tab.
 
     ```yaml
     default_install_hook_types: [pre-commit, post-commit]
@@ -81,7 +81,7 @@ technologies.
 
 === "Client from PyPI"
 
-    The client of PyPI, at the version of your controller (replace `X.Y.Z`).
+    The client of PyPI, at the version of your Controller server (replace `X.Y.Z`).
 
     ```yaml
     default_install_hook_types: [pre-commit, post-commit]
@@ -102,9 +102,9 @@ technologies.
             pass_filenames: false
     ```
 
-=== "Client from the controller (variable mode)"
+=== "Client from the Controller server (variable mode)"
 
-    The address of the controller is read from the `SECREVIEW_CONTROLLER_URL` variable of each
+    The address of the Controller server is read from the `SECREVIEW_CONTROLLER_URL` variable of each
     developer: the file then holds no reference to your servers.
 
     ```yaml
@@ -145,9 +145,9 @@ Then at every commit:
   returns at once; the report appears in the web interface after a few minutes, and the log of
   the agent is in `.git/agent-review/<commit>.log`.
 
-## Controller in HTTP without TLS
+## Controller server in HTTP without TLS
 
-Serve the controller and the MCP server over HTTPS ([TLS](../advanced/tls.md)), or behind a
+Serve the Controller server and the MCP server over HTTPS ([TLS](../advanced/tls.md)), or behind a
 reverse proxy, when you can. Otherwise, HTTP works with these changes:
 
 | Where | Change |
@@ -170,16 +170,16 @@ reverse proxy, when you can. Otherwise, HTTP works with these changes:
 
 !!! warning "What plain HTTP exposes"
     The token of each developer travels in clear (`scan-deps`, MCP server), and the client
-    downloaded from the controller can be replaced on the way, SHA-256 included: the
+    downloaded from the Controller server can be replaced on the way, SHA-256 included: the
     workstations would run that code at each commit. On such a network, prefer the client of
-    PyPI (HTTPS) to the client of the controller.
+    PyPI (HTTPS) to the client of the Controller server.
 
 ## Skipping or troubleshooting
 
 | Case | Behaviour |
 |---|---|
 | Skip a hook once | `SKIP=agent-review git commit …` (or `SKIP=scan-deps`) |
-| `SECREVIEW_CONTROLLER_URL` not set | Both hooks let the commit through with a message (client of the controller); `scan-deps` too with `--skip-unconfigured` (client of PyPI) |
+| `SECREVIEW_CONTROLLER_URL` not set | Both hooks let the commit through with a message (client of the Controller server); `scan-deps` too with `--skip-unconfigured` (client of PyPI) |
 | No agent CLI, no `.mcp.json` or no `security-review` server in it | `agent-review` does nothing, with a warning |
 | Commit with a `Security-Review: <report id>` trailer | `agent-review` does nothing: an agent already reviewed it in its session |
 | Several agents installed | The first of `claude`, `copilot`, `codex`, or the one of `AGENT_REVIEW_CLI` |

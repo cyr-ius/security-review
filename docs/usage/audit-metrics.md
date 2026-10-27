@@ -16,7 +16,7 @@ Every event, the API, the command line and the variables are in
 | Tokens | Creation, rotation, revocation, change of projects |
 | Accounts and rights | Logins and failed logins, logouts, roles, groups and their members |
 | Projects | Request by an agent, approval, refusal, creation, deletion |
-| Settings | Syslog server, controller address, connectors |
+| Settings | Syslog server, Controller server address, connectors |
 
 Each event gives its date, its **author** (a person `user:<name>`, a token `token:<label>`, the
 command line `cli`...), its target, its project and its details.
@@ -34,7 +34,7 @@ administrator may change this duration or bound the number of events kept
 
 ## Forwarding to syslog
 
-To keep the events outside the database (SIEM, central log), the controller can also send each
+To keep the events outside the database (SIEM, central log), the Controller server can also send each
 one to a syslog server. On the **Audit log** screen, the **Syslog** button (next to **Refresh**)
 opens the **Syslog forwarding** dialog: **No forwarding**, or **Set here** with the address of
 the server and its facility. The change applies within a few seconds.

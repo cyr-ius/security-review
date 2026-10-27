@@ -11,7 +11,7 @@ groups and users).
 |---|---|
 | Roles created by the administrators | 100 at most |
 | Name of a group | 200 characters at most |
-| Projects of a role in a group | 50 at most, only for a role made of per-project permissions (`reports.read`, `findings.triage`); a role holding a permission on the whole controller always applies to every project |
+| Projects of a role in a group | 50 at most, only for a role made of per-project permissions (`reports.read`, `findings.triage`); a role holding a permission on the whole Controller server always applies to every project |
 | Projects of a permission for a user | 200 at most, union of its groups: beyond that, the account has no access |
 
 `users.manage` also covers the OIDC settings, since they decide who joins which group. The
@@ -96,7 +96,7 @@ whatever its name); otherwise the group `project:<project>` is created (with a n
 
 `POST /api/v1/projects` creates a project, from a session of the web interface only. The only
 token that creates a project is the personal MCP token of a user holding `projects.create`,
-through the `request_project` tool of its agent. The controller adds the account to the project
+through the `request_project` tool of its agent. The Controller server adds the account to the project
 group as a local member.
 
 ```bash

@@ -38,7 +38,7 @@ the same commit as the change.
 |---|---|---|
 | MCP tool, prompt or resource | End to end with `mcp.client.Client(mcp)` (`pytestmark = pytest.mark.anyio`), with a representative error case (`result.is_error`) | `tests/test_server.py`, see [MCP server](mcp-server.md#tests) |
 | Scan rule | At least one **positive** case (the vulnerable pattern is found) and one **negative** case (the equivalent safe code is not) | `tests/test_scanner.py` |
-| REST route | `TestClient` with the `client`, `secured` or `web_sessions` fixtures, status code and body, at least one refusal | `tests/test_web_api.py`, see [Controller](controller.md#tests) |
+| REST route | `TestClient` with the `client`, `secured` or `web_sessions` fixtures, status code and body, at least one refusal | `tests/test_web_api.py`, see [Controller server](controller.md#tests) |
 | CLI command | `cli.run([...])` (or `server.main([...])`), **exit code** and output (`capsys`) | `tests/test_cli_and_tools.py` |
 | Table model | A new Alembic revision; `test_upgrade_creates_the_schema_of_the_models` checks that the migrations produce the models | `tests/test_database.py` |
 | Angular interface | No unit test: `npm run build` checks the types and the translation keys; the audit catalog is checked by `tests/test_audit.py` | [Web interface](web-ui.md#checks) |

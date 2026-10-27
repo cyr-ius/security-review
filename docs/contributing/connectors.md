@@ -1,6 +1,6 @@
 # Writing a connector
 
-A third-party connector is a Python package that the controller loads to send the findings to
+A third-party connector is a Python package that the Controller server loads to send the findings to
 another system. This page is for its developers; to install and allow a connector, see
 [Third-party connectors](../usage/connectors/third-party.md).
 
@@ -26,7 +26,7 @@ class AcmeConnector(Connector):
     kind = "acme"  # identifier: exports, URLs, SECREVIEW_ACME_* variables
     name = "Acme Risk"  # display name
     url_placeholder = "https://risk.acme.example/api"
-    fields = (  # the URL field is added by the controller
+    fields = (  # the URL field is added by the Controller server
         ConnectorField(
             name="api_key",
             label="API key",
@@ -71,13 +71,13 @@ acme = "acme_connector:AcmeConnector"
 | `kind` | Lowercase letters, digits and `_` (2 to 20 characters, not `connectors`); stored with the exports |
 | `fields` | `ConnectorField`: `name`, `label`, `secret`, `required`, `default`, `help`, `placeholder`, `pattern` (full match), `max_length`, `translations` (`{"fr": {"label": ..., "help": ...}}`) |
 | `destination` | What an administrator chooses per project; override `check_destination` to normalize it |
-| `auth_headers(values)` | Authentication headers, added by the controller to each request |
+| `auth_headers(values)` | Authentication headers, added by the Controller server to each request |
 | `export_finding(connection, destination, content)` | Creates the record of the finding and returns `ExportedFinding(key, url)` (`https://` link) |
 | `test_connection(connection)` | Read-only request that needs valid credentials |
 
-## Guarantees of the controller
+## Guarantees of the Controller server
 
-What the controller guarantees, whatever the connector:
+What the Controller server guarantees, whatever the connector:
 
 - `connection.http.request(method, path, json_body=..., query=...)` is the only way out: `path`
   is relative to the configured URL (no other host), over HTTPS, through the outgoing proxy,

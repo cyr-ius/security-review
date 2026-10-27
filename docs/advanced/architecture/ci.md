@@ -1,10 +1,10 @@
 # Pipeline client (CI/CD)
 
 The pipeline client runs in the CI/CD jobs and on the workstations of the developers: it
-sends the files of the repository to the [controller](controller.md), which scans them, and
+sends the files of the repository to the [Controller server](controller.md), which scans them, and
 reads the gate, the SARIF log and the trend of a project.
 
-`security-review-ci` is a lightweight client of the controller: it calls the pipeline routes of
+`security-review-ci` is a lightweight client of the Controller server: it calls the pipeline routes of
 the REST API (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, and
 `/api/v1/ci/scan/code` and `/api/v1/ci/scan/deps` for the scans) and opens no database. It only
 uses the Python standard library (Python 3.14), and is published alone on PyPI as
@@ -16,17 +16,17 @@ uses the Python standard library (Python 3.14), and is published alone on PyPI a
 |---|---|
 | Workstation without Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), then `uv tool install security-review-ci`: uv downloads a Python when none is installed |
 | Build agent or workstation with Python ≥ 3.14 | `uv pip install security-review-ci` in the virtual environment of the job (`--system` without one) |
-| Workstation or agent without PyPI, from the controller | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …`: the [client of the controller](#from-the-controller), at its version |
+| Workstation or agent without PyPI, from the Controller server | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …`: the [client of the Controller server](#from-the-controller-server), at its version |
 | Agent without access to PyPI | Copy the single file `security_review_mcp/ci_client.py` (or the `security_review_ci` wheel attached to the GitHub release) and run it with `python3 ci_client.py` |
 | Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_CI_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
 
 The `security-review` package also installs `security-review-ci`: do not install both
-packages in the same environment. Install the version of your controller
+packages in the same environment. Install the version of your Controller server
 (`uv tool install security-review-ci==X.Y.Z`); `uv tool upgrade security-review-ci` updates it.
 
-### From the controller
+### From the Controller server
 
-Unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false`, the controller serves its own client on
+Unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false`, the Controller server serves its own client on
 `/api/ci-client/`: a links page for `uv --find-links` and the wheel
 `security_review_ci-<version>-py3-none-any.whl`, built from its code, at its version. The
 developers and the build agents then need neither PyPI nor a version to maintain:
@@ -37,13 +37,13 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 ```
 
 - `--no-index` keeps uv away from PyPI, so no other package of the same name can be installed;
-  `@latest` makes uv read the page again at each run and follow the version of the controller.
-- uv checks the SHA-256 given by the page. Serve the controller over HTTPS: uv also accepts a
+  `@latest` makes uv read the page again at each run and follow the version of the Controller server.
+- uv checks the SHA-256 given by the page. Serve the Controller server over HTTPS: uv also accepts a
   plain HTTP URL, but then the page and the wheel can be replaced on the way, SHA-256 included,
   and the developers would run that code (see
-  [controller in plain HTTP](../../getting-started/commit-hooks.md#controller-in-http-without-tls)).
+  [Controller server in plain HTTP](../../getting-started/commit-hooks.md#controller-server-in-http-without-tls)).
 - The two routes are public (uv sends no token) and read-only; like the API documentation, they
-  tell the version of the controller: `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` hides them.
+  tell the version of the Controller server: `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` hides them.
 
 ## Commands
 
@@ -52,21 +52,21 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 | `gate` | [Gate](../../review/gate.md) of the project |
 | `sarif` | SARIF 2.1.0 log of the project ([SARIF export](../reports/sarif.md)) |
 | `trend` | Trend report of the project ([Trend report](#trend-report)) |
-| `scan-code` | Sends the files of the repository to the controller, which scans them with its rules ([Whole codebase scan](../../review/analysis/code-scan.md)) |
-| `scan-deps` | Sends manifests and lockfiles to the controller, which checks them against its advisories ([Dependencies](../../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)) |
+| `scan-code` | Sends the files of the repository to the Controller server, which scans them with its rules ([Whole codebase scan](../../review/analysis/code-scan.md)) |
+| `scan-deps` | Sends manifests and lockfiles to the Controller server, which checks them against its advisories ([Dependencies](../../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)) |
 | `agent-review` | Has the coding agent of the developer review the last commit with the MCP server, in the background (post-commit hook, [Agent review of each commit](#agent-review-of-each-commit)) |
 | `guard` | Checks the files that the coding agent is about to read for hidden text and text addressed to an assistant, offline (hook of the agent, [Read guard](../../review/analysis/read-guard.md)) |
 
 All their options: [Command line](../../reference/cli.md#security-review-ci).
 
 Common options (except `agent-review` and `guard`): `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
-on stdin instead of `SECREVIEW_CI_TOKEN`), `--cafile` (CA of the controller certificate),
+on stdin instead of `SECREVIEW_CI_TOKEN`), `--cafile` (CA of the Controller server certificate),
 `--allow-http`, `--timeout` (seconds, default 60).
 
 - The token is never accepted on the command line (process list, job log) and never written in
   an error message.
 - Plain HTTP is refused except to `localhost` (or with `--allow-http`), and so are credentials
-  in the URL; redirects are not followed, so the token is only sent to the given controller.
+  in the URL; redirects are not followed, so the token is only sent to the given Controller server.
 - The two variables are read from the environment only (the `.env` file is ignored).
 - The answers are bounded (64 MiB) and the control characters of the text output are removed.
 
@@ -75,7 +75,7 @@ on stdin instead of `SECREVIEW_CI_TOKEN`), `--cafile` (CA of the controller cert
 `agent-review` runs on the workstation of a developer, as a post-commit hook: the coding agent
 of the developer reviews the last commit for security with the `security-review` MCP server,
 in the background, and saves one report, which the developer reads in the web interface. The
-command never contacts the controller and needs no `ci` token: the agent calls the MCP server
+command never contacts the Controller server and needs no `ci` token: the agent calls the MCP server
 with the token of the MCP configuration.
 
 The developer needs uv, the CLI of their agent, signed in with their account, and the MCP
@@ -96,8 +96,8 @@ format of VS Code, HTTP server (`url`, `Authorization` header) or local server (
 Step-by-step setup, with `scan-deps`: [Commit hooks](../../getting-started/commit-hooks.md).
 
 A project declares the hook in its `.pre-commit-config.yaml` (prek or pre-commit), with the
-client [of its controller](#from-the-controller) (or `uvx security-review-ci@X.Y.Z` from PyPI,
-at the version of the controller):
+client [of its Controller server](#from-the-controller-server) (or `uvx security-review-ci@X.Y.Z` from PyPI,
+at the version of the Controller server):
 
 ```yaml
 default_install_hook_types: [pre-commit, post-commit]
@@ -168,7 +168,7 @@ the gate, SARIF and trend routes; `mcp` tokens may not, personal ones included. 
 ## Typical pipeline
 
 A job of the pipeline chains four commands, with the `ci` token of the project in
-`SECREVIEW_CI_TOKEN` and the URL of the controller in `SECREVIEW_CONTROLLER_URL`:
+`SECREVIEW_CI_TOKEN` and the URL of the Controller server in `SECREVIEW_CONTROLLER_URL`:
 
 ```bash
 security-review-ci scan-code . --project portal --save --branch "$BRANCH" --commit "$COMMIT" || [ $? -eq 1 ]
@@ -178,7 +178,7 @@ security-review-ci sarif --project portal -o security.sarif
 security-review-ci gate --project portal --fail-on high
 ```
 
-1. `scan-code` and `scan-deps` send the files to the controller, which scans them and, with
+1. `scan-code` and `scan-deps` send the files to the Controller server, which scans them and, with
    `--save`, stores a `code-scan` and a `dependency-scan` report of the project
    ([Whole codebase scan](../../review/analysis/code-scan.md), [Dependency analysis](../../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)).
 2. `sarif` downloads the open findings of the project, for the code scanning of the platform
@@ -188,10 +188,10 @@ security-review-ci gate --project portal --fail-on high
 The exit code of a scan counts every match above its own `--fail-on`, triage decisions
 ignored; only the gate takes into account the findings that a person accepted or marked as
 false positives. `|| [ $? -eq 1 ]` lets a scan that found something (code `1`) go on to the gate,
-but still stops the job on an error (code `2`: controller unreachable, token refused...).
+but still stops the job on an error (code `2`: Controller server unreachable, token refused...).
 Without it, the scans block by themselves, which is enough for a first test.
 
-Install the client at the version of the controller (`X.Y.Z` below). The project name is
+Install the client at the version of the Controller server (`X.Y.Z` below). The project name is
 [normalized](../../review/prompts-tools.md#project-name): the name of the repository given by the
 platform works as it is.
 

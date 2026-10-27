@@ -8,14 +8,14 @@ autorise le client, puis l'hôte reçoit ses jetons et les renouvelle seul.
 
 Le flux suit l'[autorisation de la spécification MCP](https://modelcontextprotocol.io/specification/latest/basic/authorization)
 (OAuth 2.1, code d'autorisation avec PKCE `S256`, enregistrement dynamique des clients,
-métadonnées de la ressource protégée). Le contrôleur est le serveur d'autorisation ; le serveur
+métadonnées de la ressource protégée). Le serveur Controller est le serveur d'autorisation ; le serveur
 MCP ne fait que vérifier les jetons. Les jetons MCP personnels restent acceptés, sauf si un
 administrateur les désactive par `SECREVIEW_PERSONAL_MCP_TOKENS=false` une fois que tous les
 hôtes se connectent par OAuth.
 
 ## Activation
 
-Sur le **contrôleur** seulement :
+Sur le **serveur Controller** seulement :
 
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
@@ -23,28 +23,28 @@ SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # URL publique du point d
 SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
 ```
 
-Au démarrage, le contrôleur enregistre `SECREVIEW_MCP_URL` en base ; le serveur MCP l'y lit
-(sous 30 secondes), comme il y lit l'URL du contrôleur : il n'a besoin d'aucune nouvelle
-variable. Retirez `SECREVIEW_MCP_OAUTH_ENABLED` et redémarrez le contrôleur pour la désactiver :
+Au démarrage, le serveur Controller enregistre `SECREVIEW_MCP_URL` en base ; le serveur MCP l'y lit
+(sous 30 secondes), comme il y lit l'URL du serveur Controller : il n'a besoin d'aucune nouvelle
+variable. Retirez `SECREVIEW_MCP_OAUTH_ENABLED` et redémarrez le serveur Controller pour la désactiver :
 il révoque alors toutes les autorisations, pour que les jetons déjà émis cessent aussitôt de
 fonctionner.
-L'issuer est fixé au démarrage : après un changement de l'URL du contrôleur dans **Général**,
-redémarrez le contrôleur.
+L'issuer est fixé au démarrage : après un changement de l'URL du serveur Controller dans **Général**,
+redémarrez le serveur Controller.
 
 Derrière un reverse proxy, publiez ces chemins publics :
 
 | Chemin | Processus |
 |---|---|
 | `/.well-known/oauth-protected-resource/mcp` (métadonnées de la ressource protégée, RFC 9728) | serveur MCP |
-| `/.well-known/oauth-authorization-server` (métadonnées, RFC 8414), `/authorize`, `/token`, `/register`, `/revoke` | contrôleur |
+| `/.well-known/oauth-authorization-server` (métadonnées, RFC 8414), `/authorize`, `/token`, `/register`, `/revoke` | serveur Controller |
 
 Avec un hôte par service (`mcp.example.com` vers le serveur MCP, `secreview.example.com` vers
-le contrôleur, chacun avec tous ses chemins), comme le font les fichiers Compose et
+le serveur Controller, chacun avec tous ses chemins), comme le font les fichiers Compose et
 l'[exemple d'Ingress Kubernetes](deployment/kubernetes.md#image-exposition-et-administration),
 ces chemins arrivent déjà au bon processus : rien à ajouter. Avec un seul hôte pour les deux,
 routez par chemin : `/mcp` et `/.well-known/oauth-protected-resource` vers le serveur MCP, tout
-le reste vers le contrôleur (exemples nginx, Apache, HAProxy et Traefik :
-[Reverse proxy](reverse-proxy.md)). L'issuer doit être en `https` : le contrôleur refuse de démarrer
+le reste vers le serveur Controller (exemples nginx, Apache, HAProxy et Traefik :
+[Reverse proxy](reverse-proxy.md)). L'issuer doit être en `https` : le serveur Controller refuse de démarrer
 avec une URL en `http` hors localhost.
 
 Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste,
@@ -82,7 +82,7 @@ serveur.
 
 1. L'hôte appelle `/mcp` sans jeton : le serveur MCP répond `401` avec
    `WWW-Authenticate: Bearer …, resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"`.
-   Ce document désigne le contrôleur comme serveur d'autorisation.
+   Ce document désigne le serveur Controller comme serveur d'autorisation.
 2. L'hôte s'enregistre sur `/register` (enregistrement dynamique, RFC 7591).
 3. Il ouvre `/authorize` dans le navigateur, qui arrive sur l'écran **Connecter un client MCP**
    de l'interface web, derrière la connexion habituelle.
@@ -98,7 +98,7 @@ Une demande restée sans réponse expire au bout de 10 minutes.
 Un jeton d'accès agit comme un [jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)
 de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire, relus à
 chaque requête, l'outil `request_project`, les rapports signés du nom de l'utilisateur. Il
-n'atteint que le serveur MCP : ni l'API REST ni les routes de pipeline du contrôleur (gardez un
+n'atteint que le serveur MCP : ni l'API REST ni les routes de pipeline du serveur Controller (gardez un
 jeton `ci` personnel pour `security-review-ci`).
 
 Autoriser un client exige la permission `mcp_tokens.create`, comme créer un jeton MCP
@@ -165,9 +165,9 @@ avec un jeton.
 
 | Symptôme | Cause |
 |---|---|
-| L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le contrôleur, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
-| Le contrôleur ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` manquant |
-| Le contrôleur ne démarre pas : `Issuer URL must be HTTPS` | URL du contrôleur en `http://` hors localhost |
+| L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le serveur Controller, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
+| Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` manquant |
+| Le serveur Controller ne démarre pas : `Issuer URL must be HTTPS` | URL du serveur Controller en `http://` hors localhost |
 | `invalid_redirect_uri` à l'enregistrement | URI de redirection hors loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` au retour dans l'hôte | l'hôte demande une autre ressource que `SECREVIEW_MCP_URL` : vérifiez que cette URL est celle configurée dans l'hôte |
 | **Connecter un client MCP** indique que la demande a expiré | plus de 10 minutes, ou déjà traitée : relancez la connexion depuis l'hôte |

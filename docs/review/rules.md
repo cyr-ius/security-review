@@ -131,7 +131,7 @@ A full example is provided in `examples/rules/company.toml`.
   `default_rules.toml` file apply.
 - Patterns with nested quantifiers (`(a+)+`), too long (500 characters) or matching the empty
   string are refused. Lines longer than 2000 characters are truncated before analysis.
-- `security-review-ci scan-code` applies the rules of the database of the controller.
+- `security-review-ci scan-code` applies the rules of the database of the Controller server.
 
 !!! warning "Trusted content"
     Internal rules are **trusted** content: only the operators who have access to the database

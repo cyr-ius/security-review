@@ -89,7 +89,7 @@ workstation, for example in the [commit hooks](../getting-started/commit-hooks.m
 
 When the server uses the [OAuth login of MCP clients](../advanced/mcp-oauth.md), an administrator
 may turn the personal MCP tokens off (`SECREVIEW_PERSONAL_MCP_TOKENS=false`): the **MCP** usage is
-then no longer offered, and the controller revokes the MCP tokens left at its next start. The CI
+then no longer offered, and the Controller server revokes the MCP tokens left at its next start. The CI
 and REST API tokens stay.
 
 ## Points to watch

@@ -17,11 +17,11 @@ Chez votre fournisseur d'identité, créez un client OIDC (avec ou sans secret) 
   navigateur la voit (derrière un reverse proxy, l'adresse du proxy) ;
 - un claim qui contient les **groupes** de l'utilisateur (souvent `groups`).
 
-Le fournisseur doit être joignable en HTTPS par le contrôleur, par le proxy sortant au besoin.
+Le fournisseur doit être joignable en HTTPS par le serveur Controller, par le proxy sortant au besoin.
 
 ## Configurer le OIDC dans l'interface
 
-Un administrateur remplit l'écran **Connexions**, sans redémarrer le contrôleur :
+Un administrateur remplit l'écran **Connexions**, sans redémarrer le serveur Controller :
 
 1. **Émetteur (issuer)**, **Identifiant client**, **Secret client** (vide pour un client public)
    et **URL de retour** ;

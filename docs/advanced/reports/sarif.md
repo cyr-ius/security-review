@@ -1,7 +1,7 @@
 # SARIF export
 
 The [pipeline client](../architecture/ci.md) downloads the SARIF
-log of a project through the controller REST API, with a `ci` token and without database access:
+log of a project through the Controller server REST API, with a `ci` token and without database access:
 
 ```bash
 security-review-ci sarif --project my-project -o results.sarif   # SECREVIEW_CONTROLLER_URL, SECREVIEW_CI_TOKEN

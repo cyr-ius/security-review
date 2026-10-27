@@ -91,7 +91,7 @@ poste, par exemple dans les [hooks de commit](../getting-started/commit-hooks.md
 
 Quand le serveur utilise la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), un
 administrateur peut désactiver les jetons MCP personnels (`SECREVIEW_PERSONAL_MCP_TOKENS=false`) :
-l'usage **MCP** n'est alors plus proposé, et le contrôleur révoque les jetons MCP restants à son
+l'usage **MCP** n'est alors plus proposé, et le serveur Controller révoque les jetons MCP restants à son
 prochain démarrage. Les jetons CI et API REST restent.
 
 ## Points d'attention

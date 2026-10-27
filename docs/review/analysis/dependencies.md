@@ -50,7 +50,7 @@ The MCP server calls no external service: it looks up an OSV advisory base store
 database. Two ways to fill it:
 
 - **manual import** (no network access required);
-- **daily update by the controller**, if it is allowed to reach the Internet, directly or
+- **daily update by the Controller server**, if it is allowed to reach the Internet, directly or
   through a proxy.
 
 ### Manual import
@@ -66,23 +66,23 @@ security-review-controller advisories import Maven.zip --ecosystem Maven   # opt
 security-review-controller advisories status
 ```
 
-### Automatic update by the controller
+### Automatic update by the Controller server
 
 With `SECREVIEW_OSV_AUTO_UPDATE=true`, `security-review-controller serve` downloads the
 `all.zip` export of every ecosystem and imports it, then starts again every 24 hours:
 
 ```bash
 SECREVIEW_OSV_AUTO_UPDATE=true
-# Optional: outgoing HTTP proxy of the controller (credentials accepted, never logged)
+# Optional: outgoing HTTP proxy of the Controller server (credentials accepted, never logged)
 HTTPS_PROXY=http://user:password@proxy.example.com:3128
 ```
 
 - **Disabled by default**. The MCP server itself never connects outside.
 - The due time depends on the age of the database (last import, manual or automatic): a restart
-  or a second replica of the controller does not download again before the end of the interval
+  or a second replica of the Controller server does not download again before the end of the interval
   (`SECREVIEW_OSV_UPDATE_INTERVAL_HOURS`, 24 by default). An empty or too old database is
   updated at start-up.
-- **Proxy**: the download goes through the outgoing proxy of the controller, given by the
+- **Proxy**: the download goes through the outgoing proxy of the Controller server, given by the
   standard variables `HTTPS_PROXY` (else `HTTP_PROXY`; lowercase names accepted;
   `http://[user:password@]host:port`, `host:port` meaning `http://host:port`, `CONNECT` tunnel
   to the HTTPS site), except to the hosts of `NO_PROXY`. The same proxy serves the
@@ -119,14 +119,14 @@ entry matches no host, and the **General** screen refuses it. The loopback (`loc
 NO_PROXY=.corp.example,10.0.0.5
 ```
 
-The proxy can also be chosen by an administrator in the **Outgoing proxy of the controller**
+The proxy can also be chosen by an administrator in the **Outgoing proxy of the Controller server**
 section of the [**General**](../../usage/index.md#screens) screen of the web interface, for the variables that are not set: `HTTPS_PROXY` (else
 `HTTP_PROXY`) and `NO_PROXY`, when set, take precedence over the values of the screen. They
 apply to the next download. The **OSV database** screen shows the state of the database, the history of the updates
 (scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
 time), only available when `SECREVIEW_OSV_AUTO_UPDATE=true`.
 
-To trigger an update on demand (or from a `CronJob` rather than from the controller), with the
+To trigger an update on demand (or from a `CronJob` rather than from the Controller server), with the
 same settings:
 
 ```bash
@@ -135,13 +135,13 @@ security-review-controller advisories update --ecosystem npm  # repeatable optio
 # exit code: 0 = all imported, 2 = at least one ecosystem failed or invalid setting
 ```
 
-The controller downloads at most a few hundred MiB a day (the npm export is the largest): plan
+The Controller server downloads at most a few hundred MiB a day (the npm export is the largest): plan
 the matching space in its temporary folder (`/tmp`).
 
 ## Scan in a pipeline (`security-review-ci scan-deps`)
 
 In a pipeline, the [pipeline client](../../advanced/architecture/ci.md) sends
-the dependency files to the controller, which checks them against its advisory database and,
+the dependency files to the Controller server, which checks them against its advisory database and,
 with `--save`, stores a `dependency-scan` report of the project. The pipeline needs neither the
 database nor the package, only a [`ci` token](../../advanced/architecture/ci.md#ci-token-and-visible-projects)
 (or `admin`) of the project:
@@ -160,7 +160,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
   `--author` stores the username of the developer with it (see
   [author of a report](../prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context; the label of the token is stored as the device.
-- Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the controller, the request
+- Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the Controller server, the request
   to `SECREVIEW_MAX_SCAN_REQUEST_MB`. Symbolic links are not read.
 
 ## Scan from a workstation (commit hook)
@@ -170,7 +170,7 @@ Step-by-step setup, with the agent review: [Commit hooks](../../getting-started/
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
 [personal `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens) created in
 **My account**: it reaches the projects the developer may read, and the files are sent to the
-controller exactly as they are on disk. The workstation needs no Python: install the client with
+Controller server exactly as they are on disk. The workstation needs no Python: install the client with
 uv (see [Installation](../../advanced/architecture/ci.md#installation)).
 
 ```bash
@@ -178,7 +178,7 @@ uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_CI_TOKEN=<personal ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
-# exit code: 0 = ok, 1 = blocked, 2 = error (controller unreachable, token refused...)
+# exit code: 0 = ok, 1 = blocked, 2 = error (Controller server unreachable, token refused...)
 ```
 
 Commit hook ([prek](https://prek.j178.dev) or [pre-commit](https://pre-commit.com)), run when a
@@ -194,7 +194,7 @@ repos:
         name: dependency scan
         entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
         language: python
-        additional_dependencies: ["security-review-ci==X.Y.Z"] # version of your controller
+        additional_dependencies: ["security-review-ci==X.Y.Z"] # version of your Controller server
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
 
@@ -202,7 +202,7 @@ With the client already installed (`uv tool install`), `language: system` runs i
 `PATH` instead.
 
 `--skip-unconfigured` lets the commit through, with a warning, when `SECREVIEW_CONTROLLER_URL`
-is not set (contributors without a controller). The two variables are read from the
+is not set (contributors without a Controller server). The two variables are read from the
 environment only, never from the `.env` file.
 
 ## Reading the result

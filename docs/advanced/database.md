@@ -1,6 +1,6 @@
 # Database
 
-The controller and the MCP server share one database: reports and findings, rules, accounts,
+The Controller server and the MCP server share one database: reports and findings, rules, accounts,
 token digests, settings and audit log. This page gathers what concerns it: choosing the engine,
 schema migrations, retention, backup and upgrade. The variables are listed in
 [Configuration](../reference/configuration.md#database-and-logs).
@@ -40,8 +40,8 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
 - The **HTTP MCP server never migrates**: it refuses to start (code `2`, message
   `run security-review-controller db upgrade first`) while the database is not at the expected
   revision. Under Kubernetes, the pod restarts until the migration is done.
-- The controller, the stdio MCP server and the CLI commands migrate at start-up: with Docker
-  Compose and Kubernetes, the controller migrates when it starts, there is nothing to do.
+- The Controller server, the stdio MCP server and the CLI commands migrate at start-up: with Docker
+  Compose and Kubernetes, the Controller server migrates when it starts, there is nothing to do.
 - On PostgreSQL, a migration takes an advisory lock: instances that start together (several
   replicas, a `db upgrade` run by hand) wait for each other, and the next one finds the schema
   up to date.
@@ -56,18 +56,18 @@ operator who keeps migrations out of the application, for instance when:
 - a new image must not change the schema by itself: the migration is run after a backup, or
   during a maintenance window.
 
-The controller, the stdio MCP server and the CLI commands then only check the schema: like the
+The Controller server, the stdio MCP server and the CLI commands then only check the schema: like the
 HTTP MCP server, they refuse to start (code `2`) until `db upgrade` has been run.
 
 ## Retention of reports without findings
 
-The controller deletes these reports once they are older than
+The Controller server deletes these reports once they are older than
 `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` days (default `90`): at the start, then every
 day. The latest report of each project is always kept, so a project never disappears from the
 list, and a report with findings is never deleted, whatever their status. `0` disables the
 purge.
 
-The same purge can be run on demand, for example from a scheduled job when the controller is
+The same purge can be run on demand, for example from a scheduled job when the Controller server is
 not running:
 
 ```bash
@@ -115,7 +115,7 @@ docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exis
 docker compose up -d
 ```
 
-The controller then applies any pending Alembic revisions at start. The export
+The Controller server then applies any pending Alembic revisions at start. The export
 contains reports, password hashes, and tokens; keep it outside the repository
 (ensuring it is readable only by you, using `umask 077`) and delete it once the
 restoration has been verified.

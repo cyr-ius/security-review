@@ -1,9 +1,9 @@
 # Three services, three roles
 
 All components are installed via a single PyPI package, `security-review`, and delivered within the same Docker image.
-The MCP server and the controller never communicate directly with each other; instead, they share a common **database** where reports, rules, and tokens are stored.
+The MCP server and the Controller server never communicate directly with each other; instead, they share a common **database** where reports, rules, and tokens are stored.
 
-The `security-review-ci` pipeline client does not have direct access to the database; it interacts with the controller via its REST API.
+The `security-review-ci` pipeline client does not have direct access to the database; it interacts with the Controller server via its REST API.
 
 There are two possible deployment options:
 
@@ -13,27 +13,27 @@ There are two possible deployment options:
 ```mermaid
 flowchart LR
     agents(["AI agents<br/>VS Code, Claude, CI agent"]) -- "/mcp<br/>MCP token" --> mcp["MCP server<br/>security-review-mcp"]
-    people(["People (browser)<br/>security team, developers, admins"]) -- "/ui, /api/v1<br/>user account" --> ctl["Controller<br/>security-review-controller"]
+    people(["People (browser)<br/>security team, developers, admins"]) -- "/ui, /api/v1<br/>user account" --> ctl["Controller server<br/>security-review-controller"]
     ci(["CI/CD pipeline<br/>security-review-ci"]) -- "/api/v1/ci<br/>ci token" --> ctl
     mcp --> db[("Database<br/>SQLite or PostgreSQL")]
     ctl --> db
 ```
 
-| | MCP server | Controller | Pipeline client |
+| | MCP server | Controller server | Pipeline client |
 |---|---|---|---|
 | Command | `security-review-mcp` | `security-review-controller` | `security-review-ci` |
 | Used by | the AI agents (in the editor or in a pipeline) | the people: security team, developers, administrators | the CI/CD pipelines |
-| What it does | gives the agent the review prompts, the checklists, the pattern scan, and saves its reports | shows and triages the reports in the **web interface** (`/ui/`), serves the REST API, creates the schema, manages the tokens and the user accounts | sends the files of the repository to the controller, which scans them; gate, SARIF export, trends |
+| What it does | gives the agent the review prompts, the checklists, the pattern scan, and saves its reports | shows and triages the reports in the **web interface** (`/ui/`), serves the REST API, creates the schema, manages the tokens and the user accounts | sends the files of the repository to the Controller server, which scans them; gate, SARIF export, trends |
 | Exposure | to the agents (`/mcp` endpoint) | to the people and to the pipelines (HTTPS) | none: it runs in the pipeline |
 
-In short: **the agent talks to the MCP server, people and pipelines use the controller.** For a team, you
-deploy **both**: without the controller, nobody can read the reports in a browser, decide on a
+In short: **the agent talks to the MCP server, people and pipelines use the Controller server.** For a team, you
+deploy **both**: without the Controller server, nobody can read the reports in a browser, decide on a
 finding, nor create the tokens of the agents.
 
 ## MCP server
 
 In local mode, the MCP server creates its own SQLite database. In shared mode, it uses the
-database of the controller.
+database of the Controller server.
 
 Although you can install the MCP server in **local mode (stdio)** on a developer's workstation
 (see [Local mode (stdio)](getting-started/stdio.md)), we recommend the **shared mode (HTTP)**.
@@ -61,9 +61,9 @@ With this application, you can:
 - track the vulnerabilities, conduct security reviews and manage the risk acceptances (see
   [triage of findings](usage/triage.md)).
 
-The controller server is fully configurable through environment variables or through its CLI.
+The Controller server is fully configurable through environment variables or through its CLI.
 
-Its routes, start-up, background tasks and exposure: see [Controller](advanced/architecture/controller.md).
+Its routes, start-up, background tasks and exposure: see [Controller server](advanced/architecture/controller.md).
 
 ## CI/CD
 
@@ -89,7 +89,7 @@ flowchart LR
 ```
 
 **Shared mode**: the assistants of every workstation call the MCP server deployed in a
-container; the security analyst works in the web interface of the controller, which the
+container; the security analyst works in the web interface of the Controller server, which the
 pipelines also call. Both containers share the same PostgreSQL database.
 
 ```mermaid
@@ -113,11 +113,11 @@ flowchart LR
 ```
 
 !!! tip "Which mode to choose?"
-    - **Shared mode (HTTP)**, the recommended case: the MCP server and the controller run on
+    - **Shared mode (HTTP)**, the recommended case: the MCP server and the Controller server run on
       a machine or in containers, every developer and every pipeline connects to it with a
       token, and the reports are centralized. Start here.
     - **Local mode (stdio)**, for specific cases only: the host (VS Code, Claude) starts
       `security-review-mcp` itself on the developer workstation, without a network, a token,
-      nor a controller. Handy to try the prompts alone or offline, but the reports stay in a
+      nor a Controller server. Handy to try the prompts alone or offline, but the reports stay in a
       local database that nobody else sees. See
       [Local mode (stdio)](getting-started/stdio.md).

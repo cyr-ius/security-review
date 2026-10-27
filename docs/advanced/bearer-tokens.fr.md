@@ -1,9 +1,9 @@
 # Jetons Bearer
 
-Les jetons du [serveur MCP](architecture/mcp-server.md) et du [contrôleur](architecture/controller.md) se gèrent avec la
-CLI du contrôleur. Ce que chaque jeton peut atteindre est dans [Jetons](../usage/tokens.md) ;
+Les jetons du [serveur MCP](architecture/mcp-server.md) et du [serveur Controller](architecture/controller.md) se gèrent avec la
+CLI du serveur Controller. Ce que chaque jeton peut atteindre est dans [Jetons](../usage/tokens.md) ;
 les routes servies par chaque processus sont dans [Ce qu'il sert](architecture/mcp-server.md#ce-quil-sert)
-(serveur MCP) et [Ce qu'il sert](architecture/controller.md#ce-quil-sert) (contrôleur).
+(serveur MCP) et [Ce qu'il sert](architecture/controller.md#ce-quil-sert) (serveur Controller).
 
 Les jetons sont stockés dans la base de données (table `apitoken`) : seule leur empreinte
 SHA-256 est conservée, le secret n'est affiché qu'une fois, à la création. Gérez-les avec la
@@ -37,7 +37,7 @@ son auteur.
 
 ## Avant le premier jeton
 
-Tant qu'aucun jeton n'existe, l'API du contrôleur répond `503` et le serveur MCP **reste
+Tant qu'aucun jeton n'existe, l'API du serveur Controller répond `503` et le serveur MCP **reste
 fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) (sans outil),
 toute autre requête reçoit `401`, quelle que soit la valeur Bearer (un avertissement est
 journalisé au démarrage). `/mcp` n'est ouvert dans ce cas que si le serveur écoute sur localhost
@@ -100,7 +100,7 @@ La restriction s'applique aussi à la ressource `report://` et au prompt `triage
 stdio, il n'y a pas de jeton, donc pas de restriction.
 
 !!! tip
-    Les commandes `token` s'exécutent côté contrôleur (ou dans son conteneur), avec la même
+    Les commandes `token` s'exécutent côté serveur Controller (ou dans son conteneur), avec la même
     `SECREVIEW_DATABASE_URL` que lui. Les jetons ne passent jamais en argument de ligne de
     commande.
 

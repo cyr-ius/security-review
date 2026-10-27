@@ -8,13 +8,13 @@ client, and the host receives its tokens and renews them by itself.
 
 The flow follows the [authorization of the MCP specification](https://modelcontextprotocol.io/specification/latest/basic/authorization)
 (OAuth 2.1, authorization code with PKCE `S256`, dynamic client registration, protected
-resource metadata). The controller is the authorization server; the MCP server only checks the
+resource metadata). The Controller server is the authorization server; the MCP server only checks the
 tokens. The personal MCP tokens keep working alongside, unless an administrator turns them off
 with `SECREVIEW_PERSONAL_MCP_TOKENS=false` once every host logs in with OAuth.
 
 ## Enabling it
 
-On the **controller** only:
+On the **Controller server** only:
 
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
@@ -22,26 +22,26 @@ SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # public URL of the MCP e
 SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http on localhost only)
 ```
 
-At start, the controller stores `SECREVIEW_MCP_URL` in the database; the MCP server reads it
-there (within 30 seconds), as it reads the controller URL: it needs no new variable. Unset
-`SECREVIEW_MCP_OAUTH_ENABLED` and restart the controller to turn it off: it then revokes every
+At start, the Controller server stores `SECREVIEW_MCP_URL` in the database; the MCP server reads it
+there (within 30 seconds), as it reads the Controller server URL: it needs no new variable. Unset
+`SECREVIEW_MCP_OAUTH_ENABLED` and restart the Controller server to turn it off: it then revokes every
 grant, so that the tokens already issued stop at once. The issuer is fixed at
-start: after a change of the controller URL in **General**, restart the controller.
+start: after a change of the Controller server URL in **General**, restart the Controller server.
 
 Behind a reverse proxy, publish these public paths:
 
 | Path | Process |
 |---|---|
 | `/.well-known/oauth-protected-resource/mcp` (protected resource metadata, RFC 9728) | MCP server |
-| `/.well-known/oauth-authorization-server` (metadata, RFC 8414), `/authorize`, `/token`, `/register`, `/revoke` | controller |
+| `/.well-known/oauth-authorization-server` (metadata, RFC 8414), `/authorize`, `/token`, `/register`, `/revoke` | Controller server |
 
 With one host per service (`mcp.example.com` to the MCP server, `secreview.example.com` to the
-controller, each with every path), as the Compose files and the
+Controller server, each with every path), as the Compose files and the
 [Kubernetes Ingress example](deployment/kubernetes.md#image-exposure-and-administration) do,
 these paths already reach the right process: nothing to add. With a single host for both,
 route by path: `/mcp` and `/.well-known/oauth-protected-resource` to the MCP server, everything
-else to the controller (nginx, Apache, HAProxy and Traefik examples:
-[Reverse proxy](reverse-proxy.md)). The issuer must be in `https`: the controller refuses to start with
+else to the Controller server (nginx, Apache, HAProxy and Traefik examples:
+[Reverse proxy](reverse-proxy.md)). The issuer must be in `https`: the Controller server refuses to start with
 an `http` URL outside localhost.
 
 By default a client may only send the browser back to the loopback interface of the
@@ -78,7 +78,7 @@ browser. VS Code proposes the login at the first start of the server.
 
 1. The host calls `/mcp` without a token: the MCP server answers `401` with
    `WWW-Authenticate: Bearer …, resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"`.
-   This document names the controller as authorization server.
+   This document names the Controller server as authorization server.
 2. The host registers itself at `/register` (dynamic registration, RFC 7591).
 3. It opens `/authorize` in the browser, which goes to the **Connect an MCP client** screen of the
    web interface, behind the usual login.
@@ -94,7 +94,7 @@ A request left without an answer expires after 10 minutes.
 An access token acts as a [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) of
 the user who approved the client: the projects the user may read, read at each request, the
 `request_project` tool, the reports signed with the name of the user. It only reaches the MCP
-server: neither the REST API nor the pipeline routes of the controller (use a personal `ci` token
+server: neither the REST API nor the pipeline routes of the Controller server (use a personal `ci` token
 for `security-review-ci`).
 
 Approving a client needs the `mcp_tokens.create` permission, like creating a personal MCP
@@ -156,9 +156,9 @@ Registrations (`oauth.client_registered`), approvals (`oauth.grant_approved`), r
 
 | Symptom | Cause |
 |---|---|
-| The host still shows the enrollment server | OAuth off on the controller, or the MCP server has not read the setting yet (30 seconds) |
-| The controller does not start: `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` missing |
-| The controller does not start: `Issuer URL must be HTTPS` | controller URL in `http://` outside localhost |
+| The host still shows the enrollment server | OAuth off on the Controller server, or the MCP server has not read the setting yet (30 seconds) |
+| The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` missing |
+| The Controller server does not start: `Issuer URL must be HTTPS` | Controller server URL in `http://` outside localhost |
 | `invalid_redirect_uri` at registration | redirect URI outside the loopback interface: add its host to `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) or its scheme to `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` back in the host | the host asks for a resource other than `SECREVIEW_MCP_URL`: check that this URL is the one configured in the host |
 | **Connect an MCP client** says the request expired | more than 10 minutes, or already answered: restart the login from the host |

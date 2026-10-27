@@ -2,14 +2,14 @@
 
 Sans agent ni client MCP, un job Jenkins, GitLab ou GitHub peut bloquer un déploiement tant que
 des findings critiques restent ouverts. La commande `security-review-ci gate` le fait par l'API
-REST du contrôleur, avec un [jeton `ci`](../advanced/architecture/ci.md#jeton-ci-et-projets-visibles) : elle ne nécessite que
+REST du serveur Controller, avec un [jeton `ci`](../advanced/architecture/ci.md#jeton-ci-et-projets-visibles) : elle ne nécessite que
 Python 3.14 sur l'agent de build (ni pilote de base, ni SQLModel, ni URL de base). La CLI du
-contrôleur (`security-review-controller`) n'a aucune commande de pipeline.
+serveur Controller (`security-review-controller`) n'a aucune commande de pipeline.
 
 ```bash
 security-review-ci gate --project portal --fail-on high
 # code de sortie : 0 = passe, 1 = bloqué, 2 = erreur (projet/rapport introuvable, hors du jeton,
-# contrôleur injoignable, jeton refusé)
+# serveur Controller injoignable, jeton refusé)
 # options : --report-id N pour ne juger qu'un rapport
 ```
 

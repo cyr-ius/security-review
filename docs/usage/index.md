@@ -6,7 +6,7 @@ saved by the agents and the pipelines, see the open findings and decide what to 
 
 ## Signing in
 
-Open the address of the controller followed by `/ui/` (for example
+Open the address of the Controller server followed by `/ui/` (for example
 `https://secreview.example.com/ui/`) and sign in with your [user account](user-accounts.md):
 a user name and a password, or your company login (OIDC) when it is configured. A token never
 opens the interface: tokens are for the agents and the pipelines.
@@ -27,7 +27,7 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 - Click a column header to sort a table; the browser remembers the sort.
 - The circled question mark next to a title opens the page of this documentation that explains
   the screen (in French for a French interface, else in English).
-- If the controller stops answering, the **Backend unavailable** page opens: **Retry** brings
+- If the Controller server stops answering, the **Backend unavailable** page opens: **Retry** brings
   you back to your page once it answers again.
 
 ## Screens
@@ -59,11 +59,11 @@ together. The changes go to the form, which still saves or cancels them.
 
 | Screen | What for |
 |---|---|
-| **General** | Report language, controller address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every screen links to it |
+| **General** | Report language, Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every screen links to it |
 | **Users**, **Groups**, **Roles** | The accounts and what they may do ([roles, groups and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |
-| **OSV database** | State and update of the vulnerability database ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller)) |
+| **OSV database** | State and update of the vulnerability database ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
 | **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
 

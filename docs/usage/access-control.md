@@ -26,7 +26,7 @@ machines keep a fixed role ([tokens](tokens.md)).
 | `mcp_tokens.create` | Create a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | |
 
 A permission marked **per project** may be limited to some projects; the others apply to the
-whole controller.
+whole Controller server.
 
 ## Roles
 

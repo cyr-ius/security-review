@@ -3,7 +3,7 @@
 The [OIDC login](../usage/sso.md) page describes the setup in the web interface. This page
 gives the flow, the variables, the API and the detailed rules.
 
-The controller can delegate the login to the interface to an OpenID Connect identity provider
+The Controller server can delegate the login to the interface to an OpenID Connect identity provider
 (Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). The login page then shows a
 **Log in with OIDC** button above the form of the local accounts, which
 stays available (initial `admin` account, fallback accounts).
@@ -11,7 +11,7 @@ stays available (initial `admin` account, fallback accounts).
 The flow is *authorization code* with PKCE (`S256`), state and nonce:
 
 1. `GET /api/v1/auth/oidc/login` redirects the browser to the provider;
-2. the provider sends back to `GET /api/v1/auth/oidc/callback`; the controller exchanges the
+2. the provider sends back to `GET /api/v1/auth/oidc/callback`; the Controller server exchanges the
    code (server-to-server call), checks the ID token (signature by the JWKS keys of the
    provider, issuer, audience, expiry, nonce), finds the [OIDC account](#oidc-accounts) of the
    user (or creates it) and records the groups named by its groups claim;
@@ -25,7 +25,7 @@ Create a *confidential* OIDC client (or a public one, without a secret: PKCE is 
 - **Redirect URL**: `https://<controller>/api/v1/auth/oidc/callback`, the exact public URL seen
   by the browser (behind a reverse proxy, the proxy's);
 - a claim holding the groups or roles of the user in the ID token (or, failing that, in the
-  *userinfo* answer, which the controller reads when the ID token does not contain it).
+  *userinfo* answer, which the Controller server reads when the ID token does not contain it).
 
 Keycloak example (realm roles):
 
@@ -44,13 +44,13 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 
 The issuer must use HTTPS (HTTP is only accepted on `localhost`, for development); its
 `/.well-known/openid-configuration` document must announce the same `issuer`. If the provider
-uses an internal CA, give it with `SECREVIEW_OIDC_CAFILE`. The controller reaches the provider
+uses an internal CA, give it with `SECREVIEW_OIDC_CAFILE`. The Controller server reaches the provider
 through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General** screen).
 
 ## Configuring OIDC in the interface
 
 The same settings can be changed in the **Sign-in** screen (`users.manage` permission: the OIDC
-settings decide who joins which group), without restarting the controller. As for
+settings decide who joins which group), without restarting the Controller server. As for
 the proxy of the **General** screen, **a `SECREVIEW_OIDC_*` variable that is set always takes
 precedence**, field by field; a value stored in the database applies only to the fields whose
 variable is not set:
@@ -69,12 +69,12 @@ variable is not set:
   (missing or non-HTTPS issuer, scopes without `openid`...): nothing is
   stored then. An incomplete configuration can be prepared while OIDC stays disabled.
 
-The change applies to the next login, on every replica (the controller reads the configuration
+The change applies to the next login, on every replica (the Controller server reads the configuration
 again at every login and rebuilds the OIDC flow when it changes). Sessions already open stay
 valid until they expire. Still variables only: `SECREVIEW_OIDC_CAFILE` (a file of the
 deployment) and the session settings (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`).
 If a variable changed later makes the combination with the stored values invalid, the
-controller starts anyway: the OIDC login is disabled and the error logged, to be fixed in the
+Controller server starts anyway: the OIDC login is disabled and the error logged, to be fixed in the
 screen or in the variables.
 
 Through the API (`/api/v1/oidc/settings`, `users.manage` permission): `GET` describes every setting (stored
@@ -101,7 +101,7 @@ compared exactly, case included. There is no fallback to `email` or `sub`, and a
 not a valid user name (control or invisible character, space, more than 64 characters) is
 refused.
 
-At login, the controller first looks for the account bound to the issuer and the `sub` of the
+At login, the Controller server first looks for the account bound to the issuer and the `sub` of the
 login: it opens, whatever the username claim says now (a name changed at the provider keeps the
 account and its user name). Only an identity bound to no account is looked up by its user name:
 
@@ -189,7 +189,7 @@ SECREVIEW_OIDC_ONLY=true
 It applies only while OIDC works: with OIDC disabled, or with settings refused at their check,
 the local accounts log in again, so that nobody is locked out. `SECREVIEW_OIDC_ONLY` is a
 variable only, never changed in the interface: if the provider is unavailable, unset it and
-restart the controller, then log in with a local account (its password can be set with
+restart the Controller server, then log in with a local account (its password can be set with
 `security-review-controller user reset-password`).
 
 ## Sessions
@@ -197,10 +197,10 @@ restart the controller, then log in with a local account (its password can be se
 - The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SECRET_KEY`
   (at least 32 characters), like the one of the [local accounts](architecture/controller.md#login-and-sessions), and
   names the OIDC account, read again at every request: deleting the account or changing its
-  groups or their roles applies at once. Every replica of the controller must share this secret; without
+  groups or their roles applies at once. Every replica of the Controller server must share this secret; without
   it, a random secret is drawn at every start and sessions end at restart.
 - A group change at the provider only applies at the next login. To cut every session before it
-  expires, delete the account, or change `SECREVIEW_SECRET_KEY` and restart the controller
+  expires, delete the account, or change `SECREVIEW_SECRET_KEY` and restart the Controller server
   (every session is cut).
 - **Log out** clears the session of the tab, not the one of the identity
   provider.
@@ -208,4 +208,4 @@ restart the controller, then log in with a local account (its password can be se
 On failure, the login page gives the cause (access denied at the provider, no permission, OIDC account
 not created yet or deleted, user name taken by a local account or bound to another account,
 missing user name, expired state, invalid token, unreachable provider); the detail is logged by
-the controller, without code or token.
+the Controller server, without code or token.

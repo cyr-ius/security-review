@@ -79,8 +79,8 @@ plugins:
             Connectors in detail: Connecteurs en détail
             Connectors: Connecteurs
             Contributing: Contribuer
-            Controller (FastAPI): Contrôleur (FastAPI)
-            Controller: Contrôleur
+            Controller server (FastAPI): Serveur Controller (FastAPI)
+            Controller server: Serveur Controller
             Database: Base de données
             Dependency analysis: Analyse des dépendances
             Deploying the server: Mise en service du serveur
@@ -191,7 +191,7 @@ nav:
       - Architecture:
           - Overview: advanced/architecture/index.md
           - MCP server: advanced/architecture/mcp-server.md
-          - Controller: advanced/architecture/controller.md
+          - Controller server: advanced/architecture/controller.md
           - Pipeline client (CI/CD): advanced/architecture/ci.md
       - Access control through the REST API: advanced/access-control-api.md
       - Audit log in detail: advanced/audit-log.md
@@ -218,7 +218,7 @@ nav:
   - Contributing:
       - Overview: contributing/index.md
       - MCP server: contributing/mcp-server.md
-      - "Controller (FastAPI)": contributing/controller.md
+      - "Controller server (FastAPI)": contributing/controller.md
       - "Web interface (Angular)": contributing/web-ui.md
       - Writing a connector: contributing/connectors.md
       - Tests: contributing/tests.md

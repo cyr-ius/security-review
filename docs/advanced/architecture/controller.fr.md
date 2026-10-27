@@ -1,6 +1,6 @@
-# Contrôleur
+# Serveur Controller
 
-Le **contrôleur** (`security-review-controller`) est le processus des personnes et des
+Le **serveur Controller** (`security-review-controller`) est le processus des personnes et des
 pipelines : il sert l'interface web, l'API REST et les routes de pipeline, gère le schéma de la
 base et exécute les tâches de fond. Il n'appelle jamais le serveur MCP : les deux partagent la
 base (voir [Architecture](index.md)).
@@ -15,7 +15,7 @@ base (voir [Architecture](index.md)).
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` (personnel ou non) |
 | `/metrics` | Prometheus ([métriques](../../reference/metrics.md)) | jeton `metrics` ou `admin` |
 | `/api/docs` | Swagger : documentation OpenAPI de l'API REST, sans données, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../../usage/tokens.md#jetons-api)) |
-| `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-controleur), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |
+| `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-serveur-controller), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |
 | `/api/health` | l'interface web, qui vérifie la disponibilité de l'API au chargement (ne révèle ni la version ni les réglages) | aucun |
 | `/api/favicon.svg` | icône de l'interface web et de Swagger | aucun |
 | `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | les hôtes MCP : [connexion OAuth](../mcp-oauth.md), seulement avec `SECREVIEW_MCP_OAUTH_ENABLED=true` | aucun (PKCE ; l'autorisation passe par une session web) |
@@ -36,7 +36,7 @@ dans [Jetons Bearer](../bearer-tokens.md).
 
 ## Migrations du schéma
 
-Le contrôleur migre le schéma à son démarrage ; le serveur MCP HTTP ne le fait jamais. Commandes,
+Le serveur Controller migre le schéma à son démarrage ; le serveur MCP HTTP ne le fait jamais. Commandes,
 verrou entre réplicas et tâche de migration dédiée : voir
 [Base de données](../database.md#migrations-du-schema).
 
@@ -44,7 +44,7 @@ verrou entre réplicas et tâche de migration dédiée : voir
 
 | Tâche | Activée par | Détails |
 |---|---|---|
-| Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` (désactivée par défaut) | [Mise à jour automatique par le contrôleur](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
+| Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` (désactivée par défaut) | [Mise à jour automatique par le serveur Controller](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) |
 | Purge des rapports sans finding et du journal d'audit | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Conservation](../database.md#conservation-des-rapports-sans-findings), [conservation de l'audit](../audit-log.md#conservation) |
 | Envoi du journal d'audit vers syslog | un serveur syslog défini dans l'environnement ou dans l'interface | [Envoi vers syslog](../audit-log.md#envoi-vers-syslog) |
 | Envoi automatique des findings par les connecteurs | un connecteur activé, un seuil de sévérité sur le projet ; `SECREVIEW_CONNECTORS_ENABLED=false` verrouille tout | [Connecteurs](../../usage/connectors/index.md) |
@@ -53,7 +53,7 @@ Le serveur MCP n'en exécute aucune.
 
 ## Connexions sortantes
 
-Le contrôleur est le seul processus qui peut se connecter à l'extérieur, et chaque connexion est
+Le serveur Controller est le seul processus qui peut se connecter à l'extérieur, et chaque connexion est
 **désactivée par défaut** : le téléchargement OSV, le fournisseur [OIDC](../oidc.md), la recherche
 d'une nouvelle version sur la page **À propos** (`SECREVIEW_UPDATE_CHECK_ENABLED`), le serveur
 syslog et les connecteurs. Elles passent en HTTPS (syslog : UDP, TCP ou TLS), par le proxy
@@ -62,22 +62,22 @@ sortant (`HTTPS_PROXY`, `NO_PROXY`, ou l'écran **Paramètres**). Voir
 
 ## Exposition
 
-Exposez le contrôleur avec TLS ([intégré ou reverse proxy](../tls.md)) aux personnes
+Exposez le serveur Controller avec TLS ([intégré ou reverse proxy](../tls.md)) aux personnes
 (interface web, jetons personnels) et aux runners des pipelines. Derrière un reverse proxy ou un
 Ingress :
 
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur l'adresse du proxy, sinon tous les clients
   partagent son adresse pour la limitation des connexions et la limite de débit ;
-- réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du contrôleur, sans `/ui` (ou
+- réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du serveur Controller, sans `/ui` (ou
   renseignez l'écran
-  **Général**) : le contrôleur la recopie en base au démarrage et le serveur
+  **Général**) : le serveur Controller la recopie en base au démarrage et le serveur
   MCP l'y lit, pour qu'un agent sans jeton valide sache où en créer un. Tant qu'elle est
   inconnue, un bandeau en haut de l'interface web le signale aux administrateurs (permission
   `settings.manage`) et renvoie au champ.
 
 ## Plusieurs réplicas
 
-Le contrôleur peut tourner en plusieurs réplicas sur la même base PostgreSQL : les migrations
+Le serveur Controller peut tourner en plusieurs réplicas sur la même base PostgreSQL : les migrations
 s'attendent (verrou consultatif), les sessions sont partagées grâce à `SECREVIEW_SECRET_KEY`, les
 compteurs de connexion et de limite de débit sont tenus en base, un seul réplica à la fois
 télécharge les avis OSV, et un lot syslog n'est envoyé qu'une fois. Donnez le même
@@ -85,7 +85,7 @@ télécharge les avis OSV, et un lot syslog n'est envoyé qu'une fois. Donnez le
 
 ## Commandes d'administration
 
-Les autres commandes de `security-review-controller` s'exécutent là où tourne le contrôleur
+Les autres commandes de `security-review-controller` s'exécutent là où tourne le serveur Controller
 (même `SECREVIEW_DATABASE_URL`), par exemple `docker compose exec controller …` ou
 `kubectl exec deploy/secreview-controller -c controller -- …` :
 
@@ -100,7 +100,7 @@ Les autres commandes de `security-review-controller` s'exécutent là où tourne
 | `audit` | lire ou purger le [journal d'audit](../audit-log.md) |
 
 Toutes leurs options : [Ligne de commande](../../reference/cli.md#security-review-controller). Les
-variables du contrôleur : [Configuration](../../reference/configuration.md#controleur).
+variables du serveur Controller : [Configuration](../../reference/configuration.md#serveur-controller).
 
 ## Gérer les comptes
 
@@ -158,7 +158,7 @@ Les variables de l'interface sont dans la
 
 ## Premier administrateur
 
-À son premier démarrage, tant qu'aucun compte n'existe, le contrôleur crée le compte local
+À son premier démarrage, tant qu'aucun compte n'existe, le serveur Controller crée le compte local
 **`admin`** (`SECREVIEW_ADMIN_USERNAME`), membre du groupe `administrators` (rôle `admin`),
 avec un mot de passe aléatoire que personne ne connaît et qui n'est jamais écrit dans les
 journaux. Le seul moyen d'obtenir un mot de passe est la CLI, qui en définit un nouveau et
@@ -185,7 +185,7 @@ L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
 ### Mot de passe perdu
 
 Le mot de passe est stocké sous forme d'empreinte scrypt : il est impossible de le relire.
-Remplacez-le avec la CLI du contrôleur, sur la même base :
+Remplacez-le avec la CLI du serveur Controller, sur la même base :
 
 ```bash
 security-review-controller user reset-password admin
@@ -202,7 +202,7 @@ de champ `password`) :
 printf '%s\n' "$NEW_PASSWORD" | security-review-controller user reset-password admin --password-stdin
 ```
 
-Lancez-la là où tourne le contrôleur :
+Lancez-la là où tourne le serveur Controller :
 
 ```bash
 # Docker Compose
@@ -219,7 +219,7 @@ qu'aucun compte n'existe.
 
 ## Connexion et sessions
 
-Quand le contrôleur n'accepte plus la session pendant la navigation (session expirée, mot de passe
+Quand le serveur Controller n'accepte plus la session pendant la navigation (session expirée, mot de passe
 changé dans un autre onglet, compte supprimé), une fenêtre **Session expirée** s'ouvre :
 **Se reconnecter** ouvre la page de connexion puis revient à la même page.
 
@@ -235,7 +235,7 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 # {"session": "eyJ…", "expires_in": 28800, "username": "alice"}
 ```
 
-Chaque session désigne un compte (local ou OIDC) ; à chaque requête, le contrôleur le relit en
+Chaque session désigne un compte (local ou OIDC) ; à chaque requête, le serveur Controller le relit en
 base :
 
 - un changement de ses **groupes**, de leurs rôles ou d'un rôle s'applique immédiatement aux
@@ -248,15 +248,15 @@ base :
   utilisateur se déconnecte.
 
 Les sessions sont signées avec `SECREVIEW_SECRET_KEY` (32 caractères au moins), partagé par
-toutes les répliques du contrôleur. Sans lui, un secret aléatoire est tiré à chaque démarrage
-(un avertissement est journalisé) : les sessions se terminent au redémarrage du contrôleur et ne
+toutes les répliques du serveur Controller. Sans lui, un secret aléatoire est tiré à chaque démarrage
+(un avertissement est journalisé) : les sessions se terminent au redémarrage du serveur Controller et ne
 sont pas partagées entre répliques. Définissez-le en production (en Kubernetes, depuis un
 `Secret` : voir [Kubernetes](../deployment/kubernetes.md#secrets)).
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
 connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Les
-compteurs sont tenus en base : tous les workers et réplicas du contrôleur les partagent. Chaque
+compteurs sont tenus en base : tous les workers et réplicas du serveur Controller les partagent. Chaque
 adresse est aussi limitée sur toute l'API REST (par défaut 600 requêtes par minute, 30 sur les
 routes de connexion, voir [`SECREVIEW_RATE_LIMIT_*`](../../reference/configuration.md#limitation-des-requetes)). Derrière un reverse proxy, l'adresse vue est celle du
 proxy, et la limite s'appliquerait alors à tous les clients du proxy : déclarez le proxy dans
@@ -271,16 +271,16 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Réglages enregistrés en base
 
-Les écrans **Général** (langue des rapports, adresse du contrôleur, proxy sortant) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
-enregistrent des réglages en base, partagés par le serveur MCP et le contrôleur (permission
+Les écrans **Général** (langue des rapports, adresse du serveur Controller, proxy sortant) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
+enregistrent des réglages en base, partagés par le serveur MCP et le serveur Controller (permission
 `settings.manage` ; les anciennes adresses `/ui/settings`, `/ui/settings/language` et
 `/ui/settings/proxy` ouvrent **Général**). **Une variable d'environnement définie (environnement ou fichier `.env`, non vide)
 est toujours prioritaire** : son champ est alors verrouillé et affiche la variable, et une valeur
 enregistrée avant que la variable soit définie est signalée comme ignorée, avec un bouton
 **Supprimer**. Un changement s'applique sans redémarrage : le serveur MCP lit l'adresse du
-contrôleur en moins d'une minute (le changement est enregistré dans le journal d'audit,
+serveur Controller en moins d'une minute (le changement est enregistré dans le journal d'audit,
 `controller_url.changed`), et le proxy s'applique au prochain téléchargement OSV et à la
-prochaine connexion OIDC. **Utiliser l'adresse actuelle** remplit l'adresse de ce contrôleur.
+prochaine connexion OIDC. **Utiliser l'adresse actuelle** remplit l'adresse de ce serveur Controller.
 
 | Route | Effet |
 |---|---|
@@ -310,9 +310,9 @@ pour tous les navigateurs qu'il utilise.
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton. Saisissez-y un [jeton API](../../usage/tokens.md#jetons-api).
-- Le contrôleur n'expose aucune route d'écriture sans jeton. Un projet est demandé par un
+- Le serveur Controller n'expose aucune route d'écriture sans jeton. Un projet est demandé par un
   agent muni d'un jeton, avec l'outil `request_project` du **serveur MCP**
-  ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) ; le contrôleur
+  ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) ; le serveur Controller
   liste et traite les demandes (`GET /api/v1/projects/pending`,
   `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
   permission `projects.create`).
@@ -329,5 +329,5 @@ pour tous les navigateurs qu'il utilise.
   qu'elle n'écoute plus sur localhost : le jeton circule à chaque requête.
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
-depuis les sources sans la compiler, le contrôleur ne sert que l'API REST et un avertissement est
+depuis les sources sans la compiler, le serveur Controller ne sert que l'API REST et un avertissement est
 journalisé. Voir [Contribuer](../../contributing/web-ui.md) pour la compiler.

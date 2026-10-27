@@ -49,5 +49,5 @@ occurrence : aucun doublon n'est créé.
   Changer l'adresse de l'outil redemande ses secrets.
 - **Un échec** (identifiants refusés, projet inconnu...) s'affiche sur le finding avec sa cause ;
   l'envoi automatique réessaie quelques fois.
-- **Seul le contrôleur** se connecte à ces outils ; l'opérateur peut verrouiller tous les
+- **Seul le serveur Controller** se connecte à ces outils ; l'opérateur peut verrouiller tous les
   connecteurs.
