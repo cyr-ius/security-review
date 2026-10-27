@@ -16,7 +16,7 @@ at first start, for these domains:
 
 | Domain | Examples of points |
 |---|---|
-| `*` | Points that apply to every language, for example information disclosure through output, logs, errors or API responses |
+| `*` | Points that apply to every language: information disclosure through output, logs, errors or API responses; secrets kept out of logs (tokens, passwords, URLs with credentials) and masked before storage and in returned excerpts |
 | `python`, `java`, `go`, `csharp`, `rust` | Language and framework pitfalls |
 | `angular`, `node` | Front end, and TypeScript and JavaScript back end |
 | `api` | Validation of OAuth/OIDC tokens, webhooks, sensitive business flows, HTTP desync, CRLF injection, file upload |

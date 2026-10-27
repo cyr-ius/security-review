@@ -2058,6 +2058,13 @@ what_to_look_for = "Sensitive information exposed through program output, logs, 
 cwe = "CWE-200"
 
 [[checklist]]
+domain = "*"
+id = "GEN-02"
+title = "Secrets in logs and stored data"
+what_to_look_for = "Tokens, passwords, API keys, session cookies or Authorization headers written to logs, traces, metrics or audit events; URLs that carry credentials (user:password@host, database URLs, tokens in the query string) logged or returned as they are; secrets stored in a database, cache, file or report without being masked, hashed or encrypted first; excerpts, error messages or tool results that echo a secret back. Mask secrets before storing and before returning excerpts, strip credentials from URLs before logging them, and log an identifier instead of the secret."
+cwe = "CWE-532"
+
+[[checklist]]
 domain = "python"
 id = "PY-01"
 title = "Injection (SQL / command / template)"
@@ -2490,6 +2497,13 @@ id = "RS-08"
 title = "Crates and build supply chain"
 what_to_look_for = "Dependencies with RustSec advisories (cargo audit, cargo deny), build.rs or proc macros downloading or running code, git dependencies without a pinned rev, Cargo.lock not committed for binaries."
 cwe = "CWE-1104"
+
+[[checklist]]
+domain = "rust"
+id = "RS-09"
+title = "Errors, logs and secrets"
+what_to_look_for = "Secrets or tokens in tracing/log fields, structs holding secrets with a derived Debug printed by {:?} or #[instrument] (use secrecy::SecretString or skip the field), error details returned to clients, database URLs with credentials logged at startup."
+cwe = "CWE-532"
 
 [[checklist]]
 domain = "node"

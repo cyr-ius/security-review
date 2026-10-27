@@ -174,6 +174,9 @@ def test_default_rules_file_is_valid_and_complete():
     domains = {"python", "java", "angular", "api", "config", "cicd", "dependencies"}
     domains |= {"go", "csharp", "rust", "node", "*"}
     assert domains <= set(defaults.checklist)
+    # Added to every review: secrets kept out of logs and masked before storage
+    shared = {item.id: item.what_to_look_for for item in defaults.checklist["*"]}
+    assert "logged" in shared["GEN-02"] and "before storing" in shared["GEN-02"]
 
 
 def test_reload_picks_up_changes():
