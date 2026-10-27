@@ -63,6 +63,8 @@ class Identity(BaseModel):
     # (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); a less severe finding is accepted by a plain
     # validation. None: every acceptance needs them
     risk_acceptance_min_severity: Severity | None = None
+    # A web user may create a personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS)
+    personal_mcp_tokens: bool = True
     version: str
 
 

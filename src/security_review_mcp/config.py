@@ -372,6 +372,10 @@ class Settings(BaseSettings):
     # Controller only: personal tokens a web user may hold of each kind (REST API and MCP),
     # created in My account. Revoke one to create another.
     personal_tokens_per_user: int = Field(default=1, ge=1, le=10)
+    # Controller only: a web user may create a personal MCP token in My account. false (MCP
+    # clients logged in with OAuth, see mcp_oauth_enabled): none is offered nor created, and
+    # the controller revokes those left at start. Personal CI and REST API tokens stay.
+    personal_mcp_tokens: bool = True
 
     # Controller only: delete the audit events older than audit_retention_days, checked at start
     # then every day. 0 keeps them forever.

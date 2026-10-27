@@ -54,8 +54,8 @@ hook `agent-review` ne relise pas le commit une seconde fois. La procédure comp
 
 Les hooks `scan-deps` et `agent-review` lancent le `security-review-ci` du contrôleur désigné par
 `SECREVIEW_CONTROLLER_URL` ([client du contrôleur](../getting-started/commit-hooks.md)), et sont
-sautés tant qu'elle n'est pas définie. Avec un jeton `mcp` ou `ci` personnel dans
-`SECREVIEW_TOKEN`, `scan-deps` analyse les dépendances quand `uv.lock`, `pyproject.toml` ou
+sautés tant qu'elle n'est pas définie. Avec un jeton `ci` personnel dans
+`SECREVIEW_CI_TOKEN`, `scan-deps` analyse les dépendances quand `uv.lock`, `pyproject.toml` ou
 `web/package*.json` changent.
 
 ### Revue de sécurité de chaque commit

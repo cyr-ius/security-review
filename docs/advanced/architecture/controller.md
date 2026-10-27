@@ -12,7 +12,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/ui/` | the people (browser): [web interface](../../usage/index.md) | none for the static files; the data come from the API |
 | `/api/v1/auth/` | the login page: password and [OIDC](../oidc.md) login | none |
 | `/api/v1/` | the web interface, scripts, Swagger | web session, `admin` or `api` token |
-| `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token or personal `mcp` token |
+| `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token (personal or not) |
 | `/metrics` | Prometheus ([metrics](../../reference/metrics.md)) | `metrics` or `admin` token |
 | `/api/docs` | Swagger: OpenAPI documentation of the REST API, without data, only with `SECREVIEW_SWAGGER_ENABLED=true` | none (the calls need an [API token](../../usage/tokens.md#api-tokens)) |
 | `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller), unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | none |

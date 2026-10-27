@@ -53,7 +53,7 @@ so that the `agent-review` hook does not review the commit again. The full proce
 
 The `scan-deps` and `agent-review` hooks run the `security-review-ci` of the controller given by
 `SECREVIEW_CONTROLLER_URL` ([client from the controller](../getting-started/commit-hooks.md)),
-and are skipped while it is not set. With a personal `mcp` or `ci` token in `SECREVIEW_TOKEN`,
+and are skipped while it is not set. With a personal `ci` token in `SECREVIEW_CI_TOKEN`,
 `scan-deps` scans the dependencies when `uv.lock`, `pyproject.toml` or `web/package*.json`
 change.
 

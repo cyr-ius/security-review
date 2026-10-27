@@ -64,7 +64,7 @@ sert qu'à une [tâche de migration dédiée](../advanced/database.md#tache-de-m
 Options acceptées par toutes les sous-commandes, sauf `agent-review` et `guard` :
 
 `--project P` (obligatoire), `--url URL` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin`
-(par défaut : `SECREVIEW_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
+(par défaut : `SECREVIEW_CI_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
 
 Sans argument, `security-review-ci` affiche son aide et sort avec le code `2`.
 
@@ -80,7 +80,7 @@ Sans argument, `security-review-ci` affiche son aide et sort avec le code `2`.
 
 `scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`, enregistrés avec le rapport (`--author` est inutile avec un jeton personnel, dont l'utilisateur est l'auteur).
 
-Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un [jeton `mcp` ou `ci` personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)).
+Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un [jeton `ci` personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)).
 
 `--skip-unconfigured` sort avec `0` et un avertissement quand aucune URL de contrôleur n'est définie (hook de commit).
 

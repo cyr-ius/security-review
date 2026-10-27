@@ -8,7 +8,7 @@ to the controller, which scans them with the [rules](../rules.md) of its databas
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=...   # ci token restricted to the project (or admin token)
+export SECREVIEW_CI_TOKEN=...   # ci token restricted to the project (or admin token)
 
 security-review-ci scan-code . --project portal                               # text summary, exit code 0/1/2
 security-review-ci scan-code . --project portal --format json -o scan.json    # for the codebase-review prompt
@@ -18,7 +18,7 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 
 The pipeline needs neither the database nor the package: only Python and the
 [`ci` token](../../advanced/architecture/ci.md#ci-token-and-visible-projects) of the project. On a workstation,
-use a [personal `mcp` or `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens).
+use a [personal `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens).
 
 ## File selection
 
@@ -71,6 +71,6 @@ Then, the `codebase-review` prompt (`scan_results` argument = the JSON, possibly
 guides the agent: inventory, prioritization of the entry points, tracing of the flows between
 files, checklists, and a **coverage** section that says what was not read. Without `scan_results`, the
 prompt asks an agent that can run commands to launch `security-review-ci scan-code` itself (with
-a personal `mcp` or `ci` token): the files reach the controller as they are, instead of being copied by
+a personal `ci` token): the files reach the controller as they are, instead of being copied by
 the model into `scan_code` calls. The `dependency-review` prompt does the same with
 `security-review-ci scan-deps`.

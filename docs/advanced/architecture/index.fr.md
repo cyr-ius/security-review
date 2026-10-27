@@ -24,7 +24,7 @@ flowchart LR
 |---|---|---|
 | Commande | `security-review-mcp serve --transport streamable-http` | `security-review-controller serve` |
 | Sert | `/mcp`, `/healthz` | API REST `/api/v1`, interface `/ui`, `/healthz` |
-| Identifiants acceptés | jetons `mcp` (personnels ou non) et `admin` | sessions web (utilisateurs), jetons `admin` et `api` ; jetons `ci` et jetons `mcp` personnels sur les seules routes de pipeline `/api/v1/ci/` (gate, SARIF, tendance, scans) ; jetons `metrics` sur `/metrics` seulement |
+| Identifiants acceptés | jetons `mcp` (personnels ou non) et `admin` | sessions web (utilisateurs), jetons `admin` et `api` ; jetons `ci` (personnels ou non) sur les seules routes de pipeline `/api/v1/ci/` (gate, SARIF, tendance, scans) ; jetons `metrics` sur `/metrics` seulement |
 | Routes sans jeton | serveur d'enrôlement sur `/mcp` (sans outil), `/healthz` | fichiers de `/ui`, connexion (`/api/v1/auth/`), `/healthz`, et la documentation de l'API quand `SECREVIEW_SWAGGER_ENABLED=true` |
 | Schéma de la base | vérifie seulement | migre |
 | Exposition conseillée | aux agents, avec TLS | aux personnes et aux pipelines, avec TLS |

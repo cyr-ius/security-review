@@ -22,7 +22,7 @@ addressed to an assistant), offline, and refuses the read or asks the person.
 
 The module only uses the Python standard library and imports nothing from the package, so it
 can also be copied alone to a build agent and run with ``python3 ci_client.py``. That is why it
-reads its two variables (``SECREVIEW_CONTROLLER_URL``, ``SECREVIEW_TOKEN``) from the environment
+reads its two variables (``SECREVIEW_CONTROLLER_URL``, ``SECREVIEW_CI_TOKEN``) from the environment
 itself instead of through ``config.Settings``, and ignores the ``.env`` file. The file listing
 (``detect_language``...) is defined here and reused by ``codescan`` on the controller.
 
@@ -66,7 +66,9 @@ LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 SEVERITIES = ["info", "low", "medium", "high", "critical"]
 
 URL_VARIABLE = "SECREVIEW_CONTROLLER_URL"
-TOKEN_VARIABLE = "SECREVIEW_TOKEN"
+TOKEN_VARIABLE = "SECREVIEW_CI_TOKEN"
+# Former name of TOKEN_VARIABLE, still read (with a warning) when TOKEN_VARIABLE is not set
+LEGACY_TOKEN_VARIABLE = "SECREVIEW_TOKEN"
 
 # Explanation added to the refusals of the controller
 _REFUSAL_HINTS = {
@@ -1231,9 +1233,19 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _read_token(from_stdin: bool) -> str:
-    """Return the token from stdin or from SECREVIEW_TOKEN (never from the command line, where
-    it would show in the process list and the job log)."""
-    token = sys.stdin.readline().strip() if from_stdin else os.environ.get(TOKEN_VARIABLE, "")
+    """Return the token from stdin or from SECREVIEW_CI_TOKEN (never from the command line, where
+    it would show in the process list and the job log). SECREVIEW_TOKEN, its former name, is
+    still read when SECREVIEW_CI_TOKEN is not set, with a warning on stderr."""
+    if from_stdin:
+        token = sys.stdin.readline().strip()
+    else:
+        token = os.environ.get(TOKEN_VARIABLE, "")
+        if TOKEN_VARIABLE not in os.environ and os.environ.get(LEGACY_TOKEN_VARIABLE, "").strip():
+            token = os.environ[LEGACY_TOKEN_VARIABLE]
+            print(
+                f"warning: {LEGACY_TOKEN_VARIABLE} is deprecated, set {TOKEN_VARIABLE} instead",
+                file=sys.stderr,
+            )
     if not token.strip():
         source = "stdin" if from_stdin else TOKEN_VARIABLE
         raise ValueError(f"No token: {source} is empty")

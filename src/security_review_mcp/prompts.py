@@ -295,7 +295,7 @@ def build_dependency_review_prompt(
 contain the exact resolved versions, including transitive dependencies.
 2. If you can run commands and `security-review-ci` is installed, run \
 `security-review-ci scan-deps <files> --project <name> --format json` (it needs \
-`SECREVIEW_CONTROLLER_URL` and a personal mcp or ci token in `SECREVIEW_TOKEN`): it sends \
+`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_CI_TOKEN`): it sends \
 the files \
 exactly as they are, without the size limit of a tool call. Otherwise call the \
 `scan_dependencies` tool for each file with its content and its file name; a lockfile too \
@@ -340,7 +340,7 @@ vendored dependencies and build output). Identify the languages, frameworks, ent
 2. **Leads.** If scan results are given below, start from them. Otherwise, if you can run \
 commands and `security-review-ci` is installed, run \
 `security-review-ci scan-code . --project <name> --format json` yourself (it needs \
-`SECREVIEW_CONTROLLER_URL` and a personal mcp or ci token in `SECREVIEW_TOKEN`; the \
+`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_CI_TOKEN`; the \
 controller scans \
 every file as it is, without the size limit of a tool call), or ask the user to run it and \
 paste the output. As a last resort, call `scan_code` file by file on the files you read. A \

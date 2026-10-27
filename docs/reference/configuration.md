@@ -143,7 +143,8 @@ Read by `security-review-controller` only.
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/triage.md) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive never needs one |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/triage.md) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Longest validity in days of a bearer token created or [rotated](../advanced/bearer-tokens.md#expiry-and-rotation-of-tokens) (CLI, web interface), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/tokens.md#api-tokens) and [MCP](../usage/tokens.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/tokens.md#api-tokens), [MCP and CI](../usage/tokens.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
+| `SECREVIEW_PERSONAL_MCP_TOKENS` | `true` | A web user may create a personal MCP token in **My account**. `false` with the [OAuth login of MCP clients](../advanced/mcp-oauth.md): none is offered nor created, and the controller revokes those left at start (audited); the CI and REST API tokens stay |
 
 ### Audit and metrics
 
@@ -178,11 +179,11 @@ Read by `security-review-controller` only.
 
 ## Clients
 
-Read by the pipeline client `security-review-ci` (`SECREVIEW_TOKEN` never by the servers).
+Read by the pipeline client `security-review-ci` (`SECREVIEW_CI_TOKEN` never by the servers).
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TOKEN` | — | Bearer token sent by [`security-review-ci`](../advanced/architecture/ci.md) to the controller (`ci` token); never used by the servers |
+| `SECREVIEW_CI_TOKEN` | — | Bearer token sent by [`security-review-ci`](../advanced/architecture/ci.md) to the controller (`ci` token, personal or not); never used by the servers. `SECREVIEW_TOKEN`, its former name, is still read when it is not set, with a warning |
 | `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../advanced/architecture/ci.md) (default of `--url`); read from the environment only, never from `.env`. The controller reads the same variable for [its public URL](#web-interface-and-sessions) |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with

@@ -54,7 +54,11 @@ A user creates their own tokens in **My account** > **Personal tokens**:
 | Usage | For |
 |---|---|
 | **REST API — Swagger and scripts** | The REST API, with the rights of the account |
-| **MCP / CI — agent and security-review-ci** | Your MCP agent and `security-review-ci`, on the projects your account may read |
+| **MCP — your MCP agent** | Your MCP agent, on the projects your account may read |
+| **CI — security-review-ci on your workstation** | `security-review-ci` (scans, gate, commit hooks), on the projects your account may read |
+
+Each token has one usage: an MCP token does not reach the pipeline routes, a CI token does not
+reach the MCP server.
 
 A personal token follows the account: its rights are those of the account, read at each
 request; it stops while the account must change a password set by an administrator, and is
@@ -68,7 +72,8 @@ login)** section of the **Tokens** screen.
 
 ### Personal MCP and CI tokens
 
-The personal **MCP / CI** token connects your MCP agent. It is offered only when your groups
+The personal **MCP** token connects your MCP agent, the personal **CI** token
+`security-review-ci`. They are offered only when your groups
 allow it (role `mcp-user`, see [Roles](access-control.md#roles)). It reaches the
 projects your account may read, shown in the **Projects** column.
 
@@ -78,9 +83,14 @@ the request then waits for an approval ([enrollment](../advanced/architecture/mc
 When the token is refused (revoked or expired), the agent tells you to sign in again and create
 a new one.
 
-The same token serves [`security-review-ci`](../advanced/architecture/ci.md) on your workstation, for
-example in the [commit hooks](../getting-started/commit-hooks.md): one token for both. A report
-it saves shows you as its author.
+The personal **CI** token serves [`security-review-ci`](../advanced/architecture/ci.md) on your
+workstation, for example in the [commit hooks](../getting-started/commit-hooks.md), through
+`SECREVIEW_CI_TOKEN`. A report it saves shows you as its author.
+
+When the server uses the [OAuth login of MCP clients](../advanced/mcp-oauth.md), an administrator
+may turn the personal MCP tokens off (`SECREVIEW_PERSONAL_MCP_TOKENS=false`): the **MCP** usage is
+then no longer offered, and the controller revokes the MCP tokens left at its next start. The CI
+and REST API tokens stay.
 
 ## Points to watch
 

@@ -311,7 +311,7 @@ une PR, quelle que soit la taille du changement :
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
 (`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/`, avec
-`SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_TOKEN`) et signalez ses résultats ;
+`SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_CI_TOKEN`) et signalez ses résultats ;
 si aucun contrôleur n'est joignable, dites-le aussi.
 
 ## Documentation

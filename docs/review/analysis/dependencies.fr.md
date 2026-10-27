@@ -151,7 +151,7 @@ base ni du paquet, seulement d'un [jeton `ci`](../../advanced/architecture/ci.md
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=...   # jeton ci limité à mon-projet
+export SECREVIEW_CI_TOKEN=...   # jeton ci limité à mon-projet
 security-review-ci scan-deps package-lock.json requirements.txt \
     --fail-on high --require-database --project mon-projet --save
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur
@@ -171,7 +171,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 Mise en place pas à pas, avec la revue par un agent : [Hooks de commit](../../getting-started/commit-hooks.md).
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
-[jeton `mcp` ou `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
+[jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
 envoyés au contrôleur exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
 Python : installez le client avec uv (voir [Installation](../../advanced/architecture/ci.md#installation)).
@@ -179,7 +179,7 @@ Python : installez le client avec uv (voir [Installation](../../advanced/archite
 ```bash
 uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<personal mcp or ci token>
+export SECREVIEW_CI_TOKEN=<personal ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (contrôleur injoignable, jeton refusé...)
 ```

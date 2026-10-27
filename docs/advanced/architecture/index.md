@@ -23,7 +23,7 @@ flowchart LR
 |---|---|---|
 | Command | `security-review-mcp serve --transport streamable-http` | `security-review-controller serve` |
 | Serves | `/mcp`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
-| Accepted credentials | `mcp` tokens (personal or not) and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens and personal `mcp` tokens on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans); `metrics` tokens on `/metrics` only |
+| Accepted credentials | `mcp` tokens (personal or not) and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens (personal or not) on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans); `metrics` tokens on `/metrics` only |
 | Routes without a token | enrollment server on `/mcp` (no tool), `/healthz` | `/ui` files, login (`/api/v1/auth/`), `/healthz`, and the API documentation when `SECREVIEW_SWAGGER_ENABLED=true` |
 | Database schema | only checks it | migrates it |
 | Advised exposure | the agents, with TLS | the people and the pipelines, with TLS |

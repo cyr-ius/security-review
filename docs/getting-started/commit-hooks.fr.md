@@ -20,7 +20,7 @@ PyPI ou le contrôleur peuvent distribuer le paquet `security-review-ci`.
 |---|---|
 | uv/uvx | [Installation de uv](https://docs.astral.sh/uv/getting-started/installation/) |
 | prek | `uv tool install prek` |
-| Votre jeton `mcp` personnel | **Mon compte** dans l'[interface web](../usage/tokens.md#jetons-mcp-et-ci-personnels) : il atteint les projets que vous pouvez lire, pour les deux hooks |
+| Vos jetons personnels | **Mon compte** dans l'[interface web](../usage/tokens.md#jetons-mcp-et-ci-personnels) : un jeton `ci` pour `scan-deps`, un jeton `mcp` (ou la [connexion OAuth](../advanced/mcp-oauth.md)) pour `agent-review` ; tous deux atteignent les projets que vous pouvez lire |
 | Le CLI de votre agent (pour `agent-review`), connecté avec votre compte | `npm install -g @anthropic-ai/claude-code`, `npm install -g @github/copilot` ou `npm install -g @openai/codex` |
 
 `scan-deps` envoie les fichiers de dépendances au contrôleur : pour ce faire, inscrivez l'URL du
@@ -28,7 +28,7 @@ serveur et votre jeton dans l'environnement (le profil de votre shell, jamais le
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<jeton mcp personnel>
+export SECREVIEW_CI_TOKEN=<jeton ci personnel>
 ```
 
 `agent-review` s'appuie sur la déclaration de votre serveur MCP dans le fichier `.mcp.json` à la

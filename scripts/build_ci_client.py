@@ -64,7 +64,7 @@ only uses the Python standard library.
 ```bash
 uv tool install {name}       # uv installs a Python when none is available
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<ci token>
+export SECREVIEW_CI_TOKEN=<ci token>
 {name} scan-deps uv.lock --project my-project
 ```
 

@@ -19,7 +19,7 @@ PyPI or the controller can distribute the `security-review-ci` package.
 |---|---|
 | uv/uvx | [Installation of uv](https://docs.astral.sh/uv/getting-started/installation/) |
 | prek | `uv tool install prek` |
-| Your personal `mcp` token | **My account** in the [web interface](../usage/tokens.md#personal-mcp-and-ci-tokens): it reaches the projects you may read, for both hooks |
+| Your personal tokens | **My account** in the [web interface](../usage/tokens.md#personal-mcp-and-ci-tokens): a `ci` token for `scan-deps`, an `mcp` token (or the [OAuth login](../advanced/mcp-oauth.md)) for `agent-review`; both reach the projects you may read |
 | The CLI of your agent (for `agent-review`), signed in with your account | `npm install -g @anthropic-ai/claude-code`, `npm install -g @github/copilot` or `npm install -g @openai/codex` |
 
 `scan-deps` sends the dependency files to the controller: to do so, set the URL of the server
@@ -27,7 +27,7 @@ and your token in the environment (your shell profile, never the `.env` file).
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<personal mcp token>
+export SECREVIEW_CI_TOKEN=<personal ci token>
 ```
 
 `agent-review` relies on the declaration of your MCP server in the `.mcp.json` file at the root

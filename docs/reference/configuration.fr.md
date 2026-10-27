@@ -143,7 +143,8 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Une personne peut [accepter un risque](../usage/triage.md) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif n'en exige jamais |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Gravité minimale (`critical`, `high`, `medium`, `low`, `info`) dont l'[acceptation de risque](../usage/triage.md) exige un motif et une date d'expiration. Un finding moins grave est accepté par une simple validation, qui le ferme sans motif ni date. Vide : toute acceptation les exige |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/bearer-tokens.md#expiration-et-renouvellement-des-jetons) (CLI, interface web), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/tokens.md#jetons-api) et [MCP](../usage/tokens.md#jetons-mcp-et-ci-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/tokens.md#jetons-api), [MCP et CI](../usage/tokens.md#jetons-mcp-et-ci-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
+| `SECREVIEW_PERSONAL_MCP_TOKENS` | `true` | Un utilisateur web peut créer un jeton MCP personnel dans **Mon compte**. `false` avec la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : aucun n'est proposé ni créé, et le contrôleur révoque ceux qui restent au démarrage (audité) ; les jetons CI et API REST restent |
 
 ### Audit et métriques
 
@@ -178,11 +179,11 @@ Lues par `security-review-controller` uniquement.
 
 ## Clients
 
-Lues par le client de pipeline `security-review-ci` (`SECREVIEW_TOKEN` jamais par les serveurs).
+Lues par le client de pipeline `security-review-ci` (`SECREVIEW_CI_TOKEN` jamais par les serveurs).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par [`security-review-ci`](../advanced/architecture/ci.md) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
+| `SECREVIEW_CI_TOKEN` | — | Jeton Bearer envoyé par [`security-review-ci`](../advanced/architecture/ci.md) au contrôleur (jeton `ci`, personnel ou non) ; jamais utilisé par les serveurs. `SECREVIEW_TOKEN`, son ancien nom, est encore lu s'il n'est pas défini, avec un avertissement |
 | `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../advanced/architecture/ci.md) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env`. Le contrôleur lit la même variable pour [son URL publique](#interface-web-et-sessions) |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec

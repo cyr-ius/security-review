@@ -4,7 +4,7 @@ The [pipeline client](../architecture/ci.md) downloads the SARIF
 log of a project through the controller REST API, with a `ci` token and without database access:
 
 ```bash
-security-review-ci sarif --project my-project -o results.sarif   # SECREVIEW_CONTROLLER_URL, SECREVIEW_TOKEN
+security-review-ci sarif --project my-project -o results.sarif   # SECREVIEW_CONTROLLER_URL, SECREVIEW_CI_TOKEN
 ```
 
 The log of a single report is exported by the MCP tool `export_sarif` or the REST API
@@ -34,7 +34,7 @@ GitHub Actions example:
 - run: security-review-ci scan-code . --project my-project --format sarif -o code.sarif
   env:
     SECREVIEW_CONTROLLER_URL: https://secreview.example.com
-    SECREVIEW_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
+    SECREVIEW_CI_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
   continue-on-error: true
 - uses: github/codeql-action/upload-sarif@v4
   with:

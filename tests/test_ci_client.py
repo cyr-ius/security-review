@@ -65,7 +65,7 @@ def fetch_from(client: TestClient) -> ci_client.Fetch:
 
 
 def run(client: TestClient, monkeypatch, argv: list[str], token: str | None) -> int:
-    """Run the client with the token in SECREVIEW_TOKEN and the controller URL in argv."""
+    """Run the client with the token in SECREVIEW_CI_TOKEN and the controller URL in argv."""
     monkeypatch.delenv(ci_client.URL_VARIABLE, raising=False)
     if token is None:
         monkeypatch.delenv(ci_client.TOKEN_VARIABLE, raising=False)
@@ -113,6 +113,11 @@ def test_token_and_url_from_the_environment_or_stdin(controller, ci_token, monke
     argv = ["gate", "--project", "shop-api", "--fail-on", "critical", "--token-stdin"]
     assert ci_client.main(argv, fetch=fetch_from(controller)) == 0
     assert json.loads(capsys.readouterr().out)["passed"] is True
+
+    # SECREVIEW_TOKEN, the former name, is still read, with a warning
+    monkeypatch.setenv(ci_client.LEGACY_TOKEN_VARIABLE, ci_token)
+    assert ci_client.main(argv[:-1], fetch=fetch_from(controller)) == 0
+    assert "SECREVIEW_TOKEN is deprecated, set SECREVIEW_CI_TOKEN" in capsys.readouterr().err
 
 
 def test_project_outside_the_token_is_refused(controller, ci_token, monkeypatch, capsys):

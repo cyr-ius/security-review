@@ -63,7 +63,7 @@ only useful to a [dedicated migration job](../advanced/database.md#dedicated-mig
 Options accepted by every sub-command, except `agent-review` and `guard`:
 
 `--project P` (required), `--url URL` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin`
-(default: `SECREVIEW_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
+(default: `SECREVIEW_CI_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
 
 Without arguments, `security-review-ci` prints its help and exits with code `2`.
 
@@ -81,7 +81,7 @@ Without arguments, `security-review-ci` prints its help and exits with code `2`.
 stored with the report (`--author` is not needed with a personal token, whose user is the
 author).
 
-They need a `ci` or `admin` token (on a workstation, a [personal `mcp` or `ci` token](../usage/tokens.md#personal-mcp-and-ci-tokens)).
+They need a `ci` or `admin` token (on a workstation, a [personal `ci` token](../usage/tokens.md#personal-mcp-and-ci-tokens)).
 
 `--skip-unconfigured` exits with `0` and a warning when no controller URL is set (commit hook).
 

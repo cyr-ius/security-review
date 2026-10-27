@@ -74,8 +74,8 @@
   [Prometheus metrics](metrics.md)).
 - **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
   cannot be created, and one found without a project reaches none); a personal `ci` token
-  reaches the projects its user may read now, like a personal `mcp` token, which also acts as a
-`ci` token on the pipeline routes (never an administrator's `mcp` token). It only reads the gate, the
+  reaches the projects its user may read now, like a personal `mcp` token, which never reaches
+  the pipeline routes (one usage per token). It only reads the gate, the
   SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
   web interface answer `403`, the other projects `404`. The pipeline client
   ([`security-review-ci`](../advanced/architecture/ci.md)) opens no

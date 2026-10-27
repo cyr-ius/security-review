@@ -9,7 +9,9 @@ autorise le client, puis l'hôte reçoit ses jetons et les renouvelle seul.
 Le flux suit l'[autorisation de la spécification MCP](https://modelcontextprotocol.io/specification/latest/basic/authorization)
 (OAuth 2.1, code d'autorisation avec PKCE `S256`, enregistrement dynamique des clients,
 métadonnées de la ressource protégée). Le contrôleur est le serveur d'autorisation ; le serveur
-MCP ne fait que vérifier les jetons. Les jetons MCP personnels restent acceptés.
+MCP ne fait que vérifier les jetons. Les jetons MCP personnels restent acceptés, sauf si un
+administrateur les désactive par `SECREVIEW_PERSONAL_MCP_TOKENS=false` une fois que tous les
+hôtes se connectent par OAuth.
 
 ## Activation
 
@@ -88,7 +90,7 @@ Un jeton d'accès agit comme un [jeton MCP personnel](../usage/tokens.md#jetons-
 de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire, relus à
 chaque requête, l'outil `request_project`, les rapports signés du nom de l'utilisateur. Il
 n'atteint que le serveur MCP : ni l'API REST ni les routes de pipeline du contrôleur (gardez un
-jeton personnel pour `security-review-ci`).
+jeton `ci` personnel pour `security-review-ci`).
 
 Autoriser un client exige la permission `mcp_tokens.create`, comme créer un jeton MCP
 personnel, et une session web : un jeton Bearer n'autorise jamais un client.

@@ -101,6 +101,7 @@ async def me(identity: CurrentIdentity) -> Identity:
                 if settings.risk_acceptance_min_severity
                 else None
             ),
+            "personal_mcp_tokens": settings.personal_mcp_tokens,
         }
     )
 

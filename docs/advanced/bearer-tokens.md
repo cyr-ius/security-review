@@ -186,12 +186,10 @@ every project when one of its groups reads every project, none when it has none.
 server refuses it (unknown, revoked or expired), the agent receives a `401` that tells the user
 to sign in again and create a new one.
 
-A personal `mcp` token also works as a personal `ci` token on the pipeline routes, so
-**My account** no longer offers a personal `ci` token. The API still creates one to keep the two
-uses apart (it never reaches `/mcp`), and those already created stay listed until revoked. A
-report stored by either is submitted by the token (`alice:laptop`), and its user is the author
-(see [scan from a workstation](../review/analysis/dependencies.md#scan-from-a-workstation-commit-hook)). An `mcp`
-token created by an administrator on the **Tokens** screen stays an MCP agent token only.
+Each personal token has one usage: a personal `mcp` token only reaches `/mcp`, a personal `ci`
+token (offered in **My account**, for `security-review-ci` through `SECREVIEW_CI_TOKEN`) only the
+pipeline routes. A report stored by a personal `ci` token is submitted by the token (`alice:laptop`), and its user is the author
+(see [scan from a workstation](../review/analysis/dependencies.md#scan-from-a-workstation-commit-hook)).
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \

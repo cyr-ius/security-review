@@ -148,7 +148,7 @@ database nor the package, only a [`ci` token](../../advanced/architecture/ci.md#
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=...   # ci token restricted to my-project
+export SECREVIEW_CI_TOKEN=...   # ci token restricted to my-project
 security-review-ci scan-deps package-lock.json requirements.txt \
     --fail-on high --require-database --project my-project --save
 # exit code: 0 = ok, 1 = blocked, 2 = error
@@ -168,7 +168,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 Step-by-step setup, with the agent review: [Commit hooks](../../getting-started/commit-hooks.md).
 
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
-[personal `mcp` or `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens) created in
+[personal `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens) created in
 **My account**: it reaches the projects the developer may read, and the files are sent to the
 controller exactly as they are on disk. The workstation needs no Python: install the client with
 uv (see [Installation](../../advanced/architecture/ci.md#installation)).
@@ -176,7 +176,7 @@ uv (see [Installation](../../advanced/architecture/ci.md#installation)).
 ```bash
 uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<personal mcp or ci token>
+export SECREVIEW_CI_TOKEN=<personal ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (controller unreachable, token refused...)
 ```

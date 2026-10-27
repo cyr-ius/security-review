@@ -190,14 +190,12 @@ projets quand l'un de ses groupes lit tous les projets, aucun quand il n'en a pa
 serveur le refuse (inconnu, révoqué ou expiré), l'agent reçoit un `401` qui invite
 l'utilisateur à se reconnecter pour en créer un nouveau.
 
-Un jeton `mcp` personnel vaut aussi jeton `ci` personnel sur les routes de pipeline : **Mon
-compte** ne propose donc plus de jeton `ci` personnel. L'API en crée encore un pour séparer les
-deux usages (il n'atteint jamais `/mcp`), et ceux déjà créés restent listés jusqu'à leur
-révocation. Un rapport enregistré par l'un ou l'autre est soumis par le jeton (`alice:laptop`),
+Chaque jeton personnel a un seul usage : un jeton `mcp` personnel n'atteint que `/mcp`, un jeton
+`ci` personnel (proposé dans **Mon compte**, pour `security-review-ci` par `SECREVIEW_CI_TOKEN`)
+que les routes de pipeline. Un rapport enregistré par un jeton `ci` personnel est soumis par le
+jeton (`alice:laptop`),
 et son utilisateur en est l'auteur (voir
 [scan depuis un poste de travail](../review/analysis/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit)).
-Un jeton `mcp` créé par un administrateur sur l'écran **Jetons** reste un jeton d'agent MCP
-seulement.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \

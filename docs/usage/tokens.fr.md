@@ -56,7 +56,11 @@ Un utilisateur crée ses propres jetons dans **Mon compte** > **Jetons personnel
 | Usage | Pour |
 |---|---|
 | **API REST — Swagger et scripts** | L'API REST, avec les droits du compte |
-| **MCP / CI — agent et security-review-ci** | Votre agent MCP et `security-review-ci`, sur les projets que votre compte peut lire |
+| **MCP — votre agent MCP** | Votre agent MCP, sur les projets que votre compte peut lire |
+| **CI — security-review-ci sur votre poste** | `security-review-ci` (scans, gate, hooks de commit), sur les projets que votre compte peut lire |
+
+Chaque jeton a un seul usage : un jeton MCP n'atteint pas les routes de pipeline, un jeton CI
+n'atteint pas le serveur MCP.
 
 Un jeton personnel suit le compte : ses droits sont ceux du compte, lus à chaque requête ; il
 s'arrête tant que le compte doit changer un mot de passe défini par un administrateur, et il est
@@ -70,8 +74,8 @@ clients dans la section **Clients MCP (connexion OAuth)** de l'écran **Jetons**
 
 ### Jetons MCP et CI personnels
 
-Le jeton personnel **MCP / CI** connecte votre agent MCP. Il n'est proposé que si vos groupes le
-permettent (rôle `mcp-user`, voir [Rôles](access-control.md#roles)). Il atteint les
+Le jeton personnel **MCP** connecte votre agent MCP, le jeton personnel **CI**
+`security-review-ci`. Ils ne sont proposés que si vos groupes le permettent (rôle `mcp-user`, voir [Rôles](access-control.md#roles)). Il atteint les
 projets que votre compte peut lire, affichés dans la colonne **Projets**.
 
 Pour un projet qu'il n'atteint pas encore : un administrateur vous en donne l'accès, vous le
@@ -81,9 +85,14 @@ lui-même avant une revue ; la demande attend alors une validation
 Quand le jeton est refusé (révoqué ou expiré), l'agent vous invite à vous reconnecter pour en
 créer un nouveau.
 
-Le même jeton sert à [`security-review-ci`](../advanced/architecture/ci.md) sur votre poste, par exemple dans
-les [hooks de commit](../getting-started/commit-hooks.md) : un seul jeton pour les deux. Un
-rapport qu'il enregistre vous désigne comme auteur.
+Le jeton personnel **CI** sert à [`security-review-ci`](../advanced/architecture/ci.md) sur votre
+poste, par exemple dans les [hooks de commit](../getting-started/commit-hooks.md), par
+`SECREVIEW_CI_TOKEN`. Un rapport qu'il enregistre vous désigne comme auteur.
+
+Quand le serveur utilise la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), un
+administrateur peut désactiver les jetons MCP personnels (`SECREVIEW_PERSONAL_MCP_TOKENS=false`) :
+l'usage **MCP** n'est alors plus proposé, et le contrôleur révoque les jetons MCP restants à son
+prochain démarrage. Les jetons CI et API REST restent.
 
 ## Points d'attention
 

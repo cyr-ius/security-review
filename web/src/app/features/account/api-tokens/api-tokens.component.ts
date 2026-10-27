@@ -13,11 +13,12 @@ import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 
 /**
- * Personal tokens of the logged-in user (My account): REST API tokens (Swagger, scripts), which
- * hold the current rights of the user, and MCP tokens for its agent and security-review-ci on its
- * workstation, which reach the projects the user may read (with the mcp_tokens.create
- * permission). A personal CI token is no longer offered (an MCP token does both), but those
- * already created are still listed. The secret is shown once.
+ * Personal tokens of the logged-in user (My account), one usage each: a REST API token (Swagger,
+ * scripts), which holds the current rights of the user; an MCP token for its agent and a CI
+ * token for security-review-ci on its workstation, which reach the projects the user may read
+ * (with the mcp_tokens.create permission). The MCP token is not offered when the server turned
+ * it off (SECREVIEW_PERSONAL_MCP_TOKENS=false: OAuth login of the MCP clients). The secret is
+ * shown once.
  */
 @Component({
   selector: 'app-api-tokens',
@@ -39,7 +40,12 @@ export class ApiTokensComponent {
   readonly validities = VALIDITY_DAYS;
   /** The MCP usage is offered only to a user with mcp_tokens.create (the server checks it). */
   readonly roles = computed(() =>
-    PERSONAL_ROLES.filter((role) => role === 'api' || this.auth.can('mcp_tokens.create')),
+    PERSONAL_ROLES.filter(
+      (role) =>
+        role === 'api' ||
+        (this.auth.can('mcp_tokens.create') &&
+          (role === 'ci' || this.auth.identity()?.personal_mcp_tokens !== false)),
+    ),
   );
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<Message | null>(null);
@@ -70,9 +76,9 @@ export class ApiTokensComponent {
     }
   }
 
-  /** Message key of the usage of a token: a personal MCP token also serves security-review-ci. */
+  /** Message key of the usage of a personal token (one usage per token). */
   roleLabel(role: PersonalTokenRole): MessageKey {
-    return role === 'mcp' ? 'tokenRole.mcpPersonal' : TOKEN_ROLE_LABELS[role];
+    return PERSONAL_ROLE_LABELS[role] ?? TOKEN_ROLE_LABELS[role];
   }
 
   /** Projects of a token: those an MCP or CI token reaches now, the rights of the user for the API. */
@@ -131,8 +137,14 @@ interface ApiTokenFormModel {
 
 const EMPTY_FORM: ApiTokenFormModel = { label: '', validity: '', role: 'api' };
 
-/** Roles offered at creation, in display order: an MCP token also serves security-review-ci. */
-const PERSONAL_ROLES: readonly PersonalTokenRole[] = ['api', 'mcp'];
+/** Roles offered at creation, in display order: one usage per token. */
+const PERSONAL_ROLES: readonly PersonalTokenRole[] = ['api', 'mcp', 'ci'];
+
+/** Labels of the personal usages that differ from those of the shared tokens. */
+const PERSONAL_ROLE_LABELS: Partial<Record<PersonalTokenRole, MessageKey>> = {
+  mcp: 'tokenRole.mcpPersonal',
+  ci: 'tokenRole.ciPersonal',
+};
 
 /** Validities offered at creation, in days. */
 const VALIDITY_DAYS: readonly string[] = ['30', '90', '180', '365'];

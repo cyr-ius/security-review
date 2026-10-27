@@ -153,12 +153,7 @@ def test_an_mcp_client_logs_in_and_acts_as_a_personal_mcp_token(controller):
 
     # The access token acts as a personal mcp token of dev: its projects, the MCP server only
     info = token_store.DatabaseTokenStore().lookup(hash_token(access))
-    assert (info.role, info.owner, info.projects, info.pipeline) == (
-        Role.MCP,
-        "dev",
-        frozenset({"shop"}),
-        False,
-    )
+    assert (info.role, info.owner, info.projects) == (Role.MCP, "dev", frozenset({"shop"}))
     assert (
         controller.get("/api/v1/me", headers={"Authorization": f"Bearer {access}"}).status_code
         == 403

@@ -134,6 +134,8 @@ export interface Identity {
    * (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); null: every acceptance needs them.
    */
   risk_acceptance_min_severity?: Severity | null;
+  /** False when the server offers no personal MCP token (OAuth login of the MCP clients). */
+  personal_mcp_tokens?: boolean;
   version: string;
 }
 

@@ -30,7 +30,7 @@ import ssl
 from collections import Counter
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
@@ -156,10 +156,6 @@ class TokenInfo:
     )
     # A web user whose password was set by someone else: it may only change it
     must_change_password: bool = False
-    # A personal mcp token: on the pipeline routes of the controller it acts as a ci token on
-    # the same projects, so that one SECREVIEW_TOKEN serves both the MCP agent and
-    # security-review-ci on a workstation
-    pipeline: bool = False
 
 
 @dataclass(frozen=True)
@@ -351,9 +347,8 @@ class BearerAuthMiddleware:
     def role_allowed(self, role: Role, path: str) -> bool:
         """True when a token of this role may reach ``path`` on this process.
 
-        A ``ci`` token only reaches the pipeline routes of the controller (a personal ``mcp``
-        token reaches them as a ``ci`` token, see TokenInfo.pipeline), a ``metrics`` token only
-        its Prometheus endpoint.
+        A ``ci`` token only reaches the pipeline routes of the controller, a ``metrics`` token
+        only its Prometheus endpoint.
         """
         if not self.web:
             return role in MCP_ROLES
@@ -415,8 +410,6 @@ class BearerAuthMiddleware:
             # RFC 6750: an expired token is an invalid_token
             await self.unauthorized(send, "The bearer token has expired")
             return
-        if info.pipeline and self.web and path.startswith(CI_PREFIX):
-            info = replace(info, role=Role.CI)
         if not self.role_allowed(info.role, path):
             AUTH_REJECTIONS["insufficient_scope"] += 1
             logger.warning(

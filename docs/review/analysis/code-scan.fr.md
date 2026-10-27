@@ -8,7 +8,7 @@ contrôleur, qui les scanne avec les [règles](../rules.md) de sa base.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=...   # jeton ci limité au projet (ou jeton admin)
+export SECREVIEW_CI_TOKEN=...   # jeton ci limité au projet (ou jeton admin)
 
 security-review-ci scan-code . --project portal                               # résumé texte, code de sortie 0/1/2
 security-review-ci scan-code . --project portal --format json -o scan.json    # pour le prompt codebase-review
@@ -18,7 +18,7 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 
 Le pipeline n'a besoin ni de la base ni du paquet : seulement de Python et du
 [jeton `ci`](../../advanced/architecture/ci.md#jeton-ci-et-projets-visibles) du projet. Sur un poste de travail,
-utilisez un [jeton `mcp` ou `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels).
+utilisez un [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels).
 
 ## Sélection des fichiers
 
@@ -76,6 +76,6 @@ Ensuite, le prompt `codebase-review` (argument `scan_results` = le JSON, éventu
 guide l'agent : inventaire, priorisation des points d'entrée, traçage des flux entre fichiers,
 checklists, et une section **couverture** qui dit ce qui n'a pas été relu. Sans `scan_results`,
 le prompt demande à un agent qui peut lancer des commandes d'exécuter lui-même
-`security-review-ci scan-code` (avec un jeton `mcp` ou `ci` personnel) : les fichiers arrivent au
+`security-review-ci scan-code` (avec un jeton `ci` personnel) : les fichiers arrivent au
 contrôleur tels quels, au lieu d'être recopiés par le modèle dans des appels à `scan_code`. Le
 prompt `dependency-review` fait de même avec `security-review-ci scan-deps`.

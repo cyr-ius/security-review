@@ -18,7 +18,7 @@ sur PyPI sous le nom `security-review-ci`, à la version du serveur, sans ses d�
 | Agent de build ou poste avec Python ≥ 3.14 | `uv pip install security-review-ci` dans l'environnement virtuel du job (`--system` sans environnement) |
 | Poste ou agent sans PyPI, depuis le contrôleur | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …` : le [client du contrôleur](#depuis-le-controleur), à sa version |
 | Agent sans accès à PyPI | Copiez le seul fichier `security_review_mcp/ci_client.py` (ou le wheel `security_review_ci` joint à la release GitHub) et lancez-le avec `python3 ci_client.py` |
-| Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
+| Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_CI_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
 
 Le paquet `security-review` installe aussi `security-review-ci` : n'installez pas les deux
 paquets dans le même environnement. Installez la version de votre contrôleur
@@ -64,7 +64,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 Toutes leurs options : [Ligne de commande](../../reference/cli.md#security-review-ci).
 
 Options communes (sauf `agent-review` et `guard`) : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
-jeton sur l'entrée standard au lieu de `SECREVIEW_TOKEN`), `--cafile` (CA du certificat du
+jeton sur l'entrée standard au lieu de `SECREVIEW_CI_TOKEN`), `--cafile` (CA du certificat du
 contrôleur), `--allow-http`, `--timeout` (secondes, 60 par défaut).
 
 - Le jeton n'est jamais accepté sur la ligne de commande (liste des processus, journal du job)
@@ -164,17 +164,17 @@ security-review-controller token create --label jenkins-portal --role ci \
 ```
 
 Sur un poste de travail, un développeur utilise plutôt un
-[jeton `mcp` ou `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels), créé dans
+[jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels), créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire.
 
 Les sessions web et les jetons `api` (dans les projets qu'ils lisent) et les jetons `admin`
-peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non, sauf un jeton personnel, qui vaut jeton `ci`. Les scans, qui enregistrent
+peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non, personnels compris. Les scans, qui enregistrent
 des rapports, demandent un jeton `ci` ou `admin` (`403` sinon, sessions web comprises).
 
 ## Pipeline type
 
 Un job du pipeline enchaîne quatre commandes, avec le jeton `ci` du projet dans
-`SECREVIEW_TOKEN` et l'URL du contrôleur dans `SECREVIEW_CONTROLLER_URL` :
+`SECREVIEW_CI_TOKEN` et l'URL du contrôleur dans `SECREVIEW_CONTROLLER_URL` :
 
 ```bash
 security-review-ci scan-code . --project portal --save --branch "$BRANCH" --commit "$COMMIT" || [ $? -eq 1 ]
@@ -221,7 +221,7 @@ exécute le [pipeline type](#pipeline-type).
         runs-on: ubuntu-latest
         env:
           SECREVIEW_CONTROLLER_URL: https://secreview.example.com
-          SECREVIEW_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
+          SECREVIEW_CI_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
           PROJECT: ${{ github.event.repository.name }}
         steps:
           - uses: actions/checkout@v5
@@ -252,7 +252,7 @@ exécute le [pipeline type](#pipeline-type).
       image: python:3.14-slim
       variables:
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com
-        # SECREVIEW_TOKEN : variable CI/CD masquée et protégée (jeton ci)
+        # SECREVIEW_CI_TOKEN : variable CI/CD masquée et protégée (jeton ci)
       script:
         - pip install security-review-ci==X.Y.Z
         - security-review-ci scan-code . --project "$CI_PROJECT_NAME" --save
@@ -282,7 +282,7 @@ exécute le [pipeline type](#pipeline-type).
       stages {
         stage('Security review') {
           steps {
-            withCredentials([string(credentialsId: 'secreview-ci', variable: 'SECREVIEW_TOKEN')]) {
+            withCredentials([string(credentialsId: 'secreview-ci', variable: 'SECREVIEW_CI_TOKEN')]) {
               sh '''
                 security-review-ci scan-code . --project "$PROJECT" --save \
                   --branch "$BRANCH_NAME" --commit "$GIT_COMMIT" || [ $? -eq 1 ]
@@ -326,7 +326,7 @@ exécute le [pipeline type](#pipeline-type).
           security-review-ci sarif --project "$(Build.Repository.Name)" -o security.sarif
           security-review-ci gate --project "$(Build.Repository.Name)" --fail-on high
         env:
-          SECREVIEW_TOKEN: $(SECREVIEW_CI_TOKEN)   # une variable secrète n'est jamais transmise implicitement
+          SECREVIEW_CI_TOKEN: $(SECREVIEW_CI_TOKEN)   # une variable secrète n'est jamais transmise implicitement
       - publish: security.sarif
         artifact: CodeAnalysisLogs
         condition: always()
@@ -337,7 +337,7 @@ exécute le [pipeline type](#pipeline-type).
 === "Bitbucket Pipelines"
 
     ```yaml
-    # bitbucket-pipelines.yml : SECREVIEW_TOKEN est une variable sécurisée du dépôt
+    # bitbucket-pipelines.yml : SECREVIEW_CI_TOKEN est une variable sécurisée du dépôt
     image: python:3.14-slim
     pipelines:
       default:
@@ -359,7 +359,7 @@ exécute le [pipeline type](#pipeline-type).
 === "CircleCI"
 
     ```yaml
-    # .circleci/config.yml : SECREVIEW_TOKEN est une variable d'environnement du projet (ou d'un contexte)
+    # .circleci/config.yml : SECREVIEW_CI_TOKEN est une variable d'environnement du projet (ou d'un contexte)
     version: 2.1
     jobs:
       security-review:

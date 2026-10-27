@@ -9,7 +9,8 @@ client, and the host receives its tokens and renews them by itself.
 The flow follows the [authorization of the MCP specification](https://modelcontextprotocol.io/specification/latest/basic/authorization)
 (OAuth 2.1, authorization code with PKCE `S256`, dynamic client registration, protected
 resource metadata). The controller is the authorization server; the MCP server only checks the
-tokens. The personal MCP tokens keep working alongside.
+tokens. The personal MCP tokens keep working alongside, unless an administrator turns them off
+with `SECREVIEW_PERSONAL_MCP_TOKENS=false` once every host logs in with OAuth.
 
 ## Enabling it
 
@@ -84,7 +85,7 @@ A request left without an answer expires after 10 minutes.
 An access token acts as a [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) of
 the user who approved the client: the projects the user may read, read at each request, the
 `request_project` tool, the reports signed with the name of the user. It only reaches the MCP
-server: neither the REST API nor the pipeline routes of the controller (keep a personal token
+server: neither the REST API nor the pipeline routes of the controller (use a personal `ci` token
 for `security-review-ci`).
 
 Approving a client needs the `mcp_tokens.create` permission, like creating a personal MCP
