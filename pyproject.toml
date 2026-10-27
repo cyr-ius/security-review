@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "security-review"
-version = "8.0.0"
+version = "9.0.0"
 description = "MCP server for security code review: prompts, checklists, quick scans and persistent security reports"
 readme = "README.md"
 license = "Apache-2.0"
