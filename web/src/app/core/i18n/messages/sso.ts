@@ -6,9 +6,6 @@ export const sso = defineMessages({
     'sso.title': 'OIDC settings',
     'sso.active': 'OIDC login active',
     'sso.inactive': 'OIDC login inactive',
-    'sso.helpBefore': 'A value set here applies when its variable',
-    'sso.helpAfter':
-      ' is not set: a variable that is set takes precedence and locks its field. "Reset" deletes the value set here. The change takes effect upon the next login; no restart is required.',
     'sso.loadError': 'Could not load the OIDC settings.',
     'sso.enable': 'Enable OIDC login',
     'sso.provider': 'Identity provider',
@@ -27,8 +24,7 @@ export const sso = defineMessages({
     'sso.webInterface': 'Web interface',
     'sso.variable': 'Variable',
     'sso.storedDeleted': 'The value set here for {variable} is deleted.',
-    'sso.lockedHelp':
-      'Set by {variable}, which takes precedence: change the variable to change it.',
+    'sso.lockedHelp': 'Set by {variable}',
     'sso.storedIgnored': 'value set here ignored',
     'sso.deleteStored': 'Delete the value set here for {variable}',
     'sso.default': 'Default',
@@ -57,8 +53,7 @@ export const sso = defineMessages({
     'sso.settingsRefusedCheck': 'Settings refused: check the values entered.',
     'sso.failed': 'The OIDC configuration failed.',
     'sso.subtitle': 'OpenID Connect login settings',
-    'sso.groupsBefore':
-      'What an OIDC user can do comes from their groups: at each login, they join the groups whose name appears in their group claim (screen',
+    'sso.groupsBefore': 'Upon login, the user is assigned to groups based on the group claim (page',
     'sso.groupsAfter': '). The other values of the claim are ignored.',
     'sso.adminGroupsHelp':
       'Separated by commas: such a group is created with the admin role at the first login of one of its members (first administrator).',
@@ -70,9 +65,6 @@ export const sso = defineMessages({
     'sso.title': 'Configuration OIDC',
     'sso.active': 'Connexion OIDC active',
     'sso.inactive': 'Connexion OIDC inactive',
-    'sso.helpBefore': "Une valeur définie ici s'applique quand sa variable",
-    'sso.helpAfter':
-      " n'est pas définie : une variable définie est prioritaire et verrouille son champ. « Réinitialiser » supprime la valeur définie ici. La modification s'applique à la prochaine connexion, sans redémarrage.",
     'sso.loadError': 'Impossible de charger la configuration OIDC.',
     'sso.enable': 'Activer la connexion OIDC',
     'sso.provider': "Fournisseur d'identité",
@@ -91,7 +83,7 @@ export const sso = defineMessages({
     'sso.webInterface': 'Interface web',
     'sso.variable': 'Variable',
     'sso.storedDeleted': 'La valeur définie ici pour {variable} est supprimée.',
-    'sso.lockedHelp': 'Défini par {variable}, prioritaire : modifiez la variable pour le changer.',
+    'sso.lockedHelp': 'Défini par {variable}.',
     'sso.storedIgnored': 'valeur définie ici ignorée',
     'sso.deleteStored': 'Supprimer la valeur définie ici pour {variable}',
     'sso.default': 'Par défaut',
@@ -122,7 +114,7 @@ export const sso = defineMessages({
     'sso.failed': 'La configuration OIDC a échoué.',
     'sso.subtitle': 'Configuration de la connexion OpenID Connect',
     'sso.groupsBefore':
-      "Ce qu'un utilisateur OIDC peut faire vient de ses groupes : à chaque connexion, il rejoint les groupes dont le nom figure dans son claim des groupes (écran",
+      "Lors de la connexion , l'utilisateur est peuplé dans les groupes en fonction du claim des groupes (page",
     'sso.groupsAfter': '). Les autres valeurs du claim sont ignorées.',
     'sso.adminGroupsHelp':
       "Séparés par des virgules : un tel groupe est créé avec le rôle admin à la première connexion de l'un de ses membres (premier administrateur).",
@@ -133,9 +125,6 @@ export const sso = defineMessages({
     'sso.title': 'Configuración OIDC',
     'sso.active': 'Inicio de sesión OIDC activo',
     'sso.inactive': 'Inicio de sesión OIDC inactivo',
-    'sso.helpBefore': 'Un valor definido aquí se aplica cuando su variable',
-    'sso.helpAfter':
-      ' no está definida: una variable definida tiene prioridad y bloquea su campo. «Restablecer» elimina el valor definido aquí. El cambio se aplica en el próximo inicio de sesión, sin reiniciar.',
     'sso.loadError': 'No se pudo cargar la configuración OIDC.',
     'sso.enable': 'Activar el inicio de sesión OIDC',
     'sso.provider': 'Proveedor de identidad',
@@ -154,8 +143,7 @@ export const sso = defineMessages({
     'sso.webInterface': 'Interfaz web',
     'sso.variable': 'Variable',
     'sso.storedDeleted': 'El valor definido aquí para {variable} se ha eliminado.',
-    'sso.lockedHelp':
-      'Definido por {variable}, que tiene prioridad: cambie la variable para modificarlo.',
+    'sso.lockedHelp': 'Definido por {variable}.',
     'sso.storedIgnored': 'valor definido aquí ignorado',
     'sso.deleteStored': 'Eliminar el valor definido aquí para {variable}',
     'sso.default': 'Predeterminado',
@@ -186,7 +174,7 @@ export const sso = defineMessages({
     'sso.failed': 'La configuración OIDC ha fallado.',
     'sso.subtitle': 'Configuración del inicio de sesión OpenID Connect',
     'sso.groupsBefore':
-      'Lo que un usuario OIDC puede hacer viene de sus grupos: en cada inicio de sesión, se une a los grupos abiertos al OIDC cuyo nombre figura en su claim de grupos (pantalla',
+      'Al iniciar sesión, el usuario es asignado a grupos en función de la reclamación del grupo (página',
     'sso.groupsAfter': '). Los demás valores del claim se ignoran.',
     'sso.adminGroupsHelp':
       'Separados por comas: un grupo así se crea con el rol admin en el primer inicio de sesión de uno de sus miembros (primer administrador).',

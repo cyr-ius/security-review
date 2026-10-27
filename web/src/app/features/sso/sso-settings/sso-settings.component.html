@@ -13,9 +13,6 @@
         }
       }
     </div>
-    <p class="text-body-secondary small">
-      {{ 'sso.helpBefore' | t }} <code>SECREVIEW_OIDC_*</code>{{ 'sso.helpAfter' | t }}
-    </p>
 
     @if (error(); as text) {
       <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
@@ -156,8 +153,6 @@
             >
               {{ 'sso.reset' | t }}
             </button>
-          } @else {
-            <span class="badge text-bg-light border">{{ 'sso.default' | t }}</span>
           }
         </span>
       </ng-template>
