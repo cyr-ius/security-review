@@ -39,6 +39,9 @@ from .storage.models import AppSetting, utcnow
 REPORT_LANGUAGE = "report_language"
 # Key of the public URL of the controller, also the name of its Settings field
 CONTROLLER_URL = "controller_url"
+# Key of the URL of the MCP endpoint while the OAuth login of the MCP clients is enabled (see
+# sync_mcp_oauth): the MCP server then answers a client without a token with a 401 that starts it
+MCP_OAUTH_RESOURCE = "mcp_oauth_resource"
 # Author of the URL copied from SECREVIEW_CONTROLLER_URL by the controller (see
 # sync_controller_url)
 ENV_ACTOR = "environment"
@@ -180,6 +183,34 @@ def sync_controller_url(settings: Settings | None = None) -> None:
     settings = settings or get_settings()
     if env_set(settings, CONTROLLER_URL):
         _store_controller_url(settings.controller_url, ENV_ACTOR)
+
+
+# ── OAuth login of the MCP clients ───────────────────────────────────────────
+
+
+def mcp_oauth_resource() -> str | None:
+    """URL of the MCP endpoint while the controller serves the OAuth login of the MCP clients,
+    None otherwise. The MCP server reads it here (see server.OAuthDiscovery)."""
+    with session_scope() as session:
+        row = session.get(AppSetting, MCP_OAUTH_RESOURCE)
+        return row.value if row is not None else None
+
+
+def sync_mcp_oauth(settings: Settings | None = None) -> None:
+    """Store SECREVIEW_MCP_URL while SECREVIEW_MCP_OAUTH_ENABLED is set, remove it otherwise
+    (controller start): the MCP server follows the controller without a variable of its own.
+
+    Raises:
+        ValueError: If OAuth is enabled while the URL of the controller, its issuer, is unknown.
+    """
+    settings = settings or get_settings()
+    resource = settings.mcp_url if settings.mcp_oauth_enabled else None
+    if resource is not None and controller_url() is None:
+        raise ValueError(
+            "SECREVIEW_MCP_OAUTH_ENABLED needs the public URL of the controller: set "
+            "SECREVIEW_CONTROLLER_URL"
+        )
+    _write({MCP_OAUTH_RESOURCE: resource}, ENV_ACTOR)
 
 
 # ── Proxy of the outgoing connections ────────────────────────────────────────

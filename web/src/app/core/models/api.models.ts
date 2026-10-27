@@ -286,7 +286,12 @@ export type AuditAction =
   | 'controller_url.changed'
   | 'finding.exported'
   | 'connector.target_changed'
-  | 'connector.changed';
+  | 'connector.changed'
+  | 'oauth.client_registered'
+  | 'oauth.grant_approved'
+  | 'oauth.grant_denied'
+  | 'oauth.grant_revoked'
+  | 'oauth.refresh_reused';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -321,6 +326,11 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
+  'oauth.client_registered',
+  'oauth.grant_approved',
+  'oauth.grant_denied',
+  'oauth.grant_revoked',
+  'oauth.refresh_reused',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -351,6 +361,30 @@ export interface AuditQuery {
   sort_direction?: 'asc' | 'desc';
   limit: number;
   offset: number;
+}
+
+/** A pending OAuth request of an MCP client, shown by the consent screen. */
+export interface OAuthPendingRequest {
+  client_id: string;
+  /** Chosen by the client itself: shown, never trusted. */
+  client_name: string | null;
+  redirect_host: string;
+  expires_at: string;
+}
+
+/** Where the browser goes after a decision on an OAuth request. */
+export interface OAuthRedirect {
+  redirect_url: string;
+}
+
+/** An MCP client approved by the logged-in user (never its tokens). */
+export interface OAuthGrant {
+  id: string;
+  client_id: string;
+  client_name: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string;
 }
 
 /** Response returned once when a project-scoped token is created. */

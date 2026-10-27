@@ -48,6 +48,10 @@ holds at most SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role.
 Like every token, an ``api`` token never accepts a risk nor marks a false positive.
 
 Every creation, rotation, revocation and change of projects is written to the audit log.
+
+The access tokens of the OAuth login of the MCP clients (``OAuthGrant``, see oauth_server) are
+checked here too, after the stored tokens: one acts as a personal ``mcp`` token of the user who
+approved its client, on the MCP server only (not the pipeline routes).
 """
 
 import hmac
@@ -65,7 +69,7 @@ from ..http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
 from ..observability import audit
 from ..observability.audit import AuditAction
 from ..storage.database import session_scope
-from ..storage.models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
+from ..storage.models import ApiToken, ApiTokenProject, OAuthGrant, WebUser, as_utc, utcnow
 from ..storage.project_names import normalize_project
 
 MAX_TOKENS = 500
@@ -208,7 +212,9 @@ class DatabaseTokenStore:
                     or_(ApiToken.token_hash == hexdigest, ApiToken.previous_token_hash == hexdigest)
                 )
             ).first()
-            if row is None or row.role not in TOKEN_ROLES or not _matches(row, digest):
+            if row is None:
+                return _oauth_info(session, digest)
+            if row.role not in TOKEN_ROLES or not _matches(row, digest):
                 return None
             info = _info(row, _links(session, [row.id])[row.id])
             if row.role == Role.API:
@@ -299,6 +305,40 @@ def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> T
         token_id=info.token_id,
         expired=info.expired,
         pipeline=info.role == Role.MCP,
+        owner=user.username,
+    )
+
+
+# Writes of the last use of an OAuth grant are spaced by this much (not one per MCP request)
+OAUTH_LAST_USED_RESOLUTION = timedelta(minutes=5)
+
+
+def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
+    """Identity of an OAuth access token (see oauth_server): the projects the user who approved
+    the client may read now, as a personal ``mcp`` token without the pipeline routes. None when
+    unknown, or when the user is gone or must change its password; an expired one is marked
+    ``expired``."""
+    grant = session.exec(
+        select(OAuthGrant).where(OAuthGrant.access_token_hash == digest.hex())
+    ).first()
+    if grant is None or not hmac.compare_digest(bytes.fromhex(grant.access_token_hash), digest):
+        return None
+    user = session.get(WebUser, grant.user_id)
+    if user is None or user.must_change_password:
+        return None
+    try:
+        projects = _user_projects(session, grant.user_id)
+    except ValueError:
+        return None
+    now = utcnow()
+    if grant.last_used_at is None or as_utc(grant.last_used_at) < now - OAUTH_LAST_USED_RESOLUTION:
+        grant.last_used_at = now
+        session.add(grant)
+    return TokenInfo(
+        f"{user.username}:oauth:{grant.client_id[:8]}",
+        Role.MCP,
+        projects=projects,
+        expired=as_utc(grant.access_expires_at) <= now,
         owner=user.username,
     )
 

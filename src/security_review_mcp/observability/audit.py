@@ -78,6 +78,14 @@ class AuditAction(StrEnum):
     FINDING_EXPORTED = "finding.exported"
     CONNECTOR_TARGET_CHANGED = "connector.target_changed"
     CONNECTOR_CHANGED = "connector.changed"
+    # OAuth login of the MCP clients (see oauth_server): a client registered, an authorization
+    # approved or denied by a web user, a grant revoked, a replaced refresh token presented again
+    # (the grant is then revoked)
+    OAUTH_CLIENT_REGISTERED = "oauth.client_registered"
+    OAUTH_GRANT_APPROVED = "oauth.grant_approved"
+    OAUTH_GRANT_DENIED = "oauth.grant_denied"
+    OAUTH_GRANT_REVOKED = "oauth.grant_revoked"
+    OAUTH_REFRESH_REUSED = "oauth.refresh_reused"
 
 
 def user_actor(username: str) -> str:
