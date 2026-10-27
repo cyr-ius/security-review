@@ -63,6 +63,10 @@ class Identity(BaseModel):
     # (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); a less severe finding is accepted by a plain
     # validation. None: every acceptance needs them
     risk_acceptance_min_severity: Severity | None = None
+    # A web user may create a personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS)
+    personal_mcp_tokens: bool = True
+    # The OAuth login of the MCP clients is on (variable or web interface)
+    mcp_oauth: bool = False
     version: str
 
 
@@ -759,6 +763,115 @@ class PersonalTokenCreate(BaseModel):
     role: Literal["api", "mcp", "ci"] = "api"
     # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
+
+
+class OAuthRequestRef(BaseModel):
+    """Body of the consent routes: the handle of a pending OAuth request, from the URL of the
+    consent screen."""
+
+    request: str = Field(min_length=1, max_length=100)
+
+
+class OAuthPendingRequest(BaseModel):
+    """A pending OAuth request, shown by the consent screen: the MCP client (its name is chosen
+    by the client itself) and the host it goes back to."""
+
+    client_id: str
+    client_name: str | None = None
+    redirect_host: str
+    expires_at: str
+
+
+class OAuthRedirect(BaseModel):
+    """Where the browser goes after a decision: the client, with a code or an error."""
+
+    redirect_url: str
+
+
+class OAuthGrantPublic(BaseModel):
+    """An MCP client approved by the logged-in user (never its tokens)."""
+
+    id: str
+    client_id: str
+    client_name: str | None = None
+    created_at: str
+    last_used_at: str | None = None
+    expires_at: str
+
+
+class OAuthClientAdmin(BaseModel):
+    """A registered MCP client (its name and redirect URIs are chosen by the client)."""
+
+    client_id: str
+    client_name: str | None = None
+    redirect_uris: list[str]
+    created_at: str
+    # Grants of the client (0: nobody approved it; deleted a day after its registration)
+    grants: int
+
+
+class OAuthGrantAdmin(OAuthGrantPublic):
+    """An MCP client approved by a web user."""
+
+    username: str
+
+
+class OAuthEnabledSetting(BaseModel):
+    """Whether the OAuth login is on: stored value, variable, whether it is set (it then takes
+    precedence), effective value."""
+
+    value: bool | None
+    env: bool
+    env_set: bool
+    effective: bool
+
+
+class OAuthUrlSetting(BaseModel):
+    """URL of the MCP endpoint: stored value, variable, whether it is set (it then takes
+    precedence), effective value."""
+
+    value: str | None
+    env: str | None
+    env_set: bool
+    effective: str | None
+
+
+class OAuthSettings(BaseModel):
+    """Settings of the OAuth login of the MCP clients that the web interface may change."""
+
+    enabled: OAuthEnabledSetting
+    mcp_url: OAuthUrlSetting
+
+
+class OAuthSettingsUpdate(BaseModel):
+    """Body of PUT /oauth/settings: OAuth login of the MCP clients.
+
+    A field left out is unchanged, ``null`` (or an empty URL) removes the stored value. A value
+    whose variable is set (SECREVIEW_MCP_OAUTH_ENABLED, SECREVIEW_MCP_URL) is refused: the
+    variable takes precedence. The login needs the URL of the MCP endpoint and that of the
+    controller; turning it off revokes every grant.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    mcp_url: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)
+
+
+class OAuthOverview(BaseModel):
+    """The OAuth login of the MCP clients: its settings, the registered clients and every grant
+    (never a token)."""
+
+    enabled: bool
+    mcp_url: str | None = None
+    settings: OAuthSettings
+    redirect_hosts: list[str]
+    redirect_schemes: list[str]
+    access_minutes: int
+    refresh_days: int
+    max_clients: int
+    clients: list[OAuthClientAdmin]
+    grants: list[OAuthGrantAdmin]
 
 
 class ProjectTokenProjects(BaseModel):

@@ -3145,15 +3145,19 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
     assert secured.get("/api/v1/me", headers=_bearer(body["token"])).status_code == 403
 
 
-@pytest.mark.parametrize("role", ["ci", "mcp"])
-def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports, role):
-    # A personal mcp token is also a ci token: one SECREVIEW_TOKEN on the workstation
+def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
     groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
     make_user("alice", USER_PASSWORD, group_ids=groups)
     headers = session_headers(secured, "alice")
+    # One usage per token: a personal mcp token is an MCP agent token only
+    agent = secured.post(
+        "/api/v1/me/tokens", json={"label": "agent", "role": "mcp"}, headers=headers
+    ).json()["token"]
+    scan = secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=_bearer(agent))
+    assert scan.status_code == 403
 
     created = secured.post(
-        "/api/v1/me/tokens", json={"label": "laptop", "role": role}, headers=headers
+        "/api/v1/me/tokens", json={"label": "laptop", "role": "ci"}, headers=headers
     )
     assert created.status_code == 201, created.text
     token = _bearer(created.json()["token"])
@@ -3177,6 +3181,24 @@ def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports, ro
         secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=shared).status_code
         == 403
     )
+
+
+def test_personal_mcp_tokens_can_be_turned_off_for_the_oauth_login(secured, monkeypatch):
+    make_user("alice", USER_PASSWORD, group_ids=[group_for("mcp-user")])
+    headers = session_headers(secured, "alice")
+    url = "/api/v1/me/tokens"
+    old = secured.post(url, json={"label": "agent", "role": "mcp"}, headers=headers).json()
+    monkeypatch.setattr(get_settings(), "personal_mcp_tokens", False)
+
+    assert secured.get("/api/v1/me", headers=headers).json()["personal_mcp_tokens"] is False
+    refused = secured.post(url, json={"label": "agent-2", "role": "mcp"}, headers=headers)
+    assert refused.status_code == 422 and "OAuth" in refused.json()["detail"]
+    # CI and REST API tokens stay
+    assert secured.post(url, json={"label": "ci", "role": "ci"}, headers=headers).status_code == 201
+    # The controller revokes those left at start
+    assert token_store.revoke_personal_mcp_tokens("environment") == 1
+    assert token_store.DatabaseTokenStore().lookup(http_server.hash_token(old["token"])) is None
+    assert all(token["role"] != "mcp" for token in secured.get(url, headers=headers).json())
 
 
 def test_a_personal_mcp_token_needs_the_mcp_tokens_create_permission(secured, reports):

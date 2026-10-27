@@ -79,8 +79,8 @@ plugins:
             Connectors in detail: Connecteurs en détail
             Connectors: Connecteurs
             Contributing: Contribuer
-            Controller (FastAPI): Contrôleur (FastAPI)
-            Controller: Contrôleur
+            Controller server (FastAPI): Serveur Controller (FastAPI)
+            Controller server: Serveur Controller
             Database: Base de données
             Dependency analysis: Analyse des dépendances
             Deploying the server: Mise en service du serveur
@@ -91,9 +91,11 @@ plugins:
             Three services, three roles: Trois services, trois rôles
             How a review works: Fonctionnement d'une revue
             Kubernetes: Kubernetes
+            Reverse proxy: Reverse proxy
             Local mode (stdio): Mode local (stdio)
             Manual installation (without containers): Installation manuelle (sans conteneur)
             MCP server: Serveur MCP
+            OAuth login of MCP clients: Connexion OAuth des clients MCP
             OIDC login in detail: Connexion OIDC en détail
             OIDC login: Connexion OIDC
             Overview: Présentation
@@ -189,7 +191,7 @@ nav:
       - Architecture:
           - Overview: advanced/architecture/index.md
           - MCP server: advanced/architecture/mcp-server.md
-          - Controller: advanced/architecture/controller.md
+          - Controller server: advanced/architecture/controller.md
           - Pipeline client (CI/CD): advanced/architecture/ci.md
       - Access control through the REST API: advanced/access-control-api.md
       - Audit log in detail: advanced/audit-log.md
@@ -201,10 +203,12 @@ nav:
           - Kubernetes: advanced/deployment/kubernetes.md
           - Manual installation (without containers): advanced/deployment/manual-install.md
           - "Installation: other cases": advanced/deployment/installation.md
+      - OAuth login of MCP clients: advanced/mcp-oauth.md
       - OIDC login in detail: advanced/oidc.md
       - Reports and monitoring:
           - SARIF export: advanced/reports/sarif.md
           - Triage through the REST API: advanced/reports/triage-api.md
+      - Reverse proxy: advanced/reverse-proxy.md
       - TLS and certificates: advanced/tls.md
   - References:
       - Command line: reference/cli.md
@@ -214,7 +218,7 @@ nav:
   - Contributing:
       - Overview: contributing/index.md
       - MCP server: contributing/mcp-server.md
-      - "Controller (FastAPI)": contributing/controller.md
+      - "Controller server (FastAPI)": contributing/controller.md
       - "Web interface (Angular)": contributing/web-ui.md
       - Writing a connector: contributing/connectors.md
       - Tests: contributing/tests.md

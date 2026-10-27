@@ -13,7 +13,7 @@ export const sso = defineMessages({
     'sso.enable': 'Enable OIDC login',
     'sso.provider': 'Identity provider',
     'sso.callbackHelp':
-      'Callback URL to declare at the provider: public URL of the controller followed by',
+      'Callback URL to declare at the provider: public URL of the Controller server followed by',
     'sso.cafileHelp': '. Certificate authority:',
     'sso.systemCerts': 'system certificates',
     'sso.variableOnly': ', variable only). Proxy: the one of the screen',
@@ -77,7 +77,7 @@ export const sso = defineMessages({
     'sso.enable': 'Activer la connexion OIDC',
     'sso.provider': "Fournisseur d'identité",
     'sso.callbackHelp':
-      'URL de retour à déclarer chez le fournisseur : URL publique du contrôleur suivie de',
+      'URL de retour à déclarer chez le fournisseur : URL publique du serveur Controller suivie de',
     'sso.cafileHelp': '. Autorité de certification :',
     'sso.systemCerts': 'certificats du système',
     'sso.variableOnly': ", variable uniquement). Proxy : celui de l'écran",
@@ -140,7 +140,7 @@ export const sso = defineMessages({
     'sso.enable': 'Activar el inicio de sesión OIDC',
     'sso.provider': 'Proveedor de identidad',
     'sso.callbackHelp':
-      'URL de retorno que se debe declarar en el proveedor: URL pública del controlador seguida de',
+      'URL de retorno que se debe declarar en el proveedor: URL pública del servidor Controller seguida de',
     'sso.cafileHelp': '. Autoridad de certificación:',
     'sso.systemCerts': 'certificados del sistema',
     'sso.variableOnly': ', solo variable). Proxy: el de la pantalla',

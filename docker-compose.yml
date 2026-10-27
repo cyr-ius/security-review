@@ -16,6 +16,9 @@
 # the servers always listen on every interface (SECREVIEW_HOST=0.0.0.0, set by the image).
 # The controller exposes no unauthenticated write endpoint: it can stay on an internal network.
 # PostgreSQL is not published on the host.
+# The OAuth login of the MCP clients is set in .env (SECREVIEW_MCP_OAUTH_ENABLED, SECREVIEW_MCP_URL,
+# with SECREVIEW_CONTROLLER_URL in https): see docs/advanced/mcp-oauth.md for the paths a
+# reverse proxy publishes.
 
 name: security-review
 

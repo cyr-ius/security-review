@@ -25,7 +25,9 @@
 >
   <div class="card syslog-card">
     <div class="card-header d-flex align-items-center">
-      <h2 id="audit-syslog-title" class="h6 mb-0">{{ 'audit.syslogTitle' | t }}</h2>
+      <h2 id="audit-syslog-title" class="h6 mb-0">
+        {{ 'audit.syslogTitle' | t }} <app-help-link topic="syslog" />
+      </h2>
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary ms-auto"

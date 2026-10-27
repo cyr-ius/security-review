@@ -58,7 +58,7 @@ from ..observability.audit import AuditAction
 from ..reports.services import NotFoundError
 from ..storage.database import session_scope
 from ..storage.models import RevokedSsoUser, WebUser, utcnow
-from . import access_control, token_store
+from . import access_control, oauth_server, token_store
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
 
 Permission = access_control.Permission
@@ -557,6 +557,7 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
             )
         access_control.forget_user(session, user_id)
         token_store.delete_user_tokens(session, user_id, deleted_by)
+        oauth_server.delete_user_grants(session, user_id, deleted_by)
         session.delete(row)
     return deleted
 

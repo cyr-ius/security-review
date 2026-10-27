@@ -8,6 +8,7 @@ import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 import {
   ProjectToken,
   ProjectTokenRole,
@@ -15,6 +16,7 @@ import {
   TokenRoleChoice,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { OAuthClientsComponent } from './oauth-clients/oauth-clients.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlFilter,
@@ -35,8 +37,10 @@ type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
 @Component({
   selector: 'app-project-token-list',
   imports: [
+    HelpLinkComponent,
     DatePipe,
     FormField,
+    OAuthClientsComponent,
     RefreshButtonComponent,
     SortHeaderComponent,
     TableControlsComponent,

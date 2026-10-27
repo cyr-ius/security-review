@@ -1,7 +1,7 @@
 # MCP server
 
 The MCP server (`security-review-mcp`) exposes the prompts, tools and resources used by the
-host. It shares the database with the controller but never calls it. Its code is in
+host. It shares the database with the Controller server but never calls it. Its code is in
 `server.py` (declarations), `prompts.py` (text of the prompts) and the business modules
 (`reports/services.py`, `rules/`, `deps/`…): `server.py` stays a thin layer that validates the
 inputs and calls these modules.
@@ -62,8 +62,8 @@ blocking bug.
 - **stdout belongs to the MCP protocol**: no `print`, logs on stderr through
   `logging.getLogger("security_review_mcp")`.
 - **No disk access from a client path**: the tools work on the content they receive.
-- **No outgoing network call**: the vulnerability database is imported by the controller.
-- **No module of the controller is loaded**, not even indirectly (`controller`,
+- **No outgoing network call**: the vulnerability database is imported by the Controller server.
+- **No module of the Controller server is loaded**, not even indirectly (`controller`,
   `deps/advisory_sync`, `auth/oidc`, `observability/audit_syslog`, `connectors`,
   `update_check`, `web_api`): `test_mcp_server_does_not_load_the_controller_modules` imports
   `server` in a fresh interpreter and checks it. A shared module imports them inside the

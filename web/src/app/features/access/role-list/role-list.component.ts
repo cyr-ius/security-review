@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { PERMISSION_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { AccessRole, Permission } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
@@ -36,6 +37,7 @@ const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
 @Component({
   selector: 'app-role-list',
   imports: [
+    HelpLinkComponent,
     DatePipe,
     FormField,
     RefreshButtonComponent,

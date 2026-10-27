@@ -19,7 +19,7 @@ export const tokens = defineMessages({
     'tokens.accessRole': 'Role',
     'tokens.chooseRole': 'Choose a role',
     'tokens.wholeControllerRole':
-      'This role holds permissions on the whole controller: the token reaches every project.',
+      'This role holds permissions on the whole Controller server: the token reaches every project.',
     'tokens.apiHelp':
       'An API token calls the REST API (Swagger “Authorize” button, scripts) with the permissions of its role, read at each request. Like every token, it never accepts a risk nor marks a false positive.',
     'tokens.personal': 'personal',
@@ -87,7 +87,7 @@ export const tokens = defineMessages({
     'tokens.accessRole': 'Rôle',
     'tokens.chooseRole': 'Choisir un rôle',
     'tokens.wholeControllerRole':
-      'Ce rôle détient des permissions sur tout le contrôleur : le jeton atteint tous les projets.',
+      'Ce rôle détient des permissions sur tout le serveur Controller : le jeton atteint tous les projets.',
     'tokens.apiHelp':
       "Un jeton API appelle l'API REST (bouton « Authorize » du Swagger, scripts) avec les permissions de son rôle, lues à chaque requête. Comme tout jeton, il n'accepte jamais un risque et ne marque jamais un faux positif.",
     'tokens.personal': 'personnel',
@@ -155,7 +155,7 @@ export const tokens = defineMessages({
     'tokens.accessRole': 'Rol',
     'tokens.chooseRole': 'Elegir un rol',
     'tokens.wholeControllerRole':
-      'Este rol tiene permisos sobre todo el controlador: el token alcanza todos los proyectos.',
+      'Este rol tiene permisos sobre todo el servidor Controller: el token alcanza todos los proyectos.',
     'tokens.apiHelp':
       'Un token API llama a la API REST (botón «Authorize» de Swagger, scripts) con los permisos de su rol, leídos en cada solicitud. Como todo token, nunca acepta un riesgo ni marca un falso positivo.',
     'tokens.personal': 'personal',

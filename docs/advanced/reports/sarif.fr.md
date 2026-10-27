@@ -1,11 +1,11 @@
 # Export SARIF
 
 Le [client de pipeline](../architecture/ci.md) télécharge le
-journal SARIF d'un projet par l'API REST du contrôleur, avec un jeton `ci` et sans accès à la
+journal SARIF d'un projet par l'API REST du serveur Controller, avec un jeton `ci` et sans accès à la
 base :
 
 ```bash
-security-review-ci sarif --project mon-projet -o results.sarif   # SECREVIEW_CONTROLLER_URL, SECREVIEW_TOKEN
+security-review-ci sarif --project mon-projet -o results.sarif   # SECREVIEW_CONTROLLER_URL, SECREVIEW_CI_TOKEN
 ```
 
 Le journal d'un seul rapport est exporté par l'outil MCP `export_sarif` ou par l'API REST
@@ -35,7 +35,7 @@ Exemple GitHub Actions :
 - run: security-review-ci scan-code . --project my-project --format sarif -o code.sarif
   env:
     SECREVIEW_CONTROLLER_URL: https://secreview.example.com
-    SECREVIEW_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
+    SECREVIEW_CI_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
   continue-on-error: true
 - uses: github/codeql-action/upload-sarif@v4
   with:

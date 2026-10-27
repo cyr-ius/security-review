@@ -20,7 +20,7 @@ export const access = defineMessages({
     'roles.scopedHelp':
       'Only per-project permissions: a group may limit this role to some projects.',
     'roles.globalHelp':
-      'This role holds permissions on the whole controller: a group always gives it on every project.',
+      'This role holds permissions on the whole Controller server: a group always gives it on every project.',
     'roles.loadError': 'Could not load the roles.',
     'roles.system': 'built-in',
     'roles.custom': 'Custom',
@@ -49,7 +49,7 @@ export const access = defineMessages({
     'groups.nameHelp': 'For an OIDC group: exactly the value of the groups claim.',
     'groups.sso': 'Open to OIDC',
     'groups.ssoHelp': 'The OIDC users whose groups claim holds this name are members too.',
-    'groups.globalRole': 'On the whole controller',
+    'groups.globalRole': 'On the whole Controller server',
     'groups.removeRole': 'Remove the role {role}',
     'groups.addRole': 'Add a role…',
     'groups.members': 'Members',
@@ -112,7 +112,7 @@ export const access = defineMessages({
     'roles.scopedHelp':
       'Uniquement des permissions par projet : un groupe peut limiter ce rôle à certains projets.',
     'roles.globalHelp':
-      'Ce rôle contient des permissions sur tout le contrôleur : un groupe le donne toujours sur tous les projets.',
+      'Ce rôle contient des permissions sur tout le serveur Controller : un groupe le donne toujours sur tous les projets.',
     'roles.loadError': 'Impossible de charger les rôles.',
     'roles.system': 'intégré',
     'roles.custom': 'Personnalisé',
@@ -143,7 +143,7 @@ export const access = defineMessages({
     'groups.sso': 'Ouvert au OIDC',
     'groups.ssoHelp':
       'Les utilisateurs OIDC dont le claim des groupes contient ce nom en sont aussi membres.',
-    'groups.globalRole': 'Sur tout le contrôleur',
+    'groups.globalRole': 'Sur tout le serveur Controller',
     'groups.removeRole': 'Retirer le rôle {role}',
     'groups.addRole': 'Ajouter un rôle…',
     'groups.members': 'Membres',
@@ -206,7 +206,7 @@ export const access = defineMessages({
     'roles.scopedHelp':
       'Solo permisos por proyecto: un grupo puede limitar este rol a algunos proyectos.',
     'roles.globalHelp':
-      'Este rol contiene permisos sobre todo el controlador: un grupo siempre lo asigna en todos los proyectos.',
+      'Este rol contiene permisos sobre todo el servidor Controller: un grupo siempre lo asigna en todos los proyectos.',
     'roles.loadError': 'No se pudieron cargar los roles.',
     'roles.system': 'integrado',
     'roles.custom': 'Personalizado',
@@ -237,7 +237,7 @@ export const access = defineMessages({
     'groups.sso': 'Abierto al OIDC',
     'groups.ssoHelp':
       'Los usuarios OIDC cuyo claim de grupos contiene este nombre también son miembros.',
-    'groups.globalRole': 'Sobre todo el controlador',
+    'groups.globalRole': 'Sobre todo el servidor Controller',
     'groups.removeRole': 'Quitar el rol {role}',
     'groups.addRole': 'Añadir un rol…',
     'groups.members': 'Miembros',

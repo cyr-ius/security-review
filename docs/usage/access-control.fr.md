@@ -27,7 +27,7 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `mcp_tokens.create` | Créer un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | |
 
 Une permission marquée **par projet** peut être limitée à certains projets ; les autres
-s'appliquent à tout le contrôleur.
+s'appliquent à tout le serveur Controller.
 
 ## Rôles
 

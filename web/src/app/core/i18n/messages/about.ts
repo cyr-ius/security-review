@@ -25,9 +25,9 @@ export const about = defineMessages({
     'about.upToDate': 'Up to date',
     'unavailable.title': 'Backend unavailable',
     'unavailable.text':
-      'The Security Review controller does not answer. Check that it is running and reachable, then retry.',
+      'The Security Review Controller server does not answer. Check that it is running and reachable, then retry.',
     'unavailable.retry': 'Retry',
-    'unavailable.stillDown': 'The controller still does not answer.',
+    'unavailable.stillDown': 'The Controller server still does not answer.',
     'session.expiredTitle': 'Session expired',
     'session.expiredText':
       'Your session has expired or was ended. Log in again to continue where you were.',
@@ -56,9 +56,9 @@ export const about = defineMessages({
     'about.upToDate': 'À jour',
     'unavailable.title': 'Backend indisponible',
     'unavailable.text':
-      'Le contrôleur Security Review ne répond pas. Vérifiez qu’il est démarré et joignable, puis réessayez.',
+      'Le serveur Controller Security Review ne répond pas. Vérifiez qu’il est démarré et joignable, puis réessayez.',
     'unavailable.retry': 'Réessayer',
-    'unavailable.stillDown': 'Le contrôleur ne répond toujours pas.',
+    'unavailable.stillDown': 'Le serveur Controller ne répond toujours pas.',
     'session.expiredTitle': 'Session expirée',
     'session.expiredText':
       'Votre session a expiré ou a été fermée. Reconnectez-vous pour reprendre là où vous étiez.',
@@ -87,9 +87,9 @@ export const about = defineMessages({
     'about.upToDate': 'Actualizada',
     'unavailable.title': 'Backend no disponible',
     'unavailable.text':
-      'El controlador de Security Review no responde. Compruebe que está en marcha y accesible y vuelva a intentarlo.',
+      'El servidor Controller de Security Review no responde. Compruebe que está en marcha y accesible y vuelva a intentarlo.',
     'unavailable.retry': 'Reintentar',
-    'unavailable.stillDown': 'El controlador sigue sin responder.',
+    'unavailable.stillDown': 'El servidor Controller sigue sin responder.',
     'session.expiredTitle': 'Sesión caducada',
     'session.expiredText':
       'Su sesión ha caducado o se ha cerrado. Vuelva a iniciar sesión para continuar donde estaba.',

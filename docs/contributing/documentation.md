@@ -38,6 +38,10 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - The web interface is translated (English, French, Spanish): each version quotes the labels of
   the interface in its language, as they are shown (**Tokens** in English, **Jetons** in
   French).
+- The process that serves the web interface and the REST API is always named **Controller
+  server** in English and **serveur Controller** in French: "Controller" keeps its English form
+  and its capital C, and is never used alone. Commands, file names and identifiers
+  (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`) are unchanged.
 - The examples can be copied as they are: options, variable names and outputs match the current
   code.
 - A change of the code updates its documentation in the same commit. The table "Si vous

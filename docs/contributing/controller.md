@@ -1,6 +1,6 @@
-# Controller (FastAPI)
+# Controller server (FastAPI)
 
-The controller (`security-review-controller`) serves the REST API `/api/v1`, the web interface
+The Controller server (`security-review-controller`) serves the REST API `/api/v1`, the web interface
 on `/ui/`, the migrations and the administration commands. It is a FastAPI application built by
 `web_api.create_app`, wrapped by `http_server` (Bearer tokens, sessions, TLS). As in the MCP
 server, the routes stay thin: the business logic is in the modules (`reports/services.py`,
@@ -46,7 +46,7 @@ async def project_tokens(identity: TokensManager) -> list[ProjectToken]:
 - **Errors**: `HTTPException` with the right code; `unprocessable(exc)` turns a `ValueError`
   of a module into a `422`.
 - **No write route without a token**: every route of `/api/v1` requires an authenticated
-  identity, and the controller exposes no MCP endpoint.
+  identity, and the Controller server exposes no MCP endpoint.
 
 ## Settings
 
@@ -57,7 +57,7 @@ interface (language, proxy, OIDC) is stored in the database through `app_setting
 
 ## Command line
 
-The controller commands are in `cli.py` (`CONTROLLER_COMMANDS`). Exit codes are the same
+The Controller server commands are in `cli.py` (`CONTROLLER_COMMANDS`). Exit codes are the same
 everywhere: `0` success, `1` blocked (gate, findings above the threshold), `2` usage or data
 error (`_fail` writes the error as JSON on stderr). Only the CLI writes on stdout. Document any
 command or option in the [command line reference](../reference/cli.md).
@@ -100,7 +100,7 @@ configured URL, proxy, no redirect, bounded response). See
 | Fixture | Caller |
 |---|---|
 | `client` | An administrator, without the token lookup |
-| `secured` | The controller protected by one token per role; `auth("<role>")` gives the header |
+| `secured` | The Controller server protected by one token per role; `auth("<role>")` gives the header |
 | `web_sessions` | `secured` with logged-in web users (`reader`, `triager`), for the routes reserved to sessions |
 
 Check the status code and the body, and at least one refusal (`401`, `403` or `404` outside

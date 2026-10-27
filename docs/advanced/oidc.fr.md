@@ -3,7 +3,7 @@
 La page [connexion OIDC](../usage/sso.md) décrit la mise en place dans l'interface web. Cette
 page donne le flux, les variables, l'API et les règles détaillées.
 
-Le contrôleur peut déléguer la connexion à l'interface à un fournisseur d'identité OpenID
+Le serveur Controller peut déléguer la connexion à l'interface à un fournisseur d'identité OpenID
 Connect (Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). La page de connexion affiche
 alors un bouton **Se connecter avec OIDC** au-dessus du formulaire des comptes locaux, qui reste
 disponible (compte `admin` initial, comptes de secours).
@@ -11,7 +11,7 @@ disponible (compte `admin` initial, comptes de secours).
 Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce :
 
 1. `GET /api/v1/auth/oidc/login` redirige le navigateur vers le fournisseur ;
-2. le fournisseur renvoie sur `GET /api/v1/auth/oidc/callback` ; le contrôleur échange le code
+2. le fournisseur renvoie sur `GET /api/v1/auth/oidc/callback` ; le serveur Controller échange le code
    (appel serveur à serveur), vérifie l'ID token (signature par les clés JWKS du fournisseur,
    émetteur, audience, expiration, nonce), retrouve le [compte OIDC](#comptes-oidc) de
    l'utilisateur (ou le crée) et enregistre les groupes nommés par son claim des groupes ;
@@ -25,7 +25,7 @@ Créez un client OIDC *confidentiel* (ou public, sans secret : PKCE suffit) avec
 - **URL de redirection** : `https://<contrôleur>/api/v1/auth/oidc/callback`, l'URL publique
   exacte vue par le navigateur (derrière un reverse proxy, celle du proxy) ;
 - un claim contenant les groupes ou rôles de l'utilisateur dans l'ID token (ou, à défaut, dans
-  la réponse *userinfo*, que le contrôleur consulte quand l'ID token ne le contient pas).
+  la réponse *userinfo*, que le serveur Controller consulte quand l'ID token ne le contient pas).
 
 Exemple avec Keycloak (rôles de realm) :
 
@@ -44,14 +44,14 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 
 L'émetteur doit être en HTTPS (HTTP n'est accepté que sur `localhost`, pour le développement) ;
 son document `/.well-known/openid-configuration` doit annoncer le même `issuer`. Si le
-fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE`. Le contrôleur joint
-le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou l'écran **Proxy sortant**).
+fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE`. Le serveur Controller joint
+le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou l'écran **Général**).
 
 ## Configurer le OIDC dans l'interface
 
-Les mêmes réglages se modifient dans l'écran **OIDC** (permission `users.manage` : la
-configuration OIDC décide qui rejoint quel groupe), sans redémarrer le contrôleur. Comme pour
-l'écran **Proxy sortant**, **une variable `SECREVIEW_OIDC_*` définie est toujours
+Les mêmes réglages se modifient dans l'écran **Connexions** (permission `users.manage` : la
+configuration OIDC décide qui rejoint quel groupe), sans redémarrer le serveur Controller. Comme pour
+le proxy de l'écran **Général**, **une variable `SECREVIEW_OIDC_*` définie est toujours
 prioritaire**, champ par champ ; une valeur enregistrée en base ne s'applique qu'aux champs dont
 la variable n'est pas définie :
 
@@ -69,12 +69,12 @@ la variable n'est pas définie :
   manquant ou non HTTPS, scopes sans `openid`...) : rien n'est alors
   enregistré. Une configuration incomplète peut être préparée tant que le OIDC reste désactivé.
 
-Le changement s'applique à la connexion suivante, sur toutes les répliques (le contrôleur relit
+Le changement s'applique à la connexion suivante, sur toutes les répliques (le serveur Controller relit
 la configuration à chaque connexion et reconstruit le flux OIDC quand elle change). Les sessions
 déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables uniquement :
 `SECREVIEW_OIDC_CAFILE` (un fichier du déploiement) et les réglages de session
 (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
-invalide la combinaison avec les valeurs enregistrées, le contrôleur démarre quand même : la
+invalide la combinaison avec les valeurs enregistrées, le serveur Controller démarre quand même : la
 connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran ou dans les
 variables.
 
@@ -103,7 +103,7 @@ exactement, casse comprise. Il n'y a pas de repli sur `email` ou `sub`, et une v
 pas un identifiant valide (caractère de contrôle ou invisible, espace, plus de 64 caractères) est
 refusée.
 
-À la connexion, le contrôleur cherche d'abord le compte lié à l'émetteur et au `sub` de la
+À la connexion, le serveur Controller cherche d'abord le compte lié à l'émetteur et au `sub` de la
 connexion : il s'ouvre, quoi que dise maintenant le claim d'identifiant (un nom changé chez le
 fournisseur garde le compte et son identifiant). Seule une identité liée à aucun compte est
 cherchée par son identifiant :
@@ -196,7 +196,7 @@ SECREVIEW_OIDC_ONLY=true
 Il ne s'applique que tant que le OIDC fonctionne : OIDC désactivé, ou réglages refusés à leur
 vérification, les comptes locaux se connectent de nouveau, pour que personne ne reste bloqué.
 `SECREVIEW_OIDC_ONLY` est une variable uniquement, jamais modifiée dans l'interface : si le
-fournisseur est indisponible, retirez-la et redémarrez le contrôleur, puis connectez-vous avec un
+fournisseur est indisponible, retirez-la et redémarrez le serveur Controller, puis connectez-vous avec un
 compte local (son mot de passe peut être défini avec
 `security-review-controller user reset-password`).
 
@@ -205,14 +205,14 @@ compte local (son mot de passe peut être défini avec
 - Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SECRET_KEY`
   (32 caractères au moins), comme celui des [comptes locaux](architecture/controller.md#connexion-et-sessions), et désigne
   le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
-  rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
+  rôles s'applique aussitôt. Toutes les répliques du serveur Controller doivent partager ce secret ; sans lui,
   un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage.
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
   couper toutes les sessions avant leur expiration, supprimez le compte, ou changez
-  `SECREVIEW_SECRET_KEY` et redémarrez le contrôleur (toutes les sessions sont coupées).
+  `SECREVIEW_SECRET_KEY` et redémarrez le serveur Controller (toutes les sessions sont coupées).
 - **Se déconnecter** efface la session de l'onglet, pas celle du fournisseur d'identité.
 
 En cas d'échec, la page de connexion indique la cause (accès refusé chez le fournisseur, aucune
 permission, compte OIDC pas encore créé ou supprimé, identifiant pris par un compte local ou lié à un autre compte,
 identifiant manquant, état expiré, jeton invalide, fournisseur injoignable) ; le détail est
-journalisé par le contrôleur, sans code ni jeton.
+journalisé par le serveur Controller, sans code ni jeton.

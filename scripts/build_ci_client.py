@@ -23,7 +23,7 @@ DOCUMENTATION = (
 )
 DESCRIPTION = (
     "Pipeline and workstation client of the security-review-mcp controller: gate, SARIF, "
-    "trends, code and dependency scans"
+    "trends, code and dependency scans, read guard of coding agents"
 )
 
 PYPROJECT = """\
@@ -58,12 +58,13 @@ README = """\
 
 Client of the [security-review-mcp]({repository}) controller for pipelines and developer
 workstations: deployment gate, SARIF export, trend report, code and dependency scans, through
-the REST API with a `ci` token. It only uses the Python standard library.
+the REST API with a `ci` token, and an offline read guard for the hooks of coding agents. It
+only uses the Python standard library.
 
 ```bash
 uv tool install {name}       # uv installs a Python when none is available
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<ci token>
+export SECREVIEW_CI_TOKEN=<ci token>
 {name} scan-deps uv.lock --project my-project
 ```
 

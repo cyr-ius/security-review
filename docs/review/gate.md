@@ -2,14 +2,14 @@
 
 Without an agent or an MCP client, a Jenkins, GitLab or GitHub job can block a deployment while
 critical findings remain open. The `security-review-ci gate` command does it through the
-controller REST API, with a [`ci` token](../advanced/architecture/ci.md#ci-token-and-visible-projects): it needs only Python 3.14
-on the build agent (no database driver, no SQLModel, no database URL). The controller CLI
+Controller server REST API, with a [`ci` token](../advanced/architecture/ci.md#ci-token-and-visible-projects): it needs only Python 3.14
+on the build agent (no database driver, no SQLModel, no database URL). The Controller server CLI
 (`security-review-controller`) has no pipeline command.
 
 ```bash
 security-review-ci gate --project portal --fail-on high
 # exit code: 0 = passes, 1 = blocked, 2 = error (project/report not found, outside the token,
-# controller unreachable, token refused)
+# Controller server unreachable, token refused)
 # options: --report-id N to judge only one report
 ```
 

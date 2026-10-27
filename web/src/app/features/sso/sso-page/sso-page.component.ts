@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { SsoSettingsComponent } from '../sso-settings/sso-settings.component';
 
 /**
@@ -10,7 +11,7 @@ import { SsoSettingsComponent } from '../sso-settings/sso-settings.component';
  */
 @Component({
   selector: 'app-sso-page',
-  imports: [RouterLink, SsoSettingsComponent, TranslatePipe],
+  imports: [HelpLinkComponent, RouterLink, SsoSettingsComponent, TranslatePipe],
   templateUrl: './sso-page.component.html',
 })
 export class SsoPageComponent {}

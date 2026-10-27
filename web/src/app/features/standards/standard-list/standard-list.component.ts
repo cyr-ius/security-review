@@ -6,6 +6,9 @@ import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
+import { MarkdownFieldComponent } from '../../../shared/components/markdown-field/markdown-field.component';
+import { MarkdownViewComponent } from '../../../shared/components/markdown-view/markdown-view.component';
 import { DevStandard, DevStandardSummary, DevStandardWrite } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -53,6 +56,9 @@ type StandardSortKey = 'title' | 'technologies' | 'files';
 @Component({
   selector: 'app-standard-list',
   imports: [
+    HelpLinkComponent,
+    MarkdownFieldComponent,
+    MarkdownViewComponent,
     PackTransferComponent,
     FormField,
     SortHeaderComponent,

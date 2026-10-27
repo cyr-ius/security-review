@@ -3,9 +3,9 @@
 La page [journal d'audit](../usage/audit-metrics.md) décrit le journal dans l'interface web.
 Cette page donne chaque événement, l'API, la ligne de commande et les variables.
 
-Le contrôleur tient un **journal d'audit** des changements qui touchent à la sécurité. Il lit
+Le serveur Controller tient un **journal d'audit** des changements qui touchent à la sécurité. Il lit
 la base partagée avec le serveur MCP : toutes les répliques répondent la même chose. Les
-métriques du contrôleur sont dans [Métriques Prometheus](../reference/metrics.md).
+métriques du serveur Controller sont dans [Métriques Prometheus](../reference/metrics.md).
 
 Chaque changement ci-dessous écrit un événement dans la même transaction que le changement
 lui-même : un événement existe exactement quand le changement a été validé.
@@ -35,7 +35,12 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
 | `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |
 | `audit_syslog.changed` | Le [serveur syslog](#envoi-vers-syslog) est modifié sur la page **Journal d'audit** (adresse et *facility* définies, `null` : valeur enregistrée supprimée) |
-| `controller_url.changed` | L'URL publique du contrôleur, dont l'interface web est donnée aux agents sans jeton, est modifiée dans l'écran **Général**, ou recopiée depuis `SECREVIEW_CONTROLLER_URL` par le contrôleur au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
+| `controller_url.changed` | L'URL publique du serveur Controller, dont l'interface web est donnée aux agents sans jeton, est modifiée dans l'écran **Général**, ou recopiée depuis `SECREVIEW_CONTROLLER_URL` par le serveur Controller au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
+| `oauth.client_registered` | Un client MCP s'enregistre pour la [connexion OAuth](mcp-oauth.md) (acteur `anonymous`, nom du client) |
+| `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur l'écran **Connecter un client MCP** |
+| `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, par le client (`/revoke`), ou avec son utilisateur |
+| `oauth.refresh_reused` | Un jeton de rafraîchissement déjà remplacé est présenté à nouveau : l'autorisation est révoquée |
+| `mcp_oauth.changed` | La [connexion OAuth](mcp-oauth.md) est activée ou désactivée, ou son point d'accès MCP changé, dans l'interface web (la désactivation enregistre aussi la révocation de chaque autorisation) |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `project` et son nom), le projet quand il y en a un, et des détails en JSON.
@@ -84,7 +89,7 @@ security-review-controller audit prune --max-events 100000
 
 ## Envoi vers syslog
 
-Le contrôleur peut aussi envoyer chaque événement à un serveur syslog, pour le conserver hors de
+Le serveur Controller peut aussi envoyer chaque événement à un serveur syslog, pour le conserver hors de
 la base (SIEM, journal central). Désactivé par défaut :
 
 ```bash
@@ -93,7 +98,7 @@ SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # par défaut
 ```
 
 Pour chiffrer les événements, utilisez `tls://hôte:port` (syslog sur TLS, RFC 5425, port 6514
-par défaut) : le contrôleur vérifie le certificat du serveur et son nom d'hôte avec les autorités
+par défaut) : le serveur Controller vérifie le certificat du serveur et son nom d'hôte avec les autorités
 du système, ou avec `SECREVIEW_AUDIT_SYSLOG_CAFILE` (autorité de certification interne, variable
 uniquement). Chaque message est alors précédé de sa longueur (*octet counting*), comme l'exige la
 RFC 5425 : sur rsyslog, `imtcp` avec `StreamDriver.Mode="1"` ; sur syslog-ng, la source
@@ -121,11 +126,11 @@ l'événement en JSON, avec les mêmes champs que `audit list` :
 <134>secreview-audit: {"action":"user.login","actor":"user:alice","created_at":"…","details":{"address":"10.0.0.8","method":"password"},"id":12,"project":null,"target_id":"2","target_type":"user"}
 ```
 
-- Le contrôleur envoie les événements de **tous** les processus, serveur MCP et CLI compris,
+- Le serveur Controller envoie les événements de **tous** les processus, serveur MCP et CLI compris,
   depuis la base : le serveur MCP ne fait toujours aucune connexion sortante. Un événement part
   environ 5 à 15 secondes après son écriture ; l'historique antérieur à l'activation de l'envoi
   (au démarrage ou dans l'interface web) n'est pas envoyé.
-- Chaque événement est envoyé **une fois**, même avec plusieurs répliques du contrôleur : l'id du
+- Chaque événement est envoyé **une fois**, même avec plusieurs répliques du serveur Controller : l'id du
   dernier événement envoyé est conservé en base, et une réplique l'avance avant d'envoyer. Un lot
   dont l'envoi échoue est journalisé et n'est pas renvoyé (au plus une fois).
 - `udp://` et `tcp://` envoient les événements en clair : réservez-les à un réseau de confiance

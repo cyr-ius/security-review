@@ -11,6 +11,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../../shared/components/password-policy/password-policy.component';
 import { describeGrants } from '../../../shared/utils/permission-utils';
 import { ApiTokensComponent } from '../api-tokens/api-tokens.component';
+import { OAuthGrantsComponent } from '../oauth-grants/oauth-grants.component';
 
 /**
  * Account page: who is logged in and, for a web user, the change of its own password (the
@@ -18,7 +19,13 @@ import { ApiTokensComponent } from '../api-tokens/api-tokens.component';
  */
 @Component({
   selector: 'app-account',
-  imports: [ApiTokensComponent, FormField, PasswordPolicyComponent, TranslatePipe],
+  imports: [
+    ApiTokensComponent,
+    FormField,
+    OAuthGrantsComponent,
+    PasswordPolicyComponent,
+    TranslatePipe,
+  ],
   templateUrl: './account.component.html',
 })
 export class AccountComponent {

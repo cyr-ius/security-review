@@ -1,9 +1,9 @@
 # Configuration
 
-Le serveur MCP et le contrôleur lisent des variables d'environnement préfixées `SECREVIEW_`, ou
+Le serveur MCP et le serveur Controller lisent des variables d'environnement préfixées `SECREVIEW_`, ou
 un fichier `.env` dans le répertoire courant (voir `.env.example`). Les variables sont groupées
 ci-dessous selon le processus qui les lit : [les deux](#les-deux-processus), le
-[serveur MCP](#serveur-mcp) (`security-review-mcp`), le [contrôleur](#controleur)
+[serveur MCP](#serveur-mcp) (`security-review-mcp`), le [serveur Controller](#serveur-controller)
 (`security-review-controller`) ou les [clients](#clients).
 
 Certains réglages se définissent aussi dans l'[interface web](../usage/index.md#ecrans) :
@@ -13,7 +13,7 @@ définie (l'écran verrouille alors le champ).
 
 ## Les deux processus
 
-Lues par le serveur MCP et par le contrôleur.
+Lues par le serveur MCP et par le serveur Controller.
 
 ### Base de données et journaux
 
@@ -21,7 +21,7 @@ Lues par le serveur MCP et par le contrôleur.
 |---|---|---|
 | `SECREVIEW_DATABASE_URL` | Fichier SQLite de l'utilisateur (voir [Base de données](../advanced/database.md)) | URL SQLAlchemy de la base, **partagée** par les deux processus |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Journalise les requêtes SQL |
-| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à laisser tel quel, sauf si les migrations sont confiées à une [tâche dédiée](../advanced/database.md#tache-de-migration-dediee), où `false` leur fait seulement vérifier le schéma. Le serveur MCP HTTP ne migre jamais |
+| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migre le schéma au démarrage du serveur Controller, du serveur MCP stdio et des commandes CLI ; à laisser tel quel, sauf si les migrations sont confiées à une [tâche dédiée](../advanced/database.md#tache-de-migration-dediee), où `false` leur fait seulement vérifier le schéma. Le serveur MCP HTTP ne migre jamais |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Niveau de journalisation (sur stderr) |
 
 ### Écoute, TLS et reverse proxy
@@ -58,7 +58,7 @@ Lues par `security-review-mcp` uniquement.
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code`, et de chaque texte d'un rapport (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |
 
-## Contrôleur
+## Serveur Controller
 
 Lues par `security-review-controller` uniquement.
 
@@ -68,12 +68,12 @@ Lues par `security-review-controller` uniquement.
 |---|---|---|
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](../advanced/architecture/controller.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (groupe `administrators`), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; non défini : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
-| `SECREVIEW_CONTROLLER_URL` | — | URL publique racine du contrôleur (`https://…`, sans `/ui`), la même que pour [`security-review-ci`](#clients). Recopiée en base à chaque démarrage ; le serveur MCP l'y lit (il ignore sa propre variable) et donne l'adresse de l'interface web (`/ui`) aux clients sans jeton valide (instructions et prompts du serveur d'enrôlement, `401` de `/mcp`), pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; les connecteurs l'utilisent pour leurs liens. Non définie, elle se règle dans l'écran [**Général**](../usage/index.md#ecrans) ; sans aucune des deux, aucun lien n'est donné |
+| `SECREVIEW_CONTROLLER_URL` | — | URL publique racine du serveur Controller (`https://…`, sans `/ui`), la même que pour [`security-review-ci`](#clients). Recopiée en base à chaque démarrage ; le serveur MCP l'y lit (il ignore sa propre variable) et donne l'adresse de l'interface web (`/ui`) aux clients sans jeton valide (instructions et prompts du serveur d'enrôlement, `401` de `/mcp`), pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; les connecteurs l'utilisent pour leurs liens. Non définie, elle se règle dans l'écran [**Général**](../usage/index.md#ecrans) ; sans aucune des deux, aucun lien n'est donné |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_WEB_UI` | `true` | Sert l'[interface web](../usage/index.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Servir la documentation Swagger (`/api/docs`) et le schéma OpenAPI (`/api/openapi.json`), depuis les fichiers de la build de l'interface web |
-| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `true` | Servir le client de pipeline sur `/api/ci-client/` (public), pour que les développeurs l'installent avec `uv --find-links`, sans PyPI ([depuis le contrôleur](../advanced/architecture/ci.md#depuis-le-controleur)) |
+| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `true` | Servir le client de pipeline sur `/api/ci-client/` (public), pour que les développeurs l'installent avec `uv --find-links`, sans PyPI ([depuis le serveur Controller](../advanced/architecture/ci.md#depuis-le-serveur-controller)) |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | La page **À propos** cherche une nouvelle version sur GitHub (HTTPS, par le proxy sortant, mise en cache 6 heures, voir la [sécurité](security.md#securite-du-serveur-lui-meme)) |
 
 ### Limitation des requêtes
@@ -89,7 +89,7 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_OIDC_ENABLED` | `false` | Active la [connexion OIDC OpenID Connect](../advanced/oidc.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se définissent aussi dans l'écran **OIDC**, dont les valeurs enregistrées s'appliquent quand la variable n'est pas définie ([configurer le OIDC dans l'interface](../advanced/oidc.md#configurer-le-oidc-dans-linterface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Active la [connexion OIDC OpenID Connect](../advanced/oidc.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se définissent aussi dans l'écran **Connexions**, dont les valeurs enregistrées s'appliquent quand la variable n'est pas définie ([configurer le OIDC dans l'interface](../advanced/oidc.md#configurer-le-oidc-dans-linterface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Identifiant du client déclaré chez le fournisseur |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Secret du client ; vide pour un client public (PKCE seul) |
@@ -104,18 +104,30 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_OIDC_CAFILE` | — | Bundle de CA pour joindre le fournisseur (CA interne) ; le proxy est celui de `HTTPS_PROXY` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/oidc.md#oidc-seul)) ; une variable uniquement, jamais modifiée dans l'interface |
 
+### Connexion OAuth des clients MCP
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Active la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : le serveur Controller devient leur serveur d'autorisation (routes `/authorize`, `/token`, `/register`, `/revoke` à la racine de `SECREVIEW_CONTROLLER_URL`, qui doit être défini, en https hors localhost) et le serveur MCP y envoie un client sans jeton. Non définie, un administrateur peut l'activer dans l'interface web (écran **Jetons**) |
+| `SECREVIEW_MCP_URL` | — | URL publique du point d'accès MCP (`https://…/mcp`, en ASCII : punycode pour un hôte non ASCII), obligatoire avec OAuth : la ressource des jetons. Enregistrée en base au démarrage, où le serveur MCP la lit. Non définie, elle peut être saisie dans l'interface web (écran **Jetons**) |
+| `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Durée d'un jeton d'accès (5 à 1440 minutes) |
+| `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Durée d'un jeton de rafraîchissement (1 à 365 jours), prolongée à chaque rafraîchissement ; `SECREVIEW_TOKEN_MAX_DAYS`, s'il est défini, borne toute l'autorisation depuis son approbation |
+| `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients enregistrés à la fois ; un client que personne n'a autorisé dans la journée est supprimé |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` | — | Hôtes joints en https acceptés comme URI de redirection d'un client, séparés par des virgules (`vscode.dev`) ; vide : l'interface loopback seulement |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` | — | Schémas d'URI personnalisés acceptés comme URI de redirection, séparés par des virgules (`cursor`) ; vide : aucun |
+
 ### Proxy sortant
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `HTTPS_PROXY` (sinon `HTTP_PROXY`) | — | Variable standard, sans le préfixe `SECREVIEW_` (nom en minuscules accepté) : proxy HTTP des connexions sortantes du contrôleur, téléchargement OSV et fournisseur OIDC (`http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`) ; sans elle, la connexion est directe, ou passe par le proxy choisi dans l'écran [**Proxy sortant**](../usage/index.md#ecrans). Définie (non vide), elle est prioritaire sur cet écran |
-| `NO_PROXY` | — | Variable standard : [hôtes joints sans le proxy](../review/analysis/dependencies.md#hotes-sans-proxy), séparés par des virgules : domaines (sous-domaines compris), adresses IP, `*` (pas de plages CIDR) ; la boucle locale est toujours directe. Définie (non vide), elle est prioritaire sur la liste de l'écran **Proxy sortant** |
+| `HTTPS_PROXY` (sinon `HTTP_PROXY`) | — | Variable standard, sans le préfixe `SECREVIEW_` (nom en minuscules accepté) : proxy HTTP des connexions sortantes du serveur Controller, téléchargement OSV et fournisseur OIDC (`http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`) ; sans elle, la connexion est directe, ou passe par le proxy choisi dans l'écran [**Général**](../usage/index.md#ecrans). Définie (non vide), elle est prioritaire sur cet écran |
+| `NO_PROXY` | — | Variable standard : [hôtes joints sans le proxy](../review/analysis/dependencies.md#hotes-sans-proxy), séparés par des virgules : domaines (sous-domaines compris), adresses IP, `*` (pas de plages CIDR) ; la boucle locale est toujours directe. Définie (non vide), elle est prioritaire sur la liste de l'écran **Général** |
 
 ### Base OSV
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Mise à jour quotidienne](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` |
+| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Mise à jour quotidienne](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) de la base OSV par `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Écosystèmes téléchargés, séparés par des virgules |
@@ -131,7 +143,8 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Une personne peut [accepter un risque](../usage/triage.md) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif n'en exige jamais |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Gravité minimale (`critical`, `high`, `medium`, `low`, `info`) dont l'[acceptation de risque](../usage/triage.md) exige un motif et une date d'expiration. Un finding moins grave est accepté par une simple validation, qui le ferme sans motif ni date. Vide : toute acceptation les exige |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/bearer-tokens.md#expiration-et-renouvellement-des-jetons) (CLI, interface web), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/tokens.md#jetons-api) et [MCP](../usage/tokens.md#jetons-mcp-et-ci-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/tokens.md#jetons-api), [MCP et CI](../usage/tokens.md#jetons-mcp-et-ci-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
+| `SECREVIEW_PERSONAL_MCP_TOKENS` | `true` | Un utilisateur web peut créer un jeton MCP personnel dans **Mon compte**. `false` avec la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : aucun n'est proposé ni créé, et le serveur Controller révoque ceux qui restent au démarrage (audité) ; les jetons CI et API REST restent. Enregistré en base, où le serveur MCP le lit : un client sans jeton valide est alors invité à s'adresser à un administrateur (ou à la connexion OAuth) plutôt qu'à créer un jeton personnel |
 
 ### Audit et métriques
 
@@ -148,7 +161,7 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Verrou des [connecteurs](../advanced/connectors.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : `true`, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés |
+| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Verrou des [connecteurs](../advanced/connectors.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du serveur Controller) : `true`, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés |
 | `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` | `300` | Période de l'[envoi automatique](../usage/connectors/index.md#envoi-dun-finding) (30 à 86400) |
 | `SECREVIEW_CONNECTORS_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (autorité interne) |
 | `SECREVIEW_CONNECTORS_PLUGINS` | — | [Connecteurs tiers](../usage/connectors/third-party.md) autorisés, par nom de point d'entrée, séparés par des virgules ; un connecteur installé mais non listé n'est jamais chargé |
@@ -160,18 +173,18 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Taille maximale d'une requête de [`security-review-ci scan-code` ou `scan-deps`](../review/analysis/code-scan.md#limites-du-controleur) (`413` au-delà) |
+| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Taille maximale d'une requête de [`security-review-ci scan-code` ou `scan-deps`](../review/analysis/code-scan.md#limites-du-serveur-controller) (`413` au-delà) |
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Nombre maximal de fichiers d'une requête de scan (`422` au-delà) |
 | `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Taille au-delà de laquelle un fichier envoyé par `scan-code` n'est pas scanné (signalé comme ignoré) |
 
 ## Clients
 
-Lues par le client de pipeline `security-review-ci` (`SECREVIEW_TOKEN` jamais par les serveurs).
+Lues par le client de pipeline `security-review-ci` (`SECREVIEW_CI_TOKEN` jamais par les serveurs).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par [`security-review-ci`](../advanced/architecture/ci.md) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
-| `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../advanced/architecture/ci.md) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env`. Le contrôleur lit la même variable pour [son URL publique](#interface-web-et-sessions) |
+| `SECREVIEW_CI_TOKEN` | — | Jeton Bearer envoyé par [`security-review-ci`](../advanced/architecture/ci.md) au serveur Controller (jeton `ci`, personnel ou non) ; jamais utilisé par les serveurs. `SECREVIEW_TOKEN`, son ancien nom, est encore lu s'il n'est pas défini, avec un avertissement |
+| `SECREVIEW_CONTROLLER_URL` | — | URL du serveur Controller utilisée par [`security-review-ci`](../advanced/architecture/ci.md) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env`. Le serveur Controller lit la même variable pour [son URL publique](#interface-web-et-sessions) |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec
 `security-review-controller token` (voir [Authentification et TLS](../advanced/bearer-tokens.md)).

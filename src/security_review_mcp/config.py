@@ -3,13 +3,14 @@
 import ipaddress
 import logging
 import os
+import re
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
@@ -69,6 +70,68 @@ def check_controller_url(value: str | None) -> str | None:
             f"SECREVIEW_CONTROLLER_URL is the root URL of the controller, without {WEB_UI_PATH}"
         )
     return value
+
+
+# Schemes a custom redirect URI of an OAuth client may never use
+FORBIDDEN_REDIRECT_SCHEMES = frozenset({"http", "https", "javascript", "data", "file", "vbscript"})
+_SCHEME = re.compile(r"[a-z][a-z0-9+.-]{0,31}")
+_HOST = re.compile(r"[a-z0-9]([a-z0-9-]{0,62}\.)*[a-z0-9-]{1,63}")
+
+
+def check_mcp_url(value: str | None) -> str | None:
+    """Return the public URL of the MCP endpoint without trailing slash; None when empty.
+
+    Raises:
+        ValueError: If the value is not an http(s) URL without credentials, query nor fragment.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    # Copied into the WWW-Authenticate challenge of the MCP server: ASCII, no quote
+    if (
+        len(value) > CONTROLLER_URL_MAX_CHARS
+        or not value.isprintable()
+        or not value.isascii()
+        or any(char in value for char in '"\\ ')
+    ):
+        raise ValueError(
+            f"SECREVIEW_MCP_URL must be an ASCII URL of at most {CONTROLLER_URL_MAX_CHARS} chars, "
+            "without quote, backslash nor space (punycode for a non-ASCII host)"
+        )
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("SECREVIEW_MCP_URL must be an http(s) URL")
+    if parts.username or parts.password or parts.query or parts.fragment:
+        raise ValueError("SECREVIEW_MCP_URL must not contain credentials, a query or a fragment")
+    return value.rstrip("/")
+
+
+def redirect_schemes(value: str) -> list[str]:
+    """Custom URI schemes of SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES, lowercase.
+
+    Raises:
+        ValueError: If an entry is not a URI scheme, or a scheme reserved to the web.
+    """
+    schemes = [entry.strip().lower() for entry in value.split(",") if entry.strip()]
+    for scheme in schemes:
+        if not _SCHEME.fullmatch(scheme) or scheme in FORBIDDEN_REDIRECT_SCHEMES:
+            raise ValueError(
+                f"SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES: '{scheme}' is not an allowed URI scheme"
+            )
+    return schemes
+
+
+def redirect_hosts(value: str) -> list[str]:
+    """Hosts of SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS, lowercase.
+
+    Raises:
+        ValueError: If an entry is not a host name.
+    """
+    hosts = [entry.strip().lower() for entry in value.split(",") if entry.strip()]
+    for host in hosts:
+        if not _HOST.fullmatch(host):
+            raise ValueError(f"SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS: '{host}' is not a host name")
+    return hosts
 
 
 def web_ui_url(controller_url: str | None) -> str | None:
@@ -159,6 +222,32 @@ class Settings(BaseSettings):
     # start, where the MCP server reads it (the MCP server ignores this variable); unset, an
     # administrator may set it in the web interface. Unset and not stored: no link.
     controller_url: str | None = None
+    # Controller only: OAuth 2.1 login of the MCP clients (authorization code flow with PKCE,
+    # dynamic client registration), served by the controller at the root of
+    # SECREVIEW_CONTROLLER_URL, its issuer. An MCP client without a token then gets a 401 that
+    # starts the login in the browser instead of the enrollment server, and receives tokens that
+    # act as a personal MCP token of the user who approved the client. Needs mcp_url and the
+    # controller URL (variable or web interface); the controller stores mcp_url in the database
+    # at start, where the MCP server reads it (it needs no variable). Disabled by default. Unset,
+    # an administrator may turn it on and set mcp_url in the web interface (Tokens screen).
+    mcp_oauth_enabled: bool = False
+    # Public URL of the MCP endpoint, e.g. https://mcp.example.com/mcp: the resource the OAuth
+    # tokens are issued for (RFC 8707), announced by the MCP server (RFC 9728)
+    mcp_url: str | None = None
+    # Controller only: validity of an OAuth access token (minutes) and of its refresh token
+    # (days, at most SECREVIEW_TOKEN_MAX_DAYS when that is set). Each refresh issues a new pair.
+    mcp_oauth_access_minutes: int = Field(default=60, ge=5, le=1440)
+    mcp_oauth_refresh_days: int = Field(default=30, ge=1, le=365)
+    # Controller only: OAuth clients registered at once (dynamic registration is public); a client
+    # nobody approved is deleted after a day
+    mcp_oauth_max_clients: int = Field(default=1000, ge=1, le=100_000)
+    # Controller only: where an OAuth client may send the browser back, besides the loopback
+    # interface (http or https on 127.0.0.1, localhost, ::1): hosts reached over https (e.g.
+    # vscode.dev,claude.ai) and custom URI schemes (e.g. cursor,vscode), comma separated. Empty:
+    # the loopback interface only, so that a link to /authorize cannot send the code of a user
+    # to a site of an attacker.
+    mcp_oauth_redirect_hosts: str = ""
+    mcp_oauth_redirect_schemes: str = ""
 
     # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
@@ -284,6 +373,10 @@ class Settings(BaseSettings):
     # Controller only: personal tokens a web user may hold of each kind (REST API and MCP),
     # created in My account. Revoke one to create another.
     personal_tokens_per_user: int = Field(default=1, ge=1, le=10)
+    # Controller only: a web user may create a personal MCP token in My account. false (MCP
+    # clients logged in with OAuth, see mcp_oauth_enabled): none is offered nor created, and
+    # the controller revokes those left at start. Personal CI and REST API tokens stay.
+    personal_mcp_tokens: bool = True
 
     # Controller only: delete the audit events older than audit_retention_days, checked at start
     # then every day. 0 keeps them forever.
@@ -352,6 +445,7 @@ class Settings(BaseSettings):
         "audit_syslog_cafile",
         "controller_url",
         "connectors_cafile",
+        "mcp_url",
     )
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
@@ -389,6 +483,31 @@ class Settings(BaseSettings):
         Empty counts as unset (Compose passes ${SECREVIEW_CONTROLLER_URL:-} when .env lacks
         it)."""
         return check_controller_url(value)
+
+    @field_validator("mcp_url")
+    @classmethod
+    def _check_mcp_url(cls, value: str | None) -> str | None:
+        """Accept an http(s) URL without credentials, query nor fragment."""
+        return check_mcp_url(value)
+
+    @field_validator("mcp_oauth_redirect_hosts")
+    @classmethod
+    def _check_redirect_hosts(cls, value: str) -> str:
+        """Accept a comma-separated list of host names."""
+        return ",".join(redirect_hosts(value))
+
+    @field_validator("mcp_oauth_redirect_schemes")
+    @classmethod
+    def _check_redirect_schemes(cls, value: str) -> str:
+        """Accept a comma-separated list of custom URI schemes."""
+        return ",".join(redirect_schemes(value))
+
+    @model_validator(mode="after")
+    def _check_mcp_oauth(self) -> Self:
+        """OAuth needs the URL of the MCP endpoint, the resource of its tokens."""
+        if self.mcp_oauth_enabled and not self.mcp_url:
+            raise ValueError("SECREVIEW_MCP_OAUTH_ENABLED needs SECREVIEW_MCP_URL")
+        return self
 
     @field_validator("forwarded_allow_ips")
     @classmethod

@@ -11,7 +11,7 @@ rôles, groupes et utilisateurs).
 |---|---|
 | Rôles créés par les administrateurs | 100 au plus |
 | Nom d'un groupe | 200 caractères au plus |
-| Projets d'un rôle dans un groupe | 50 au plus, seulement pour un rôle fait de permissions par projet (`reports.read`, `findings.triage`) ; un rôle qui contient une permission sur tout le contrôleur s'applique toujours à tous les projets |
+| Projets d'un rôle dans un groupe | 50 au plus, seulement pour un rôle fait de permissions par projet (`reports.read`, `findings.triage`) ; un rôle qui contient une permission sur tout le serveur Controller s'applique toujours à tous les projets |
 | Projets d'une permission pour un utilisateur | 200 au plus, union de ses groupes : au-delà, le compte n'a aucun accès |
 
 `users.manage` couvre aussi la configuration OIDC, puisqu'elle décide qui rejoint quel groupe. Le
@@ -96,7 +96,7 @@ aussi [lecture du projet](../usage/sso.md#lecture-du-projet).
 
 `POST /api/v1/projects` crée un projet, depuis une session de l'interface web uniquement. Le seul
 jeton qui crée un projet est le jeton MCP personnel d'un utilisateur portant `projects.create`,
-par l'outil `request_project` de son agent. Le contrôleur ajoute le compte au groupe de projet
+par l'outil `request_project` de son agent. Le serveur Controller ajoute le compte au groupe de projet
 comme membre local.
 
 ```bash

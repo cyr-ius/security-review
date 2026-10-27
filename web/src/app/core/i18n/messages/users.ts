@@ -16,7 +16,7 @@ export const users = defineMessages({
     'users.accountType': 'Account type',
     'users.localPassword': 'Local (password)',
     'users.ssoDisabled':
-      'OIDC login is not enabled on this controller: this account can only log in once you enable',
+      'OIDC login is not enabled on this Controller server: this account can only log in once you enable',
     'users.ssoPlaceholder': 'e.g. alice@example.com',
     'users.localPlaceholder': 'e.g. alice',
     'users.ssoUsernameHelp':
@@ -87,7 +87,7 @@ export const users = defineMessages({
     'users.accountType': 'Type de compte',
     'users.localPassword': 'Local (mot de passe)',
     'users.ssoDisabled':
-      "La connexion OIDC n'est pas activée sur ce contrôleur : ce compte ne pourra se connecter qu'après activation de",
+      "La connexion OIDC n'est pas activée sur ce serveur Controller : ce compte ne pourra se connecter qu'après activation de",
     'users.ssoPlaceholder': 'ex. alice@example.com',
     'users.localPlaceholder': 'ex. alice',
     'users.ssoUsernameHelp':
@@ -162,7 +162,7 @@ export const users = defineMessages({
     'users.accountType': 'Tipo de cuenta',
     'users.localPassword': 'Local (contraseña)',
     'users.ssoDisabled':
-      'El inicio de sesión OIDC no está activado en este controlador: esta cuenta solo podrá iniciar sesión cuando se active',
+      'El inicio de sesión OIDC no está activado en este servidor Controller: esta cuenta solo podrá iniciar sesión cuando se active',
     'users.ssoPlaceholder': 'p. ej. alice@example.com',
     'users.localPlaceholder': 'p. ej. alice',
     'users.ssoUsernameHelp':

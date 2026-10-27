@@ -1,5 +1,7 @@
 <section class="card card-body mt-4" aria-labelledby="api-tokens-title">
-  <h2 id="api-tokens-title" class="h5">{{ 'apiTokens.title' | t }}</h2>
+  <h2 id="api-tokens-title" class="h5">
+    {{ 'apiTokens.title' | t }} <app-help-link topic="personalTokens" />
+  </h2>
   <p class="text-body-secondary small">{{ 'apiTokens.help' | t }}</p>
 
   @if (error(); as text) {

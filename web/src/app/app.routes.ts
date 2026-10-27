@@ -22,6 +22,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    // Consent screen of the OAuth login of the MCP clients, outside the layout
+    path: 'oauth/authorize',
+    title: 'oauth.title',
+    canActivate: [backendGuard, authGuard],
+    loadComponent: () =>
+      import('./features/oauth/oauth-consent.component').then((m) => m.OAuthConsentComponent),
+  },
+  {
     path: '',
     canActivate: [backendGuard, authGuard],
     canActivateChild: [passwordChangeGuard],
@@ -186,15 +194,8 @@ export const routes: Routes = [
       },
       // Former address of the report language, now on the General page
       { path: 'settings/language', pathMatch: 'full', redirectTo: 'settings/general' },
-      {
-        path: 'settings/proxy',
-        title: 'settings.proxyTitle',
-        canActivate: [permissionGuard('settings.manage')],
-        loadComponent: () =>
-          import('./features/settings/proxy-settings/proxy-settings.component').then(
-            (m) => m.ProxySettingsComponent,
-          ),
-      },
+      // Former address of the outgoing proxy, now on the General page
+      { path: 'settings/proxy', pathMatch: 'full', redirectTo: 'settings/general' },
       {
         path: 'settings/connectors',
         title: 'connectors.title',

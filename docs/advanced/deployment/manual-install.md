@@ -1,17 +1,17 @@
 # Manual installation (without containers)
 
 This page installs security-review-mcp **all-in-one** on a single Linux server, without Docker:
-the **controller**, the **MCP server** and their **SQLite database** run on the same machine,
+the **Controller server**, the **MCP server** and their **SQLite database** run on the same machine,
 as the same user. It suits a test, a small team or a server where containers are not allowed.
 
 For a team deployment, prefer [Docker Compose](../../getting-started/deploy.md#with-docker-compose)
 or [Kubernetes](kubernetes.md): PostgreSQL is included, and the services restart by themselves.
 
 ```text
- agents (VS Code, Claude), CI ──▶ MCP server  :8000 ──┐
-                                                      ├──▶ SQLite file
- people (browser) ──────────────▶ controller  :8080 ──┘
-                    └─────────────── one server ───────────────┘
+ agents (VS Code, Claude), CI ──▶ MCP server         :8000 ──┐
+                                                             ├──▶ SQLite file
+ people (browser) ──────────────▶ Controller server  :8080 ──┘
+                    └─────────────────── one machine ───────────────────┘
 ```
 
 ## 1. Install the package
@@ -46,15 +46,15 @@ security-review-controller user create admin --group administrators   # password
 
 Keep the password: it opens the web interface. Change it later from **My account**.
 
-## 4. Start the controller
+## 4. Start the Controller server
 
 ```bash
 security-review-controller serve --host 127.0.0.1 --port 8080
 # web interface: http://127.0.0.1:8080/ui/
 ```
 
-Log in with the `admin` account. The controller is meant for people and pipelines: expose it
-with TLS (see [Controller](../architecture/controller.md#exposure)).
+Log in with the `admin` account. The Controller server is meant for people and pipelines: expose it
+with TLS (see [Controller server](../architecture/controller.md#exposure)).
 
 ## 5. Start the MCP server
 
@@ -95,7 +95,7 @@ Then, two ways to give a token to each developer and pipeline:
 - **Personal token** (with the enrollment, enabled by default): the developer connects their
   host without a token, the agent sends them to the web interface at the first review, where
   they create a personal MCP token; at the next review, the agent requests the project, which an
-  administrator approves (**Projects** screen), giving them access to it. Set `SECREVIEW_CONTROLLER_URL` on the controller (or the **General** screen) so that the agent gives the link: see
+  administrator approves (**Projects** screen), giving them access to it. Set `SECREVIEW_CONTROLLER_URL` on the Controller server (or the **General** screen) so that the agent gives the link: see
   [Getting a token](../../getting-started/host.md#getting-a-token).
 - **Created by the administrator**: `security-review-controller token create --label <name>`,
   for example for a pipeline, then handed to its owner.
@@ -103,7 +103,7 @@ Then, two ways to give a token to each developer and pipeline:
 ## 7. Check and sign in
 
 ```bash
-curl http://127.0.0.1:8080/healthz   # controller: {"status":"ok"}
+curl http://127.0.0.1:8080/healthz   # Controller server: {"status":"ok"}
 curl http://127.0.0.1:8000/healthz   # MCP server: {"status":"ok"}
 ```
 

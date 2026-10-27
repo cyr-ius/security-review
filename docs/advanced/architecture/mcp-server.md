@@ -2,15 +2,16 @@
 
 The **MCP server** (`security-review-mcp`) is the process of the AI agents: it gives them the
 review prompts, the checklists, the pattern scan and the development standards, and saves their
-reports. It never calls the [controller](controller.md): both share the database (see
+reports. It never calls the [Controller server](controller.md): both share the database (see
 [Architecture](index.md)).
 
 ## What it serves
 
 | Route | Used by | Credential |
 |---|---|---|
-| `/mcp` | the agents: [prompts, tools and resources](../../review/prompts-tools.md) | `mcp` token (personal or not) or `admin` token |
-| `/mcp` without a token | an agent not yet connected: [enrollment server](../../review/prompts-tools.md#enrollment-server), which tells how to get a token | none |
+| `/mcp` | the agents: [prompts, tools and resources](../../review/prompts-tools.md) | `mcp` token (personal or not), `admin` token, or [OAuth](../mcp-oauth.md) access token |
+| `/mcp` without a token | an agent not yet connected: [enrollment server](../../review/prompts-tools.md#enrollment-server), which tells how to get a token; with the [OAuth login](../mcp-oauth.md), a `401` that starts it | none |
+| `/.well-known/oauth-protected-resource/mcp` | the hosts, with the [OAuth login](../mcp-oauth.md) on: protected resource metadata (RFC 9728), which names the Controller server as authorization server (404 otherwise) | none |
 | `/healthz` | probes (Docker `HEALTHCHECK`, Kubernetes) | none |
 
 It serves no web page, no other route of the REST API, and no route that writes without a
@@ -27,7 +28,7 @@ token.
 
 In HTTP, `security-review-mcp serve`:
 
-1. **checks** the schema of the database and refuses to start (code `2`) while the controller has
+1. **checks** the schema of the database and refuses to start (code `2`) while the Controller server has
    not migrated it: it never migrates (see [Schema migrations](../database.md#schema-migrations));
 2. checks the TLS settings, loads the rules of the database;
 3. serves `/mcp`. While no token exists, it stays **closed**: a client only reaches the
@@ -44,13 +45,13 @@ In stdio, `security-review-mcp local` migrates its local database itself.
 | Unknown, revoked or expired token | `401` that tells the user where to create a new token ([rejected token](#rejected-token-sign-in-again)) |
 | Valid `mcp` or `admin` token | every prompt, tool and resource, on the projects of the token ([tokens restricted to a project](../bearer-tokens.md#tokens-restricted-to-a-project)) |
 
-Tokens and rules are read in the database: a token created or revoked on the controller applies
+Tokens and rules are read in the database: a token created or revoked on the Controller server applies
 to the next request, a changed rule within 5 seconds.
 
 ## What it never does
 
-- It makes **no outgoing connection** (the OSV database is imported by the controller), and loads
-  no module of the controller.
+- It makes **no outgoing connection** (the OSV database is imported by the Controller server), and loads
+  no module of the Controller server.
 - Its tools **never read the disk** from a path given by the client: they work on the content
   sent.
 - Every input is bounded (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,
@@ -91,7 +92,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    not rejected: it reaches a restricted MCP server (same `security-review` name) **without any
    tool**, whose prompts are named like the reviews (`security-review`, `codebase-review`…).
    They tell the user to sign in to the web interface (its URL comes from
-   the database, where the controller copies its
+   the database, where the Controller server copies its
    [`SECREVIEW_CONTROLLER_URL`](../../reference/configuration.md#web-interface-and-sessions), followed by `/ui`, or the
    **General** screen stores it; read again at most every 30 seconds; none: no
    link), to create a
@@ -150,3 +151,13 @@ its URL when it is known, as above) and to create a new personal MCP token, then
 it in the [host configuration](../../getting-started/host.md#getting-a-token). Such a client never
 reaches the review tools nor the enrollment server. The rejection is logged as a warning by the
 MCP server (`Rejected unauthenticated request` / `Rejected expired token`).
+
+With the [OAuth login](../mcp-oauth.md) on, this `401` also carries the
+`resource_metadata` parameter in its `WWW-Authenticate` challenge, so that a host that supports
+OAuth signs in again by itself, and a request without a token gets the same `401` (without
+`error`) instead of the enrollment server.
+
+When the Controller server offers no personal MCP token (`SECREVIEW_PERSONAL_MCP_TOKENS=false`, stored in
+the database at its start), the description of the `401`, the instructions and the prompts of the
+enrollment server tell the user to sign in through the OAuth login, or to ask an administrator
+for an MCP token, instead of creating a personal one.

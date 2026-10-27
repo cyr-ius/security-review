@@ -1,6 +1,6 @@
 # Mise en service du serveur
 
-Cette page met en place le **mode partagé (HTTP)** pour une équipe : le contrôleur (interface web,
+Cette page met en place le **mode partagé (HTTP)** pour une équipe : le serveur Controller (interface web,
 administration, pipelines) et le serveur MCP (utilisé par les agents), sur la même base. Voir
 [trois services, trois rôles](../services.md).
 
@@ -14,7 +14,7 @@ flowchart LR
     ci(["Pipeline CI/CD<br/>security-review-ci"])
     subgraph srv["Serveur ou cluster (conteneurs)"]
         mcp["Conteneur serveur MCP<br/>security-review-mcp"]
-        ctl["Conteneur contrôleur<br/>security-review-controller<br/>interface web, API REST"]
+        ctl["Conteneur du serveur Controller<br/>security-review-controller<br/>interface web, API REST"]
         pg[("Conteneur PostgreSQL<br/>rapports, règles, jetons")]
     end
     agent -- "HTTPS /mcp<br/>jeton MCP" --> mcp
@@ -37,7 +37,7 @@ Sans conteneur, tout-en-un sur un serveur Linux : voir la section Avancé
 ## Avec Docker Compose
 
 Le fichier `docker-compose.yml` démarre une base de donnée PostgreSQL,
-le contrôleur et le serveur MCP.
+le serveur Controller et le serveur MCP.
 
 Copiez-collez ce code dans un dossier vide.
 Cela télécharge le fichier `docker-compose.yml`, génère les secrets dans `.env`et démarre les services.
@@ -68,9 +68,9 @@ pour les sauvegardes et la mise à niveau de PostgreSQL.
 
 ## Avec Kubernetes
 
-Copiez-collez tout le bloc : il déploie PostgreSQL (image officielle), le contrôleur et le
+Copiez-collez tout le bloc : il déploie PostgreSQL (image officielle), le serveur Controller et le
 serveur MCP (image publiée) dans le namespace `secreview`, puis donne le mot de passe du premier
-administrateur et un jeton. Le contrôleur migre le schéma à son démarrage.
+administrateur et un jeton. Le serveur Controller migre le schéma à son démarrage.
 
 ```bash
 kubectl create namespace secreview
@@ -85,7 +85,7 @@ unset PGPASSWORD
 kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/postgres.yaml
 kubectl -n secreview rollout status statefulset/secreview-postgres
 
-# 2. security-review-mcp : secret des sessions, contrôleur et serveur MCP
+# 2. security-review-mcp : secret des sessions, serveur Controller et serveur MCP
 kubectl -n secreview create secret generic secreview-controller \
     --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
@@ -108,10 +108,13 @@ que le terminal est ouvert.
 
 Pour l'équipe, exposez chaque Service par un Ingress avec TLS : `secreview-mcp` pour les agents,
 `secreview-controller` pour les développeurs (interface web, jetons MCP personnels) et pour la
-CI (`security-review-ci` appelle le contrôleur). Renseignez alors, dans la ConfigMap du
-manifeste, `SECREVIEW_CONTROLLER_URL` (URL publique racine du contrôleur) et
+CI (`security-review-ci` appelle le serveur Controller). Renseignez alors, dans la ConfigMap du
+manifeste, `SECREVIEW_CONTROLLER_URL` (URL publique racine du serveur Controller) et
 `SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
-réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress).
+réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress). Pour que les
+hôtes MCP se connectent par le navigateur plutôt qu'avec un jeton personnel, voir
+[Connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : avec un Ingress par Service, les
+chemins OAuth n'ont besoin d'aucune règle supplémentaire.
 
 **Pour plus d'informations :** voir [Kubernetes](../advanced/deployment/kubernetes.md) dans la section
 **Avancé** (PostgreSQL existant, contenu des manifestes, Secrets, exposition, mise à jour OSV,

@@ -6,7 +6,7 @@ saved by the agents and the pipelines, see the open findings and decide what to 
 
 ## Signing in
 
-Open the address of the controller followed by `/ui/` (for example
+Open the address of the Controller server followed by `/ui/` (for example
 `https://secreview.example.com/ui/`) and sign in with your [user account](user-accounts.md):
 a user name and a password, or your company login (OIDC) when it is configured. A token never
 opens the interface: tokens are for the agents and the pipelines.
@@ -25,7 +25,9 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 - At the bottom of the sidebar: **My account** (password, personal tokens) and the version, a
   link to **About**.
 - Click a column header to sort a table; the browser remembers the sort.
-- If the controller stops answering, the **Backend unavailable** page opens: **Retry** brings
+- The circled question mark next to a title opens the page of this documentation that explains
+  the screen (in French for a French interface, else in English).
+- If the Controller server stops answering, the **Backend unavailable** page opens: **Retry** brings
   you back to your page once it answers again.
 
 ## Screens
@@ -48,18 +50,22 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 | **Checklists** | The check items followed by the agents ([checklists](../review/checklists.md)) |
 | **Standards** | The development standards given to the AI assistants ([standards](../review/standards.md)) |
 
+In the edit form, the long text fields (content of a standard, advice of a rule, checkpoint of a
+checklist item) have a full screen button: the text opens in a large editor, next to its
+Markdown preview (**Edit**, **Side by side** or **Preview**); side by side, both panes scroll
+together. The changes go to the form, which still saves or cancels them.
+
 **Administration**
 
 | Screen | What for |
 |---|---|
+| **General** | Report language, Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every screen links to it |
 | **Users**, **Groups**, **Roles** | The accounts and what they may do ([roles, groups and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
-| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
-| **OIDC** | The company login ([OIDC login](sso.md)) |
-| **General** | Report language and controller address |
-| **Outgoing proxy** | Proxy of the OSV download and of the OIDC login |
-| **OSV database** | State and update of the vulnerability database ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller)) |
+| **Sign-in** | The company login ([OIDC login](sso.md)) |
+| **OSV database** | State and update of the vulnerability database ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
+| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
 
 ## Points to watch
 

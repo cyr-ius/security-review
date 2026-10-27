@@ -15,9 +15,11 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     @if (project(); as name) {
-      <h1 class="h3 mb-1 text-break">{{ 'acceptances.heading' | t: { project: name } }}</h1>
+      <h1 class="h3 mb-1 text-break">
+        {{ 'acceptances.heading' | t: { project: name } }} <app-help-link topic="acceptances" />
+      </h1>
     } @else {
-      <h1 class="h3 mb-1">{{ 'acceptances.title' | t }}</h1>
+      <h1 class="h3 mb-1">{{ 'acceptances.title' | t }} <app-help-link topic="acceptances" /></h1>
     }
     <p class="text-body-secondary small mb-0">{{ 'acceptances.subtitle' | t }}</p>
   </div>

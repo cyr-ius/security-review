@@ -5,7 +5,7 @@ Les hooks sont exécutés par [prek](https://prek.j178.dev) (ou [pre-commit](htt
 
 | Hook | Quand | Ce qu'il fait | Bloque le commit |
 |---|---|---|---|
-| `scan-deps` | avant le commit, quand un manifeste ou un lockfile change | Envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis ([analyse des dépendances](../review/analysis/dependencies.md)) | Oui, quand une dépendance vulnérable atteint le seuil (`--fail-on`, `high` par défaut) |
+| `scan-deps` | avant le commit, quand un manifeste ou un lockfile change | Envoie les fichiers de dépendances au serveur Controller, qui les compare à sa base d'avis ([analyse des dépendances](../review/analysis/dependencies.md)) | Oui, quand une dépendance vulnérable atteint le seuil (`--fail-on`, `high` par défaut) |
 | `agent-review` | après le commit | Fait relire le commit par l'agent de code du développeur (Claude Code, GitHub Copilot ou Codex) avec le serveur MCP, qui enregistre un rapport ([revue par un agent](../advanced/architecture/ci.md#revue-de-chaque-commit-par-un-agent)) | Jamais |
 
 ## 1. Préparer le poste (une fois)
@@ -14,21 +14,21 @@ Pour mettre en place les hooks, installez le gestionnaire `uv`. `uv` et `uvx` so
 de `npm` et `npx` dans le monde Python. Ils n'ont besoin d'aucun prérequis : il n'est pas
 nécessaire d'avoir Python sur le poste.
 
-PyPI ou le contrôleur peuvent distribuer le paquet `security-review-ci`.
+PyPI ou le serveur Controller peuvent distribuer le paquet `security-review-ci`.
 
 | Quoi | Comment |
 |---|---|
 | uv/uvx | [Installation de uv](https://docs.astral.sh/uv/getting-started/installation/) |
 | prek | `uv tool install prek` |
-| Votre jeton `mcp` personnel | **Mon compte** dans l'[interface web](../usage/tokens.md#jetons-mcp-et-ci-personnels) : il atteint les projets que vous pouvez lire, pour les deux hooks |
+| Vos jetons personnels | **Mon compte** dans l'[interface web](../usage/tokens.md#jetons-mcp-et-ci-personnels) : un jeton `ci` pour `scan-deps`, un jeton `mcp` (ou la [connexion OAuth](../advanced/mcp-oauth.md)) pour `agent-review` ; tous deux atteignent les projets que vous pouvez lire |
 | Le CLI de votre agent (pour `agent-review`), connecté avec votre compte | `npm install -g @anthropic-ai/claude-code`, `npm install -g @github/copilot` ou `npm install -g @openai/codex` |
 
-`scan-deps` envoie les fichiers de dépendances au contrôleur : pour ce faire, inscrivez l'URL du
+`scan-deps` envoie les fichiers de dépendances au serveur Controller : pour ce faire, inscrivez l'URL du
 serveur et votre jeton dans l'environnement (le profil de votre shell, jamais le fichier `.env`).
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<jeton mcp personnel>
+export SECREVIEW_CI_TOKEN=<jeton ci personnel>
 ```
 
 `agent-review` s'appuie sur la déclaration de votre serveur MCP dans le fichier `.mcp.json` à la
@@ -55,11 +55,11 @@ echo ".mcp.json" >> .gitignore
 Voici un exemple de fichier `.pre-commit-config.yaml`, commité à la racine de votre dépôt.
 Remplacez `shop-api` par le nom du projet, et les fichiers de `scan-deps` par ceux de vos technologies.
 
-=== "Client depuis le contrôleur"
+=== "Client depuis le serveur Controller"
 
-    Le client est téléchargé depuis le contrôleur. Pour que l'adresse de votre contrôleur
+    Le client est téléchargé depuis le serveur Controller. Pour que l'adresse de votre serveur Controller
     n'apparaisse pas dans le fichier de pre-commit, voir l'onglet
-    **Client depuis le contrôleur (mode variable)**.
+    **Client depuis le serveur Controller (mode variable)**.
 
     ```yaml
     default_install_hook_types: [pre-commit, post-commit]
@@ -82,7 +82,7 @@ Remplacez `shop-api` par le nom du projet, et les fichiers de `scan-deps` par ce
 
 === "Client depuis PyPI"
 
-    Le client de PyPI, à la version de votre contrôleur (remplacez `X.Y.Z`).
+    Le client de PyPI, à la version de votre serveur Controller (remplacez `X.Y.Z`).
 
     ```yaml
     default_install_hook_types: [pre-commit, post-commit]
@@ -103,9 +103,9 @@ Remplacez `shop-api` par le nom du projet, et les fichiers de `scan-deps` par ce
             pass_filenames: false
     ```
 
-=== "Client depuis le contrôleur (mode variable)"
+=== "Client depuis le serveur Controller (mode variable)"
 
-    L'adresse du contrôleur est lue dans la variable `SECREVIEW_CONTROLLER_URL` de chaque
+    L'adresse du serveur Controller est lue dans la variable `SECREVIEW_CONTROLLER_URL` de chaque
     développeur : le fichier ne contient ainsi aucune référence à vos serveurs.
 
     ```yaml
@@ -146,9 +146,9 @@ Ensuite, à chaque commit :
   rend la main tout de suite ; le rapport apparaît dans l'interface web après quelques minutes,
   et le journal de l'agent est dans `.git/agent-review/<commit>.log`.
 
-## Contrôleur en HTTP sans TLS
+## Serveur Controller en HTTP sans TLS
 
-Servez de préférence le contrôleur et le serveur MCP en HTTPS ([TLS](../advanced/tls.md)), ou
+Servez de préférence le serveur Controller et le serveur MCP en HTTPS ([TLS](../advanced/tls.md)), ou
 derrière un reverse proxy. Si ce n'est pas possible, le HTTP fonctionne avec ces changements :
 
 | Où | Changement |
@@ -171,16 +171,16 @@ derrière un reverse proxy. Si ce n'est pas possible, le HTTP fonctionne avec ce
 
 !!! warning "Ce que le HTTP expose"
     Le jeton de chaque développeur circule en clair (`scan-deps`, serveur MCP), et le client
-    téléchargé depuis le contrôleur peut être remplacé en chemin, SHA-256 compris : les postes
+    téléchargé depuis le serveur Controller peut être remplacé en chemin, SHA-256 compris : les postes
     exécuteraient ce code à chaque commit. Sur un tel réseau, préférez le client de PyPI
-    (HTTPS) au client du contrôleur.
+    (HTTPS) au client du serveur Controller.
 
 ## Sauter un hook ou dépanner
 
 | Cas | Comportement |
 |---|---|
 | Sauter un hook une fois | `SKIP=agent-review git commit …` (ou `SKIP=scan-deps`) |
-| `SECREVIEW_CONTROLLER_URL` non défini | Les deux hooks laissent passer le commit avec un message (client du contrôleur) ; `scan-deps` aussi avec `--skip-unconfigured` (client de PyPI) |
+| `SECREVIEW_CONTROLLER_URL` non défini | Les deux hooks laissent passer le commit avec un message (client du serveur Controller) ; `scan-deps` aussi avec `--skip-unconfigured` (client de PyPI) |
 | Aucun CLI d'agent, aucun `.mcp.json` ou aucun serveur `security-review` dedans | `agent-review` ne fait rien, avec un avertissement |
 | Commit portant le trailer `Security-Review: <identifiant du rapport>` | `agent-review` ne fait rien : un agent l'a déjà relu dans sa session |
 | Plusieurs agents installés | Le premier de `claude`, `copilot`, `codex`, ou celui de `AGENT_REVIEW_CLI` |

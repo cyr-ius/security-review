@@ -13,7 +13,7 @@ import logging
 import sys
 
 from . import app_settings, cli, connectors, http_server, web_api
-from .auth import oidc, token_store, web_users
+from .auth import oauth_server, oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
 from .observability import audit_syslog
@@ -71,6 +71,23 @@ def serve(argv: list[str]) -> None:
 
     try:
         init_db()
+        # The MCP server reads the URL of the controller, and of its own endpoint while the
+        # OAuth login is enabled, in the database; the OAuth routes need them (create_app)
+        app_settings.sync_controller_url(settings)
+        app_settings.sync_mcp_oauth(settings)
+        app_settings.sync_personal_mcp_tokens(settings)
+        # SECREVIEW_MCP_OAUTH_ENABLED, or the value stored in the web interface
+        oauth_enabled = app_settings.effective_settings(settings).mcp_oauth_enabled
+        if not oauth_enabled and (revoked := oauth_server.revoke_all_grants("environment")):
+            logger.warning("OAuth login of the MCP clients off: %d grants revoked", revoked)
+        if not settings.personal_mcp_tokens:
+            if revoked := token_store.revoke_personal_mcp_tokens("environment"):
+                logger.warning("Personal MCP tokens off: %d tokens revoked", revoked)
+            if not oauth_enabled:
+                logger.warning(
+                    "SECREVIEW_PERSONAL_MCP_TOKENS=false without the OAuth login: the "
+                    "developers can no longer connect their MCP client by themselves"
+                )
         store = token_store.DatabaseTokenStore(include_users=True)
         tls = http_server.tls_options(settings)
         signer = oidc.session_signer(settings)
@@ -83,8 +100,6 @@ def serve(argv: list[str]) -> None:
         audit_syslog.validate_settings(settings)
         connectors.validate_settings(settings)
         bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
-        # The MCP server reads the URL of the controller in the database
-        app_settings.sync_controller_url(settings)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()

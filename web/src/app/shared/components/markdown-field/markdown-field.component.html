@@ -1,0 +1,101 @@
+<div class="markdown-field">
+  <textarea
+    #compact
+    class="form-control"
+    [id]="inputId()"
+    [class.font-monospace]="monospace()"
+    [class.is-invalid]="touched() && invalid()"
+    [rows]="rows()"
+    [value]="value()"
+    [disabled]="disabled()"
+    [attr.aria-describedby]="describedBy() ?? null"
+    (input)="onInput($event)"
+    (blur)="touch.emit()"
+  ></textarea>
+  <button
+    type="button"
+    class="btn btn-sm btn-outline-secondary markdown-field-expand"
+    [disabled]="disabled()"
+    [attr.aria-label]="'markdown.expand' | t"
+    [title]="'markdown.expand' | t"
+    (click)="expand()"
+  >
+    <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+  </button>
+</div>
+
+<dialog
+  #dialog
+  class="markdown-field-dialog shadow"
+  [attr.aria-labelledby]="inputId() + '-fullscreen-title'"
+  (close)="onClosed()"
+>
+  <div class="card h-100">
+    <div class="card-header d-flex flex-wrap align-items-center gap-2">
+      <h2 class="h6 mb-0" [id]="inputId() + '-fullscreen-title'">{{ label() }}</h2>
+      <div
+        class="btn-group btn-group-sm ms-auto"
+        role="group"
+        [attr.aria-label]="'markdown.display' | t"
+      >
+        @for (item of modes; track item) {
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            [class.active]="mode() === item"
+            [attr.aria-pressed]="mode() === item"
+            (click)="mode.set(item)"
+          >
+            <i class="bi" [class]="modeMeta[item].icon" aria-hidden="true"></i>
+            {{ modeMeta[item].label | t }}
+          </button>
+        }
+      </div>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [attr.aria-label]="'markdown.collapse' | t"
+        [title]="'markdown.collapse' | t"
+        (click)="collapse()"
+      >
+        <i class="bi bi-fullscreen-exit" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="card-body markdown-field-panes" [attr.data-mode]="mode()">
+      @if (mode() !== 'preview') {
+        <textarea
+          #textPane
+          class="form-control markdown-field-wide"
+          autofocus
+          [class.font-monospace]="monospace()"
+          [attr.aria-label]="label()"
+          [value]="value()"
+          [disabled]="disabled()"
+          (input)="onInput($event)"
+          (scroll)="onPaneScroll('text')"
+        ></textarea>
+      }
+      @if (mode() !== 'edit') {
+        <div
+          #previewPane
+          class="markdown-preview border rounded p-3"
+          [attr.aria-label]="'markdown.preview' | t"
+          role="region"
+          (scroll)="onPaneScroll('preview')"
+        >
+          @if (expanded() && value().trim()) {
+            <app-markdown-view [text]="value()" />
+          } @else {
+            <p class="text-body-secondary mb-0">{{ 'markdown.empty' | t }}</p>
+          }
+        </div>
+      }
+    </div>
+    <div class="card-footer d-flex align-items-center gap-2">
+      <span class="small text-body-secondary">{{ 'markdown.hint' | t }}</span>
+      <button type="button" class="btn btn-sm btn-primary ms-auto" (click)="collapse()">
+        {{ 'markdown.back' | t }}
+      </button>
+    </div>
+  </div>
+</dialog>

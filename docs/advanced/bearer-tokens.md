@@ -1,10 +1,10 @@
 # Bearer tokens
 
-The tokens of the [MCP server](architecture/mcp-server.md) and of the [controller](architecture/controller.md) are
-managed from the CLI of the controller. What each token may reach is in
+The tokens of the [MCP server](architecture/mcp-server.md) and of the [Controller server](architecture/controller.md) are
+managed from the CLI of the Controller server. What each token may reach is in
 [Tokens](../usage/tokens.md); the routes each process serves are in
 [What it serves](architecture/mcp-server.md#what-it-serves) (MCP server) and
-[What it serves](architecture/controller.md#what-it-serves) (controller).
+[What it serves](architecture/controller.md#what-it-serves) (Controller server).
 
 Tokens are stored in the database (`apitoken` table): only their SHA-256 digest is kept, the
 secret is shown only once, at creation. Manage them with the `token` command (see the
@@ -37,12 +37,13 @@ of a token is written to the [audit log](audit-log.md), with who made it.
 
 ## Before the first token
 
-While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
+While no token exists, the Controller server API answers `503` and the MCP server **stays closed**: a
 client without a token only reaches the [enrollment server](architecture/mcp-server.md#enrollment-personal-token-and-project-requests) (no tool),
 any other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp`
 is only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
 `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, to keep for tests on an isolated network: as soon as a
-token exists, it is required in every case. `token revoke` warns on stderr when it deletes the
+token exists, it is required in every case. With the [OAuth login](mcp-oauth.md) on, `/mcp` is
+never open: a client without a token gets the `401` that starts the login. `token revoke` warns on stderr when it deletes the
 last token.
 
 ## Expiry and rotation of tokens
@@ -98,8 +99,8 @@ The restriction also applies to the `report://` resource and to the `triage-repo
 With stdio, there is no token, hence no restriction.
 
 !!! tip
-    The `token` commands run on the controller side (or in its container), with the same
-    `SECREVIEW_DATABASE_URL` as the controller. Tokens are never passed as command-line
+    The `token` commands run on the Controller server side (or in its container), with the same
+    `SECREVIEW_DATABASE_URL` as the Controller server. Tokens are never passed as command-line
     arguments.
 
 ## Calling the REST API with a token
@@ -186,12 +187,10 @@ every project when one of its groups reads every project, none when it has none.
 server refuses it (unknown, revoked or expired), the agent receives a `401` that tells the user
 to sign in again and create a new one.
 
-A personal `mcp` token also works as a personal `ci` token on the pipeline routes, so
-**My account** no longer offers a personal `ci` token. The API still creates one to keep the two
-uses apart (it never reaches `/mcp`), and those already created stay listed until revoked. A
-report stored by either is submitted by the token (`alice:laptop`), and its user is the author
-(see [scan from a workstation](../review/analysis/dependencies.md#scan-from-a-workstation-commit-hook)). An `mcp`
-token created by an administrator on the **Tokens** screen stays an MCP agent token only.
+Each personal token has one usage: a personal `mcp` token only reaches `/mcp`, a personal `ci`
+token (offered in **My account**, for `security-review-ci` through `SECREVIEW_CI_TOKEN`) only the
+pipeline routes. A report stored by a personal `ci` token is submitted by the token (`alice:laptop`), and its user is the author
+(see [scan from a workstation](../review/analysis/dependencies.md#scan-from-a-workstation-commit-hook)).
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \

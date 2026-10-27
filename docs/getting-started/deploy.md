@@ -1,6 +1,6 @@
 # Deploying the server
 
-This page sets up the **shared mode (HTTP)** for a team: the controller (web interface,
+This page sets up the **shared mode (HTTP)** for a team: the Controller server (web interface,
 administration, pipelines) and the MCP server (used by the agents), on the same database. See
 [three services, three roles](../services.md).
 
@@ -36,7 +36,7 @@ Without containers, all-in-one on one Linux server: see Advanced section
 ## With Docker Compose
 
 The `docker-compose.yml` file starts a PostgreSQL database,
-the controller, and the MCP server.
+the Controller server, and the MCP server.
 
 Copy and paste this code into an empty folder.
 This will download the `docker-compose.yml` file, generate secrets in a `.env` file, start the services,
@@ -67,9 +67,9 @@ and the PostgreSQL upgrade.
 
 ## With Kubernetes
 
-Copy and paste the whole block: it deploys PostgreSQL (official image), the controller and the
+Copy and paste the whole block: it deploys PostgreSQL (official image), the Controller server and the
 MCP server (published image) in the `secreview` namespace, then gives the first administrator
-password and a token. The controller migrates the schema when it starts.
+password and a token. The Controller server migrates the schema when it starts.
 
 ```bash
 kubectl create namespace secreview
@@ -84,7 +84,7 @@ unset PGPASSWORD
 kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/postgres.yaml
 kubectl -n secreview rollout status statefulset/secreview-postgres
 
-# 2. security-review-mcp: session secret, controller and MCP server
+# 2. security-review-mcp: session secret, Controller server and MCP server
 kubectl -n secreview create secret generic secreview-controller \
     --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
@@ -107,10 +107,12 @@ as long as the terminal is open.
 
 For the team, expose each Service through an Ingress with TLS: `secreview-mcp` for the agents,
 `secreview-controller` for the developers (web interface, personal MCP tokens) and for the CI
-(`security-review-ci` calls the controller). Then set, in the ConfigMap of the manifest,
-`SECREVIEW_CONTROLLER_URL` (public root URL of the controller) and `SECREVIEW_FORWARDED_ALLOW_IPS` (address
+(`security-review-ci` calls the Controller server). Then set, in the ConfigMap of the manifest,
+`SECREVIEW_CONTROLLER_URL` (public root URL of the Controller server) and `SECREVIEW_FORWARDED_ALLOW_IPS` (address
 range of the ingress controller pods: without it, every client seems to come from the same
-address, the one of the Ingress).
+address, the one of the Ingress). To let the MCP hosts sign in through the browser instead of a
+personal token, see [OAuth login of MCP clients](../advanced/mcp-oauth.md): with one Ingress per
+Service, the OAuth paths need no extra rule.
 
 **More information:** see [Kubernetes](../advanced/deployment/kubernetes.md) in the **Advanced** section
 (existing PostgreSQL, content of the manifests, Secrets, exposure, OSV update, several replicas).

@@ -4,7 +4,7 @@ Deux manifestes déploient tout dans le namespace `secreview` :
 [`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
 (PostgreSQL, image officielle) et
 [`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
-(contrôleur et serveur MCP, image publiée `ghcr.io/cyr-ius/security-review:latest`).
+(serveur Controller et serveur MCP, image publiée `ghcr.io/cyr-ius/security-review:latest`).
 
 ## Déploiement
 
@@ -45,11 +45,11 @@ opérateur, qui gèrent la réplication, les sauvegardes et les mises à niveau.
 - une **ConfigMap `secreview-config`** partagée par les deux processus ;
 - un Service par processus, des sondes `readiness` et `liveness` sur `/healthz`, des
   conteneurs non root en système de fichiers en lecture seule, sans capacité Linux ;
-- une **NetworkPolicy** qui limite l'accès au contrôleur aux pods du namespace et à
+- une **NetworkPolicy** qui limite l'accès au serveur Controller aux pods du namespace et à
   l'ingress controller (adaptez son label).
 
-Le contrôleur lit aussi le **Secret `secreview-controller`**, créé à la main (voir
-[Secrets](#secrets)), avec `SECREVIEW_SECRET_KEY` : sans lui, le contrôleur tire un secret de
+Le serveur Controller lit aussi le **Secret `secreview-controller`**, créé à la main (voir
+[Secrets](#secrets)), avec `SECREVIEW_SECRET_KEY` : sans lui, le serveur Controller tire un secret de
 session aléatoire à chaque démarrage, les sessions web prendraient donc fin à chaque
 redémarrage et ne seraient pas partagées entre réplicas (voir
 [Connexion et sessions](../architecture/controller.md#connexion-et-sessions)).
@@ -118,27 +118,36 @@ Secrets au démarrage : après un changement, redémarrez-les
 ## Image, exposition et administration
 
 Le manifeste utilise l'image publiée `ghcr.io/cyr-ius/security-review:latest`, qui
-contient le pilote PostgreSQL : épinglez une version (`X.Y.Z`) en production. Les manifestes
-ne contiennent pas d'Ingress : exposez chaque Service par son propre Ingress avec TLS.
+contient le pilote PostgreSQL : épinglez une version (`X.Y.Z`) en production. Exposez chaque
+Service par son propre Ingress avec TLS : un exemple, commenté, termine `security-review.yaml`
+(un hôte par service, ingress-nginx et cert-manager).
 
 | Service | Atteint par | Ingress |
 |---|---|---|
-| `secreview-mcp` | les agents (MCP sur `/mcp`) | vers tous les postes des développeurs |
-| `secreview-controller` | les personnes (interface web `/ui`, jetons MCP et CI personnels) et la CI (`security-review-ci` appelle `/api/v1/ci`) | vers les développeurs et les runners de CI ; `kubectl port-forward` suffit pour un premier essai |
+| `secreview-mcp` | les agents (MCP sur `/mcp`, et `/.well-known/oauth-protected-resource` avec la [connexion OAuth](../mcp-oauth.md)) | vers tous les postes des développeurs |
+| `secreview-controller` | les personnes (interface web `/ui`, jetons MCP et CI personnels), la CI (`security-review-ci` appelle `/api/v1/ci`) et, avec la connexion OAuth, les hôtes MCP (`/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke`) | vers les développeurs et les runners de CI ; `kubectl port-forward` suffit pour un premier essai |
+
+Avec un hôte par Service, chaque chemin va à son Service : les chemins OAuth n'ont besoin
+d'aucune règle propre. Avec un seul hôte pour les deux, routez `/mcp` et
+`/.well-known/oauth-protected-resource` vers `secreview-mcp`, tout le reste vers
+`secreview-controller`.
 
 Ensuite, dans la ConfigMap :
 
-- réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du contrôleur (`https://…`), ou
+- réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du serveur Controller (`https://…`), ou
   renseignez l'écran **Général** : le serveur MCP donne son interface web (`/ui`) aux clients
   sans jeton valide, pour que l'utilisateur sache où créer un
   jeton MCP personnel ;
+- pour que les hôtes MCP se connectent par le navigateur plutôt qu'avec un jeton MCP personnel,
+  réglez `SECREVIEW_MCP_OAUTH_ENABLED` et `SECREVIEW_MCP_URL` (URL publique de `/mcp`), avec
+  `SECREVIEW_CONTROLLER_URL` en `https` (voir [Connexion OAuth des clients MCP](../mcp-oauth.md)) ;
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods de l'ingress
   controller : sinon tous les clients partagent leur adresse pour la limitation des connexions,
   la limite de débit et le journal d'audit.
 
-La NetworkPolicy du contrôleur laisse entrer l'ingress controller du namespace `ingress-nginx` :
+La NetworkPolicy du serveur Controller laisse entrer l'ingress controller du namespace `ingress-nginx` :
 adaptez son label au vôtre. Les commandes d'administration s'exécutent dans le pod du
-contrôleur :
+serveur Controller :
 
 ```bash
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \
@@ -147,7 +156,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 
 ## Mise à jour OSV
 
-Pour la [mise à jour quotidienne des avis OSV](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur),
+Pour la [mise à jour quotidienne des avis OSV](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller),
 décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et au besoin `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
 et `NO_PROXY`, dans le Secret `secreview-controller` si le proxy contient des identifiants) sur
 le conteneur `controller`, et autorisez sa sortie vers `osv-vulnerabilities.storage.googleapis.com` (`SECREVIEW_OSV_URL`),
@@ -161,6 +170,6 @@ désactivée tant que vous ne décommentez pas `SECREVIEW_SWAGGER_ENABLED`.
     Les sessions MCP (transport streamable HTTP) sont gardées en mémoire par le pod qui les a
     ouvertes. Avant d'augmenter `replicas`, configurez l'Ingress pour envoyer toutes les
     requêtes d'une session au même pod (affinité sur l'en-tête `Mcp-Session-Id`, ou à défaut
-    affinité par cookie ou par adresse). Le contrôleur peut, lui, avoir plusieurs réplicas :
+    affinité par cookie ou par adresse). Le serveur Controller peut, lui, avoir plusieurs réplicas :
     leurs migrations s'attendent (verrou consultatif PostgreSQL), et `SECREVIEW_SECRET_KEY` leur
     permet de partager les sessions web.

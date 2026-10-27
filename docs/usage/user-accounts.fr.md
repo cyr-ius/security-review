@@ -39,7 +39,7 @@ Un compte OIDC n'a pas de mot de passe : il est géré par le fournisseur d'iden
 ## Points d'attention
 
 - **Un mot de passe perdu** est remplacé par un administrateur ; le tout premier administrateur
-  est créé au premier démarrage du contrôleur
+  est créé au premier démarrage du serveur Controller
   ([premier administrateur](../advanced/architecture/controller.md#premier-administrateur)).
 - **Un compte OIDC supprimé n'est pas recréé** à sa prochaine connexion, tant qu'un
   administrateur n'a pas cliqué sur **Autoriser à nouveau** dans **Utilisateurs**.

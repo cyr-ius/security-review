@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -30,6 +31,7 @@ type AuditSortKey = 'created_at' | 'action' | 'actor' | 'target' | 'project';
 @Component({
   selector: 'app-audit-log',
   imports: [
+    HelpLinkComponent,
     AuditSyslogComponent,
     DatePipe,
     RefreshButtonComponent,

@@ -161,6 +161,19 @@
       <app-theme-button />
     </header>
 
+    @if (controllerUrl.missing()) {
+      <div
+        class="alert alert-warning rounded-0 border-0 border-bottom mb-0 d-flex flex-wrap align-items-center gap-2 px-3 px-lg-4"
+        role="alert"
+      >
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+        <span>{{ 'layout.controllerUrlMissing' | t }}</span>
+        <a class="alert-link text-nowrap" routerLink="/settings/general" fragment="controller-url">
+          {{ 'layout.controllerUrlSet' | t }}
+        </a>
+      </div>
+    }
+
     <main class="content">
       <router-outlet />
     </main>

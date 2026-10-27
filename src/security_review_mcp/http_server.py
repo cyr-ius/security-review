@@ -30,10 +30,11 @@ import ssl
 from collections import Counter
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 import anyio.to_thread
 import uvicorn
@@ -114,6 +115,16 @@ FAVICON_PATH = "/api/favicon.svg"
 CI_CLIENT_PREFIX = "/api/ci-client"
 # Public login routes of the controller (OpenID Connect, see oidc)
 AUTH_PREFIX = "/api/v1/auth/"
+# OAuth login of the MCP clients (see oauth_server): routes of the authorization server, at the
+# root of the controller (its issuer), public; all but the metadata are login routes
+OAUTH_METADATA_PATH = "/.well-known/oauth-authorization-server"
+OAUTH_LOGIN_PATHS = ("/authorize", "/token", "/register", "/revoke")
+OAUTH_PATHS = (OAUTH_METADATA_PATH, *OAUTH_LOGIN_PATHS)
+# Protected resource metadata of the MCP server (RFC 9728), public, followed by the path of the
+# MCP endpoint
+PROTECTED_RESOURCE_PREFIX = "/.well-known/oauth-protected-resource"
+# The only scope of the OAuth tokens (see oauth_server.SCOPE)
+OAUTH_SCOPE = "mcp"
 # Value of WWW-Authenticate on a 401 / 403 (an error="..." parameter may follow)
 BEARER_CHALLENGE = 'Bearer realm="security-review-mcp"'
 
@@ -145,10 +156,40 @@ class TokenInfo:
     )
     # A web user whose password was set by someone else: it may only change it
     must_change_password: bool = False
-    # A personal mcp token: on the pipeline routes of the controller it acts as a ci token on
-    # the same projects, so that one SECREVIEW_TOKEN serves both the MCP agent and
-    # security-review-ci on a workstation
-    pipeline: bool = False
+
+
+@dataclass(frozen=True)
+class OAuthResource:
+    """The OAuth login of the MCP clients, as published by the controller (see
+    app_settings.sync_mcp_oauth): the URL of the MCP endpoint, the resource of the tokens, and
+    the URL of the controller, their issuer."""
+
+    resource: str
+    issuer: str
+
+    @property
+    def metadata_url(self) -> str:
+        """URL of the protected resource metadata (RFC 9728 §3.1)."""
+        parts = urlsplit(self.resource)
+        return f"{parts.scheme}://{parts.netloc}{PROTECTED_RESOURCE_PREFIX}{parts.path}"
+
+    def metadata(self) -> bytes:
+        """Protected resource metadata document (RFC 9728 §2)."""
+        document = {
+            "resource": self.resource,
+            "authorization_servers": [self.issuer],
+            "scopes_supported": [OAUTH_SCOPE],
+            "bearer_methods_supported": ["header"],
+            "resource_name": "Security Review",
+        }
+        return json.dumps(document).encode("utf-8")
+
+    def challenge(self, error: str | None = None) -> str:
+        """WWW-Authenticate value of a 401 that starts the OAuth login of the client."""
+        value = (
+            f'{BEARER_CHALLENGE}, resource_metadata="{self.metadata_url}", scope="{OAUTH_SCOPE}"'
+        )
+        return f'{value}, error="{error}"' if error else value
 
 
 class TokenStore(Protocol):
@@ -186,8 +227,8 @@ AUTH_REJECTIONS: Counter[str] = Counter()
 
 def is_controller_public_path(path: str) -> bool:
     """Controller paths reachable without a token: the web UI shell, the API documentation,
-    the application icon, the health check, the login routes and the download of the pipeline
-    client (served only when enabled)."""
+    the application icon, the health check, the login routes, the OAuth routes and the download
+    of the pipeline client (the last two served only when enabled)."""
     public = (
         "/",
         UI_PREFIX,
@@ -197,6 +238,7 @@ def is_controller_public_path(path: str) -> bool:
         HEALTH_PATH,
         API_HEALTH_PATH,
         CI_CLIENT_PREFIX,
+        *OAUTH_PATHS,
     )
     return path in public or (
         path.startswith(
@@ -205,10 +247,16 @@ def is_controller_public_path(path: str) -> bool:
     )
 
 
-def renew_token_hint(web_url: str | None) -> str:
+def renew_token_hint(web_url: str | None, personal_tokens: bool = True) -> str:
     """What a user does when the MCP server refuses its token (or receives none): sign in to the
     web interface (``web_url``, from SECREVIEW_CONTROLLER_URL, when known) and create a personal
-    MCP token."""
+    MCP token, or, when the controller offers none (``personal_tokens`` false), ask an
+    administrator for an MCP token."""
+    if not personal_tokens:
+        return (
+            "personal MCP tokens are disabled on this server: ask an administrator for an MCP "
+            "token, then put it in the MCP client configuration as 'Authorization: Bearer <token>'"
+        )
     where = f"the web interface ({web_url})" if web_url else "the web interface"
     return (
         f"sign in to {where} and create a new personal MCP token, then put it in the MCP "
@@ -248,6 +296,16 @@ class BearerAuthMiddleware:
     thread before each request sent to the enrollment server, which it keeps up to date, and for
     each 401.
 
+    ``oauth`` (MCP server) returns the OAuth login of the MCP clients while the controller
+    serves it (see OAuthResource), None otherwise; it is called in a thread. A request without
+    credentials then gets a 401 whose WWW-Authenticate challenge names the protected resource
+    metadata, which starts the login in the client, instead of the enrollment server; the 401
+    of an invalid or expired token carries it too.
+
+    ``personal_tokens`` (MCP server) tells whether the controller offers personal MCP tokens
+    (see app_settings.personal_mcp_tokens): the description of a 401 only advises to create one
+    when it does. It is called in a thread.
+
     ``sessions`` (controller only) also accepts the session tokens issued after a login.
     ``require_auth`` (controller with OIDC) asks for credentials even while the store holds no
     token, instead of answering 503.
@@ -264,8 +322,12 @@ class BearerAuthMiddleware:
         require_auth: bool = False,
         allow_open: bool = False,
         web_url: Callable[[], str | None] | None = None,
+        oauth: Callable[[], OAuthResource | None] | None = None,
+        personal_tokens: Callable[[], bool] | None = None,
     ) -> None:
         self.app = app
+        self.oauth = None if web else oauth
+        self.personal_tokens = None if web else personal_tokens
         self.store = store
         self.web = web
         self.enrollment_app = None if web else enrollment_app
@@ -297,9 +359,8 @@ class BearerAuthMiddleware:
     def role_allowed(self, role: Role, path: str) -> bool:
         """True when a token of this role may reach ``path`` on this process.
 
-        A ``ci`` token only reaches the pipeline routes of the controller (a personal ``mcp``
-        token reaches them as a ``ci`` token, see TokenInfo.pipeline), a ``metrics`` token only
-        its Prometheus endpoint.
+        A ``ci`` token only reaches the pipeline routes of the controller, a ``metrics`` token
+        only its Prometheus endpoint.
         """
         if not self.web:
             return role in MCP_ROLES
@@ -320,9 +381,14 @@ class BearerAuthMiddleware:
             return
 
         # Without any token the controller answers 503 and an open MCP server lets the request
-        # through; a closed MCP server (the default) goes on and asks for a token
+        # through; a closed MCP server (the default) goes on and asks for a token. With the
+        # OAuth login on, the MCP server is never open: its clients get tokens by logging in
         open_check = (self.web and not self.require_auth) or self.allow_open
-        if open_check and not await self.has_tokens():
+        if (
+            open_check
+            and not await self.has_tokens()
+            and (self.web or await self.oauth_resource() is None)
+        ):
             if self.web:
                 await _send_error(
                     send,
@@ -337,30 +403,30 @@ class BearerAuthMiddleware:
         client = scope.get("client")
         address = client[0] if client else "unknown"
         authorization = Headers(scope=scope).get("authorization", "")
-        if self.enrollment_app is not None and not has_credentials(authorization):
-            # No token yet: the enrollment server tells the user how to create one
-            if self.web_url is not None:
-                await anyio.to_thread.run_sync(self.web_url)
-            await self.enrollment_app(scope, receive, send)
-            return
+        if not has_credentials(authorization):
+            if await self.oauth_resource() is not None:
+                # No token: the client signs in with OAuth (RFC 6750 §3: no error code)
+                AUTH_REJECTIONS["invalid_token"] += 1
+                await self.unauthorized(send, "Missing bearer token", error=None)
+                return
+            if self.enrollment_app is not None:
+                # No token yet: the enrollment server tells the user how to create one
+                if self.web_url is not None:
+                    await anyio.to_thread.run_sync(self.web_url)
+                await self.enrollment_app(scope, receive, send)
+                return
         info = await self.identify(authorization)
         if info is None:
             AUTH_REJECTIONS["invalid_token"] += 1
             logger.warning("Rejected unauthenticated request from %s to %s", address, path)
-            await _send_error(
-                send, 401, "invalid_token", await self.refusal("Missing or invalid bearer token")
-            )
+            await self.unauthorized(send, "Missing or invalid bearer token")
             return
         if info.expired:
             AUTH_REJECTIONS["token_expired"] += 1
             logger.warning("Rejected expired token %s from %s to %s", info.label, address, path)
             # RFC 6750: an expired token is an invalid_token
-            await _send_error(
-                send, 401, "invalid_token", await self.refusal("The bearer token has expired")
-            )
+            await self.unauthorized(send, "The bearer token has expired")
             return
-        if info.pipeline and self.web and path.startswith(CI_PREFIX):
-            info = replace(info, role=Role.CI)
         if not self.role_allowed(info.role, path):
             AUTH_REJECTIONS["insufficient_scope"] += 1
             logger.warning(
@@ -383,19 +449,48 @@ class BearerAuthMiddleware:
         state["auth_must_change_password"] = info.must_change_password
         await self.app(scope, receive, send)
 
-    async def refusal(self, reason: str) -> str:
-        """Description of a 401: on the MCP server, ``reason`` followed by how the user gets a
-        new token (see renew_token_hint)."""
+    async def oauth_resource(self) -> OAuthResource | None:
+        """The OAuth login of the MCP clients, None when the controller does not serve it."""
+        if self.oauth is None:
+            return None
+        return await anyio.to_thread.run_sync(self.oauth)
+
+    async def unauthorized(
+        self, send: Send, reason: str, error: str | None = "invalid_token"
+    ) -> None:
+        """Send a 401. On the MCP server its description tells the user how to get a new token
+        (see renew_token_hint) and, while the OAuth login is on, its challenge names the
+        protected resource metadata (``error`` None: a request without credentials)."""
         if self.web:
-            return reason
+            await _send_error(send, 401, "invalid_token", reason)
+            return
         url = await anyio.to_thread.run_sync(self.web_url) if self.web_url is not None else None
-        return f"{reason}: {renew_token_hint(url)}"
+        personal = (
+            await anyio.to_thread.run_sync(self.personal_tokens)
+            if self.personal_tokens is not None
+            else True
+        )
+        oauth = await self.oauth_resource()
+        hint = renew_token_hint(url, personal)
+        if oauth is not None:
+            login = "sign in again through the OAuth login of the MCP client"
+            hint = (
+                f"{login}, or {hint}"
+                if personal
+                else f"{login}, without any Authorization header in its configuration"
+            )
+        challenge = oauth.challenge(error) if oauth is not None else None
+        await _send_error(send, 401, "invalid_token", f"{reason}: {hint}", challenge)
 
 
-async def _send_error(send: Send, status: int, error: str, description: str) -> None:
-    """Send a 401/403 response with a JSON body and a WWW-Authenticate challenge."""
+async def _send_error(
+    send: Send, status: int, error: str, description: str, challenge: str | None = None
+) -> None:
+    """Send a 401/403 response with a JSON body and a WWW-Authenticate challenge (by default
+    the bearer challenge with ``error``)."""
     body = json.dumps({"error": error, "error_description": description}).encode("utf-8")
-    challenge = f'{BEARER_CHALLENGE}, error="{error}"'.encode("ascii")
+    challenge_value = challenge or f'{BEARER_CHALLENGE}, error="{error}"'
+    challenge_bytes = challenge_value.encode("ascii")
     await send(
         {
             "type": "http.response.start",
@@ -403,11 +498,46 @@ async def _send_error(send: Send, status: int, error: str, description: str) -> 
             "headers": [
                 (b"content-type", b"application/json"),
                 (b"content-length", str(len(body)).encode("ascii")),
-                (b"www-authenticate", challenge),
+                (b"www-authenticate", challenge_bytes),
             ],
         }
     )
     await send({"type": "http.response.body", "body": body})
+
+
+class ProtectedResourceMetadata:
+    """Serve the protected resource metadata of the MCP server (RFC 9728), public: any path
+    under PROTECTED_RESOURCE_PREFIX, 404 while the OAuth login is off. Every other request goes
+    to ``app``."""
+
+    def __init__(self, app: ASGIApp, oauth: Callable[[], OAuthResource | None]) -> None:
+        self.app = app
+        self.oauth = oauth
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = scope.get("path", "") if scope["type"] == "http" else ""
+        if not path.startswith(PROTECTED_RESOURCE_PREFIX):
+            await self.app(scope, receive, send)
+            return
+        oauth = await anyio.to_thread.run_sync(self.oauth)
+        if oauth is None or scope.get("method") not in ("GET", "HEAD"):
+            status, body = 404, b'{"detail":"Not Found"}'
+        else:
+            status, body = 200, oauth.metadata()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                    (b"cache-control", b"public, max-age=300"),
+                    # A static public document: browser-based clients may read it
+                    (b"access-control-allow-origin", b"*"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
 
 
 class PathDispatcher:
@@ -631,6 +761,8 @@ def build_mcp_app(
     enrollment_server: MCPServer | None = None,
     allow_open: bool = False,
     web_url: Callable[[], str | None] | None = None,
+    oauth: Callable[[], OAuthResource | None] | None = None,
+    personal_tokens: Callable[[], bool] | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the MCP server, protected by the bearer tokens of ``store``.
 
@@ -638,6 +770,11 @@ def build_mcp_app(
     ``allow_open`` (see allows_open_mcp) lets every request through while no token is stored.
     ``web_url`` returns the address of the web interface, given in the 401 answers, where a new
     token is created (see BearerAuthMiddleware).
+    ``oauth`` returns the OAuth login of the MCP clients while the controller serves it: the
+    protected resource metadata is then served, and a client without a token gets a 401 that
+    starts the login (see ProtectedResourceMetadata and BearerAuthMiddleware).
+    ``personal_tokens`` tells whether the controller offers personal MCP tokens, which the 401
+    answers advise to create.
     """
     main = server.streamable_http_app(host=host)
     enrollment_app = (
@@ -648,14 +785,17 @@ def build_mcp_app(
     routes: dict[str, ASGIApp] = {HEALTH_PATH: health_app}
     # The bodies are bounded after authentication: a request without a valid token is refused
     # (or sent to the enrollment server, with its own small bound) before its body is read
-    return BearerAuthMiddleware(
+    app: ASGIApp = BearerAuthMiddleware(
         PathDispatcher(BodyLimit(main, mcp_body_limit), routes),
         store,
         enrollment_app=enrollment_app,
         public_paths=frozenset(routes),
         allow_open=allow_open,
         web_url=web_url,
+        oauth=oauth,
+        personal_tokens=personal_tokens,
     )
+    return ProtectedResourceMetadata(app, oauth) if oauth is not None else app
 
 
 # Headers of every answer of the controller; a header already set by the route (the CSP of the
@@ -719,7 +859,8 @@ def build_controller_app(
             max_requests=settings.rate_limit_max_requests,
             max_auth_requests=settings.rate_limit_auth_max_requests,
             window=settings.rate_limit_window_seconds,
-            auth_prefix=AUTH_PREFIX,
+            auth_prefix=(AUTH_PREFIX, *OAUTH_LOGIN_PATHS),
+            counted=OAUTH_PATHS,
         )
     # Outermost: the refusals (401, 429) get the headers too
     return SecurityHeadersMiddleware(app)

@@ -295,7 +295,7 @@ def build_dependency_review_prompt(
 contain the exact resolved versions, including transitive dependencies.
 2. If you can run commands and `security-review-ci` is installed, run \
 `security-review-ci scan-deps <files> --project <name> --format json` (it needs \
-`SECREVIEW_CONTROLLER_URL` and a personal mcp or ci token in `SECREVIEW_TOKEN`): it sends \
+`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_CI_TOKEN`): it sends \
 the files \
 exactly as they are, without the size limit of a tool call. Otherwise call the \
 `scan_dependencies` tool for each file with its content and its file name; a lockfile too \
@@ -340,7 +340,7 @@ vendored dependencies and build output). Identify the languages, frameworks, ent
 2. **Leads.** If scan results are given below, start from them. Otherwise, if you can run \
 commands and `security-review-ci` is installed, run \
 `security-review-ci scan-code . --project <name> --format json` yourself (it needs \
-`SECREVIEW_CONTROLLER_URL` and a personal mcp or ci token in `SECREVIEW_TOKEN`; the \
+`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_CI_TOKEN`; the \
 controller scans \
 every file as it is, without the size limit of a tool call), or ask the user to run it and \
 paste the output. As a last resort, call `scan_code` file by file on the files you read. A \
@@ -415,8 +415,22 @@ creates a new personal MCP token the same way.
 """
 
 
-def build_enrollment_prompt(web_url: str | None) -> str:
-    """Prompt served instead of a review when the client sends no token: how to get one."""
+_ENROLLMENT_NO_PERSONAL_TOKEN = """\
+# MCP token required
+
+This security-review server needs a bearer token and the MCP client is connected without one. \
+The review cannot start before the user has a token. Do not try to review the code with this \
+server: its tools are not available. Personal MCP tokens are disabled on this server: tell the \
+user to ask an administrator for an MCP token, to add it to the MCP client configuration as the \
+header `Authorization: Bearer <token>`, then to reconnect and run the review again.
+"""
+
+
+def build_enrollment_prompt(web_url: str | None, personal_tokens: bool = True) -> str:
+    """Prompt served instead of a review when the client sends no token: how to get one (from an
+    administrator when the controller offers no personal MCP token)."""
+    if not personal_tokens:
+        return _ENROLLMENT_NO_PERSONAL_TOKEN
     return _ENROLLMENT.replace("{where}", f" ({web_url})" if web_url else "")
 
 

@@ -1,0 +1,54 @@
+<main class="container py-5" style="max-width: 40rem">
+  <h1 class="h3 mb-3">
+    <i class="bi bi-plug" aria-hidden="true"></i>
+    {{ 'oauth.title' | t }}
+  </h1>
+
+  @if (!pending.isLoading() && !pending.hasValue()) {
+    <div class="alert alert-warning" role="alert">{{ loadError() | t }}</div>
+  } @else if (pending.value(); as request) {
+    <section class="card card-body" aria-labelledby="oauth-client">
+      <h2 id="oauth-client" class="h5">
+        {{ request.client_name || ('oauth.unnamed' | t) }}
+      </h2>
+      <p>{{ 'oauth.lead' | t: { client: request.client_name || ('oauth.unnamed' | t) } }}</p>
+      <p class="text-body-secondary small mb-2">
+        {{ 'oauth.signedInAs' | t: { user: auth.identity()?.client ?? '' } }}
+      </p>
+      <p class="text-body-secondary small">
+        {{ 'oauth.redirect' | t: { host: request.redirect_host } }}
+      </p>
+      <div class="alert alert-info d-flex gap-2 py-2 small" role="note">
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
+        <span>{{ 'oauth.warning' | t }}</span>
+      </div>
+
+      @if (error(); as text) {
+        <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+      }
+
+      <div class="d-flex gap-2 justify-content-end">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          [disabled]="busy()"
+          (click)="decide(false)"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+          {{ 'oauth.deny' | t }}
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="decide(true)">
+          <i class="bi bi-check-lg" aria-hidden="true"></i>
+          {{ 'oauth.approve' | t }}
+        </button>
+      </div>
+      @if (busy()) {
+        <p class="text-body-secondary small mt-3 mb-0" role="status">
+          {{ 'oauth.redirecting' | t }}
+        </p>
+      }
+    </section>
+  } @else {
+    <p class="text-body-secondary" role="status">{{ 'oauth.loading' | t }}</p>
+  }
+</main>

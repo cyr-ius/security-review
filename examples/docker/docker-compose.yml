@@ -54,6 +54,12 @@ services:
       # to the database at start: the mcp service gives its web interface (/ui) to the agents
       # without a token. Empty, it can be set in the web interface (General).
       SECREVIEW_CONTROLLER_URL: ${SECREVIEW_CONTROLLER_URL:-}
+      # OAuth login of the MCP clients: the hosts sign in through the browser instead of a
+      # personal MCP token (needs SECREVIEW_CONTROLLER_URL in https). Behind a reverse proxy,
+      # publish /.well-known/oauth-authorization-server, /authorize, /token, /register and
+      # /revoke to this service, /mcp and /.well-known/oauth-protected-resource to the mcp one.
+      # SECREVIEW_MCP_OAUTH_ENABLED: "true"
+      # SECREVIEW_MCP_URL: https://mcp.secreview.example.com/mcp
       # Daily download of the OSV vulnerability advisories (needs Internet access)
       # SECREVIEW_OSV_AUTO_UPDATE: "true"
       # SECREVIEW_OSV_ECOSYSTEMS: PyPI,npm,Maven

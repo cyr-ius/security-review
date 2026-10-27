@@ -1,6 +1,6 @@
-# Contrôleur (FastAPI)
+# Serveur Controller (FastAPI)
 
-Le contrôleur (`security-review-controller`) sert l'API REST `/api/v1`, l'interface web sur
+Le serveur Controller (`security-review-controller`) sert l'API REST `/api/v1`, l'interface web sur
 `/ui/`, les migrations et les commandes d'administration. C'est une application FastAPI
 construite par `web_api.create_app`, enveloppée par `http_server` (jetons Bearer, sessions,
 TLS). Comme dans le serveur MCP, les routes restent minces : la logique métier est dans les
@@ -47,7 +47,7 @@ async def project_tokens(identity: TokensManager) -> list[ProjectToken]:
 - **Erreurs** : `HTTPException` avec le bon code ; `unprocessable(exc)` transforme la
   `ValueError` d'un module en `422`.
 - **Aucune route d'écriture sans jeton** : toute route de `/api/v1` exige une identité
-  authentifiée, et le contrôleur n'expose aucun endpoint MCP.
+  authentifiée, et le serveur Controller n'expose aucun endpoint MCP.
 
 ## Paramètres
 
@@ -58,7 +58,7 @@ modifie dans l'interface (langue, proxy, OIDC) est stocké en base par `app_sett
 
 ## Ligne de commande
 
-Les commandes du contrôleur sont dans `cli.py` (`CONTROLLER_COMMANDS`). Les codes de sortie sont
+Les commandes du serveur Controller sont dans `cli.py` (`CONTROLLER_COMMANDS`). Les codes de sortie sont
 identiques partout : `0` succès, `1` bloqué (gate, findings au-dessus du seuil), `2` erreur
 d'usage ou de données (`_fail` écrit l'erreur en JSON sur stderr). Seule la CLI écrit sur
 stdout. Documentez toute commande ou option dans la
@@ -102,7 +102,7 @@ proxy, sans redirection, réponse bornée). Voir les
 | Fixture | Appelant |
 |---|---|
 | `client` | Un administrateur, sans la recherche du jeton |
-| `secured` | Le contrôleur protégé par un jeton par rôle ; `auth("<role>")` donne l'en-tête |
+| `secured` | Le serveur Controller protégé par un jeton par rôle ; `auth("<role>")` donne l'en-tête |
 | `web_sessions` | `secured` avec des utilisateurs web connectés (`reader`, `triager`), pour les routes réservées aux sessions |
 
 Vérifiez le code de statut et le corps, et au moins un refus (`401`, `403` ou `404` hors du

@@ -2,12 +2,12 @@
 
 ## Sécurité du serveur lui-même
 
-- **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
+- **Deux processus** : le serveur MCP (exposé aux agents) et le serveur Controller (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
   [Architecture](../advanced/architecture/index.md)). Le serveur MCP n'accepte que les
-  jetons `mcp` et `admin`, le contrôleur que les sessions web et les jetons `admin` et `api`, plus `ci` sur ses
+  jetons `mcp` et `admin`, le serveur Controller que les sessions web et les jetons `admin` et `api`, plus `ci` sur ses
   routes de pipeline (`/api/v1/ci/` : gate, SARIF et tendance en lecture seule, scans qui
-  enregistrent des rapports de ses projets) et nulle part ailleurs. Le contrôleur
+  enregistrent des rapports de ses projets) et nulle part ailleurs. Le serveur Controller
   n'expose aucune route d'écriture sans jeton, et la
   compromission du serveur MCP exposé ne donne pas accès à l'interface d'administration.
 - **Transport HTTP** : authentification par jeton Bearer et TLS intégrés (voir
@@ -20,7 +20,8 @@
   [jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)). Tant
   qu'aucun jeton n'existe, le serveur MCP reste fermé (seul le serveur d'enrôlement, sans aucun
   outil, est accessible), sauf
-  s'il écoute sur localhost ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`. Si l'écoute n'est pas sur
+  s'il écoute sur localhost ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true` et que la
+  [connexion OAuth](../advanced/mcp-oauth.md) est désactivée. Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
   serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
   l'opérateur, signé par une
@@ -49,10 +50,22 @@
   n'atteint jamais le serveur d'enrôlement. Chaque refus est aussi journalisé en avertissement
   par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
   l'adresse du client) ; la [métrique](metrics.md)
-  `secreview_auth_rejections_total` ne compte que les refus du contrôleur. L'adresse
+  `secreview_auth_rejections_total` ne compte que les refus du serveur Controller. L'adresse
   de l'interface web donnée dans cette description (`SECREVIEW_CONTROLLER_URL` + `/ui`) est une
   URL publique : elle ne contient aucun identifiant
   (refusé au démarrage et dans l'interface web, où chaque modification est auditée).
+- **Connexion OAuth des clients MCP** (`SECREVIEW_MCP_OAUTH_ENABLED`, désactivée par défaut) :
+  le serveur Controller est le serveur d'autorisation, le serveur MCP ne fait que vérifier les jetons en
+  base. Tout client est public (PKCE `S256`, aucun secret client conservé), ses URI de
+  redirection visent l'interface loopback, sauf hôte https ou schéma listé par l'opérateur
+  (aucun autre site ne reçoit de code) ; au plus 10 000 demandes sont en attente à la fois ; les
+  codes sont à usage
+  unique (60 secondes), seules les empreintes SHA-256 des jetons sont conservées, un
+  rafraîchissement remplace les deux jetons et un jeton de rafraîchissement réutilisé révoque
+  l'autorisation. Autoriser un client exige une session web et `mcp_tokens.create` ; un jeton
+  agit comme un jeton `mcp` personnel de son utilisateur, sur le serveur MCP seulement, et est
+  supprimé avec l'utilisateur ; un serveur Controller démarré avec la connexion désactivée révoque
+  toutes les autorisations (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
   renouvellements et révocations de jetons et les demandes de projet sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,
@@ -60,7 +73,7 @@
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
   `SECREVIEW_AUDIT_RETENTION_DAYS` les supprime (voir
   [journal d'audit](../advanced/audit-log.md)).
-- **Métriques** : `/metrics` n'existe que sur le contrôleur (le serveur MCP garde `/mcp`
+- **Métriques** : `/metrics` n'existe que sur le serveur Controller (le serveur MCP garde `/mcp`
   et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
   n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un
   finding, un label de jeton ou un secret, et chaque valeur de label est échappée (voir
@@ -68,9 +81,8 @@
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
   ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun) ; un jeton `ci`
   personnel atteint les projets que son utilisateur peut lire à l'instant, comme un jeton `mcp`
-  personnel, qui vaut aussi jeton `ci` sur les routes de pipeline (jamais un jeton `mcp` créé par
-  un administrateur). Il ne lit que le
-  gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
+  personnel, qui n'atteint jamais les routes de pipeline (un usage par jeton). Il ne lit que le
+  gate, le journal SARIF et la tendance de ses projets ; les autres routes du serveur Controller, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
   ([`security-review-ci`](../advanced/architecture/ci.md)) n'ouvre
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
@@ -82,7 +94,7 @@
   créé pour un client. Avec un jeton, `request_project` ne crée un nouveau projet que pour un
   utilisateur portant `projects.create` (jamais un projet existant) ; sinon la demande reste
   **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` la valide sur le
-  contrôleur, ce qui ajoute l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
+  serveur Controller, ce qui ajoute l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
   au groupe de projet, créé pour un nouveau projet. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
   porte aussi `users.manage`. La réponse est la même que le projet existe ou
@@ -92,22 +104,22 @@
   supprimée : vérifiez le demandeur avant de valider. Chaque demande est auditée. Voir
   [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
-  modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
-  de nouvelle version) : un test le vérifie. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
+  modules du serveur Controller qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
+  de nouvelle version) : un test le vérifie. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
   journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
   accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
-  l'écran **Proxy sortant**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
+  l'écran **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
   préférez `HTTPS_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
-  [mise à jour automatique](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur).
+  [mise à jour automatique](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller).
   Avec la [connexion OIDC](../advanced/oidc.md)
-  (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
+  (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le serveur Controller contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
   à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes. Cette configuration peut aussi être
   [modifiée dans l'interface](../advanced/oidc.md#configurer-le-oidc-dans-linterface)
@@ -119,32 +131,32 @@
   secret. Avec `SECREVIEW_UPDATE_CHECK_ENABLED=true` (désactivé par défaut), la page **À
   propos** demande à `api.github.com` la dernière version publiée du dépôt : HTTPS uniquement,
   par le proxy sortant, redirections limitées au HTTPS, réponse bornée à 512 Kio, délai de
-  10 secondes, au plus une requête par processus du contrôleur toutes les 6 heures (15 minutes
+  10 secondes, au plus une requête par processus du serveur Controller toutes les 6 heures (15 minutes
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Une fois
   un connecteur activé dans l'écran **Connecteurs** (tous désactivés par défaut, tous verrouillés
-  par `SECREVIEW_CONNECTORS_ENABLED=false`), le contrôleur envoie les findings par ce connecteur
+  par `SECREVIEW_CONNECTORS_ENABLED=false`), le serveur Controller envoie les findings par ce connecteur
   (tickets dans les Jira et ServiceNow configurés, enregistrements d'un connecteur tiers) :
   HTTPS uniquement, par le proxy sortant, **aucune redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
   nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki ; les secrets saisis
   dans l'écran **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
   leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme et
-  ne joint que son URL configurée par le client du contrôleur, voir
+  ne joint que son URL configurée par le client du serveur Controller, voir
   [connecteurs](../advanced/connectors.md#securite). Avec
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
   (désactivé par défaut ; permission `settings.manage`, `udp://`, `tcp://` ou `tls://`
-  uniquement, modification inscrite au journal d'audit), le contrôleur envoie les
+  uniquement, modification inscrite au journal d'audit), le serveur Controller envoie les
   [événements d'audit](../advanced/audit-log.md#envoi-vers-syslog) à ce serveur syslog (UDP
   ou TCP en clair, TLS avec vérification du certificat et du nom d'hôte du serveur, ou socket
   Unix ; pas de proxy) ; les événements ne contiennent aucun secret (détails masqués), et le
   serveur MCP ne se connecte toujours nulle part.
-- **Administrateur initial** : créé par le contrôleur à son premier démarrage avec un mot de
+- **Administrateur initial** : créé par le serveur Controller à son premier démarrage avec un mot de
   passe aléatoire que personne ne connaît, jamais journalisé ni passé par une variable ; le seul
   moyen d'obtenir un mot de passe est `security-review-controller user reset-password`, lancé par
   un opérateur, qui l'affiche une fois. Avec `SECREVIEW_OIDC_ONLY=true` et le OIDC activé, la connexion par mot
   de passe des comptes locaux est refusée (`403`) ; une configuration OIDC désactivée ou invalide
   ne bloque jamais les comptes locaux.
-- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton `admin` ou
+- **Interface web** (serveur Controller) : l'API REST exige toujours une session ou un jeton `admin` ou
   `api` ;
   sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls une
   session ou un jeton `api` qui ont la permission `findings.triage`, ou un jeton `admin`, changent le statut d'un
@@ -171,10 +183,10 @@
   rapport ultérieur (mêmes projet, règle, fichier et titre : [finding signalé de
   nouveau](../usage/triage.md#finding-signale-de-nouveau)) garde son approbateur et sa
   date d'expiration : un nouveau rapport ne la prolonge jamais. Pages servies avec une CSP
-  stricte et les en-têtes anti-clickjacking, et chaque réponse du contrôleur (API, refus
+  stricte et les en-têtes anti-clickjacking, et chaque réponse du serveur Controller (API, refus
   compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
   `X-Frame-Options: DENY`, une CSP fermée quand la route n'en définit pas et, en HTTPS (TLS du
-  contrôleur, ou `X-Forwarded-Proto` d'un proxy listé dans `SECREVIEW_FORWARDED_ALLOW_IPS`),
+  serveur Controller, ou `X-Forwarded-Proto` d'un proxy listé dans `SECREVIEW_FORWARDED_ALLOW_IPS`),
   `Strict-Transport-Security: max-age=31536000` ; jeton gardé dans le `sessionStorage` de l'onglet.
   La documentation Swagger et son schéma OpenAPI sont désactivés par défaut
   (`SECREVIEW_SWAGGER_ENABLED`) ; une fois activés, ils sont publics, servis depuis des fichiers
@@ -182,7 +194,7 @@
   restent protégées. Le téléchargement du client de pipeline (`/api/ci-client/`,
   `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED`) est activé par défaut (`false` le désactive) :
   il est public et en lecture seule, ne sert que le wheel construit depuis le code du
-  contrôleur, avec son SHA-256, et indique la version du contrôleur. Le contrôle est fait deux fois : par le middleware Bearer, puis par
+  serveur Controller, avec son SHA-256, et indique la version du serveur Controller. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
   Chaque réponse JSON passe par son modèle de réponse déclaré : un champ qu'un service ajouterait
@@ -208,7 +220,7 @@
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
   mémoire. Mots de passe de 12 à 256 caractères, avec une
   minuscule, une majuscule, un chiffre et un caractère qui n'est ni l'un ni l'autre (contrôlés par
-  le contrôleur, mots de passe générés compris) ; un mot de passe défini par quelqu'un d'autre
+  le serveur Controller, mots de passe générés compris) ; un mot de passe défini par quelqu'un d'autre
   (premier administrateur, création ou réinitialisation par un administrateur) doit être changé
   à la première connexion : jusque-là, la session n'atteint que **Mon compte** (`403` ailleurs), identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
@@ -226,7 +238,7 @@
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
   jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou OIDC (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
-  du compte `admin` initial apparaît une fois dans les journaux du contrôleur : protégez-les et
+  du compte `admin` initial apparaît une fois dans les journaux du serveur Controller : protégez-les et
   changez-le dès la première connexion.
 - **Connexion OIDC (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
@@ -250,27 +262,27 @@
   demandé avant de valider. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
   un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SECRET_KEY`) qui désigne le compte,
   relu à chaque requête : la suppression du compte la coupe aussitôt. Elle est acceptée par le
-  contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
-  jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
+  serveur Controller seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
+  jetons et secrets ne sont jamais journalisés par le serveur Controller ; le code d'autorisation
   apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
   sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie. Les
   réglages secrets (`SECREVIEW_SECRET_KEY`, `SECREVIEW_OIDC_CLIENT_SECRET`,
   `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
   n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SECRET_KEY`, le
-  contrôleur tire un secret de session aléatoire à chaque démarrage, gardé en mémoire
+  serveur Controller tire un secret de session aléatoire à chaque démarrage, gardé en mémoire
   seulement (un avertissement est journalisé) : les sessions se terminent au redémarrage.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Pour le scan du
   dépôt complet, le client de pipeline (`security-review-ci scan-code`), lancé par l'opérateur
   sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques et envoie
-  leur contenu au contrôleur, qui le scanne sans lire son propre disque.
+  leur contenu au serveur Controller, qui le scanne sans lire son propre disque.
 - **Scans de pipeline** : `POST /api/v1/ci/scan/code` et `/scan/deps` demandent un jeton `ci` ou
   `admin` (une session web est refusée) et restent dans les
   projets du jeton ; ils n'enregistrent un rapport qu'avec `save`. Le corps de la requête est
   borné (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` au-delà, lu après la vérification du jeton),
   comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont
   masqués dans les extraits et dans le rapport enregistré.
-- **Corps des requêtes du contrôleur** : chaque corps est borné avant d'être analysé, `413`
+- **Corps des requêtes du serveur Controller** : chaque corps est borné avant d'être analysé, `413`
   au-delà : 512 Kio pour les routes JSON, publiques comprises (connexion, SSO), 8 Mio pour les
   imports de packs et `SECREVIEW_MAX_SCAN_REQUEST_MB` pour les scans de pipeline. Le
   `Content-Length` déclaré est vérifié d'abord, un corps fragmenté (chunked) au fil de la
@@ -292,7 +304,7 @@
   peut être modifiée ou désactivée par un administrateur, mais pas supprimée
   (voir [Règles](../review/rules.md#regles-par-defaut)).
 - **Normes de développement** : leur contenu est transmis tel quel à l'assistant IA comme
-  consignes ; seuls les administrateurs du contrôleur les écrivent (champs validés et bornés,
+  consignes ; seuls les administrateurs du serveur Controller les écrivent (champs validés et bornés,
   200 normes de 50 000 caractères au plus). Le serveur MCP les lit seulement, et la tâche
   fournie au prompt `development-standards` est encadrée pour ne pas pouvoir en sortir. Le prompt
   rappelle qu'une norme ne prime jamais sur la sécurité (voir

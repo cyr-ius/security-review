@@ -16,7 +16,7 @@ premier démarrage, pour ces domaines :
 
 | Domaine | Exemples de points |
 |---|---|
-| `*` | Points valables pour tous les langages, par exemple la divulgation d'informations par les sorties, les journaux, les erreurs ou les réponses d'API |
+| `*` | Points valables pour tous les langages : divulgation d'informations par les sorties, les journaux, les erreurs ou les réponses d'API ; secrets absents des journaux (jetons, mots de passe, URL avec identifiants) et masqués avant stockage et dans les extraits renvoyés |
 | `python`, `java`, `go`, `csharp`, `rust` | Pièges du langage et des frameworks |
 | `angular`, `node` | Front-end, et backend TypeScript et JavaScript |
 | `api` | Validation des jetons OAuth/OIDC, webhooks, flux métier sensibles, désynchronisation HTTP, injection CRLF, upload de fichiers |

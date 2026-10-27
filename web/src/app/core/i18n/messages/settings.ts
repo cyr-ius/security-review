@@ -1,11 +1,11 @@
 import { defineMessages } from '../catalog';
 
-/** Settings screens: general (report language, controller address), outgoing proxy and OSV database. */
+/** Settings screens: general (report language, Controller server address), outgoing proxy and OSV database. */
 export const settings = defineMessages({
   en: {
     'settings.generalTitle': 'General settings',
-    'settings.generalSubtitle': 'Language of the reports and address of the controller',
-    'settings.proxySubtitle': 'Proxy of the OSV download and of the OIDC login',
+    'settings.generalSubtitle':
+      'Language of the reports, address of the Controller server and outgoing proxy',
     'settings.osvSubtitle': 'Advisories used by the dependency analysis and their updates',
     'settings.loadError': 'Could not load the settings.',
     'settings.languageTitle': 'Report language',
@@ -22,17 +22,17 @@ export const settings = defineMessages({
     'settings.storedIgnored': 'Value set here, ignored: {value}.',
     'settings.variableLocked':
       'Set by {variable} ({value}), which takes precedence over this screen: change the variable to change it.',
-    'settings.controllerUrlTitle': 'Controller address',
+    'settings.controllerUrlTitle': 'Controller server address',
     'settings.controllerUrlHelp':
-      'Root URL of the controller as the users reach it. The MCP server gives the address of its web interface (/ui) to the agents connected without a valid token, so that the user knows where to sign in and create a personal MCP token; the connectors link their records to the reports with it. SECREVIEW_CONTROLLER_URL, when set on the controller (the same variable as for security-review-ci), takes precedence and is copied here at start. A change reaches the MCP server within a minute, without restart.',
+      'Enter the public address of your Controller server (without /ui). The MCP server uses it to tell the user where to sign in. The connectors also use it to link their records to the reports. A change reaches the MCP server within a minute, without restart.',
     'settings.controllerUrlApplied': 'Web interface given:',
-    'settings.controllerUrlLabel': 'Public URL of the controller',
+    'settings.controllerUrlLabel': 'Public URL of the Controller server',
     'settings.controllerUrlPattern':
-      'The root http(s) URL of the controller, without /ui, user name, password, query nor fragment.',
+      'The root http(s) URL of the Controller server, without /ui, user name, password, query nor fragment.',
     'settings.controllerUrlUseCurrent': 'Use the current address',
-    'settings.controllerUrlCurrent': 'Address of this controller:',
+    'settings.controllerUrlCurrent': 'Address of this Controller server:',
     'settings.controllerUrlSaved': 'Address saved: the MCP server gives it within a minute.',
-    'settings.proxyTitle': 'Outgoing proxy of the controller',
+    'settings.proxyTitle': 'Outgoing proxy of the Controller server',
     'settings.proxyHelp':
       'Used for OSV downloads and for authentication with the identity provider. The variables HTTPS_PROXY (else HTTP_PROXY) and NO_PROXY, when set, take precedence over this screen. A change takes effect at the next download or authentication, without restart.',
     'settings.proxyApplied': 'Proxy applied:',
@@ -56,7 +56,7 @@ export const settings = defineMessages({
     'settings.updateDisabled': 'Download disabled (SECREVIEW_OSV_AUTO_UPDATE=false)',
     'settings.updating': 'Update in progress…',
     'settings.updateNow': 'Update now',
-    'settings.downloadDisabled': 'Download disabled on this controller. Enable',
+    'settings.downloadDisabled': 'Download disabled on this Controller server. Enable',
     'settings.orImport': ', or import the advisories with',
     'settings.advisories': 'Advisories in the database',
     'settings.lastImport': 'Last import',
@@ -103,15 +103,15 @@ export const settings = defineMessages({
     'settings.refused': 'Value refused by the server.',
     'settings.failed': 'The operation failed.',
     'settings.osvDisabled':
-      'The OSV download is disabled on this controller (SECREVIEW_OSV_AUTO_UPDATE=false).',
+      'The OSV download is disabled on this Controller server (SECREVIEW_OSV_AUTO_UPDATE=false).',
     'settings.alreadyRunning': 'An OSV update is already running.',
     'settings.passwordAgain': 'Enter the proxy password again (the host or the user changed).',
     'settings.refusedDetail': 'Value refused: {detail}',
   },
   fr: {
     'settings.generalTitle': 'Paramètres généraux',
-    'settings.generalSubtitle': 'Langue des rapports et adresse du contrôleur',
-    'settings.proxySubtitle': 'Proxy du téléchargement OSV et de la connexion OIDC',
+    'settings.generalSubtitle':
+      'Langue des rapports, adresse du serveur Controller et proxy sortant',
     'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances et leurs mises à jour",
     'settings.loadError': 'Impossible de charger les paramètres.',
     'settings.languageTitle': 'Langue des rapports',
@@ -128,18 +128,18 @@ export const settings = defineMessages({
     'settings.storedIgnored': 'Valeur définie ici, ignorée : {value}.',
     'settings.variableLocked':
       'Défini par {variable} ({value}), prioritaire sur cet écran : modifiez la variable pour le changer.',
-    'settings.controllerUrlTitle': 'Adresse du contrôleur',
+    'settings.controllerUrlTitle': 'Adresse du serveur Controller',
     'settings.controllerUrlHelp':
-      "URL racine du contrôleur telle que les utilisateurs l'atteignent. Le serveur MCP donne l'adresse de son interface web (/ui) aux agents connectés sans jeton valide, pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; les connecteurs relient leurs fiches aux rapports avec elle. SECREVIEW_CONTROLLER_URL, lorsqu'elle est définie sur le contrôleur (la même variable que pour security-review-ci), est prioritaire et recopiée ici au démarrage. Une modification atteint le serveur MCP en moins d'une minute, sans redémarrage.",
+      "Saisissez l'adresse publique de votre serveur Controller (sans le /ui). Cela permet au serveur MCP d'informer l'utilisateur pour se connecter au site. Les connecteurs l'utilisent aussi pour relier leurs fiches aux rapports. Une modification atteint le serveur MCP en moins d'une minute, sans redémarrage.",
     'settings.controllerUrlApplied': 'Interface web donnée :',
-    'settings.controllerUrlLabel': 'URL publique du contrôleur',
+    'settings.controllerUrlLabel': 'URL publique du serveur Controller',
     'settings.controllerUrlPattern':
-      "L'URL http(s) racine du contrôleur, sans /ui, nom d'utilisateur, mot de passe, requête ni fragment.",
+      "L'URL http(s) racine du serveur Controller, sans /ui, nom d'utilisateur, mot de passe, requête ni fragment.",
     'settings.controllerUrlUseCurrent': "Utiliser l'adresse actuelle",
-    'settings.controllerUrlCurrent': 'Adresse de ce contrôleur :',
+    'settings.controllerUrlCurrent': 'Adresse de ce serveur Controller :',
     'settings.controllerUrlSaved':
       "Adresse enregistrée : le serveur MCP la donne en moins d'une minute.",
-    'settings.proxyTitle': 'Proxy sortant du contrôleur',
+    'settings.proxyTitle': 'Proxy sortant du serveur Controller',
     'settings.proxyHelp':
       "Utilisé pour les téléchargements OSV et l'authentification auprès du fournisseur d'identité. Les variables HTTPS_PROXY (sinon HTTP_PROXY) et NO_PROXY, lorsqu'elles sont définies, sont prioritaires sur cet écran. Une modification s'applique au prochain téléchargement ou à la prochaine authentification, sans redémarrage.",
     'settings.proxyApplied': 'Proxy appliqué :',
@@ -163,7 +163,7 @@ export const settings = defineMessages({
     'settings.updateDisabled': 'Téléchargement désactivé (SECREVIEW_OSV_AUTO_UPDATE=false)',
     'settings.updating': 'Mise à jour en cours…',
     'settings.updateNow': 'Mettre à jour maintenant',
-    'settings.downloadDisabled': 'Téléchargement désactivé sur ce contrôleur. Activez',
+    'settings.downloadDisabled': 'Téléchargement désactivé sur ce serveur Controller. Activez',
     'settings.orImport': ', ou importez les avis avec',
     'settings.advisories': 'Avis en base',
     'settings.lastImport': 'Dernier import',
@@ -215,7 +215,7 @@ export const settings = defineMessages({
     'settings.refused': 'Valeur refusée par le serveur.',
     'settings.failed': "L'opération a échoué.",
     'settings.osvDisabled':
-      'Le téléchargement OSV est désactivé sur ce contrôleur (SECREVIEW_OSV_AUTO_UPDATE=false).',
+      'Le téléchargement OSV est désactivé sur ce serveur Controller (SECREVIEW_OSV_AUTO_UPDATE=false).',
     'settings.alreadyRunning': 'Une mise à jour OSV est déjà en cours.',
     'settings.passwordAgain':
       "Saisissez de nouveau le mot de passe du proxy (l'hôte ou l'utilisateur a changé).",
@@ -223,8 +223,8 @@ export const settings = defineMessages({
   },
   es: {
     'settings.generalTitle': 'Ajustes generales',
-    'settings.generalSubtitle': 'Idioma de los informes y dirección del controlador',
-    'settings.proxySubtitle': 'Proxy de la descarga OSV y del inicio de sesión OIDC',
+    'settings.generalSubtitle':
+      'Idioma de los informes, dirección del servidor Controller y proxy saliente',
     'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias y sus actualizaciones',
     'settings.loadError': 'No se pudieron cargar los ajustes.',
     'settings.languageTitle': 'Idioma de los informes',
@@ -242,18 +242,18 @@ export const settings = defineMessages({
     'settings.storedIgnored': 'Valor definido aquí, ignorado: {value}.',
     'settings.variableLocked':
       'Definido por {variable} ({value}), que tiene prioridad sobre esta pantalla: cambie la variable para modificarlo.',
-    'settings.controllerUrlTitle': 'Dirección del controlador',
+    'settings.controllerUrlTitle': 'Dirección del servidor Controller',
     'settings.controllerUrlHelp':
-      'URL raíz del controlador tal como la alcanzan los usuarios. El servidor MCP da la dirección de su interfaz web (/ui) a los agentes conectados sin token válido, para que el usuario sepa dónde iniciar sesión y crear un token MCP personal; los conectores enlazan sus registros con los informes mediante ella. SECREVIEW_CONTROLLER_URL, cuando está definida en el controlador (la misma variable que para security-review-ci), tiene prioridad y se copia aquí al iniciar. Un cambio llega al servidor MCP en menos de un minuto, sin reinicio.',
+      'Introduzca la dirección pública de su servidor Controller (sin /ui). El servidor MCP la usa para indicar al usuario dónde iniciar sesión. Los conectores también la usan para enlazar sus registros con los informes. Un cambio llega al servidor MCP en menos de un minuto, sin reinicio.',
     'settings.controllerUrlApplied': 'Interfaz web dada:',
-    'settings.controllerUrlLabel': 'URL pública del controlador',
+    'settings.controllerUrlLabel': 'URL pública del servidor Controller',
     'settings.controllerUrlPattern':
-      'La URL http(s) raíz del controlador, sin /ui, nombre de usuario, contraseña, consulta ni fragmento.',
+      'La URL http(s) raíz del servidor Controller, sin /ui, nombre de usuario, contraseña, consulta ni fragmento.',
     'settings.controllerUrlUseCurrent': 'Usar la dirección actual',
-    'settings.controllerUrlCurrent': 'Dirección de este controlador:',
+    'settings.controllerUrlCurrent': 'Dirección de este servidor Controller:',
     'settings.controllerUrlSaved':
       'Dirección guardada: el servidor MCP la da en menos de un minuto.',
-    'settings.proxyTitle': 'Proxy saliente del controlador',
+    'settings.proxyTitle': 'Proxy saliente del servidor Controller',
     'settings.proxyHelp':
       'Se usa para las descargas OSV y para la autenticación con el proveedor de identidad. Las variables HTTPS_PROXY (si no, HTTP_PROXY) y NO_PROXY, cuando están definidas, tienen prioridad sobre esta pantalla. Un cambio se aplica en la próxima descarga o autenticación, sin reiniciar.',
     'settings.proxyApplied': 'Proxy aplicado:',
@@ -277,7 +277,7 @@ export const settings = defineMessages({
     'settings.updateDisabled': 'Descarga desactivada (SECREVIEW_OSV_AUTO_UPDATE=false)',
     'settings.updating': 'Actualización en curso…',
     'settings.updateNow': 'Actualizar ahora',
-    'settings.downloadDisabled': 'Descarga desactivada en este controlador. Active',
+    'settings.downloadDisabled': 'Descarga desactivada en este servidor Controller. Active',
     'settings.orImport': ', o importe los avisos con',
     'settings.advisories': 'Avisos en la base',
     'settings.lastImport': 'Última importación',
@@ -328,7 +328,7 @@ export const settings = defineMessages({
     'settings.refused': 'Valor rechazado por el servidor.',
     'settings.failed': 'La operación ha fallado.',
     'settings.osvDisabled':
-      'La descarga OSV está desactivada en este controlador (SECREVIEW_OSV_AUTO_UPDATE=false).',
+      'La descarga OSV está desactivada en este servidor Controller (SECREVIEW_OSV_AUTO_UPDATE=false).',
     'settings.alreadyRunning': 'Ya hay una actualización OSV en curso.',
     'settings.passwordAgain':
       'Vuelva a introducir la contraseña del proxy (el host o el usuario ha cambiado).',

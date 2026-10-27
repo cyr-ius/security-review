@@ -88,6 +88,7 @@ async def about_update() -> UpdateStatus:
 async def me(identity: CurrentIdentity) -> Identity:
     """Return the identity and permissions of the caller, with the triage options it has."""
     settings = get_settings()
+    oauth = (await run_in_threadpool(app_settings.effective_settings, settings)).mcp_oauth_enabled
     permanent = (
         identity.can_triage
         and identity.auth_source is not None
@@ -101,6 +102,8 @@ async def me(identity: CurrentIdentity) -> Identity:
                 if settings.risk_acceptance_min_severity
                 else None
             ),
+            "personal_mcp_tokens": settings.personal_mcp_tokens,
+            "mcp_oauth": oauth,
         }
     )
 

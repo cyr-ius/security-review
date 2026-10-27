@@ -102,6 +102,10 @@ repository, without `headers`:
 
 ## Getting a token
 
+If the administrator enabled the [OAuth login of MCP clients](../advanced/mcp-oauth.md), you need
+no token: declare the server with its URL only, without `Authorization` header; at the first
+connection the host opens the browser, where you sign in and approve it. Otherwise:
+
 In shared mode, when the server requires a token, you use a **personal MCP token**, created in the web
 interface. You do not need to ask an administrator for it before you start: configure the host
 as above, **without a token**, and run your first review. The agent tells you where to create

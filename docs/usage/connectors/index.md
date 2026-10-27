@@ -48,4 +48,4 @@ duplicate is created.
   the address of the tool asks for its secrets again.
 - **A failure** (refused credentials, unknown project...) is shown on the finding with its
   reason; the automatic sending retries a few times.
-- **Only the controller** connects to these tools; the operator may lock every connector off.
+- **Only the Controller server** connects to these tools; the operator may lock every connector off.

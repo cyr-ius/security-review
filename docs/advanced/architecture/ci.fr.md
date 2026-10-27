@@ -1,10 +1,10 @@
 # Client de pipeline (CI/CD)
 
 Le client de pipeline tourne dans les jobs CI/CD et sur les postes des développeurs : il
-envoie les fichiers du dépôt au [contrôleur](controller.md), qui les scanne, et lit la gate,
+envoie les fichiers du dépôt au [serveur Controller](controller.md), qui les scanne, et lit la gate,
 le journal SARIF et la tendance d'un projet.
 
-`security-review-ci` est un client léger du contrôleur : il appelle les routes de pipeline de
+`security-review-ci` est un client léger du serveur Controller : il appelle les routes de pipeline de
 l'API REST (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, et
 `/api/v1/ci/scan/code` et `/api/v1/ci/scan/deps` pour les scans) et n'ouvre aucune base. Il
 n'utilise que la bibliothèque standard de Python (Python 3.14) et est publié seul
@@ -16,18 +16,18 @@ sur PyPI sous le nom `security-review-ci`, à la version du serveur, sans ses d�
 |---|---|
 | Poste sans Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), puis `uv tool install security-review-ci` : uv télécharge un Python quand aucun n'est installé |
 | Agent de build ou poste avec Python ≥ 3.14 | `uv pip install security-review-ci` dans l'environnement virtuel du job (`--system` sans environnement) |
-| Poste ou agent sans PyPI, depuis le contrôleur | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …` : le [client du contrôleur](#depuis-le-controleur), à sa version |
+| Poste ou agent sans PyPI, depuis le serveur Controller | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …` : le [client du serveur Controller](#depuis-le-serveur-controller), à sa version |
 | Agent sans accès à PyPI | Copiez le seul fichier `security_review_mcp/ci_client.py` (ou le wheel `security_review_ci` joint à la release GitHub) et lancez-le avec `python3 ci_client.py` |
-| Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
+| Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_CI_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
 
 Le paquet `security-review` installe aussi `security-review-ci` : n'installez pas les deux
-paquets dans le même environnement. Installez la version de votre contrôleur
+paquets dans le même environnement. Installez la version de votre serveur Controller
 (`uv tool install security-review-ci==X.Y.Z`) ; `uv tool upgrade security-review-ci` le met à
 jour.
 
-### Depuis le contrôleur
+### Depuis le serveur Controller
 
-Sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false`, le contrôleur sert son propre client sur
+Sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false`, le serveur Controller sert son propre client sur
 `/api/ci-client/` : une page de liens pour `uv --find-links` et le wheel
 `security_review_ci-<version>-py3-none-any.whl`, construit depuis son code, à sa version. Les
 développeurs et les agents de build n'ont alors besoin ni de PyPI ni d'une version à tenir à
@@ -40,13 +40,13 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 
 - `--no-index` tient uv à l'écart de PyPI : aucun autre paquet du même nom ne peut être
   installé ; `@latest` fait relire la page à chaque exécution et suivre la version du
-  contrôleur.
-- uv vérifie le SHA-256 donné par la page. Servez le contrôleur en HTTPS : uv accepte aussi une
+  serveur Controller.
+- uv vérifie le SHA-256 donné par la page. Servez le serveur Controller en HTTPS : uv accepte aussi une
   URL en HTTP, mais la page et le wheel peuvent alors être remplacés en chemin, SHA-256 compris,
   et les développeurs exécuteraient ce code (voir
-  [contrôleur en HTTP](../../getting-started/commit-hooks.md#controleur-en-http-sans-tls)).
+  [serveur Controller en HTTP](../../getting-started/commit-hooks.md#serveur-controller-en-http-sans-tls)).
 - Les deux routes sont publiques (uv n'envoie aucun jeton) et en lecture seule ; comme la
-  documentation de l'API, elles indiquent la version du contrôleur :
+  documentation de l'API, elles indiquent la version du serveur Controller :
   `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` les masque.
 
 ## Commandes
@@ -56,21 +56,22 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 | `gate` | [Gate](../../review/gate.md) du projet |
 | `sarif` | Journal SARIF 2.1.0 du projet ([Export SARIF](../reports/sarif.md)) |
 | `trend` | Rapport de tendance du projet ([Rapport de tendance](#rapport-de-tendance)) |
-| `scan-code` | Envoie les fichiers du dépôt au contrôleur, qui les scanne avec ses règles ([Scan du code complet](../../review/analysis/code-scan.md)) |
-| `scan-deps` | Envoie manifestes et lockfiles au contrôleur, qui les compare à ses avis ([Dépendances](../../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)) |
+| `scan-code` | Envoie les fichiers du dépôt au serveur Controller, qui les scanne avec ses règles ([Scan du code complet](../../review/analysis/code-scan.md)) |
+| `scan-deps` | Envoie manifestes et lockfiles au serveur Controller, qui les compare à ses avis ([Dépendances](../../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)) |
 | `agent-review` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP, en arrière-plan (hook post-commit, [Revue de chaque commit par un agent](#revue-de-chaque-commit-par-un-agent)) |
+| `guard` | Vérifie, hors ligne, que les fichiers que l'agent de code va lire ne cachent pas de texte et ne s'adressent pas à un assistant (hook de l'agent, [Garde de lecture](../../review/analysis/read-guard.md)) |
 
 Toutes leurs options : [Ligne de commande](../../reference/cli.md#security-review-ci).
 
-Options communes (sauf `agent-review`) : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
-jeton sur l'entrée standard au lieu de `SECREVIEW_TOKEN`), `--cafile` (CA du certificat du
-contrôleur), `--allow-http`, `--timeout` (secondes, 60 par défaut).
+Options communes (sauf `agent-review` et `guard`) : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
+jeton sur l'entrée standard au lieu de `SECREVIEW_CI_TOKEN`), `--cafile` (CA du certificat du
+serveur Controller), `--allow-http`, `--timeout` (secondes, 60 par défaut).
 
 - Le jeton n'est jamais accepté sur la ligne de commande (liste des processus, journal du job)
   et n'apparaît jamais dans un message d'erreur.
 - Le HTTP en clair est refusé sauf vers `localhost` (ou avec `--allow-http`), de même que les
   identifiants dans l'URL ; les redirections ne sont pas suivies : le jeton n'est envoyé qu'au
-  contrôleur indiqué.
+  serveur Controller indiqué.
 - Les deux variables ne sont lues que dans l'environnement (le fichier `.env` est ignoré).
 - Les réponses sont bornées (64 Mio) et les caractères de contrôle de la sortie texte sont
   retirés.
@@ -80,7 +81,7 @@ contrôleur), `--allow-http`, `--timeout` (secondes, 60 par défaut).
 `agent-review` s'exécute sur le poste d'un développeur, en hook post-commit : l'agent de code du
 développeur relit le dernier commit sous l'angle de la sécurité avec le serveur MCP
 `security-review`, en arrière-plan, et enregistre un rapport, que le développeur lit dans
-l'interface web. La commande ne contacte jamais le contrôleur et ne demande aucun jeton `ci` :
+l'interface web. La commande ne contacte jamais le serveur Controller et ne demande aucun jeton `ci` :
 l'agent appelle le serveur MCP avec le jeton de la configuration MCP.
 
 Le développeur a besoin de uv, du CLI de son agent, connecté avec son compte, et de la
@@ -101,8 +102,8 @@ variable `AGENT_REVIEW_CLI`. Le serveur est lu dans `.mcp.json` (`--mcp-config`)
 Mise en place pas à pas, avec `scan-deps` : [Hooks de commit](../../getting-started/commit-hooks.md).
 
 Un projet déclare le hook dans son `.pre-commit-config.yaml` (prek ou pre-commit), avec le client
-[de son contrôleur](#depuis-le-controleur) (ou `uvx security-review-ci@X.Y.Z` depuis PyPI, à la
-version du contrôleur) :
+[de son serveur Controller](#depuis-le-serveur-controller) (ou `uvx security-review-ci@X.Y.Z` depuis PyPI, à la
+version du serveur Controller) :
 
 ```yaml
 default_install_hook_types: [pre-commit, post-commit]
@@ -163,17 +164,17 @@ security-review-controller token create --label jenkins-portal --role ci \
 ```
 
 Sur un poste de travail, un développeur utilise plutôt un
-[jeton `mcp` ou `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels), créé dans
+[jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels), créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire.
 
 Les sessions web et les jetons `api` (dans les projets qu'ils lisent) et les jetons `admin`
-peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non, sauf un jeton personnel, qui vaut jeton `ci`. Les scans, qui enregistrent
+peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non, personnels compris. Les scans, qui enregistrent
 des rapports, demandent un jeton `ci` ou `admin` (`403` sinon, sessions web comprises).
 
 ## Pipeline type
 
 Un job du pipeline enchaîne quatre commandes, avec le jeton `ci` du projet dans
-`SECREVIEW_TOKEN` et l'URL du contrôleur dans `SECREVIEW_CONTROLLER_URL` :
+`SECREVIEW_CI_TOKEN` et l'URL du serveur Controller dans `SECREVIEW_CONTROLLER_URL` :
 
 ```bash
 security-review-ci scan-code . --project portal --save --branch "$BRANCH" --commit "$COMMIT" || [ $? -eq 1 ]
@@ -183,7 +184,7 @@ security-review-ci sarif --project portal -o security.sarif
 security-review-ci gate --project portal --fail-on high
 ```
 
-1. `scan-code` et `scan-deps` envoient les fichiers au contrôleur, qui les scanne et, avec
+1. `scan-code` et `scan-deps` envoient les fichiers au serveur Controller, qui les scanne et, avec
    `--save`, enregistre un rapport `code-scan` et un rapport `dependency-scan` du projet
    ([Scan de tout le dépôt](../../review/analysis/code-scan.md), [Analyse des dépendances](../../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)).
 2. `sarif` télécharge les findings ouverts du projet, pour le code scanning de la plateforme
@@ -194,10 +195,10 @@ Le code de sortie d'un scan compte toutes les correspondances au-dessus de son p
 `--fail-on`, sans tenir compte des décisions de triage ; seule la gate tient compte des findings
 qu'une personne a acceptés ou marqués comme faux positifs. `|| [ $? -eq 1 ]` laisse un scan qui
 a trouvé quelque chose (code `1`) continuer jusqu'à la gate, mais arrête toujours le job sur une
-erreur (code `2` : contrôleur injoignable, jeton refusé...). Sans lui, les scans bloquent
+erreur (code `2` : serveur Controller injoignable, jeton refusé...). Sans lui, les scans bloquent
 d'eux-mêmes, ce qui suffit pour un premier essai.
 
-Installez le client à la version du contrôleur (`X.Y.Z` ci-dessous). Le nom du projet est
+Installez le client à la version du serveur Controller (`X.Y.Z` ci-dessous). Le nom du projet est
 [normalisé](../../review/prompts-tools.md#nom-du-projet) : le nom du dépôt fourni par la plateforme
 convient tel quel.
 
@@ -220,7 +221,7 @@ exécute le [pipeline type](#pipeline-type).
         runs-on: ubuntu-latest
         env:
           SECREVIEW_CONTROLLER_URL: https://secreview.example.com
-          SECREVIEW_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
+          SECREVIEW_CI_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
           PROJECT: ${{ github.event.repository.name }}
         steps:
           - uses: actions/checkout@v5
@@ -251,7 +252,7 @@ exécute le [pipeline type](#pipeline-type).
       image: python:3.14-slim
       variables:
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com
-        # SECREVIEW_TOKEN : variable CI/CD masquée et protégée (jeton ci)
+        # SECREVIEW_CI_TOKEN : variable CI/CD masquée et protégée (jeton ci)
       script:
         - pip install security-review-ci==X.Y.Z
         - security-review-ci scan-code . --project "$CI_PROJECT_NAME" --save
@@ -281,7 +282,7 @@ exécute le [pipeline type](#pipeline-type).
       stages {
         stage('Security review') {
           steps {
-            withCredentials([string(credentialsId: 'secreview-ci', variable: 'SECREVIEW_TOKEN')]) {
+            withCredentials([string(credentialsId: 'secreview-ci', variable: 'SECREVIEW_CI_TOKEN')]) {
               sh '''
                 security-review-ci scan-code . --project "$PROJECT" --save \
                   --branch "$BRANCH_NAME" --commit "$GIT_COMMIT" || [ $? -eq 1 ]
@@ -325,7 +326,7 @@ exécute le [pipeline type](#pipeline-type).
           security-review-ci sarif --project "$(Build.Repository.Name)" -o security.sarif
           security-review-ci gate --project "$(Build.Repository.Name)" --fail-on high
         env:
-          SECREVIEW_TOKEN: $(SECREVIEW_CI_TOKEN)   # une variable secrète n'est jamais transmise implicitement
+          SECREVIEW_CI_TOKEN: $(SECREVIEW_CI_TOKEN)   # une variable secrète n'est jamais transmise implicitement
       - publish: security.sarif
         artifact: CodeAnalysisLogs
         condition: always()
@@ -336,7 +337,7 @@ exécute le [pipeline type](#pipeline-type).
 === "Bitbucket Pipelines"
 
     ```yaml
-    # bitbucket-pipelines.yml : SECREVIEW_TOKEN est une variable sécurisée du dépôt
+    # bitbucket-pipelines.yml : SECREVIEW_CI_TOKEN est une variable sécurisée du dépôt
     image: python:3.14-slim
     pipelines:
       default:
@@ -358,7 +359,7 @@ exécute le [pipeline type](#pipeline-type).
 === "CircleCI"
 
     ```yaml
-    # .circleci/config.yml : SECREVIEW_TOKEN est une variable d'environnement du projet (ou d'un contexte)
+    # .circleci/config.yml : SECREVIEW_CI_TOKEN est une variable d'environnement du projet (ou d'un contexte)
     version: 2.1
     jobs:
       security-review:

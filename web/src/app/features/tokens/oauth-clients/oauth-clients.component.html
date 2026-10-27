@@ -1,0 +1,220 @@
+@if (overview.value(); as data) {
+  @let settings = data.settings;
+  @let editable = canManage();
+  @if (data.enabled || editable) {
+    <section class="card card-body mt-4" aria-labelledby="oauth-clients-title">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <h2 id="oauth-clients-title" class="h5 mb-0 me-auto">
+          <i class="bi bi-plug" aria-hidden="true"></i>
+          {{ 'oauth.adminTitle' | t }} <app-help-link topic="oauthClients" />
+        </h2>
+        @if (editable) {
+          <div class="form-check form-switch mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              role="switch"
+              id="oauth-enabled"
+              [checked]="data.enabled"
+              [disabled]="busy() || settings.enabled.env_set"
+              (change)="toggle($event)"
+            />
+            <label class="form-check-label" for="oauth-enabled">{{ 'oauth.enabled' | t }}</label>
+          </div>
+        }
+      </div>
+      <p class="text-body-secondary small">{{ 'oauth.adminHelp' | t }}</p>
+
+      @if (error(); as text) {
+        <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+      }
+      @if (message(); as text) {
+        <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+      }
+
+      @if (editable) {
+        @if (settings.enabled.env_set) {
+          <div class="alert alert-info py-2 small" role="status">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            {{
+              'settings.variableLocked'
+                | t
+                  : {
+                      variable: 'SECREVIEW_MCP_OAUTH_ENABLED',
+                      value: settings.enabled.env ? 'true' : 'false',
+                    }
+            }}
+          </div>
+        }
+        <form class="mb-3" (submit)="saveUrl($event)">
+          <label for="oauth-mcp-url" class="form-label">{{ 'oauth.mcpUrl' | t }}</label>
+          @if (settings.mcp_url.env_set) {
+            <div class="alert alert-info py-2 small mb-0" role="status">
+              <i class="bi bi-lock" aria-hidden="true"></i>
+              {{
+                'settings.variableLocked'
+                  | t: { variable: 'SECREVIEW_MCP_URL', value: settings.mcp_url.env ?? '' }
+              }}
+            </div>
+          } @else {
+            <div class="input-group">
+              <input
+                id="oauth-mcp-url"
+                class="form-control font-monospace"
+                type="url"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="https://mcp.example.com/mcp"
+                aria-describedby="oauth-mcp-url-help"
+                [formField]="urlForm.mcpUrl"
+              />
+              <button type="submit" class="btn btn-primary" [disabled]="busy()">
+                <i class="bi bi-check-lg" aria-hidden="true"></i>
+                {{ 'common.save' | t }}
+              </button>
+            </div>
+            <div id="oauth-mcp-url-help" class="form-text">{{ 'oauth.mcpUrlHelp' | t }}</div>
+          }
+        </form>
+      }
+
+      @if (!data.enabled) {
+        <p class="text-body-secondary small mb-0">{{ 'oauth.off' | t }}</p>
+      } @else {
+        <dl class="row small mb-3">
+          @if (!editable) {
+            <dt class="col-sm-3">{{ 'oauth.mcpUrl' | t }}</dt>
+            <dd class="col-sm-9">
+              <code>{{ data.mcp_url }}</code>
+            </dd>
+          }
+          <dt class="col-sm-3">{{ 'oauth.redirects' | t }}</dt>
+          <dd class="col-sm-9">
+            {{ 'oauth.loopback' | t }}
+            @for (host of data.redirect_hosts; track host) {
+              · <code>https://{{ host }}</code>
+            }
+            @for (scheme of data.redirect_schemes; track scheme) {
+              · <code>{{ scheme }}:</code>
+            }
+          </dd>
+          <dt class="col-sm-3">{{ 'oauth.lifetimes' | t }}</dt>
+          <dd class="col-sm-9">
+            {{
+              'oauth.lifetimesValue' | t: { minutes: data.access_minutes, days: data.refresh_days }
+            }}
+          </dd>
+          <dt class="col-sm-3">{{ 'oauth.clientsCount' | t }}</dt>
+          <dd class="col-sm-9">{{ data.clients.length }} / {{ data.max_clients }}</dd>
+        </dl>
+
+        <h3 class="h6">{{ 'oauth.grantsAdminTitle' | t }}</h3>
+        @if (data.grants.length) {
+          <div class="table-responsive mb-3">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">{{ 'oauth.client' | t }}</th>
+                  <th scope="col">{{ 'oauth.user' | t }}</th>
+                  <th scope="col">{{ 'common.createdAt' | t }}</th>
+                  <th scope="col">{{ 'oauth.lastUsed' | t }}</th>
+                  <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
+                  <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (grant of data.grants; track grant.id) {
+                  <tr>
+                    <td>{{ name(grant) }}</td>
+                    <td>{{ grant.username }}</td>
+                    <td>{{ grant.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                    <td>
+                      {{
+                        grant.last_used_at
+                          ? (grant.last_used_at | date: 'dd/MM/yyyy HH:mm')
+                          : ('oauth.neverUsed' | t)
+                      }}
+                    </td>
+                    <td>{{ grant.expires_at | date: 'dd/MM/yyyy' }}</td>
+                    <td class="text-end">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        [disabled]="busy()"
+                        [attr.aria-label]="'oauth.revokeClient' | t: { client: name(grant) }"
+                        (click)="revokeGrant(grant)"
+                      >
+                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                        {{ 'oauth.revoke' | t }}
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="text-body-secondary small">{{ 'oauth.noGrants' | t }}</p>
+        }
+
+        <h3 class="h6">{{ 'oauth.clientsTitle' | t }}</h3>
+        @if (data.clients.length) {
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">{{ 'oauth.client' | t }}</th>
+                  <th scope="col">{{ 'oauth.redirectUris' | t }}</th>
+                  <th scope="col">{{ 'common.createdAt' | t }}</th>
+                  <th scope="col">{{ 'oauth.approvals' | t }}</th>
+                  <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (client of data.clients; track client.client_id) {
+                  <tr>
+                    <td>
+                      {{ name(client) }}
+                      <div class="text-body-secondary small font-monospace">
+                        {{ client.client_id }}
+                      </div>
+                    </td>
+                    <td class="small">
+                      @for (uri of client.redirect_uris; track uri) {
+                        <div class="font-monospace text-break">{{ uri }}</div>
+                      }
+                    </td>
+                    <td>{{ client.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                    <td>
+                      @if (client.grants) {
+                        {{ client.grants }}
+                      } @else {
+                        <span class="badge text-bg-secondary">{{ 'oauth.unapproved' | t }}</span>
+                      }
+                    </td>
+                    <td class="text-end">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        [disabled]="busy()"
+                        [attr.aria-label]="'oauth.deleteClientLabel' | t: { client: name(client) }"
+                        (click)="deleteClient(client)"
+                      >
+                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                        {{ 'common.delete' | t }}
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="text-body-secondary small mb-0">{{ 'oauth.noClients' | t }}</p>
+        }
+      }
+    </section>
+  }
+} @else if (overview.error()) {
+  <div class="alert alert-danger mt-4" role="alert">{{ 'oauth.adminLoadError' | t }}</div>
+}

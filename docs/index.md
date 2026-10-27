@@ -56,7 +56,7 @@ An **MCP server** for **security-focused code review** (identifying vulnerabilit
 
 Accessed via the `security-review-mcp` command.
 
-A **Controller server** for **administration and control management** (the Controller is optional). It provides administrators and cybersecurity analysts with:
+A **Controller server** for **administration and control management** (the Controller server is optional). It provides administrators and cybersecurity analysts with:
 
 - Access to security analysis **reports**;
 - The ability to conduct **security reviews** and manage **risk acceptance**;
@@ -79,7 +79,7 @@ Accessed via the `security-review-ci` command.
 ## Quick start (shared mode)
 
 The repository provides a ready-to-use `docker-compose.yml` file in `examples/docker/`. This
-block starts everything (PostgreSQL, controller, MCP server), resets the password of the `admin`
+block starts everything (PostgreSQL, Controller server, MCP server), resets the password of the `admin`
 account and creates a token for your agent:
 
 ```bash
@@ -125,7 +125,7 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 
 | Step | Page |
 |---|---|
-| 1. Deploy the controller and the MCP server (Docker Compose or Kubernetes), create the first accounts | [Deploying the server](getting-started/deploy.md) |
+| 1. Deploy the Controller server and the MCP server (Docker Compose or Kubernetes), create the first accounts | [Deploying the server](getting-started/deploy.md) |
 | 2. Connect VS Code or Claude, get a token | [Connecting the host](getting-started/host.md) |
 | 3. Run a review | [How a review works](review/index.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](review/prompts-tools.md) |
 | 4. Read and triage the reports | [Web interface](usage/index.md) |

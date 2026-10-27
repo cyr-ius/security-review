@@ -7,6 +7,7 @@ import { firstValueFrom, of } from 'rxjs';
 import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import {
   FINDING_STATUSES,
   Finding,
@@ -35,7 +36,14 @@ const PAGE_SIZE = 50;
  */
 @Component({
   selector: 'app-project-findings',
-  imports: [RouterLink, DatePipe, FindingCardComponent, RefreshButtonComponent, TranslatePipe],
+  imports: [
+    HelpLinkComponent,
+    RouterLink,
+    DatePipe,
+    FindingCardComponent,
+    RefreshButtonComponent,
+    TranslatePipe,
+  ],
   templateUrl: './project-findings.component.html',
   styleUrl: './project-findings.component.css',
 })

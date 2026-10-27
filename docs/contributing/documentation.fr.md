@@ -39,6 +39,10 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
 - L'interface web est traduite (anglais, français, espagnol) : chaque version cite les libellés
   de l'interface dans sa langue, tels qu'ils s'affichent (**Tokens** en anglais, **Jetons** en
   français).
+- Le processus qui sert l'interface web et l'API REST s'appelle toujours **Controller server** en
+  anglais et **serveur Controller** en français : « Controller » garde sa forme anglaise et sa
+  majuscule, et n'est jamais employé seul. Les commandes, noms de fichiers et identifiants
+  (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`) ne changent pas.
 - Les exemples sont copiables tels quels : options, noms de variables et sorties correspondent au
   code actuel.
 - Un changement du code met à jour sa documentation dans le même commit. Le tableau « Si vous

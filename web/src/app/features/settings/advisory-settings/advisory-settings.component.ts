@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { AdvisoryEcosystemResult, AdvisoryUpdate } from '../../../core/models/api.models';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
@@ -44,6 +45,7 @@ export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], MessageKey> = {
 @Component({
   selector: 'app-advisory-settings',
   imports: [
+    HelpLinkComponent,
     DatePipe,
     DecimalPipe,
     RefreshButtonComponent,

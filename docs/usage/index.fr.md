@@ -6,7 +6,7 @@ par les agents et les pipelines, voir les findings ouverts et décider de leur s
 
 ## Se connecter
 
-Ouvrez l'adresse du contrôleur suivie de `/ui/` (par exemple
+Ouvrez l'adresse du serveur Controller suivie de `/ui/` (par exemple
 `https://secreview.example.com/ui/`) et connectez-vous avec votre
 [compte utilisateur](user-accounts.md) : identifiant et mot de passe, ou la connexion de votre
 entreprise (OIDC) quand elle est configurée. Un jeton n'ouvre jamais l'interface : les jetons
@@ -26,7 +26,9 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 - En bas de la barre : **Mon compte** (mot de passe, jetons personnels) et la version, un lien
   vers **À propos**.
 - Cliquez sur l'en-tête d'une colonne pour trier un tableau ; le navigateur mémorise le tri.
-- Si le contrôleur ne répond plus, la page **Backend indisponible** s'ouvre : **Réessayer** vous
+- Le point d'interrogation cerclé à côté d'un titre ouvre la page de cette documentation qui
+  explique l'écran (en français pour une interface en français, sinon en anglais).
+- Si le serveur Controller ne répond plus, la page **Backend indisponible** s'ouvre : **Réessayer** vous
   ramène à votre page dès qu'il répond de nouveau.
 
 ## Écrans
@@ -49,18 +51,23 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 | **Checklists** | Les points de contrôle suivis par les agents ([checklists](../review/checklists.md)) |
 | **Normes** | Les normes de développement données aux assistants IA ([normes](../review/standards.md)) |
 
+Dans le formulaire d'édition, les champs de texte long (contenu d'une norme, conseil d'une
+règle, point de contrôle d'une checklist) ont un bouton plein écran : le texte s'ouvre dans un
+grand éditeur, à côté de son aperçu Markdown (**Édition**, **Côte à côte** ou **Aperçu**) ; côte
+à côte, les deux volets défilent ensemble. Les modifications sont reportées dans le formulaire,
+qui les enregistre ou les annule.
+
 **Administration**
 
 | Écran | À quoi il sert |
 |---|---|
+| **Général** | Langue des rapports, adresse du serveur Controller et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque écran y renvoie |
 | **Utilisateurs**, **Groupes**, **Rôles** | Les comptes et ce qu'ils peuvent faire ([rôles, groupes et permissions](access-control.md)) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
-| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
-| **OIDC** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
-| **Général** | Langue des rapports et adresse du contrôleur |
-| **Proxy sortant** | Proxy du téléchargement OSV et de la connexion OIDC |
-| **Base OSV** | État et mise à jour de la base de vulnérabilités ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur)) |
+| **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
+| **Base OSV** | État et mise à jour de la base de vulnérabilités ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
+| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
 
 ## Points d'attention
 

@@ -1,6 +1,6 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">{{ 'rules.title' | t }}</h1>
+    <h1 class="h3 mb-0">{{ 'rules.title' | t }} <app-help-link topic="rules" /></h1>
     <p class="text-body-secondary mb-0">
       {{ 'rules.subtitle' | t }} <code>security-review-controller rules</code>
     </p>
@@ -241,12 +241,12 @@
           </div>
           <div class="col-12">
             <label class="form-label" for="rule-advice">{{ 'rules.advice' | t }}</label>
-            <textarea
-              id="rule-advice"
-              class="form-control"
-              rows="2"
+            <app-markdown-field
+              inputId="rule-advice"
+              [rows]="3"
+              [label]="'rules.advice' | t"
               [formField]="ruleForm.advice"
-            ></textarea>
+            />
           </div>
           <div class="col-12">
             <div class="form-check">

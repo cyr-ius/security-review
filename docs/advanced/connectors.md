@@ -54,7 +54,7 @@ lands in the system is described on the page of the connector.
 
 ## Security
 
-- Outgoing connections of the **controller** only, every connector disabled by default (switched
+- Outgoing connections of the **Controller server** only, every connector disabled by default (switched
   on by an administrator, or locked off by `SECREVIEW_CONNECTORS_ENABLED=false`), over **HTTPS**
   with certificate verification (`SECREVIEW_CONNECTORS_CAFILE` for an internal authority), through
   the [outgoing proxy](../reference/configuration.md#outgoing-proxy).
@@ -70,7 +70,7 @@ lands in the system is described on the page of the connector.
   URL was deleted, and a secret set by a variable needs its URL set by a variable, so that a
   stored token never reaches another host.
 - A third-party connector is loaded only when `SECREVIEW_CONNECTORS_PLUGINS` names it, and runs
-  with the rights of the controller: install only code you trust.
+  with the rights of the Controller server: install only code you trust.
 - Audit events: `connector.changed` (connection or switch), `connector.target_changed`
   (destination of a project), `finding.exported` (record created or reused, with its key; actor
   `auto` for the automatic sending).
@@ -129,18 +129,18 @@ The account only needs the right to create records in the table (the `itil` role
 ## Third-party connectors
 
 A connector published by a Python package (entry point of the group
-`security_review_mcp.connectors`) is installed next to the controller, then **allowed** by its
+`security_review_mcp.connectors`) is installed next to the Controller server, then **allowed** by its
 entry point name: installing a package is not enough.
 
 ```bash
-uv pip install secreview-acme-connector         # in the image or the environment of the controller
+uv pip install secreview-acme-connector         # in the image or the environment of the Controller server
 SECREVIEW_CONNECTORS_PLUGINS=acme               # comma separated
 SECREVIEW_ACME_URL=https://risk.acme.example/api
 SECREVIEW_ACME_API_KEY=...
 ```
 
-The controller loads the allowed connectors at start and refuses to start if one is missing,
+The Controller server loads the allowed connectors at start and refuses to start if one is missing,
 written for another version of the API, or declares a variable of the server itself
 (`SECREVIEW_<KIND>_<FIELD>` must not be an existing setting). The **Connectors** screen shows it
-as a card marked **Third-party**, off until switched on. A connector runs in the controller with
+as a card marked **Third-party**, off until switched on. A connector runs in the Controller server with
 its rights: only install and allow code you trust, like any dependency.

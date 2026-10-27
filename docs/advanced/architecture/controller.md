@@ -1,6 +1,6 @@
-# Controller
+# Controller server
 
-The **controller** (`security-review-controller`) is the process of the people and of the
+The **Controller server** (`security-review-controller`) is the process of the people and of the
 pipelines: it serves the web interface, the REST API and the pipeline routes, owns the database
 schema and runs the background tasks. It never calls the MCP server: both share the database
 (see [Architecture](index.md)).
@@ -12,12 +12,13 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/ui/` | the people (browser): [web interface](../../usage/index.md) | none for the static files; the data come from the API |
 | `/api/v1/auth/` | the login page: password and [OIDC](../oidc.md) login | none |
 | `/api/v1/` | the web interface, scripts, Swagger | web session, `admin` or `api` token |
-| `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token or personal `mcp` token |
+| `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token (personal or not) |
 | `/metrics` | Prometheus ([metrics](../../reference/metrics.md)) | `metrics` or `admin` token |
 | `/api/docs` | Swagger: OpenAPI documentation of the REST API, without data, only with `SECREVIEW_SWAGGER_ENABLED=true` | none (the calls need an [API token](../../usage/tokens.md#api-tokens)) |
-| `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller), unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | none |
+| `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller-server), unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | none |
 | `/api/health` | the web interface, which checks the liveness of the API at load (tells nothing about the version or the settings) | none |
 | `/api/favicon.svg` | icon of the web interface and of Swagger | none |
+| `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | the MCP hosts: [OAuth login](../mcp-oauth.md), only with `SECREVIEW_MCP_OAUTH_ENABLED=true` | none (PKCE; the approval goes through a web session) |
 | `/healthz` | probes (Docker `HEALTHCHECK`, Kubernetes) | none |
 
 The roles of the tokens are described in [Roles](../../usage/tokens.md), their
@@ -35,7 +36,7 @@ management in [Bearer tokens](../bearer-tokens.md).
 
 ## Schema migrations
 
-The controller migrates the schema when it starts; the HTTP MCP server never does. Commands,
+The Controller server migrates the schema when it starts; the HTTP MCP server never does. Commands,
 locks between replicas and dedicated migration job: see
 [Database](../database.md#schema-migrations).
 
@@ -43,7 +44,7 @@ locks between replicas and dedicated migration job: see
 
 | Task | Enabled by | Details |
 |---|---|---|
-| Daily update of the OSV advisories | `SECREVIEW_OSV_AUTO_UPDATE=true` (off by default) | [Automatic update by the controller](../../review/analysis/dependencies.md#automatic-update-by-the-controller) |
+| Daily update of the OSV advisories | `SECREVIEW_OSV_AUTO_UPDATE=true` (off by default) | [Automatic update by the Controller server](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server) |
 | Purge of the reports without findings and of the audit log | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Retention](../database.md#retention-of-reports-without-findings), [audit retention](../audit-log.md#retention) |
 | Forwarding of the audit log to syslog | a syslog server set in the environment or in the interface | [Forwarding to syslog](../audit-log.md#forwarding-to-syslog) |
 | Automatic sending of the findings by the connectors | a connector switched on, a severity threshold on the project; `SECREVIEW_CONNECTORS_ENABLED=false` locks everything | [Connectors](../../usage/connectors/index.md) |
@@ -52,7 +53,7 @@ The MCP server runs none of them.
 
 ## Outgoing connections
 
-The controller is the only process that may connect outside, and every connection is **off by
+The Controller server is the only process that may connect outside, and every connection is **off by
 default**: the OSV download, the [OIDC](../oidc.md) provider, the search for a newer release on the
 **About** page (`SECREVIEW_UPDATE_CHECK_ENABLED`), the syslog server and the connectors. They
 use HTTPS (syslog: UDP, TCP or TLS), through the outgoing proxy (`HTTPS_PROXY`, `NO_PROXY`,
@@ -60,18 +61,20 @@ or the **Settings** screen). See [Security and limits](../../reference/security.
 
 ## Exposure
 
-Expose the controller with TLS ([built-in or reverse proxy](../tls.md)) to the people (web
+Expose the Controller server with TLS ([built-in or reverse proxy](../tls.md)) to the people (web
 interface, personal tokens) and to the pipeline runners. Behind a reverse proxy or an Ingress:
 
 - set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address of the proxy, otherwise every client shares
   its address for the login throttling and the rate limit;
-- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the controller, without `/ui` (or
-  fill in the **General** screen): the controller copies it to the database at start and the MCP server
-  reads it there, so that an agent without a valid token knows where to create one.
+- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the Controller server, without `/ui` (or
+  fill in the **General** screen): the Controller server copies it to the database at start and the MCP server
+  reads it there, so that an agent without a valid token knows where to create one. While it is
+  unknown, a banner at the top of the web interface tells the administrators (permission
+  `settings.manage`) and links to the field.
 
 ## Several replicas
 
-The controller can run several replicas on the same PostgreSQL database: the migrations wait
+The Controller server can run several replicas on the same PostgreSQL database: the migrations wait
 for each other (advisory lock), the sessions are shared through `SECREVIEW_SECRET_KEY`, the login
 and rate limit counters are kept in the database, only one replica downloads the OSV
 advisories at a time, and a syslog batch is sent once. Set the same `SECREVIEW_SECRET_KEY` on
@@ -79,7 +82,7 @@ every replica.
 
 ## Administration commands
 
-The other commands of `security-review-controller` run where the controller runs (same
+The other commands of `security-review-controller` run where the Controller server runs (same
 `SECREVIEW_DATABASE_URL`), for example `docker compose exec controller …` or
 `kubectl exec deploy/secreview-controller -c controller -- …`:
 
@@ -94,7 +97,7 @@ The other commands of `security-review-controller` run where the controller runs
 | `audit` | read or purge the [audit log](../audit-log.md) |
 
 All their options: [Command line](../../reference/cli.md#security-review-controller). The
-variables of the controller: [Configuration](../../reference/configuration.md#controller).
+variables of the Controller server: [Configuration](../../reference/configuration.md#controller-server).
 
 ## Managing the accounts
 
@@ -151,7 +154,7 @@ The variables of the interface are in the
 
 ## First administrator
 
-At its first start, while no account exists, the controller creates the local account
+At its first start, while no account exists, the Controller server creates the local account
 **`admin`** (`SECREVIEW_ADMIN_USERNAME`), member of the `administrators` group (`admin` role),
 with a random password that nobody knows and that is never written to the logs. The only way to
 a password is the CLI, which sets a new one and prints it once:
@@ -176,7 +179,7 @@ administrator (screen or CLI) changes its password at its first login. The **Use
 ### Lost password
 
 The password is stored as a scrypt digest: it cannot be read back. Replace it with the CLI of the
-controller, on the same database:
+Controller server, on the same database:
 
 ```bash
 security-review-controller user reset-password admin
@@ -192,7 +195,7 @@ the JSON has no `password` field):
 printf '%s\n' "$NEW_PASSWORD" | security-review-controller user reset-password admin --password-stdin
 ```
 
-Run it where the controller runs:
+Run it where the Controller server runs:
 
 ```bash
 # Docker Compose
@@ -208,7 +211,7 @@ the same way): the `admin` account is only created at start-up while no account 
 
 ## Login and sessions
 
-When the controller no longer accepts the session while you browse (session expired, password
+When the Controller server no longer accepts the session while you browse (session expired, password
 changed in another tab, account deleted), a **Session expired** dialog opens: **Log in again**
 opens the login page and comes back to the same page afterwards.
 
@@ -224,7 +227,7 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 # {"session": "eyJ…", "expires_in": 28800, "username": "alice"}
 ```
 
-Every session names an account (local or OIDC); at every request, the controller reads it again
+Every session names an account (local or OIDC); at every request, the Controller server reads it again
 from the database:
 
 - a change of its **groups**, of their roles or of a role applies immediately to the open
@@ -236,14 +239,14 @@ from the database:
   tab and browser: a stolen session token stops working when its user logs out.
 
 Sessions are signed with `SECREVIEW_SECRET_KEY` (at least 32 characters), shared by every
-replica of the controller. Without it, a random secret is drawn at every start (a warning is
-logged): sessions end when the controller restarts and are not shared between replicas. Set it
+replica of the Controller server. Without it, a random secret is drawn at every start (a warning is
+logged): sessions end when the Controller server restarts and are not shared between replicas. Set it
 in production (in Kubernetes, from a `Secret`: see [Kubernetes](../deployment/kubernetes.md#secrets)).
 
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
 (`429`, `Retry-After` header), even with the right password. The counters are kept in the
-database: every worker and replica of the controller shares them. Every address is also limited
+database: every worker and replica of the Controller server shares them. Every address is also limited
 on the whole REST API (by default 600 requests a minute, 30 on the login routes, see
 [`SECREVIEW_RATE_LIMIT_*`](../../reference/configuration.md#rate-limiting)). Behind a reverse proxy, the address seen is the proxy's, and the limit would then
 apply to every client of the proxy: list the proxy in
@@ -257,16 +260,16 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Settings stored in the database
 
-The **General**, **Outgoing proxy** and **OIDC** screens of the
+The **General** (report language, Controller server address, outgoing proxy) and **Sign-in** (OIDC) screens of the
 [web interface](../../usage/index.md) store settings in the database, shared by the MCP
-server and the controller (`settings.manage` permission; the former `/ui/settings` and
-`/ui/settings/language` addresses open **General**). **An environment variable that is set
+server and the Controller server (`settings.manage` permission; the former `/ui/settings`,
+`/ui/settings/language` and `/ui/settings/proxy` addresses open **General**). **An environment variable that is set
 (environment or `.env` file, not empty) always takes precedence**: its field is then locked and
 shows the variable, and a value stored before the variable was set is marked as ignored, with a
-**Delete** button. A change applies without restart: the MCP server reads the controller
+**Delete** button. A change applies without restart: the MCP server reads the Controller server
 address within a minute (the change is recorded in the audit log, `controller_url.changed`),
 and the proxy applies to the next OSV download and the next OIDC login. **Use the current
-address** fills in the address of this controller.
+address** fills in the address of this Controller server.
 
 | Route | Effect |
 |---|---|
@@ -295,9 +298,9 @@ browser they use.
   padlock of a route says that it requires a token: it stays **open** while you have not entered
   a token with **Authorize**, and does not mean that the route can be reached without a token.
   Enter an [API token](../../usage/tokens.md#api-tokens) there.
-- The controller exposes no write route without a token. A project is requested by an agent
+- The Controller server exposes no write route without a token. A project is requested by an agent
   with a token, through the `request_project` tool of the **MCP server**
-  ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)); the controller
+  ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)); the Controller server
   lists and handles the requests (`GET /api/v1/projects/pending`,
   `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
   `projects.create` permission).
@@ -314,5 +317,5 @@ browser they use.
   as soon as it no longer listens on localhost: the token travels with every request.
 
 The published package and the Docker image contain the application already built. If you
-install from source without building it, the controller only serves the REST API and a warning
+install from source without building it, the Controller server only serves the REST API and a warning
 is logged. See [Contributing](../../contributing/web-ui.md) to build it.

@@ -87,7 +87,7 @@ plutôt un `401`, voir [jeton refusé](../advanced/architecture/mcp-server.md#je
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Sans argument ; invitent l'utilisateur à se connecter à l'interface web (`SECREVIEW_CONTROLLER_URL` + `/ui`), à créer un jeton MCP personnel et à l'ajouter à la configuration de l'hôte, au lieu de lancer la revue |
 
 Les instructions qu'il envoie à la connexion, affichées par l'hôte, donnent les mêmes étapes et
-l'adresse de l'interface web, tirée de l'URL enregistrée par le contrôleur (sa
+l'adresse de l'interface web, tirée de l'URL enregistrée par le serveur Controller (sa
 `SECREVIEW_CONTROLLER_URL`, ou l'écran
 [Général](../usage/index.md#ecrans)) ; sans elle, aucun lien n'est donné.
 

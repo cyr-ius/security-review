@@ -466,6 +466,59 @@ class ApiTokenProject(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+# ── OAuth login of the MCP clients (see oauth_server) ────────────────────────
+
+
+class OAuthClient(SQLModel, table=True):
+    """An MCP client registered by dynamic registration (RFC 7591): always a public client
+    (PKCE, no secret). ``client_metadata`` is the registered metadata as JSON."""
+
+    client_id: str = Field(primary_key=True, max_length=64)
+    client_name: str | None = Field(default=None, max_length=200)
+    client_metadata: str = Field(max_length=8000)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+
+
+class OAuthAuthorization(SQLModel, table=True):
+    """A pending authorization request of an OAuth client, then its authorization code.
+
+    ``id`` is the SHA-256 digest of the request handle given to the consent screen; an approval
+    sets ``user_id`` and ``code_hash`` (digest of the code, single use) and a short expiry.
+    """
+
+    id: str = Field(primary_key=True, max_length=64)
+    client_id: str = Field(foreign_key="oauthclient.client_id", index=True, max_length=64)
+    user_id: int | None = Field(default=None, foreign_key="webuser.id", index=True)
+    code_hash: str | None = Field(default=None, unique=True, index=True, max_length=64)
+    redirect_uri: str = Field(max_length=2000)
+    redirect_uri_explicit: bool = Field(default=True)
+    code_challenge: str = Field(max_length=128)
+    state: str | None = Field(default=None, max_length=500)
+    resource: str | None = Field(default=None, max_length=500)
+    created_at: datetime = Field(default_factory=utcnow)
+    expires_at: datetime = Field(index=True)
+
+
+class OAuthGrant(SQLModel, table=True):
+    """Tokens of an OAuth client approved by a web user (SHA-256 digests only).
+
+    They act as a personal ``mcp`` token of the user. Each refresh replaces both tokens;
+    ``previous_refresh_hash`` keeps the replaced refresh token, whose reuse revokes the grant.
+    """
+
+    id: str = Field(primary_key=True, max_length=64)
+    client_id: str = Field(foreign_key="oauthclient.client_id", index=True, max_length=64)
+    user_id: int = Field(foreign_key="webuser.id", index=True)
+    access_token_hash: str = Field(unique=True, index=True, max_length=64)
+    access_expires_at: datetime
+    refresh_token_hash: str = Field(unique=True, index=True, max_length=64)
+    refresh_expires_at: datetime = Field(index=True)
+    previous_refresh_hash: str | None = Field(default=None, index=True, max_length=64)
+    resource: str | None = Field(default=None, max_length=500)
+    created_at: datetime = Field(default_factory=utcnow)
+    last_used_at: datetime | None = Field(default=None)
+
+
 # ── Requested projects (see access_control.request_project) ──────────────────
 
 

@@ -40,14 +40,19 @@ A web user may also create a **personal** ``mcp`` token for its MCP agent, or a 
 it reaches the projects the user may read (``reports.read`` of its groups), read at each
 request, so that a project granted to or removed from the user applies at once. It has no
 project rows and no change of projects: an administrator grants the project to the user
-instead. A personal ``mcp`` token also reaches the pipeline routes, as a ``ci`` token (see
-http_server.TokenInfo.pipeline): a developer keeps one SECREVIEW_TOKEN for the MCP agent and
-``security-review-ci``. A web user
-holds at most SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role.
+instead. Each personal token has one usage: an ``mcp`` token only reaches the MCP server, a
+``ci`` token only the pipeline routes. A web user holds at most
+SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role. With
+SECREVIEW_PERSONAL_MCP_TOKENS=false (MCP clients logged in with OAuth, see oauth_server), no
+personal ``mcp`` token is created and the controller revokes those left at start.
 
 Like every token, an ``api`` token never accepts a risk nor marks a false positive.
 
 Every creation, rotation, revocation and change of projects is written to the audit log.
+
+The access tokens of the OAuth login of the MCP clients (``OAuthGrant``, see oauth_server) are
+checked here too, after the stored tokens: one acts as a personal ``mcp`` token of the user who
+approved its client, on the MCP server only (not the pipeline routes).
 """
 
 import hmac
@@ -65,7 +70,7 @@ from ..http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
 from ..observability import audit
 from ..observability.audit import AuditAction
 from ..storage.database import session_scope
-from ..storage.models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
+from ..storage.models import ApiToken, ApiTokenProject, OAuthGrant, WebUser, as_utc, utcnow
 from ..storage.project_names import normalize_project
 
 MAX_TOKENS = 500
@@ -208,7 +213,9 @@ class DatabaseTokenStore:
                     or_(ApiToken.token_hash == hexdigest, ApiToken.previous_token_hash == hexdigest)
                 )
             ).first()
-            if row is None or row.role not in TOKEN_ROLES or not _matches(row, digest):
+            if row is None:
+                return _oauth_info(session, digest)
+            if row.role not in TOKEN_ROLES or not _matches(row, digest):
                 return None
             info = _info(row, _links(session, [row.id])[row.id])
             if row.role == Role.API:
@@ -298,7 +305,40 @@ def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> T
         projects=projects,
         token_id=info.token_id,
         expired=info.expired,
-        pipeline=info.role == Role.MCP,
+        owner=user.username,
+    )
+
+
+# Writes of the last use of an OAuth grant are spaced by this much (not one per MCP request)
+OAUTH_LAST_USED_RESOLUTION = timedelta(minutes=5)
+
+
+def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
+    """Identity of an OAuth access token (see oauth_server): the projects the user who approved
+    the client may read now, as a personal ``mcp`` token without the pipeline routes. None when
+    unknown, or when the user is gone or must change its password; an expired one is marked
+    ``expired``."""
+    grant = session.exec(
+        select(OAuthGrant).where(OAuthGrant.access_token_hash == digest.hex())
+    ).first()
+    if grant is None or not hmac.compare_digest(bytes.fromhex(grant.access_token_hash), digest):
+        return None
+    user = session.get(WebUser, grant.user_id)
+    if user is None or user.must_change_password:
+        return None
+    try:
+        projects = _user_projects(session, grant.user_id)
+    except ValueError:
+        return None
+    now = utcnow()
+    if grant.last_used_at is None or as_utc(grant.last_used_at) < now - OAUTH_LAST_USED_RESOLUTION:
+        grant.last_used_at = now
+        session.add(grant)
+    return TokenInfo(
+        f"{user.username}:oauth:{grant.client_id[:8]}",
+        Role.MCP,
+        projects=projects,
+        expired=as_utc(grant.access_expires_at) <= now,
         owner=user.username,
     )
 
@@ -806,11 +846,18 @@ def create_personal_token(
     ``ci`` token reaches the projects the user may read (see _personal_scoped_info).
 
     Raises:
-        ValueError: Unknown user, role other than ``api``, ``mcp`` or ``ci``, invalid label or
-            validity, or SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of this role held already.
+        ValueError: Unknown user, role other than ``api``, ``mcp`` or ``ci``, an ``mcp`` token
+            while SECREVIEW_PERSONAL_MCP_TOKENS is false, invalid label or validity, or
+            SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of this role held already.
     """
     kind = _personal_role(role)
-    limit = get_settings().personal_tokens_per_user
+    settings = get_settings()
+    if kind == Role.MCP and not settings.personal_mcp_tokens:
+        raise ValueError(
+            "Personal MCP tokens are disabled on this server: connect the MCP client with its "
+            "OAuth login instead"
+        )
+    limit = settings.personal_tokens_per_user
     with session_scope() as session:
         user = session.get(WebUser, user_id)
         if user is None:
@@ -871,6 +918,22 @@ def revoke_personal_token(user_id: int, token_id: str, actor: str | None = None)
         revoked = _public(row, [])
         _delete_token(session, row)
         _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
+
+
+def revoke_personal_mcp_tokens(actor: str) -> int:
+    """Revoke every personal ``mcp`` token (controller start with SECREVIEW_PERSONAL_MCP_TOKENS
+    false), each one audited; return how many were revoked."""
+    with session_scope() as session:
+        rows = session.exec(
+            select(ApiToken).where(
+                col(ApiToken.user_id).is_not(None), ApiToken.role == Role.MCP.value
+            )
+        ).all()
+        for row in rows:
+            revoked = _public(row, [])
+            _delete_token(session, row)
+            _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
+    return len(rows)
 
 
 def delete_user_tokens(session: Session, user_id: int, actor: str | None = None) -> None:

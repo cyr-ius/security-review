@@ -10,11 +10,11 @@ git clone https://github.com/cyr-ius/security-review.git
 cd security-review
 uv sync --extra dev --extra docs
 npm --prefix web ci                                   # Angular, Prettier (Node.js 24)
-npm --prefix web run build                            # interface servie par le contrôleur sur /ui/
+npm --prefix web run build                            # interface servie par le serveur Controller sur /ui/
 uv run security-review-controller db upgrade
 ```
 
-Sans la build Angular, le contrôleur ne sert que l'API REST (`/api/v1`). `prek install`
+Sans la build Angular, le serveur Controller ne sert que l'API REST (`/api/v1`). `prek install`
 (facultatif), linters, formateurs et revues de sécurité : voir
 [Vérifications, revues et publication](checks-and-releases.md).
 
@@ -22,9 +22,9 @@ Dans VS Code (`.vscode/`) :
 
 | Configuration de `launch.json` | Rôle |
 |---|---|
-| **Controller (debug: FastAPI + Angular)** | Contrôleur sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud de la page, redémarrage du contrôleur à chaque enregistrement dans `src/` (`scripts/dev_reload.py`), migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
+| **Controller (debug: FastAPI + Angular)** | Serveur Controller sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud de la page, redémarrage du serveur Controller à chaque enregistrement dans `src/` (`scripts/dev_reload.py`), migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
 | **MCP server (debug, port 8000)** | Lance la tâche **Database upgrade**, puis le serveur MCP HTTP sous le débogueur |
-| **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list`…) sous le débogueur |
+| **Controller CLI (prompt for arguments)** | Une commande du serveur Controller (`db status`, `token list`…) sous le débogueur |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` avec rechargement à chaud, ouvre le site dans le navigateur |
 
 | Tâche de `tasks.json` | Commande |
@@ -32,7 +32,7 @@ Dans VS Code (`.vscode/`) :
 | **Build security_review_mcp** | `uv sync --extra dev --extra docs --extra postgres` |
 | **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
 | **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
-| **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le contrôleur, ou `ng serve` avec `/api` redirigé vers le port 8080 (arrêté avec le débogueur par **Web UI: stop dev server**) |
+| **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le serveur Controller, ou `ng serve` avec `/api` redirigé vers le port 8080 (arrêté avec le débogueur par **Web UI: stop dev server**) |
 | **Docker: compose up** / **down** | Pile `docker-compose.yml` de l'image, avec sa propre base PostgreSQL (mêmes ports 8000 et 8080 : arrêtez les configurations de debug avant) |
 
 ### Devcontainer
@@ -41,13 +41,13 @@ Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js, 
 dédié (feature *docker-in-docker*) et une base **PostgreSQL 18**. `compose.yaml` décrit deux
 services : `app`, le conteneur de développement, et `db`, la base, joignable depuis `app` sous
 le nom `db` et conservée dans le volume `secreview-dev-pg` entre deux reconstructions.
-`SECREVIEW_DATABASE_URL` y pointe par défaut : le serveur MCP, le contrôleur et la CLI utilisent
+`SECREVIEW_DATABASE_URL` y pointe par défaut : le serveur MCP, le serveur Controller et la CLI utilisent
 PostgreSQL. Les tests, eux, utilisent toujours une base SQLite en mémoire et ignorent votre
 fichier `.env` et les variables `SECREVIEW_*` du shell.
 
 À sa création, le devcontainer installe le client `psql`, les hooks `prek` et l'environnement
 complet (`uv sync --extra dev --extra docs --extra postgres`, `npm --prefix web ci`), puis migre la base. Il redirige les
-ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular), 8001 (doc) et 5432
+ports 8000 (serveur MCP), 8080 (serveur Controller), 4200 (serveur de dev Angular), 8001 (doc) et 5432
 (PostgreSQL, identifiants de développement `secreview` / `secreview`).
 
 ```bash
@@ -65,11 +65,11 @@ docker build -t security-review-mcp .   # SQLite et PostgreSQL (pilote inclus)
 ```
 
 Le build compile aussi l'[interface web](../usage/index.md) (étape Node.js) ;
-elle est servie sur `/ui/` par le contrôleur.
+elle est servie sur `/ui/` par le serveur Controller.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
 `HEALTHCHECK` (`python -m security_review_mcp.healthcheck`, toutes les 30 secondes) interroge
-`/healthz` du serveur MCP HTTP ou du contrôleur sur l'interface de bouclage, en HTTPS quand le
+`/healthz` du serveur MCP HTTP ou du serveur Controller sur l'interface de bouclage, en HTTPS quand le
 TLS est activé (en ne faisant confiance qu'au certificat du conteneur) ; en stdio, rien n'écoute
 et le conteneur reste sain, et avec le TLS mutuel (`SECREVIEW_TLS_CLIENT_CA`) il n'interroge
 rien : appuyez-vous sur les sondes de l'orchestrateur. La
@@ -95,14 +95,14 @@ src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée du serveur MCP
 ├── prompts.py     # construction des prompts
 ├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
-├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
-├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur, liste des fichiers (bibliothèque standard uniquement)
-├── cli.py         # commandes du contrôleur : db, advisories, rules, token, user, group, project, audit
+├── controller.py  # point d'entrée du serveur Controller (serve, db et commandes d'administration)
+├── ci_client.py   # `security-review-ci` : client de pipeline du serveur Controller, liste des fichiers (bibliothèque standard uniquement)
+├── cli.py         # commandes du serveur Controller : db, advisories, rules, token, user, group, project, audit
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
 ├── healthcheck.py # HEALTHCHECK de l'image Docker (/healthz des processus HTTP)
 ├── config.py      # paramètres (SECREVIEW_*)
 ├── app_settings.py # réglages modifiables dans l'interface (langue, proxy sortant, OIDC), en base
-├── proxy.py       # proxy sortant du contrôleur (OSV, OIDC) : URL, no_proxy, handler urllib
+├── proxy.py       # proxy sortant du serveur Controller (OSV, OIDC) : URL, no_proxy, handler urllib
 ├── update_check.py # recherche d'une nouvelle version sur GitHub (page À propos, facultatif)
 ├── storage/       # persistance
 │   ├── database.py        # moteur, sessions et migrations (Alembic)
@@ -128,23 +128,23 @@ src/security_review_mcp/
 │   ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 │   ├── depscan.py         # scan de dépendances et conversion en findings
 │   ├── advisories.py      # import OSV, correspondance des versions
-│   ├── advisory_sync.py   # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
+│   ├── advisory_sync.py   # téléchargement OSV par le serveur Controller (proxy, mise à jour quotidienne, historique)
 │   └── versions.py        # comparaison de versions
 ├── auth/          # identité et accès
 │   ├── access_control.py  # permissions, rôles, groupes et membres des comptes web, demandes de projet
 │   ├── token_store.py     # jetons Bearer en base : création, expiration, renouvellement, révocation
 │   ├── web_users.py       # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
-│   ├── oidc.py            # connexion OIDC OpenID Connect à l'interface web (contrôleur)
+│   ├── oidc.py            # connexion OIDC OpenID Connect à l'interface web (serveur Controller)
 │   └── rate_limit.py      # limites de débit de l'API REST et des connexions (fenêtre glissante en base)
 ├── observability/ # journal d'audit et métriques
 │   ├── audit.py           # journal d'audit : événements des décisions de triage, propositions, jetons et demandes de projet
-│   ├── audit_syslog.py    # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
-│   └── metrics.py         # métriques Prometheus du contrôleur (/metrics)
-├── clients/       # clients du contrôleur
-│   └── ci_wheel.py        # wheel de security-review-ci construite et servie par le contrôleur (/api/ci-client/)
+│   ├── audit_syslog.py    # envoi des événements d'audit vers syslog par le serveur Controller (facultatif)
+│   └── metrics.py         # métriques Prometheus du serveur Controller (/metrics)
+├── clients/       # clients du serveur Controller
+│   └── ci_wheel.py        # wheel de security-review-ci construite et servie par le serveur Controller (/api/ci-client/)
 ├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
 │                  # registry, connections, transport (client HTTP), core (envoi), jira, servicenow
-└── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
+└── web_api/       # serveur Controller : API REST /api/v1 et fichiers de l'application (/ui)
     ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
     ├── schemas.py     # modèles de requête et de réponse de chaque route
     ├── deps.py        # identité de l'appelant, permissions, portée projet
@@ -153,7 +153,7 @@ tests/             # pytest (scanner, services, client MCP de bout en bout)
 web/               # application Angular (compilée dans src/security_review_mcp/webui/)
 ```
 
-Le serveur MCP n'importe jamais les modules du contrôleur qui ouvrent des connexions sortantes
+Le serveur MCP n'importe jamais les modules du serveur Controller qui ouvrent des connexions sortantes
 ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
 `observability/audit_syslog`, `connectors`, `update_check`, `web_api`), même indirectement :
 `tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
@@ -167,9 +167,9 @@ tester :
 | Page | Code | Contenu |
 |---|---|---|
 | [Serveur MCP](mcp-server.md) | `server.py`, `prompts.py`, `rules/` | Outils, prompts et ressources, règles de scan, invariants de sécurité du processus MCP |
-| [Contrôleur (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | Routes REST et leurs schémas, permissions, paramètres, CLI, migrations du schéma |
+| [Serveur Controller (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | Routes REST et leurs schémas, permissions, paramètres, CLI, migrations du schéma |
 | [Interface web (Angular)](web-ui.md) | `web/` | Build et serveur de développement, conventions de code, traductions |
-| [Écrire un connecteur](connectors.md) | `connectors/api.py`, `examples/connector/` | Connecteur tiers : classe `Connector`, point d'entrée, garanties du contrôleur |
+| [Écrire un connecteur](connectors.md) | `connectors/api.py`, `examples/connector/` | Connecteur tiers : classe `Connector`, point d'entrée, garanties du serveur Controller |
 | [Documentation](documentation.md) | `docs/`, `mkdocs.yml`, `README.md` | Rédaction et construction de la documentation bilingue, README, publication |
 | [Tests](tests.md) | `tests/`, `tests/conftest.py` | Quoi tester, conventions, fixtures, tests par type de code |
 | [Vérifications, revues et publication](checks-and-releases.md) | `.pre-commit-config.yaml`, `.github/workflows/` | Linters, formateurs, tests, revue de sécurité, branches, versions |

@@ -37,6 +37,5 @@
 .standard-content {
   max-block-size: 60vh;
   overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }

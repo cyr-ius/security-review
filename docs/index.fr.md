@@ -85,7 +85,7 @@ via la commande `security-review-ci`
 ## Démarrage rapide (mode partagé)
 
 Le dépôt fournit un fichier `docker-compose.yml` prêt à l'emploi dans `examples/docker/`. Ce
-bloc démarre tout (PostgreSQL, contrôleur, serveur MCP), réinitialise le mot de passe du compte
+bloc démarre tout (PostgreSQL, serveur Controller, serveur MCP), réinitialise le mot de passe du compte
 `admin` et crée un jeton pour votre agent :
 
 ```bash
@@ -132,7 +132,7 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 
 | Étape | Page |
 |---|---|
-| 1. Déployer le contrôleur et le serveur MCP (Docker Compose ou Kubernetes), créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
+| 1. Déployer le serveur Controller et le serveur MCP (Docker Compose ou Kubernetes), créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
 | 2. Connecter VS Code ou Claude, obtenir un jeton | [Connexion de l'hôte](getting-started/host.md) |
 | 3. Lancer une revue | [Fonctionnement d'une revue](review/index.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](review/prompts-tools.md) |
 | 4. Consulter et trier les rapports | [Interface web](usage/index.md) |

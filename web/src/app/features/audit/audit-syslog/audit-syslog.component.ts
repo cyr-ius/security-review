@@ -14,6 +14,7 @@ import { firstValueFrom } from 'rxjs';
 import { Message, msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { AuditSyslogSettings, AuditSyslogUpdate } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { describeError } from '../../settings/settings-page';
@@ -48,7 +49,7 @@ interface SyslogFormModel {
  */
 @Component({
   selector: 'app-audit-syslog',
-  imports: [FormField, NgTemplateOutlet, TranslatePipe],
+  imports: [HelpLinkComponent, FormField, NgTemplateOutlet, TranslatePipe],
   templateUrl: './audit-syslog.component.html',
   styleUrl: './audit-syslog.component.css',
 })

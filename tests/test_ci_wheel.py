@@ -64,7 +64,7 @@ def test_uv_installs_the_served_wheel_offline(tmp_path):
         [str(venv / "bin" / "security-review-ci"), "gate", "--project", "shop-api"],
         capture_output=True,
         text=True,
-        env={"SECREVIEW_TOKEN": "x"},
+        env={"SECREVIEW_CI_TOKEN": "x"},
     )
     assert result.returncode == ci_client.EXIT_ERROR
     assert "No controller URL" in result.stderr

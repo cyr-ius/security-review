@@ -1,9 +1,9 @@
 # Jetons Bearer
 
-Les jetons du [serveur MCP](architecture/mcp-server.md) et du [contrôleur](architecture/controller.md) se gèrent avec la
-CLI du contrôleur. Ce que chaque jeton peut atteindre est dans [Jetons](../usage/tokens.md) ;
+Les jetons du [serveur MCP](architecture/mcp-server.md) et du [serveur Controller](architecture/controller.md) se gèrent avec la
+CLI du serveur Controller. Ce que chaque jeton peut atteindre est dans [Jetons](../usage/tokens.md) ;
 les routes servies par chaque processus sont dans [Ce qu'il sert](architecture/mcp-server.md#ce-quil-sert)
-(serveur MCP) et [Ce qu'il sert](architecture/controller.md#ce-quil-sert) (contrôleur).
+(serveur MCP) et [Ce qu'il sert](architecture/controller.md#ce-quil-sert) (serveur Controller).
 
 Les jetons sont stockés dans la base de données (table `apitoken`) : seule leur empreinte
 SHA-256 est conservée, le secret n'est affiché qu'une fois, à la création. Gérez-les avec la
@@ -37,12 +37,14 @@ son auteur.
 
 ## Avant le premier jeton
 
-Tant qu'aucun jeton n'existe, l'API du contrôleur répond `503` et le serveur MCP **reste
+Tant qu'aucun jeton n'existe, l'API du serveur Controller répond `503` et le serveur MCP **reste
 fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) (sans outil),
 toute autre requête reçoit `401`, quelle que soit la valeur Bearer (un avertissement est
 journalisé au démarrage). `/mcp` n'est ouvert dans ce cas que si le serveur écoute sur localhost
 (`127.0.0.1`, `::1`) ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, à réserver aux tests sur un
-réseau isolé : dès qu'un jeton existe, il est exigé dans tous les cas. `token revoke` avertit sur
+réseau isolé : dès qu'un jeton existe, il est exigé dans tous les cas. Avec la
+[connexion OAuth](mcp-oauth.md) active, `/mcp` n'est jamais ouvert : un client sans jeton reçoit
+le `401` qui lance la connexion. `token revoke` avertit sur
 stderr quand il supprime le dernier jeton.
 
 ## Expiration et renouvellement des jetons
@@ -100,7 +102,7 @@ La restriction s'applique aussi à la ressource `report://` et au prompt `triage
 stdio, il n'y a pas de jeton, donc pas de restriction.
 
 !!! tip
-    Les commandes `token` s'exécutent côté contrôleur (ou dans son conteneur), avec la même
+    Les commandes `token` s'exécutent côté serveur Controller (ou dans son conteneur), avec la même
     `SECREVIEW_DATABASE_URL` que lui. Les jetons ne passent jamais en argument de ligne de
     commande.
 
@@ -190,14 +192,12 @@ projets quand l'un de ses groupes lit tous les projets, aucun quand il n'en a pa
 serveur le refuse (inconnu, révoqué ou expiré), l'agent reçoit un `401` qui invite
 l'utilisateur à se reconnecter pour en créer un nouveau.
 
-Un jeton `mcp` personnel vaut aussi jeton `ci` personnel sur les routes de pipeline : **Mon
-compte** ne propose donc plus de jeton `ci` personnel. L'API en crée encore un pour séparer les
-deux usages (il n'atteint jamais `/mcp`), et ceux déjà créés restent listés jusqu'à leur
-révocation. Un rapport enregistré par l'un ou l'autre est soumis par le jeton (`alice:laptop`),
+Chaque jeton personnel a un seul usage : un jeton `mcp` personnel n'atteint que `/mcp`, un jeton
+`ci` personnel (proposé dans **Mon compte**, pour `security-review-ci` par `SECREVIEW_CI_TOKEN`)
+que les routes de pipeline. Un rapport enregistré par un jeton `ci` personnel est soumis par le
+jeton (`alice:laptop`),
 et son utilisateur en est l'auteur (voir
 [scan depuis un poste de travail](../review/analysis/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit)).
-Un jeton `mcp` créé par un administrateur sur l'écran **Jetons** reste un jeton d'agent MCP
-seulement.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \

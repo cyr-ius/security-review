@@ -40,7 +40,7 @@ sont dans le même commit que lui.
 |---|---|---|
 | Outil, prompt ou ressource MCP | De bout en bout avec `mcp.client.Client(mcp)` (`pytestmark = pytest.mark.anyio`), avec un cas d'erreur représentatif (`result.is_error`) | `tests/test_server.py`, voir [Serveur MCP](mcp-server.md#tests) |
 | Règle de scan | Au moins un cas **positif** (le motif vulnérable est détecté) et un cas **négatif** (le code sûr équivalent ne l'est pas) | `tests/test_scanner.py` |
-| Route REST | `TestClient` avec les fixtures `client`, `secured` ou `web_sessions`, code de statut et corps, au moins un refus | `tests/test_web_api.py`, voir [Contrôleur](controller.md#tests) |
+| Route REST | `TestClient` avec les fixtures `client`, `secured` ou `web_sessions`, code de statut et corps, au moins un refus | `tests/test_web_api.py`, voir [Serveur Controller](controller.md#tests) |
 | Commande CLI | `cli.run([...])` (ou `server.main([...])`), **code de sortie** et sortie (`capsys`) | `tests/test_cli_and_tools.py` |
 | Modèle de table | Une nouvelle révision Alembic ; `test_upgrade_creates_the_schema_of_the_models` vérifie que les migrations produisent les modèles | `tests/test_database.py` |
 | Interface Angular | Pas de test unitaire : `npm run build` vérifie les types et les clés de traduction ; le catalogue de l'audit est vérifié par `tests/test_audit.py` | [Interface web](web-ui.md#verifications) |

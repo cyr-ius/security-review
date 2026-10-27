@@ -1,7 +1,7 @@
 # Serveur MCP
 
 Le serveur MCP (`security-review-mcp`) expose les prompts, outils et ressources utilisés par
-l'hôte. Il partage la base avec le contrôleur mais ne l'appelle jamais. Son code est dans
+l'hôte. Il partage la base avec le serveur Controller mais ne l'appelle jamais. Son code est dans
 `server.py` (déclarations), `prompts.py` (texte des prompts) et les modules métier
 (`reports/services.py`, `rules/`, `deps/`…) : `server.py` reste une couche mince qui valide les
 entrées et appelle ces modules.
@@ -63,8 +63,8 @@ bug bloquant.
   `logging.getLogger("security_review_mcp")`.
 - **Aucun accès disque à partir d'un chemin du client** : les outils travaillent sur le contenu
   reçu.
-- **Aucun appel réseau sortant** : la base de vulnérabilités est importée par le contrôleur.
-- **Aucun module du contrôleur n'est chargé**, même indirectement (`controller`,
+- **Aucun appel réseau sortant** : la base de vulnérabilités est importée par le serveur Controller.
+- **Aucun module du serveur Controller n'est chargé**, même indirectement (`controller`,
   `deps/advisory_sync`, `auth/oidc`, `observability/audit_syslog`, `connectors`,
   `update_check`, `web_api`) : `test_mcp_server_does_not_load_the_controller_modules` importe
   `server` dans un nouvel interpréteur et le vérifie. Un module partagé les importe dans la

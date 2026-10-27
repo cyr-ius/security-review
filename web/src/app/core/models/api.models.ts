@@ -134,6 +134,10 @@ export interface Identity {
    * (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); null: every acceptance needs them.
    */
   risk_acceptance_min_severity?: Severity | null;
+  /** False when the server offers no personal MCP token (OAuth login of the MCP clients). */
+  personal_mcp_tokens?: boolean;
+  /** True while the OAuth login of the MCP clients is on. */
+  mcp_oauth?: boolean;
   version: string;
 }
 
@@ -286,7 +290,13 @@ export type AuditAction =
   | 'controller_url.changed'
   | 'finding.exported'
   | 'connector.target_changed'
-  | 'connector.changed';
+  | 'connector.changed'
+  | 'oauth.client_registered'
+  | 'oauth.grant_approved'
+  | 'oauth.grant_denied'
+  | 'oauth.grant_revoked'
+  | 'oauth.refresh_reused'
+  | 'mcp_oauth.changed';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -321,6 +331,12 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
+  'oauth.client_registered',
+  'oauth.grant_approved',
+  'oauth.grant_denied',
+  'oauth.grant_revoked',
+  'oauth.refresh_reused',
+  'mcp_oauth.changed',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -351,6 +367,78 @@ export interface AuditQuery {
   sort_direction?: 'asc' | 'desc';
   limit: number;
   offset: number;
+}
+
+/** A pending OAuth request of an MCP client, shown by the consent screen. */
+export interface OAuthPendingRequest {
+  client_id: string;
+  /** Chosen by the client itself: shown, never trusted. */
+  client_name: string | null;
+  redirect_host: string;
+  expires_at: string;
+}
+
+/** Where the browser goes after a decision on an OAuth request. */
+export interface OAuthRedirect {
+  redirect_url: string;
+}
+
+/** A registered MCP client (name and redirect URIs chosen by the client). */
+export interface OAuthClientAdmin {
+  client_id: string;
+  client_name: string | null;
+  redirect_uris: string[];
+  created_at: string;
+  /** 0: nobody approved it. */
+  grants: number;
+}
+
+/** A setting of the OAuth login: stored value, variable (it wins when set), effective value. */
+export interface OAuthSetting<T> {
+  value: T | null;
+  env: T | null;
+  env_set: boolean;
+  effective: T | null;
+}
+
+/** Settings of the OAuth login of the MCP clients that the web interface may change. */
+export interface OAuthSettings {
+  enabled: OAuthSetting<boolean>;
+  mcp_url: OAuthSetting<string>;
+}
+
+/**
+ * Body of PUT /api/v1/oauth/settings: a field left out is unchanged, null deletes the stored
+ * value.
+ */
+export interface OAuthSettingsUpdate {
+  enabled?: boolean | null;
+  mcp_url?: string | null;
+}
+
+/** The OAuth login of the MCP clients: settings, clients and every grant. */
+export interface OAuthOverview {
+  enabled: boolean;
+  mcp_url: string | null;
+  redirect_hosts: string[];
+  redirect_schemes: string[];
+  access_minutes: number;
+  refresh_days: number;
+  max_clients: number;
+  /** Settings an administrator may change here (settings.manage). */
+  settings: OAuthSettings;
+  clients: OAuthClientAdmin[];
+  grants: (OAuthGrant & { username: string })[];
+}
+
+/** An MCP client approved by the logged-in user (never its tokens). */
+export interface OAuthGrant {
+  id: string;
+  client_id: string;
+  client_name: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string;
 }
 
 /** Response returned once when a project-scoped token is created. */
