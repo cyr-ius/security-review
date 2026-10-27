@@ -46,7 +46,7 @@
             }}
           </div>
         }
-        <form class="mb-3" (submit)="saveUrl($event)">
+        <!-- <form class="mb-3" (submit)="saveUrl($event)">
           <label for="oauth-mcp-url" class="form-label">{{ 'oauth.mcpUrl' | t }}</label>
           @if (settings.mcp_url.env_set) {
             <div class="alert alert-info py-2 small mb-0" role="status">
@@ -57,7 +57,7 @@
               }}
             </div>
           } @else {
-            <div class="input-group">
+            <div class="input-group w-100">
               <input
                 id="oauth-mcp-url"
                 class="form-control font-monospace"
@@ -75,13 +75,44 @@
             </div>
             <div id="oauth-mcp-url-help" class="form-text">{{ 'oauth.mcpUrlHelp' | t }}</div>
           }
-        </form>
+        </form> -->
       }
 
       @if (!data.enabled) {
         <p class="text-body-secondary small mb-0">{{ 'oauth.off' | t }}</p>
       } @else {
         <dl class="row small mb-3">
+          <dt class="col-sm-3">{{ 'oauth.mcpUrl' | t }}</dt>
+          <dd class="col-sm-9">
+            <form (submit)="saveUrl($event)">
+              @if (settings.mcp_url.env_set) {
+                <div class="alert alert-info py-2 small mb-0" role="status">
+                  <i class="bi bi-lock" aria-hidden="true"></i>
+                  {{
+                    'settings.variableLocked'
+                      | t: { variable: 'SECREVIEW_MCP_URL', value: settings.mcp_url.env ?? '' }
+                  }}
+                </div>
+              } @else {
+                <div class="input-group input-group-sm w-50">
+                  <input
+                    id="oauth-mcp-url"
+                    class="form-control font-monospace"
+                    type="url"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="https://mcp.example.com/mcp"
+                    aria-describedby="oauth-mcp-url-help"
+                    [formField]="urlForm.mcpUrl"
+                  />
+                  <button type="submit" class="btn btn-primary" [disabled]="busy()">
+                    <i class="bi bi-save" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <div id="oauth-mcp-url-help" class="form-text">{{ 'oauth.mcpUrlHelp' | t }}</div>
+              }
+            </form>
+          </dd>
           @if (!editable) {
             <dt class="col-sm-3">{{ 'oauth.mcpUrl' | t }}</dt>
             <dd class="col-sm-9">
