@@ -18,6 +18,7 @@ base (voir [Architecture](index.md)).
 | `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-controleur), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |
 | `/api/health` | l'interface web, qui vérifie la disponibilité de l'API au chargement (ne révèle ni la version ni les réglages) | aucun |
 | `/api/favicon.svg` | icône de l'interface web et de Swagger | aucun |
+| `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | les hôtes MCP : [connexion OAuth](../mcp-oauth.md), seulement avec `SECREVIEW_MCP_OAUTH_ENABLED=true` | aucun (PKCE ; l'autorisation passe par une session web) |
 | `/healthz` | sondes (`HEALTHCHECK` Docker, Kubernetes) | aucun |
 
 Les rôles des jetons sont décrits dans [Rôles](../../usage/tokens.md), leur gestion

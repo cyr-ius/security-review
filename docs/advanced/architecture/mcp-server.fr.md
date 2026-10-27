@@ -9,8 +9,9 @@ partagent la base (voir [Architecture](index.md)).
 
 | Route | Utilisée par | Identifiant |
 |---|---|---|
-| `/mcp` | les agents : [prompts, outils et ressources](../../review/prompts-tools.md) | jeton `mcp` (personnel ou non) ou jeton `admin` |
-| `/mcp` sans jeton | un agent pas encore connecté : [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement), qui explique comment obtenir un jeton | aucun |
+| `/mcp` | les agents : [prompts, outils et ressources](../../review/prompts-tools.md) | jeton `mcp` (personnel ou non), jeton `admin`, ou jeton d'accès [OAuth](../mcp-oauth.md) |
+| `/mcp` sans jeton | un agent pas encore connecté : [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement), qui explique comment obtenir un jeton ; avec la [connexion OAuth](../mcp-oauth.md), un `401` qui la démarre | aucun |
+| `/.well-known/oauth-protected-resource/mcp` | les hôtes, avec la [connexion OAuth](../mcp-oauth.md) active : métadonnées de la ressource protégée (RFC 9728), qui désignent le contrôleur comme serveur d'autorisation (404 sinon) | aucun |
 | `/healthz` | sondes (`HEALTHCHECK` Docker, Kubernetes) | aucun |
 
 Il ne sert aucune page web, aucune autre route de l'API REST, et aucune route qui écrit sans
@@ -155,3 +156,8 @@ puis à le remplacer dans la [configuration de l'hôte](../../getting-started/ho
 Un tel client n'atteint jamais les outils de revue ni le serveur d'enrôlement. Le refus est
 journalisé en avertissement par le serveur MCP (`Rejected unauthenticated request` /
 `Rejected expired token`).
+
+Avec la [connexion OAuth](../mcp-oauth.md) active, ce `401` porte aussi le paramètre
+`resource_metadata` dans son défi `WWW-Authenticate`, pour qu'un hôte qui gère OAuth se
+reconnecte seul, et une requête sans jeton reçoit le même `401` (sans `error`) au lieu du
+serveur d'enrôlement.

@@ -63,6 +63,10 @@ s'arrête tant que le compte doit changer un mot de passe défini par un adminis
 supprimé avec le compte. Un seul jeton par usage est permis par défaut : révoquez-le pour en
 créer un autre. Il ne se renouvelle pas : révoquez-le et créez-en un nouveau.
 
+Avec la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), l'agent MCP n'a besoin
+d'aucun jeton personnel : les clients que vous avez autorisés sont listés dans **Mon compte** >
+**Clients MCP connectés**, où vous les révoquez.
+
 ### Jetons MCP et CI personnels
 
 Le jeton personnel **MCP / CI** connecte votre agent MCP. Il n'est proposé que si vos groupes le

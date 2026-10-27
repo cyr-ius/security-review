@@ -52,6 +52,16 @@
   (`SECREVIEW_CONTROLLER_URL` + `/ui`) is a public URL:
   it holds no credentials (refused at start-up and in the web interface, where each change is
   audited).
+- **OAuth login of the MCP clients** (`SECREVIEW_MCP_OAUTH_ENABLED`, off by default): the
+  controller is the authorization server, the MCP server only checks the tokens in the
+  database. Every client is public (PKCE `S256`, no client secret kept), its redirect URIs point
+  to the loopback interface unless an https host or a scheme is listed by the operator (no
+  other site receives a code); at most 10,000 requests are pending at once; codes are single use (60 seconds), only the SHA-256
+  digests of the tokens are stored, a refresh rotates both tokens and a reused refresh token
+  revokes the grant. Approving a client needs a web session and `mcp_tokens.create`; a token
+  acts as a personal `mcp` token of its user, on the MCP server only, and is deleted with the
+  user; a controller started with the login off revokes every grant (see
+  [OAuth login of MCP clients](../advanced/mcp-oauth.md)).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens and project requests are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,

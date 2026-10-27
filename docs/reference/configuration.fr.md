@@ -104,6 +104,18 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_OIDC_CAFILE` | — | Bundle de CA pour joindre le fournisseur (CA interne) ; le proxy est celui de `HTTPS_PROXY` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/oidc.md#oidc-seul)) ; une variable uniquement, jamais modifiée dans l'interface |
 
+### Connexion OAuth des clients MCP
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Active la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : le contrôleur devient leur serveur d'autorisation (routes `/authorize`, `/token`, `/register`, `/revoke` à la racine de `SECREVIEW_CONTROLLER_URL`, qui doit être défini, en https hors localhost) et le serveur MCP y envoie un client sans jeton |
+| `SECREVIEW_MCP_URL` | — | URL publique du point d'accès MCP (`https://…/mcp`, en ASCII : punycode pour un hôte non ASCII), obligatoire avec OAuth : la ressource des jetons. Enregistrée en base au démarrage, où le serveur MCP la lit |
+| `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Durée d'un jeton d'accès (5 à 1440 minutes) |
+| `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Durée d'un jeton de rafraîchissement (1 à 365 jours), prolongée à chaque rafraîchissement ; `SECREVIEW_TOKEN_MAX_DAYS`, s'il est défini, borne toute l'autorisation depuis son approbation |
+| `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients enregistrés à la fois ; un client que personne n'a autorisé dans la journée est supprimé |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` | — | Hôtes joints en https acceptés comme URI de redirection d'un client, séparés par des virgules (`vscode.dev`) ; vide : l'interface loopback seulement |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` | — | Schémas d'URI personnalisés acceptés comme URI de redirection, séparés par des virgules (`cursor`) ; vide : aucun |
+
 ### Proxy sortant
 
 | Variable | Défaut | Rôle |

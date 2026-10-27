@@ -94,6 +94,7 @@ plugins:
             Local mode (stdio): Mode local (stdio)
             Manual installation (without containers): Installation manuelle (sans conteneur)
             MCP server: Serveur MCP
+            OAuth login of MCP clients: Connexion OAuth des clients MCP
             OIDC login in detail: Connexion OIDC en détail
             OIDC login: Connexion OIDC
             Overview: Présentation
@@ -201,6 +202,7 @@ nav:
           - Kubernetes: advanced/deployment/kubernetes.md
           - Manual installation (without containers): advanced/deployment/manual-install.md
           - "Installation: other cases": advanced/deployment/installation.md
+      - OAuth login of MCP clients: advanced/mcp-oauth.md
       - OIDC login in detail: advanced/oidc.md
       - Reports and monitoring:
           - SARIF export: advanced/reports/sarif.md

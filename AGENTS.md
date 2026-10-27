@@ -122,7 +122,7 @@ l'utiliser.
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `observability/audit.py`, `observability/audit_syslog.py` ; `observability/metrics.py` |
 | Export et tendances | `reports/sarif.py`, `reports/trends.py` |
 | Connecteurs : envoi des findings vers des systèmes externes (tickets, registre de vulnérabilités...), manuel et automatique par le contrôleur : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_CONNECTORS_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `connectors/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/connector_routes.py`, exemple `examples/connector/` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim), demandes de projet (`request_project`) : `auth/access_control.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; connexion OAuth des clients MCP (serveur d'autorisation du contrôleur, routes du SDK MCP, écran de consentement : `web_api/oauth_routes.py`) : `auth/oauth_server.py`, jetons vérifiés par `auth/token_store.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim), demandes de projet (`request_project`) : `auth/access_control.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
@@ -194,12 +194,15 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   `tests/test_database.py` vérifie que les migrations produisent exactement les modèles. Le
   serveur MCP HTTP ne migre jamais le schéma.
 - **Séparation MCP / contrôleur** : le serveur MCP n'expose que `/mcp` (serveur d'enrôlement
-  sans outil pour un client sans jeton) et `/healthz` ; aucun des deux processus n'expose de
+  sans outil pour un client sans jeton), `/healthz` et, avec la connexion OAuth des clients MCP
+  (`SECREVIEW_MCP_OAUTH_ENABLED`, désactivée par défaut), le document statique en lecture seule
+  `/.well-known/oauth-protected-resource/...` ; le serveur d'autorisation OAuth est le
+  contrôleur, le serveur MCP ne fait que vérifier les jetons en base ; aucun des deux processus n'expose de
   route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Le serveur MCP ne charge aucun module du contrôleur** qui sort sur le réseau ou sert ses
-  routes (`controller`, `advisory_sync`, `oidc`, `audit_syslog`, `connectors`, `update_check`,
-  `web_api`), même indirectement ; `tests/test_server.py` le vérifie. Un module partagé par les
+  routes (`controller`, `advisory_sync`, `oidc`, `oauth_server`, `audit_syslog`, `connectors`,
+  `update_check`, `web_api`), même indirectement ; `tests/test_server.py` le vérifie. Un module partagé par les
   deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
@@ -338,7 +341,7 @@ essentielles.
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/review/analysis/dependencies` |
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`review/gate`, `advanced/architecture/ci`, `review/analysis/code-scan`, `advanced/reports/sarif`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration`, `.env.example` |
-| Transport HTTP, authentification, TLS, enrôlement | `docs/advanced/bearer-tokens`, `docs/advanced/tls`, `docs/advanced/architecture/mcp-server` (enrôlement), `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
+| Transport HTTP, authentification, TLS, enrôlement, connexion OAuth des clients MCP | `docs/advanced/bearer-tokens`, `docs/advanced/mcp-oauth`, `docs/advanced/tls`, `docs/advanced/architecture/mcp-server` (enrôlement), `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
 | Séparation MCP / contrôleur, Compose, Kubernetes | `docs/advanced/architecture/index`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
 | La base de données (SQLite / PostgreSQL, migrations, conservation, sauvegarde, mise à niveau) | `docs/advanced/database` |
 | Le serveur MCP (routes, transports, démarrage, réponse selon le jeton, enrôlement, garanties, exposition, réplicas) | `docs/advanced/architecture/mcp-server` |

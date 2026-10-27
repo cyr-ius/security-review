@@ -18,6 +18,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller), unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | none |
 | `/api/health` | the web interface, which checks the liveness of the API at load (tells nothing about the version or the settings) | none |
 | `/api/favicon.svg` | icon of the web interface and of Swagger | none |
+| `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | the MCP hosts: [OAuth login](../mcp-oauth.md), only with `SECREVIEW_MCP_OAUTH_ENABLED=true` | none (PKCE; the approval goes through a web session) |
 | `/healthz` | probes (Docker `HEALTHCHECK`, Kubernetes) | none |
 
 The roles of the tokens are described in [Roles](../../usage/tokens.md), their
