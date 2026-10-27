@@ -23,7 +23,9 @@
 } @else if (settings.value(); as current) {
   <section class="card setting-card mb-4" aria-labelledby="language-title">
     <div class="card-body">
-      <h2 id="language-title" class="h5">{{ 'settings.languageTitle' | t }}</h2>
+      <h2 id="language-title" class="h5">
+        <i class="bi bi-translate me-2" aria-hidden="true"></i>{{ 'settings.languageTitle' | t }}
+      </h2>
       <p id="language-help" class="text-body-secondary small">
         {{ 'settings.languageHelpBefore' | t }} <code>report_language</code
         >{{ 'settings.languageHelpAfter' | t }}
@@ -174,7 +176,9 @@
   </section>
   <section class="card setting-card mb-4" aria-labelledby="proxy-title">
     <div class="card-body">
-      <h2 id="proxy-title" class="h5">{{ 'settings.proxyTitle' | t }}</h2>
+      <h2 id="proxy-title" class="h5">
+        <i class="bi bi-router me-2" aria-hidden="true"></i>{{ 'settings.proxyTitle' | t }}
+      </h2>
       <p id="proxy-help" class="text-body-secondary small">
         {{ 'settings.proxyHelp' | t }}
       </p>
