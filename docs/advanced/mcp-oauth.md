@@ -14,7 +14,15 @@ with `SECREVIEW_PERSONAL_MCP_TOKENS=false` once every host logs in with OAuth.
 
 ## Enabling it
 
-On the **Controller server** only:
+In the web interface, an administrator with the `settings.manage` permission enters the public
+URL of the MCP endpoint in the **MCP clients (OAuth login)** section of the **Tokens** screen and
+turns on the **OAuth login enabled** switch. The Controller server URL must be known (variable or
+**General** settings). The change applies at once, with no restart; turning the login off asks
+for confirmation and revokes every grant. Each change is recorded in the audit log
+(`mcp_oauth.changed`).
+
+Or with variables, on the **Controller server** only (they then take precedence, and the screen
+shows them locked):
 
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
@@ -22,11 +30,12 @@ SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # public URL of the MCP e
 SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http on localhost only)
 ```
 
-At start, the Controller server stores `SECREVIEW_MCP_URL` in the database; the MCP server reads it
-there (within 30 seconds), as it reads the Controller server URL: it needs no new variable. Unset
-`SECREVIEW_MCP_OAUTH_ENABLED` and restart the Controller server to turn it off: it then revokes every
-grant, so that the tokens already issued stop at once. The issuer is fixed at
-start: after a change of the Controller server URL in **General**, restart the Controller server.
+The Controller server stores the URL of the MCP endpoint in the database (at start, or when it is
+changed in the web interface); the MCP server reads it there (within 30 seconds), as it reads the
+Controller server URL: it needs no new variable. Unset `SECREVIEW_MCP_OAUTH_ENABLED` and restart the
+Controller server to turn it off: it then revokes every grant, so that the tokens already issued
+stop at once. The OAuth routes follow the settings at each request: a change of the Controller
+server URL in **General** changes the issuer with no restart.
 
 Behind a reverse proxy, publish these public paths:
 
@@ -110,7 +119,7 @@ presented again (a copy, maybe stolen) revokes the whole grant: the host must lo
 
 ## Connected clients
 
-**My account** lists the **Connected MCP clients** of the user (name given by the client, dates
+As soon as the login is on, **My account** lists the **Connected MCP clients** of the user (name given by the client, dates
 of approval, of last use and of expiry) and revokes them: the tokens stop working at once.
 Deleting a user deletes its clients. A user keeps at most 20 clients; beyond, the oldest is
 revoked.
@@ -121,8 +130,13 @@ With the `tokens.manage` permission, the **Tokens** screen shows a **MCP clients
 section while the login is on: the settings in use (MCP endpoint, accepted redirects, token
 lifetimes, number of clients), every approved client with its user, and every registered client.
 **Revoke** cuts one user of a client; **Delete** removes a client with all its grants, and the
-client must register again. The same is available in the REST API: `GET /api/v1/oauth/clients`,
-`DELETE /api/v1/oauth/grants/{id}`, `DELETE /api/v1/oauth/clients/{client_id}`.
+client must register again. With `settings.manage` too, the section is always shown, with the
+**OAuth login enabled** switch and the **MCP endpoint** field (see [Enabling it](#enabling-it)).
+The same is available in the REST API: `GET /api/v1/oauth/clients`,
+`DELETE /api/v1/oauth/grants/{id}`, `DELETE /api/v1/oauth/clients/{client_id}`, and
+`PUT /api/v1/oauth/settings` (`settings.manage`) with `{"enabled": true, "mcp_url": "…"}`: a field
+left out is unchanged, `null` deletes the value set here; a value whose variable is set is
+refused (422).
 
 ## Registered clients
 

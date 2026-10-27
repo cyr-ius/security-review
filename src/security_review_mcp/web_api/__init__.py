@@ -13,7 +13,9 @@ import base64
 import hashlib
 import logging
 import re
+import threading
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, Request, status
 from fastapi.concurrency import run_in_threadpool
@@ -24,14 +26,15 @@ from mcp.server.auth.handlers.metadata import MetadataHandler
 from mcp.server.auth.routes import build_metadata, cors_middleware, create_auth_routes
 from mcp.server.auth.settings import ClientRegistrationOptions, RevocationOptions
 from pydantic import AnyHttpUrl, ConfigDict, TypeAdapter
+from starlette.datastructures import URLPath
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from starlette.routing import BaseRoute, Route
-from starlette.types import Scope
+from starlette.routing import BaseRoute, Match, NoMatchFound, Route
+from starlette.types import Receive, Scope, Send
 
 from .. import __version__, app_settings
 from ..auth import oauth_server, oidc, rate_limit
-from ..config import get_settings, secret_value
+from ..config import Settings, get_settings, secret_value
 from ..http_server import (
     API_HEALTH_PATH,
     DOCS_ASSETS_PREFIX,
@@ -41,6 +44,7 @@ from ..http_server import (
     LOOPBACK_HOSTS,
     METRICS_PATH,
     OAUTH_METADATA_PATH,
+    OAUTH_PATHS,
     OPENAPI_PATH,
     BodyLimit,
 )
@@ -68,6 +72,7 @@ __all__ = [
     "BUNDLED_UI_DIR",
     "FAVICON",
     "Identity",
+    "OAuthRoutes",
     "OidcLogins",
     "SinglePageApp",
     "create_app",
@@ -171,7 +176,7 @@ def resolve_ui_dir(configured: str | None) -> Path | None:
 # ── Application ──────────────────────────────────────────────────────────────
 
 
-def oauth_routes_of(issuer: str | None) -> list[BaseRoute]:
+def oauth_routes_of(issuer: str | None, settings: Settings | None = None) -> list[BaseRoute]:
     """Routes of the OAuth authorization server of the MCP clients (see oauth_server): those of
     the MCP SDK, at the root of the controller URL, its issuer. Every client is public (PKCE)
     with the single ``mcp`` scope; registration and revocation are served.
@@ -182,7 +187,7 @@ def oauth_routes_of(issuer: str | None) -> list[BaseRoute]:
     """
     if issuer is None:
         raise ValueError(
-            "SECREVIEW_MCP_OAUTH_ENABLED needs the public URL of the controller: set "
+            "the OAuth login of the MCP clients needs the public URL of the controller: set "
             "SECREVIEW_CONTROLLER_URL"
         )
     # RFC 8414 compares the issuer as a string: no slash added to a URL without path
@@ -195,7 +200,7 @@ def oauth_routes_of(issuer: str | None) -> list[BaseRoute]:
     )
     revocation = RevocationOptions(enabled=True)
     routes = create_auth_routes(
-        oauth_server.OAuthProvider(issuer),
+        oauth_server.OAuthProvider(issuer, settings),
         url,
         client_registration_options=registration,
         revocation_options=revocation,
@@ -213,6 +218,69 @@ def oauth_routes_of(issuer: str | None) -> list[BaseRoute]:
         served,
         *(route for route in routes if getattr(route, "path", None) != OAUTH_METADATA_PATH),
     ]
+
+
+class OAuthRoutes(BaseRoute):
+    """The OAuth authorization server of the MCP clients (see oauth_routes_of), following the
+    effective settings: SECREVIEW_MCP_OAUTH_ENABLED and SECREVIEW_MCP_URL, or the values stored
+    in the web interface (see app_settings.set_mcp_oauth). They are read at each OAuth request
+    and the routes rebuilt when they change, so that every replica applies a change at once;
+    404 while the login is off."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._key: tuple[str, Settings] | None = None
+        self._routes: list[BaseRoute] | None = None
+        # Settings refused by oauth_routes_of, logged once
+        self._refused: tuple[str | None, Settings] | None = None
+
+    def current(self) -> list[BaseRoute] | None:
+        """Routes of the effective settings, or None while the login is off."""
+        settings = app_settings.effective_settings(get_settings())
+        if not settings.mcp_oauth_enabled:
+            return None
+        issuer = app_settings.controller_url()
+        with self._lock:
+            if self._key == (issuer, settings):
+                return self._routes
+            if self._refused == (issuer, settings):
+                return None
+            try:
+                self._routes = oauth_routes_of(issuer, settings)
+            except ValueError as exc:
+                logger.error("OAuth login of the MCP clients off, invalid settings: %s", exc)
+                self._routes, self._key, self._refused = None, None, (issuer, settings)
+                return None
+            self._key, self._refused = (issuer, settings), None  # type: ignore[assignment]
+            logger.info("OAuth login of the MCP clients on for %s", settings.mcp_url)
+            return self._routes
+
+    def matches(self, scope: Scope) -> tuple[Match, Scope]:
+        """Claim the OAuth paths; whether the login is on is read in handle (database)."""
+        if scope["type"] == "http" and scope["path"] in OAUTH_PATHS:
+            return Match.FULL, {}
+        return Match.NONE, {}
+
+    def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
+        raise NoMatchFound(name, path_params)
+
+    async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Serve the request with the route of the current settings; 404 while off."""
+        routes = await run_in_threadpool(self.current) or []
+        partial: tuple[BaseRoute, Scope] | None = None
+        for route in routes:
+            match, child = route.matches(scope)
+            if match is Match.FULL:
+                scope.update(child)
+                await route.handle(scope, receive, send)
+                return
+            if match is Match.PARTIAL and partial is None:
+                partial = (route, child)
+        if partial is not None:
+            scope.update(partial[1])
+            await partial[0].handle(scope, receive, send)
+            return
+        await JSONResponse({"detail": "Not Found"}, status.HTTP_404_NOT_FOUND)(scope, receive, send)
 
 
 def create_app(
@@ -261,8 +329,12 @@ def create_app(
     if settings.ci_client_download_enabled:
         app.include_router(ci_client_routes.router)
 
-    if settings.mcp_oauth_enabled:
-        app.router.routes.extend(oauth_routes_of(app_settings.controller_url()))
+    app.state.oauth = OAuthRoutes()
+    effective = app_settings.effective_settings(settings)
+    if effective.mcp_oauth_enabled:
+        # Invalid settings stop the start; those stored later are checked when they are stored
+        oauth_routes_of(app_settings.controller_url(), effective)
+    app.router.routes.append(app.state.oauth)
 
     @app.get(HEALTH_PATH, include_in_schema=False)
     async def healthz() -> HealthStatus:

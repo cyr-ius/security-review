@@ -40,6 +40,7 @@ exists exactly when the change was committed.
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** screen |
 | `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, by the client (`/revoke`), or with its user |
 | `oauth.refresh_reused` | A refresh token already replaced is presented again: the grant is revoked |
+| `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface (turning it off also records the revocation of each grant) |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `project` and its name), the project when there is one, and details as JSON. The actor

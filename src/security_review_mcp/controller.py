@@ -76,16 +76,16 @@ def serve(argv: list[str]) -> None:
         app_settings.sync_controller_url(settings)
         app_settings.sync_mcp_oauth(settings)
         app_settings.sync_personal_mcp_tokens(settings)
-        if not settings.mcp_oauth_enabled and (
-            revoked := oauth_server.revoke_all_grants("environment")
-        ):
+        # SECREVIEW_MCP_OAUTH_ENABLED, or the value stored in the web interface
+        oauth_enabled = app_settings.effective_settings(settings).mcp_oauth_enabled
+        if not oauth_enabled and (revoked := oauth_server.revoke_all_grants("environment")):
             logger.warning("OAuth login of the MCP clients off: %d grants revoked", revoked)
         if not settings.personal_mcp_tokens:
             if revoked := token_store.revoke_personal_mcp_tokens("environment"):
                 logger.warning("Personal MCP tokens off: %d tokens revoked", revoked)
-            if not settings.mcp_oauth_enabled:
+            if not oauth_enabled:
                 logger.warning(
-                    "SECREVIEW_PERSONAL_MCP_TOKENS=false without SECREVIEW_MCP_OAUTH_ENABLED: the "
+                    "SECREVIEW_PERSONAL_MCP_TOKENS=false without the OAuth login: the "
                     "developers can no longer connect their MCP client by themselves"
                 )
         store = token_store.DatabaseTokenStore(include_users=True)

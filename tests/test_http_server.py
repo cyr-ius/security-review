@@ -213,8 +213,14 @@ def test_only_mcp_clients_without_a_token_reach_the_enrollment_server():
 
 
 def test_with_the_oauth_login_a_client_without_a_token_is_sent_to_the_controller():
-    token_store.create_token("ops", Role.ADMIN)
     oauth = http_server.OAuthResource("https://mcp.example/mcp", "https://secreview.example")
+    # Not open on the loopback interface while no token exists: the login issues the tokens
+    opened = http_server.build_mcp_app(
+        server.mcp, "127.0.0.1", STORE, allow_open=True, oauth=lambda: oauth
+    )
+    with TestClient(opened) as client:
+        assert client.post("/mcp", headers=bearer("x" * 40)).status_code == 401
+    token_store.create_token("ops", Role.ADMIN)
     app = http_server.build_mcp_app(
         server.mcp, "127.0.0.1", STORE, server.enrollment_mcp, oauth=lambda: oauth
     )

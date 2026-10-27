@@ -68,7 +68,8 @@ another. It cannot be rotated: revoke it and create a new one.
 With the [OAuth login of MCP clients](../advanced/mcp-oauth.md), the MCP agent needs no personal
 token: the clients you approved are listed in **My account** > **Connected MCP clients**, where
 you revoke them. An administrator sees and revokes every client in the **MCP clients (OAuth
-login)** section of the **Tokens** screen.
+login)** section of the **Tokens** screen, where the login is also turned on or off and its MCP
+endpoint set.
 
 ### Personal MCP and CI tokens
 

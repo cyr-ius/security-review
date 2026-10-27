@@ -381,9 +381,14 @@ class BearerAuthMiddleware:
             return
 
         # Without any token the controller answers 503 and an open MCP server lets the request
-        # through; a closed MCP server (the default) goes on and asks for a token
+        # through; a closed MCP server (the default) goes on and asks for a token. With the
+        # OAuth login on, the MCP server is never open: its clients get tokens by logging in
         open_check = (self.web and not self.require_auth) or self.allow_open
-        if open_check and not await self.has_tokens():
+        if (
+            open_check
+            and not await self.has_tokens()
+            and (self.web or await self.oauth_resource() is None)
+        ):
             if self.web:
                 await _send_error(
                     send,

@@ -4,11 +4,11 @@ A stored value applies when its variable is not set, for both processes since th
 database: the language of the review reports (read by the MCP server when it builds a review
 prompt), the public URL of the controller (read by the MCP server for the clients without a
 token, and by the connectors; SECREVIEW_CONTROLLER_URL set on the controller is copied here at
-start, see sync_controller_url; the MCP server reads it there only), the proxy of the outgoing
-connections, the single sign-on settings and the syslog server of the audit log (read by the
-controller, see effective_settings). A variable that is set (environment or ``.env`` file)
-always wins: the web interface cannot change it, and a value stored before is ignored (see
-env_set).
+start, see sync_controller_url; the MCP server reads it there only), the OAuth login of the MCP
+clients (see set_mcp_oauth), the proxy of the outgoing connections, the single sign-on settings
+and the syslog server of the audit log (read by the controller, see effective_settings). A
+variable that is set (environment or ``.env`` file) always wins: the web interface cannot change
+it, and a value stored before is ignored (see env_set).
 
 The proxy URL and the OIDC client secret are secrets: they are stored as given, but never
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
@@ -18,6 +18,7 @@ syslog modules of the controller are imported in the functions that use them, ne
 (tests/test_server.py checks that the MCP server does not load them).
 """
 
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -27,6 +28,7 @@ from sqlmodel import Session, select
 from .config import (
     Settings,
     check_controller_url,
+    check_mcp_url,
     check_report_language,
     get_settings,
     web_ui_url,
@@ -42,6 +44,10 @@ CONTROLLER_URL = "controller_url"
 # Key of the URL of the MCP endpoint while the OAuth login of the MCP clients is enabled (see
 # sync_mcp_oauth): the MCP server then answers a client without a token with a 401 that starts it
 MCP_OAUTH_RESOURCE = "mcp_oauth_resource"
+# Keys of the OAuth login settings set in the web interface, also the names of their Settings
+# fields (see set_mcp_oauth)
+MCP_OAUTH_ENABLED = "mcp_oauth_enabled"
+MCP_URL = "mcp_url"
 # Key stored ("false") while SECREVIEW_PERSONAL_MCP_TOKENS is false (see sync_personal_mcp_tokens):
 # the MCP server then no longer tells a client without a valid token to create one
 PERSONAL_MCP_TOKENS = "personal_mcp_tokens"
@@ -61,7 +67,7 @@ def env_set(settings: Settings, field: str) -> bool:
     """True when the variable of a Settings field is set (environment or ``.env`` file): it then
     wins over the value stored in the web interface. An empty proxy or syslog address variable
     counts as unset, as an empty SECREVIEW_CONTROLLER_URL."""
-    if field in (PROXY, NO_PROXY, SYSLOG_ADDRESS, CONTROLLER_URL):
+    if field in (PROXY, NO_PROXY, SYSLOG_ADDRESS, CONTROLLER_URL, MCP_URL):
         return getattr(settings, field) is not None
     return field in settings.model_fields_set
 
@@ -199,21 +205,131 @@ def mcp_oauth_resource() -> str | None:
         return row.value if row is not None else None
 
 
+def _mcp_oauth_overrides(stored: dict[str, str]) -> dict[str, Any]:
+    """Stored settings of the OAuth login, keyed by Settings field."""
+    overrides: dict[str, Any] = {}
+    if MCP_OAUTH_ENABLED in stored:
+        overrides[MCP_OAUTH_ENABLED] = stored[MCP_OAUTH_ENABLED] == "true"
+    if MCP_URL in stored:
+        overrides[MCP_URL] = stored[MCP_URL]
+    return overrides
+
+
+def _oauth_resource_of(effective: Settings) -> str | None:
+    """URL published for the MCP server (MCP_OAUTH_RESOURCE): the MCP endpoint while the login
+    is on, None otherwise.
+
+    Raises:
+        ValueError: If the login is on without the URL of the MCP endpoint or of the controller,
+            its issuer.
+    """
+    if not effective.mcp_oauth_enabled:
+        return None
+    if not effective.mcp_url:
+        raise ValueError("the OAuth login of the MCP clients needs the URL of the MCP endpoint")
+    if controller_url() is None:
+        raise ValueError(
+            "the OAuth login of the MCP clients needs the public URL of the controller: set "
+            "SECREVIEW_CONTROLLER_URL or the Controller server address in the settings"
+        )
+    return effective.mcp_url
+
+
 def sync_mcp_oauth(settings: Settings | None = None) -> None:
-    """Store SECREVIEW_MCP_URL while SECREVIEW_MCP_OAUTH_ENABLED is set, remove it otherwise
-    (controller start): the MCP server follows the controller without a variable of its own.
+    """Store the URL of the MCP endpoint while the OAuth login is on (SECREVIEW_MCP_OAUTH_ENABLED
+    or the web interface), remove it otherwise (controller start): the MCP server follows the
+    controller without a variable of its own.
 
     Raises:
         ValueError: If OAuth is enabled while the URL of the controller, its issuer, is unknown.
     """
+    effective = effective_settings(settings)
+    _write({MCP_OAUTH_RESOURCE: _oauth_resource_of(effective)}, ENV_ACTOR)
+
+
+def set_mcp_oauth(
+    values: dict[str, Any],
+    actor: str,
+    settings: Settings | None = None,
+    check: Callable[[str, Settings], object] | None = None,
+) -> bool:
+    """Store the settings of the OAuth login of the MCP clients: ``enabled`` (bool) and
+    ``mcp_url`` (URL of the MCP endpoint); None (or an empty URL) removes the stored value, the
+    names left out are unchanged. The URL published for the MCP server follows, and the change is
+    recorded in the audit log, in the same transaction. Turning the login off revokes every grant,
+    as a controller start with the login off does. ``check`` (the controller) is called with the
+    issuer and the effective settings before a login turned on is stored.
+
+    Return whether the login is on afterwards.
+
+    Raises:
+        ValueError: If a name is unknown, a value is invalid, its variable is set
+            (SECREVIEW_MCP_OAUTH_ENABLED, SECREVIEW_MCP_URL), if the login would be on without
+            the URL of the MCP endpoint or of the controller, or if ``check`` refuses the
+            settings; nothing is stored then.
+    """
     settings = settings or get_settings()
-    resource = settings.mcp_url if settings.mcp_oauth_enabled else None
-    if resource is not None and controller_url() is None:
-        raise ValueError(
-            "SECREVIEW_MCP_OAUTH_ENABLED needs the public URL of the controller: set "
-            "SECREVIEW_CONTROLLER_URL"
+    changes: dict[str, str | None] = {}
+    for name, value in values.items():
+        if name == "enabled":
+            if value is not None:
+                _check_not_env(settings, MCP_OAUTH_ENABLED, "SECREVIEW_MCP_OAUTH_ENABLED")
+                if not isinstance(value, bool):
+                    raise ValueError("enabled must be true or false")
+                value = "true" if value else "false"
+            changes[MCP_OAUTH_ENABLED] = value
+        elif name == "mcp_url":
+            url = check_mcp_url(value) if value is not None else None
+            if url is not None:
+                _check_not_env(settings, MCP_URL, "SECREVIEW_MCP_URL")
+            changes[MCP_URL] = url
+        else:
+            raise ValueError(f"unknown OAuth setting: {name}")
+    if not changes:
+        return effective_settings(settings).mcp_oauth_enabled
+    stored = _stored()
+    for key, value in changes.items():
+        if value is None:
+            stored.pop(key, None)
+        else:
+            stored[key] = value
+    effective = settings.model_copy(update=_overrides(stored, settings))
+    resource = _oauth_resource_of(effective)
+    if resource is not None and check is not None:
+        check(controller_url(), effective)  # type: ignore[arg-type]
+    with session_scope() as session:
+        _apply(session, changes | {MCP_OAUTH_RESOURCE: resource}, actor)
+        audit.record(
+            session,
+            audit.AuditAction.MCP_OAUTH_CHANGED,
+            actor,
+            "setting",
+            "mcp_oauth",
+            details={key.removeprefix("mcp_oauth_"): value for key, value in changes.items()},
         )
-    _write({MCP_OAUTH_RESOURCE: resource}, ENV_ACTOR)
+    if not effective.mcp_oauth_enabled:
+        from .auth.oauth_server import revoke_all_grants  # controller only
+
+        revoke_all_grants(actor)
+    return effective.mcp_oauth_enabled
+
+
+def describe_mcp_oauth(settings: Settings | None = None) -> dict:
+    """Describe the settings of the OAuth login that the web interface may change: stored
+    values, variables (and whether they are set) and effective values."""
+    settings = settings or get_settings()
+    raw = _stored()
+    stored = _mcp_oauth_overrides(raw)
+    effective = settings.model_copy(update=_overrides(raw, settings))
+    return {
+        name: {
+            "value": stored.get(key),
+            "env": getattr(settings, key),
+            "env_set": env_set(settings, key),
+            "effective": getattr(effective, key),
+        }
+        for name, key in (("enabled", MCP_OAUTH_ENABLED), ("mcp_url", MCP_URL))
+    }
 
 
 def personal_mcp_tokens() -> bool:
@@ -315,8 +431,14 @@ def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Setti
 
 
 def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
-    """Every stored value (controller URL, proxy, OIDC and syslog) whose variable is not set."""
-    overrides = _proxy_overrides(stored) | _oidc_overrides(stored) | _syslog_overrides(stored)
+    """Every stored value (controller URL, OAuth login, proxy, OIDC and syslog) whose variable is
+    not set."""
+    overrides = (
+        _proxy_overrides(stored)
+        | _oidc_overrides(stored)
+        | _syslog_overrides(stored)
+        | _mcp_oauth_overrides(stored)
+    )
     if CONTROLLER_URL in stored:
         overrides[CONTROLLER_URL] = stored[CONTROLLER_URL]
     return {key: value for key, value in overrides.items() if not env_set(settings, key)}

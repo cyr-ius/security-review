@@ -42,7 +42,9 @@ fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](archite
 toute autre requête reçoit `401`, quelle que soit la valeur Bearer (un avertissement est
 journalisé au démarrage). `/mcp` n'est ouvert dans ce cas que si le serveur écoute sur localhost
 (`127.0.0.1`, `::1`) ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, à réserver aux tests sur un
-réseau isolé : dès qu'un jeton existe, il est exigé dans tous les cas. `token revoke` avertit sur
+réseau isolé : dès qu'un jeton existe, il est exigé dans tous les cas. Avec la
+[connexion OAuth](mcp-oauth.md) active, `/mcp` n'est jamais ouvert : un client sans jeton reçoit
+le `401` qui lance la connexion. `token revoke` avertit sur
 stderr quand il supprime le dernier jeton.
 
 ## Expiration et renouvellement des jetons

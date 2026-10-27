@@ -65,6 +65,8 @@ class Identity(BaseModel):
     risk_acceptance_min_severity: Severity | None = None
     # A web user may create a personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS)
     personal_mcp_tokens: bool = True
+    # The OAuth login of the MCP clients is on (variable or web interface)
+    mcp_oauth: bool = False
     version: str
 
 
@@ -814,12 +816,55 @@ class OAuthGrantAdmin(OAuthGrantPublic):
     username: str
 
 
+class OAuthEnabledSetting(BaseModel):
+    """Whether the OAuth login is on: stored value, variable, whether it is set (it then takes
+    precedence), effective value."""
+
+    value: bool | None
+    env: bool
+    env_set: bool
+    effective: bool
+
+
+class OAuthUrlSetting(BaseModel):
+    """URL of the MCP endpoint: stored value, variable, whether it is set (it then takes
+    precedence), effective value."""
+
+    value: str | None
+    env: str | None
+    env_set: bool
+    effective: str | None
+
+
+class OAuthSettings(BaseModel):
+    """Settings of the OAuth login of the MCP clients that the web interface may change."""
+
+    enabled: OAuthEnabledSetting
+    mcp_url: OAuthUrlSetting
+
+
+class OAuthSettingsUpdate(BaseModel):
+    """Body of PUT /oauth/settings: OAuth login of the MCP clients.
+
+    A field left out is unchanged, ``null`` (or an empty URL) removes the stored value. A value
+    whose variable is set (SECREVIEW_MCP_OAUTH_ENABLED, SECREVIEW_MCP_URL) is refused: the
+    variable takes precedence. The login needs the URL of the MCP endpoint and that of the
+    controller; turning it off revokes every grant.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    mcp_url: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)
+
+
 class OAuthOverview(BaseModel):
-    """The OAuth login of the MCP clients: its settings (variables of the controller), the
-    registered clients and every grant (never a token)."""
+    """The OAuth login of the MCP clients: its settings, the registered clients and every grant
+    (never a token)."""
 
     enabled: bool
     mcp_url: str | None = None
+    settings: OAuthSettings
     redirect_hosts: list[str]
     redirect_schemes: list[str]
     access_minutes: int

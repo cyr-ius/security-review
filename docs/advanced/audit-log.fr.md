@@ -40,6 +40,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur l'écran **Connecter un client MCP** |
 | `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, par le client (`/revoke`), ou avec son utilisateur |
 | `oauth.refresh_reused` | Un jeton de rafraîchissement déjà remplacé est présenté à nouveau : l'autorisation est révoquée |
+| `mcp_oauth.changed` | La [connexion OAuth](mcp-oauth.md) est activée ou désactivée, ou son point d'accès MCP changé, dans l'interface web (la désactivation enregistre aussi la révocation de chaque autorisation) |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `project` et son nom), le projet quand il y en a un, et des détails en JSON.

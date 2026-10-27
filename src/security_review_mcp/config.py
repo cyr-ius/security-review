@@ -228,7 +228,8 @@ class Settings(BaseSettings):
     # starts the login in the browser instead of the enrollment server, and receives tokens that
     # act as a personal MCP token of the user who approved the client. Needs mcp_url and the
     # controller URL (variable or web interface); the controller stores mcp_url in the database
-    # at start, where the MCP server reads it (it needs no variable). Disabled by default.
+    # at start, where the MCP server reads it (it needs no variable). Disabled by default. Unset,
+    # an administrator may turn it on and set mcp_url in the web interface (Tokens screen).
     mcp_oauth_enabled: bool = False
     # Public URL of the MCP endpoint, e.g. https://mcp.example.com/mcp: the resource the OAuth
     # tokens are issued for (RFC 8707), announced by the MCP server (RFC 9728)

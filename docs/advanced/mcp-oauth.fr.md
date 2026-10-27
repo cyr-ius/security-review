@@ -15,7 +15,15 @@ hôtes se connectent par OAuth.
 
 ## Activation
 
-Sur le **serveur Controller** seulement :
+Dans l'interface web, un administrateur qui a la permission `settings.manage` saisit l'URL
+publique du point d'accès MCP dans la section **Clients MCP (connexion OAuth)** de l'écran
+**Jetons** et active l'interrupteur **Connexion OAuth activée**. L'URL du serveur Controller doit
+être connue (variable ou réglages **Général**). Le changement s'applique aussitôt, sans
+redémarrage ; la désactivation demande une confirmation et révoque toutes les autorisations.
+Chaque changement est enregistré dans le journal d'audit (`mcp_oauth.changed`).
+
+Ou par variables, sur le **serveur Controller** seulement (elles priment alors, et l'écran les
+affiche verrouillées) :
 
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
@@ -23,13 +31,13 @@ SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # URL publique du point d
 SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
 ```
 
-Au démarrage, le serveur Controller enregistre `SECREVIEW_MCP_URL` en base ; le serveur MCP l'y lit
-(sous 30 secondes), comme il y lit l'URL du serveur Controller : il n'a besoin d'aucune nouvelle
-variable. Retirez `SECREVIEW_MCP_OAUTH_ENABLED` et redémarrez le serveur Controller pour la désactiver :
-il révoque alors toutes les autorisations, pour que les jetons déjà émis cessent aussitôt de
-fonctionner.
-L'issuer est fixé au démarrage : après un changement de l'URL du serveur Controller dans **Général**,
-redémarrez le serveur Controller.
+Le serveur Controller enregistre l'URL du point d'accès MCP en base (au démarrage, ou quand elle
+est changée dans l'interface web) ; le serveur MCP l'y lit (sous 30 secondes), comme il y lit
+l'URL du serveur Controller : il n'a besoin d'aucune nouvelle variable. Retirez
+`SECREVIEW_MCP_OAUTH_ENABLED` et redémarrez le serveur Controller pour la désactiver : il révoque
+alors toutes les autorisations, pour que les jetons déjà émis cessent aussitôt de fonctionner.
+Les routes OAuth suivent les réglages à chaque requête : un changement de l'URL du serveur
+Controller dans **Général** change l'issuer sans redémarrage.
 
 Derrière un reverse proxy, publiez ces chemins publics :
 
@@ -115,7 +123,7 @@ l'hôte doit se reconnecter.
 
 ## Clients connectés
 
-**Mon compte** liste les **Clients MCP connectés** de l'utilisateur (nom donné par le client,
+Dès que la connexion est active, **Mon compte** liste les **Clients MCP connectés** de l'utilisateur (nom donné par le client,
 dates d'autorisation, de dernière utilisation et d'expiration) et permet de les révoquer : les
 jetons cessent aussitôt de fonctionner. Supprimer un utilisateur supprime ses clients. Un
 utilisateur garde au plus 20 clients ; au-delà, le plus ancien est révoqué.
@@ -127,8 +135,13 @@ Avec la permission `tokens.manage`, l'écran **Jetons** affiche une section **Cl
 MCP, redirections acceptées, durée des jetons, nombre de clients), chaque client autorisé avec
 son utilisateur, et chaque client enregistré. **Révoquer** coupe un utilisateur d'un client ;
 **Supprimer** retire un client avec toutes ses autorisations, et le client devra se
-réenregistrer. L'API REST offre la même chose : `GET /api/v1/oauth/clients`,
-`DELETE /api/v1/oauth/grants/{id}`, `DELETE /api/v1/oauth/clients/{client_id}`.
+réenregistrer. Avec aussi `settings.manage`, la section est toujours affichée, avec
+l'interrupteur **Connexion OAuth activée** et le champ **Point d'accès MCP** (voir
+[Activation](#activation)). L'API REST offre la même chose : `GET /api/v1/oauth/clients`,
+`DELETE /api/v1/oauth/grants/{id}`, `DELETE /api/v1/oauth/clients/{client_id}`, et
+`PUT /api/v1/oauth/settings` (`settings.manage`) avec `{"enabled": true, "mcp_url": "…"}` : un
+champ omis est inchangé, `null` supprime la valeur définie ici ; une valeur dont la variable est
+définie est refusée (422).
 
 ## Clients enregistrés
 

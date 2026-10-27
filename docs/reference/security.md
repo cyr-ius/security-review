@@ -20,7 +20,8 @@
   [tokens restricted to a project](../advanced/bearer-tokens.md#tokens-restricted-to-a-project)).
   While no token exists, the MCP server stays closed (fail closed: only the enrollment server,
   which has no tool, is reachable),
-  unless it listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true`.
+  unless it listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true` and the
+  [OAuth login](../advanced/mcp-oauth.md) is off.
   If it does not listen on localhost, a warning is logged when authentication or TLS is missing.
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
   operator, signed by a [certificate authority](../advanced/tls.md#certificate-authority).

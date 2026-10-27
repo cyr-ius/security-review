@@ -26,6 +26,8 @@ export const oauth = defineMessages({
     'oauth.client': 'Client',
     'oauth.lastUsed': 'Last used',
     'oauth.neverUsed': 'Never',
+    'oauth.noGrantsMine':
+      'No client approved yet. Configure your MCP client without a token: it opens the browser so that you approve it here.',
     'oauth.confirmRevoke': 'Revoke the access of {client}?',
     'oauth.revoke': 'Revoke',
     'oauth.revokeClient': 'Revoke {client}',
@@ -34,9 +36,18 @@ export const oauth = defineMessages({
     'oauth.loadError': 'Could not load the connected MCP clients.',
     'oauth.adminTitle': 'MCP clients (OAuth login)',
     'oauth.adminHelp':
-      'Clients that log in through the browser instead of a personal token. Each approved client acts as a personal MCP token of the user who approved it. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The settings are variables of the Controller server.',
+      'Clients that log in through the browser instead of a personal token. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The other settings are variables of the Controller server.',
     'oauth.mcpUrl': 'MCP endpoint',
-    'oauth.mcpUrlHint': '(enter the public address of your MCP server)',
+    'oauth.enabled': 'OAuth login enabled',
+    'oauth.mcpUrlHelp':
+      'Enter the public address of your MCP server (e.g. https://mcp.example.com/mcp).',
+    'oauth.off':
+      'The OAuth login is off: the MCP clients without a token are sent to the enrollment server.',
+    'oauth.confirmOff': 'Turn the OAuth login off? Every approved client loses its access at once.',
+    'oauth.turnedOn': 'OAuth login enabled.',
+    'oauth.turnedOff': 'OAuth login disabled: every access revoked.',
+    'oauth.urlSaved': 'MCP endpoint saved.',
+    'oauth.urlMissing': 'Enter the address of the MCP endpoint (http or https).',
     'oauth.redirects': 'Accepted redirects',
     'oauth.loopback': 'loopback interface',
     'oauth.lifetimes': 'Token lifetimes',
@@ -80,6 +91,8 @@ export const oauth = defineMessages({
     'oauth.client': 'Client',
     'oauth.lastUsed': 'Dernière utilisation',
     'oauth.neverUsed': 'Jamais',
+    'oauth.noGrantsMine':
+      'Aucun client autorisé pour l’instant. Configurez votre client MCP sans jeton : il ouvre le navigateur pour que vous l’autorisiez ici.',
     'oauth.confirmRevoke': 'Révoquer l’accès de {client} ?',
     'oauth.revoke': 'Révoquer',
     'oauth.revokeClient': 'Révoquer {client}',
@@ -88,9 +101,19 @@ export const oauth = defineMessages({
     'oauth.loadError': 'Impossible de charger les clients MCP connectés.',
     'oauth.adminTitle': 'Clients MCP (connexion OAuth)',
     'oauth.adminHelp':
-      'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Chaque client autorisé agit comme un jeton MCP personnel de l’utilisateur qui l’a autorisé. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les réglages sont des variables du serveur Controller.',
+      'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les autres réglages sont des variables du serveur Controller.',
     'oauth.mcpUrl': 'Point d’accès MCP',
-    'oauth.mcpUrlHint': "(saisissez l'adresse publique de votre serveur MCP)",
+    'oauth.enabled': 'Connexion OAuth activée',
+    'oauth.mcpUrlHelp':
+      'Saisissez l’adresse publique de votre serveur MCP (ex. https://mcp.example.com/mcp).',
+    'oauth.off':
+      'La connexion OAuth est désactivée : les clients MCP sans jeton sont orientés vers le serveur d’enrôlement.',
+    'oauth.confirmOff':
+      'Désactiver la connexion OAuth ? Tous les clients autorisés perdent leur accès immédiatement.',
+    'oauth.turnedOn': 'Connexion OAuth activée.',
+    'oauth.turnedOff': 'Connexion OAuth désactivée : tous les accès sont révoqués.',
+    'oauth.urlSaved': 'Point d’accès MCP enregistré.',
+    'oauth.urlMissing': 'Saisissez l’adresse du point d’accès MCP (http ou https).',
     'oauth.redirects': 'Redirections acceptées',
     'oauth.loopback': 'interface loopback',
     'oauth.lifetimes': 'Durée des jetons',
@@ -134,6 +157,8 @@ export const oauth = defineMessages({
     'oauth.client': 'Cliente',
     'oauth.lastUsed': 'Último uso',
     'oauth.neverUsed': 'Nunca',
+    'oauth.noGrantsMine':
+      'Ningún cliente autorizado todavía. Configure su cliente MCP sin token: abre el navegador para que lo autorice aquí.',
     'oauth.confirmRevoke': '¿Revocar el acceso de {client}?',
     'oauth.revoke': 'Revocar',
     'oauth.revokeClient': 'Revocar {client}',
@@ -142,9 +167,19 @@ export const oauth = defineMessages({
     'oauth.loadError': 'No se pudieron cargar los clientes MCP conectados.',
     'oauth.adminTitle': 'Clientes MCP (inicio de sesión OAuth)',
     'oauth.adminHelp':
-      'Los clientes que inician sesión con el navegador en lugar de un token personal. Cada cliente autorizado actúa como un token MCP personal del usuario que lo autorizó. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los ajustes son variables del servidor Controller.',
+      'Los clientes que inician sesión con el navegador en lugar de un token personal. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los demás ajustes son variables del servidor Controller.',
     'oauth.mcpUrl': 'Punto de acceso MCP',
-    'oauth.mcpUrlHint': '(introduzca la dirección pública de su servidor MCP)',
+    'oauth.enabled': 'Inicio de sesión OAuth activado',
+    'oauth.mcpUrlHelp':
+      'Introduzca la dirección pública de su servidor MCP (p. ej. https://mcp.example.com/mcp).',
+    'oauth.off':
+      'El inicio de sesión OAuth está desactivado: los clientes MCP sin token se envían al servidor de inscripción.',
+    'oauth.confirmOff':
+      '¿Desactivar el inicio de sesión OAuth? Todos los clientes autorizados pierden su acceso de inmediato.',
+    'oauth.turnedOn': 'Inicio de sesión OAuth activado.',
+    'oauth.turnedOff': 'Inicio de sesión OAuth desactivado: todos los accesos revocados.',
+    'oauth.urlSaved': 'Punto de acceso MCP guardado.',
+    'oauth.urlMissing': 'Introduzca la dirección del punto de acceso MCP (http o https).',
     'oauth.redirects': 'Redirecciones aceptadas',
     'oauth.loopback': 'interfaz loopback',
     'oauth.lifetimes': 'Duración de los tokens',

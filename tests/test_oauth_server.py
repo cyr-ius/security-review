@@ -37,6 +37,12 @@ def controller(monkeypatch, tmp_path) -> TestClient:
     monkeypatch.setattr(settings, "mcp_url", MCP_URL)
     app_settings.set_controller_url(CONTROLLER, "test")
     app_settings.sync_mcp_oauth(settings)
+    return controller_app()
+
+
+def controller_app() -> TestClient:
+    """The controller as configured, with a developer ``dev`` who may create MCP tokens on
+    ``shop``."""
     make_user("dev", PASSWORD, group_ids=[group_for("mcp-user"), group_for("reader", ["shop"])])
     signer = oidc.SessionSigner("s" * 40)
     app = http_server.build_controller_app(
@@ -273,6 +279,47 @@ def test_secreview_token_max_days_bounds_the_whole_grant_not_each_refresh(contro
 def test_the_mcp_url_fits_in_the_www_authenticate_challenge(url):
     with pytest.raises(ValueError, match="ASCII"):
         check_mcp_url(url)
+
+
+def test_an_administrator_turns_the_oauth_login_on_and_off_in_the_web_interface():
+    app_settings.set_controller_url(CONTROLLER, "test")
+    client = controller_app()
+    admin = {"Authorization": f"Bearer {token_store.create_token('ops', Role.ADMIN)['token']}"}
+    assert register(client).status_code == 404
+
+    # On without the URL of the MCP endpoint: refused, nothing stored
+    missing = client.put("/api/v1/oauth/settings", json={"enabled": True}, headers=admin)
+    assert missing.status_code == 422
+    assert app_settings.mcp_oauth_resource() is None
+
+    on = client.put(
+        "/api/v1/oauth/settings", json={"enabled": True, "mcp_url": MCP_URL + "/"}, headers=admin
+    )
+    assert on.status_code == 200, on.text
+    assert on.json()["enabled"]["effective"] is True
+    assert app_settings.mcp_oauth_resource() == MCP_URL
+    # My account shows the section at once, before any client is approved
+    assert client.get("/api/v1/me", headers=session(client)).json()["mcp_oauth"] is True
+    access = log_in(client, register(client).json()["client_id"], session(client))
+
+    off = client.put("/api/v1/oauth/settings", json={"enabled": False}, headers=admin)
+    assert off.status_code == 200, off.text
+    assert app_settings.mcp_oauth_resource() is None
+    assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
+    assert register(client).status_code == 404
+    assert [event["action"] for event in audit.list_events()["events"]].count(
+        "mcp_oauth.changed"
+    ) == 2
+
+
+def test_the_oauth_login_set_by_its_variable_cannot_be_changed_in_the_web_interface(controller):
+    admin = {"Authorization": f"Bearer {token_store.create_token('ops', Role.ADMIN)['token']}"}
+
+    refused = controller.put("/api/v1/oauth/settings", json={"enabled": False}, headers=admin)
+
+    assert refused.status_code == 422
+    assert "SECREVIEW_MCP_OAUTH_ENABLED" in refused.json()["detail"]
+    assert register(controller).status_code == 201
 
 
 def test_a_tokens_manager_lists_revokes_and_deletes_every_client(controller):

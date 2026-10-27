@@ -20,7 +20,8 @@
   [jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)). Tant
   qu'aucun jeton n'existe, le serveur MCP reste fermé (seul le serveur d'enrôlement, sans aucun
   outil, est accessible), sauf
-  s'il écoute sur localhost ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`. Si l'écoute n'est pas sur
+  s'il écoute sur localhost ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true` et que la
+  [connexion OAuth](../advanced/mcp-oauth.md) est désactivée. Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
   serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
   l'opérateur, signé par une

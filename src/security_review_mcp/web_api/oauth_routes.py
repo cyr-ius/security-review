@@ -3,9 +3,10 @@
 The consent screen reads a pending request and approves or denies it, and My account lists and
 revokes the approved clients: only a logged-in web user reaches them (403 for a bearer token),
 so a token never approves a client. The Tokens screen lists every client and grant, revokes a
-grant and deletes a client, with ``tokens.manage``. The OAuth routes themselves
-(``/authorize``, ``/token``...) are those of the MCP SDK, mounted by create_app when
-SECREVIEW_MCP_OAUTH_ENABLED is set.
+grant and deletes a client, with ``tokens.manage``; turning the login on or off and setting the
+URL of the MCP endpoint needs ``settings.manage``. The OAuth routes themselves (``/authorize``,
+``/token``...) are those of the MCP SDK, served by create_app (OAuthRoutes) while the login is
+on (SECREVIEW_MCP_OAUTH_ENABLED or the web interface).
 """
 
 import logging
@@ -13,15 +14,18 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 
+from .. import app_settings
 from ..auth import oauth_server
 from ..config import get_settings
 from .auth_routes import LOGIN_HEADERS
 from .deps import (
     CurrentIdentity,
     Permission,
+    SettingsManager,
     TokensManager,
     actor_of,
     has_permission,
+    unprocessable,
     web_user_id,
 )
 from .schemas import (
@@ -30,6 +34,8 @@ from .schemas import (
     OAuthPendingRequest,
     OAuthRedirect,
     OAuthRequestRef,
+    OAuthSettings,
+    OAuthSettingsUpdate,
 )
 
 logger = logging.getLogger("security_review_mcp.web")
@@ -39,8 +45,16 @@ router = APIRouter(tags=["account"])
 
 def _enabled() -> None:
     """404 while the OAuth login of the MCP clients is disabled."""
-    if not get_settings().mcp_oauth_enabled:
+    if not app_settings.effective_settings(get_settings()).mcp_oauth_enabled:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "The OAuth login of MCP clients is off")
+
+
+def _overview() -> dict:
+    """The OAuth login as in effect, with the settings the web interface may change."""
+    settings = get_settings()
+    return oauth_server.overview(app_settings.effective_settings(settings)) | {
+        "settings": app_settings.describe_mcp_oauth(settings)
+    }
 
 
 @router.post("/oauth/request")
@@ -107,7 +121,34 @@ async def revoke_my_oauth_grant(
 @router.get("/oauth/clients")
 async def oauth_overview(_: TokensManager) -> OAuthOverview:
     """The OAuth login of the MCP clients: settings, registered clients and every grant."""
-    return await run_in_threadpool(oauth_server.overview)
+    return await run_in_threadpool(_overview)
+
+
+@router.put("/oauth/settings")
+async def set_oauth_settings(body: OAuthSettingsUpdate, identity: SettingsManager) -> OAuthSettings:
+    """Turn the OAuth login of the MCP clients on or off and set the URL of the MCP endpoint
+    (applied by the controller at the next OAuth request, by the MCP server within a minute).
+
+    Refused (422) for a value whose variable is set, or for a login on without the URL of the MCP
+    endpoint or of the controller. Turning the login off revokes every grant. The change is
+    recorded in the audit log.
+    """
+    from . import oauth_routes_of  # the package imports this module
+
+    values = body.model_dump(exclude_unset=True)
+    try:
+        enabled = await run_in_threadpool(
+            app_settings.set_mcp_oauth, values, actor_of(identity), None, oauth_routes_of
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info(
+        "OAuth login of the MCP clients %s by %s (%s changed)",
+        "on" if enabled else "off",
+        identity.client,
+        ", ".join(sorted(values)),
+    )
+    return OAuthSettings(**await run_in_threadpool(app_settings.describe_mcp_oauth))
 
 
 @router.delete("/oauth/grants/{grant_id}", status_code=status.HTTP_204_NO_CONTENT)

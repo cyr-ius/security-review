@@ -32,6 +32,8 @@ import {
   OAuthOverview,
   OAuthPendingRequest,
   OAuthRedirect,
+  OAuthSettings,
+  OAuthSettingsUpdate,
   OidcSettings,
   OidcSettingsUpdate,
   OidcTestResult,
@@ -376,6 +378,11 @@ export class ApiService {
   /** Every OAuth client and grant (tokens.manage). */
   oauthOverview(): Observable<OAuthOverview> {
     return this.http.get<OAuthOverview>(`${API_URL}/oauth/clients`);
+  }
+
+  /** Turn the OAuth login on or off and set the URL of the MCP endpoint (settings.manage). */
+  setOAuthSettings(values: OAuthSettingsUpdate): Observable<OAuthSettings> {
+    return this.http.put<OAuthSettings>(`${API_URL}/oauth/settings`, values);
   }
 
   revokeOAuthGrant(id: string): Observable<void> {

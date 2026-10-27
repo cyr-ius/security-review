@@ -42,7 +42,8 @@ client without a token only reaches the [enrollment server](architecture/mcp-ser
 any other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp`
 is only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
 `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, to keep for tests on an isolated network: as soon as a
-token exists, it is required in every case. `token revoke` warns on stderr when it deletes the
+token exists, it is required in every case. With the [OAuth login](mcp-oauth.md) on, `/mcp` is
+never open: a client without a token gets the `401` that starts the login. `token revoke` warns on stderr when it deletes the
 last token.
 
 ## Expiry and rotation of tokens

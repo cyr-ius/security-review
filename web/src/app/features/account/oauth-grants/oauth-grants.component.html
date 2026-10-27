@@ -1,6 +1,6 @@
 @if (grants.error()) {
   <div class="alert alert-danger mt-4" role="alert">{{ 'oauth.loadError' | t }}</div>
-} @else if ((grants.value() ?? []).length || message()) {
+} @else if (identity.value()?.mcp_oauth || (grants.value() ?? []).length || message()) {
   <section class="card card-body mt-4" aria-labelledby="oauth-grants-title">
     <h2 id="oauth-grants-title" class="h5">
       {{ 'oauth.grantsTitle' | t }} <app-help-link topic="oauthGrants" />
@@ -56,6 +56,8 @@
           </tbody>
         </table>
       </div>
+    } @else {
+      <p class="text-body-secondary small mb-0">{{ 'oauth.noGrantsMine' | t }}</p>
     }
   </section>
 }

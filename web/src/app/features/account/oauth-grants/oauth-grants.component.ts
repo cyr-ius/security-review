@@ -10,7 +10,8 @@ import { ApiService } from '../../../core/services/api.service';
 
 /**
  * MCP clients the logged-in user approved with the OAuth login (My account), each revocable.
- * Hidden while there is none (the OAuth login may be off).
+ * Shown while the login is on (read again at each visit: an administrator may turn it on at any
+ * time), or while the user still holds a client.
  */
 @Component({
   selector: 'app-oauth-grants',
@@ -22,6 +23,7 @@ export class OAuthGrantsComponent {
   private readonly i18n = inject(I18nService);
 
   readonly grants = rxResource({ stream: () => this.api.myOAuthGrants() });
+  readonly identity = rxResource({ stream: () => this.api.me() });
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
