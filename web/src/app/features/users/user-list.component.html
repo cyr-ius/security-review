@@ -36,6 +36,7 @@
 
 <section class="card card-body mb-4" aria-labelledby="user-form-title">
   <h2 id="user-form-title" class="h5">
+    <i class="bi bi-people me-2" aria-hidden="true"></i>
     @if (editing(); as user) {
       {{ 'users.editTitle' | t: { user: user.username } }}
     } @else {
@@ -174,7 +175,9 @@
 </section>
 
 <section class="card card-body mb-4" aria-labelledby="users-title">
-  <h2 id="users-title" class="h5">{{ 'users.accounts' | t }}</h2>
+  <h2 id="users-title" class="h5">
+    <i class="bi bi-people me-2" aria-hidden="true"></i>{{ 'users.accounts' | t }}
+  </h2>
   @if (users.error()) {
     <div class="alert alert-danger" role="alert">{{ 'users.loadError' | t }}</div>
   } @else if ((users.value() ?? []).length) {
@@ -316,7 +319,9 @@
 
 @if ((revoked.value() ?? []).length) {
   <section class="card card-body mb-4" aria-labelledby="revoked-title">
-    <h2 id="revoked-title" class="h5">{{ 'users.revokedTitle' | t }}</h2>
+    <h2 id="revoked-title" class="h5">
+      <i class="bi bi-people me-2" aria-hidden="true"></i>{{ 'users.revokedTitle' | t }}
+    </h2>
     <p class="text-body-secondary small">{{ 'users.revokedHelp' | t }}</p>
     <app-table-controls
       idPrefix="revoked-users"
