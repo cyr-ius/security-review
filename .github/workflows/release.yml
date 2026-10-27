@@ -29,16 +29,10 @@ jobs:
 
       # Pre-release when the tag carries a PEP 440 pre-release suffix (a, b, rc, dev)
       - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
-        run: |
-          FLAGS=()
-          if [[ "$TAG" =~ (a|b|rc|\.dev)[0-9]+$ ]]; then
-            FLAGS+=(--prerelease)
-          fi
-          gh release create "$TAG" dist/* \
-            --verify-tag \
-            --title "$TAG" \
-            --generate-notes \
-            "${FLAGS[@]}"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          generate_release_notes: true
+          prerelease: ${{ matches(inputs.tag, '(a|b|rc|\\.dev)[0-9]+$') }}
+          files: dist/*
