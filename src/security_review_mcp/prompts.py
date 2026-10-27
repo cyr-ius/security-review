@@ -415,8 +415,22 @@ creates a new personal MCP token the same way.
 """
 
 
-def build_enrollment_prompt(web_url: str | None) -> str:
-    """Prompt served instead of a review when the client sends no token: how to get one."""
+_ENROLLMENT_NO_PERSONAL_TOKEN = """\
+# MCP token required
+
+This security-review server needs a bearer token and the MCP client is connected without one. \
+The review cannot start before the user has a token. Do not try to review the code with this \
+server: its tools are not available. Personal MCP tokens are disabled on this server: tell the \
+user to ask an administrator for an MCP token, to add it to the MCP client configuration as the \
+header `Authorization: Bearer <token>`, then to reconnect and run the review again.
+"""
+
+
+def build_enrollment_prompt(web_url: str | None, personal_tokens: bool = True) -> str:
+    """Prompt served instead of a review when the client sends no token: how to get one (from an
+    administrator when the controller offers no personal MCP token)."""
+    if not personal_tokens:
+        return _ENROLLMENT_NO_PERSONAL_TOKEN
     return _ENROLLMENT.replace("{where}", f" ({web_url})" if web_url else "")
 
 

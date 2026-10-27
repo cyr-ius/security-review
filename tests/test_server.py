@@ -765,6 +765,24 @@ async def test_enrollment_server_only_tells_how_to_get_a_token(monkeypatch):
     assert "personal MCP token" in text
 
 
+async def test_without_personal_mcp_tokens_the_user_asks_an_administrator(monkeypatch):
+    # The controller publishes SECREVIEW_PERSONAL_MCP_TOKENS=false in the database
+    monkeypatch.setattr(get_settings(), "personal_mcp_tokens", False)
+    app_settings.sync_personal_mcp_tokens()
+    monkeypatch.setattr(server, "enrollment_web_url", EnrollmentWebUrl(ttl=0))
+    try:
+        server.enrollment_web_url()
+        async with Client(enrollment_mcp) as client:
+            instructions = client.instructions or ""
+            prompt = await client.get_prompt("security-review", {})
+    finally:
+        set_enrollment_web_url(None)
+    text = prompt.messages[0].content.text
+    for message in (instructions, text):
+        assert "ask an administrator for an MCP token" in message
+        assert "create a personal MCP token" not in message
+
+
 def test_client_without_token_writes_nothing(enrolling_app):
     anonymous = McpOverHttp(enrolling_app, None)
     for name in ("request_project", "request_enrollment", "list_security_reports"):

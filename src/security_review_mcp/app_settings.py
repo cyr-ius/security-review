@@ -42,6 +42,9 @@ CONTROLLER_URL = "controller_url"
 # Key of the URL of the MCP endpoint while the OAuth login of the MCP clients is enabled (see
 # sync_mcp_oauth): the MCP server then answers a client without a token with a 401 that starts it
 MCP_OAUTH_RESOURCE = "mcp_oauth_resource"
+# Key stored ("false") while SECREVIEW_PERSONAL_MCP_TOKENS is false (see sync_personal_mcp_tokens):
+# the MCP server then no longer tells a client without a valid token to create one
+PERSONAL_MCP_TOKENS = "personal_mcp_tokens"
 # Author of the URL copied from SECREVIEW_CONTROLLER_URL by the controller (see
 # sync_controller_url)
 ENV_ACTOR = "environment"
@@ -211,6 +214,20 @@ def sync_mcp_oauth(settings: Settings | None = None) -> None:
             "SECREVIEW_CONTROLLER_URL"
         )
     _write({MCP_OAUTH_RESOURCE: resource}, ENV_ACTOR)
+
+
+def personal_mcp_tokens() -> bool:
+    """False while the controller offers no personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS);
+    the MCP server reads it here to advise the clients without a valid token."""
+    with session_scope() as session:
+        row = session.get(AppSetting, PERSONAL_MCP_TOKENS)
+        return row is None or row.value != "false"
+
+
+def sync_personal_mcp_tokens(settings: Settings | None = None) -> None:
+    """Store SECREVIEW_PERSONAL_MCP_TOKENS=false, remove it otherwise (controller start)."""
+    settings = settings or get_settings()
+    _write({PERSONAL_MCP_TOKENS: None if settings.personal_mcp_tokens else "false"}, ENV_ACTOR)
 
 
 # ── Proxy of the outgoing connections ────────────────────────────────────────

@@ -247,10 +247,16 @@ def is_controller_public_path(path: str) -> bool:
     )
 
 
-def renew_token_hint(web_url: str | None) -> str:
+def renew_token_hint(web_url: str | None, personal_tokens: bool = True) -> str:
     """What a user does when the MCP server refuses its token (or receives none): sign in to the
     web interface (``web_url``, from SECREVIEW_CONTROLLER_URL, when known) and create a personal
-    MCP token."""
+    MCP token, or, when the controller offers none (``personal_tokens`` false), ask an
+    administrator for an MCP token."""
+    if not personal_tokens:
+        return (
+            "personal MCP tokens are disabled on this server: ask an administrator for an MCP "
+            "token, then put it in the MCP client configuration as 'Authorization: Bearer <token>'"
+        )
     where = f"the web interface ({web_url})" if web_url else "the web interface"
     return (
         f"sign in to {where} and create a new personal MCP token, then put it in the MCP "
@@ -296,6 +302,10 @@ class BearerAuthMiddleware:
     metadata, which starts the login in the client, instead of the enrollment server; the 401
     of an invalid or expired token carries it too.
 
+    ``personal_tokens`` (MCP server) tells whether the controller offers personal MCP tokens
+    (see app_settings.personal_mcp_tokens): the description of a 401 only advises to create one
+    when it does. It is called in a thread.
+
     ``sessions`` (controller only) also accepts the session tokens issued after a login.
     ``require_auth`` (controller with OIDC) asks for credentials even while the store holds no
     token, instead of answering 503.
@@ -313,9 +323,11 @@ class BearerAuthMiddleware:
         allow_open: bool = False,
         web_url: Callable[[], str | None] | None = None,
         oauth: Callable[[], OAuthResource | None] | None = None,
+        personal_tokens: Callable[[], bool] | None = None,
     ) -> None:
         self.app = app
         self.oauth = None if web else oauth
+        self.personal_tokens = None if web else personal_tokens
         self.store = store
         self.web = web
         self.enrollment_app = None if web else enrollment_app
@@ -448,10 +460,20 @@ class BearerAuthMiddleware:
             await _send_error(send, 401, "invalid_token", reason)
             return
         url = await anyio.to_thread.run_sync(self.web_url) if self.web_url is not None else None
+        personal = (
+            await anyio.to_thread.run_sync(self.personal_tokens)
+            if self.personal_tokens is not None
+            else True
+        )
         oauth = await self.oauth_resource()
-        hint = renew_token_hint(url)
+        hint = renew_token_hint(url, personal)
         if oauth is not None:
-            hint = f"sign in again through the OAuth login of the MCP client, or {hint}"
+            login = "sign in again through the OAuth login of the MCP client"
+            hint = (
+                f"{login}, or {hint}"
+                if personal
+                else f"{login}, without any Authorization header in its configuration"
+            )
         challenge = oauth.challenge(error) if oauth is not None else None
         await _send_error(send, 401, "invalid_token", f"{reason}: {hint}", challenge)
 
@@ -735,6 +757,7 @@ def build_mcp_app(
     allow_open: bool = False,
     web_url: Callable[[], str | None] | None = None,
     oauth: Callable[[], OAuthResource | None] | None = None,
+    personal_tokens: Callable[[], bool] | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the MCP server, protected by the bearer tokens of ``store``.
 
@@ -745,6 +768,8 @@ def build_mcp_app(
     ``oauth`` returns the OAuth login of the MCP clients while the controller serves it: the
     protected resource metadata is then served, and a client without a token gets a 401 that
     starts the login (see ProtectedResourceMetadata and BearerAuthMiddleware).
+    ``personal_tokens`` tells whether the controller offers personal MCP tokens, which the 401
+    answers advise to create.
     """
     main = server.streamable_http_app(host=host)
     enrollment_app = (
@@ -763,6 +788,7 @@ def build_mcp_app(
         allow_open=allow_open,
         web_url=web_url,
         oauth=oauth,
+        personal_tokens=personal_tokens,
     )
     return ProtectedResourceMetadata(app, oauth) if oauth is not None else app
 

@@ -161,3 +161,8 @@ Avec la [connexion OAuth](../mcp-oauth.md) active, ce `401` porte aussi le param
 `resource_metadata` dans son défi `WWW-Authenticate`, pour qu'un hôte qui gère OAuth se
 reconnecte seul, et une requête sans jeton reçoit le même `401` (sans `error`) au lieu du
 serveur d'enrôlement.
+
+Quand le contrôleur ne propose pas de jeton MCP personnel (`SECREVIEW_PERSONAL_MCP_TOKENS=false`,
+enregistré en base à son démarrage), la description du `401`, les instructions et les prompts du
+serveur d'enrôlement invitent l'utilisateur à se connecter par la connexion OAuth, ou à demander
+un jeton MCP à un administrateur, plutôt qu'à créer un jeton personnel.

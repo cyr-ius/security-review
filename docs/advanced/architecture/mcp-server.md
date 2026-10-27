@@ -156,3 +156,8 @@ With the [OAuth login](../mcp-oauth.md) on, this `401` also carries the
 `resource_metadata` parameter in its `WWW-Authenticate` challenge, so that a host that supports
 OAuth signs in again by itself, and a request without a token gets the same `401` (without
 `error`) instead of the enrollment server.
+
+When the controller offers no personal MCP token (`SECREVIEW_PERSONAL_MCP_TOKENS=false`, stored in
+the database at its start), the description of the `401`, the instructions and the prompts of the
+enrollment server tell the user to sign in through the OAuth login, or to ask an administrator
+for an MCP token, instead of creating a personal one.

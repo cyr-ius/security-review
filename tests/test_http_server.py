@@ -238,6 +238,21 @@ def test_with_the_oauth_login_a_client_without_a_token_is_sent_to_the_controller
     assert TestClient(off).get("/.well-known/oauth-protected-resource/mcp").status_code == 404
 
 
+def test_without_personal_mcp_tokens_a_401_does_not_advise_to_create_one():
+    token_store.create_token("ops", Role.ADMIN)
+    oauth = http_server.OAuthResource("https://mcp.example/mcp", "https://secreview.example")
+    for login, expected in ((None, "ask an administrator"), (oauth, "OAuth login")):
+        app = BearerAuthMiddleware(
+            Starlette(routes=[Route("/mcp", whoami)]),
+            STORE,
+            oauth=lambda login=login: login,
+            personal_tokens=lambda: False,
+        )
+        response = TestClient(app).get("/mcp", headers=bearer("x" * 40))
+        description = response.json()["error_description"]
+        assert expected in description and "create a new personal MCP token" not in description
+
+
 def test_a_rejected_token_gets_a_401_that_says_how_to_get_a_new_one():
     token_store.create_token("ops", Role.ADMIN)
     old = token_store.create_token("old", Role.MCP, expires_in_days=1)["token"]

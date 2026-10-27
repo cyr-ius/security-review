@@ -75,6 +75,7 @@ def serve(argv: list[str]) -> None:
         # OAuth login is enabled, in the database; the OAuth routes need them (create_app)
         app_settings.sync_controller_url(settings)
         app_settings.sync_mcp_oauth(settings)
+        app_settings.sync_personal_mcp_tokens(settings)
         if not settings.mcp_oauth_enabled and (
             revoked := oauth_server.revoke_all_grants("environment")
         ):

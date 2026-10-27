@@ -83,8 +83,19 @@ give the same steps.
 """
 
 
-def enrollment_instructions(web_url: str | None) -> str:
-    """Instructions of the enrollment server, with the address of the web interface if known."""
+ENROLLMENT_INSTRUCTIONS_NO_PERSONAL_TOKEN = """\
+Security code-review server, enrollment mode: the client sends no bearer token, so no tool is \
+available. Personal MCP tokens are disabled on this server: tell the user to ask an \
+administrator for an MCP token and to add it to the MCP client configuration as \
+`Authorization: Bearer <token>`, then to reconnect.
+"""
+
+
+def enrollment_instructions(web_url: str | None, personal_tokens: bool = True) -> str:
+    """Instructions of the enrollment server, with the address of the web interface if known
+    (from an administrator when the controller offers no personal MCP token)."""
+    if not personal_tokens:
+        return ENROLLMENT_INSTRUCTIONS_NO_PERSONAL_TOKEN
     return ENROLLMENT_INSTRUCTIONS.replace("{where}", f" ({web_url})" if web_url else "")
 
 
@@ -104,14 +115,15 @@ enrollment_mcp = MCPServer(
 )
 
 
-def set_enrollment_web_url(web_url: str | None) -> None:
-    """Give the address of the web interface in the instructions of the enrollment server.
+def set_enrollment_web_url(web_url: str | None, personal_tokens: bool = True) -> None:
+    """Give the address of the web interface in the instructions of the enrollment server, and
+    tell whether the controller offers personal MCP tokens.
 
     The address is read after the server is built (see EnrollmentWebUrl); the host shows these
     instructions at connection, before any prompt. MCPServer exposes them read-only, hence the
     low-level server.
     """
-    enrollment_mcp._lowlevel_server.instructions = enrollment_instructions(web_url)
+    enrollment_mcp._lowlevel_server.instructions = enrollment_instructions(web_url, personal_tokens)
 
 
 # How long the address of the web interface read for the clients without a valid token is kept
@@ -120,7 +132,9 @@ WEB_URL_CACHE_SECONDS = 30.0
 
 class EnrollmentWebUrl:
     """Address of the web interface for the clients without a valid token (enrollment server,
-    401): derived from the URL stored by the controller (app_settings.web_url), None if none.
+    401): derived from the URL stored by the controller (app_settings.web_url), None if none;
+    personal_tokens tells whether the controller offers personal MCP tokens
+    (app_settings.personal_mcp_tokens), read at the same time.
 
     Read again at most every ``ttl`` seconds, so that an anonymous client cannot make the server
     query the database at each request; each reading updates the instructions of the
@@ -131,16 +145,28 @@ class EnrollmentWebUrl:
         self.ttl = ttl
         self._lock = threading.Lock()
         self._value: str | None = None
+        self._personal = True
         self._read_at: float | None = None
+
+    def _refresh(self) -> None:
+        """Read the stored values again once ``ttl`` has passed (lock held)."""
+        now = time.monotonic()
+        if self._read_at is None or now - self._read_at >= self.ttl:
+            self._value = app_settings.web_url()
+            self._personal = app_settings.personal_mcp_tokens()
+            self._read_at = now
+            set_enrollment_web_url(self._value, self._personal)
 
     def __call__(self) -> str | None:
         with self._lock:
-            now = time.monotonic()
-            if self._read_at is None or now - self._read_at >= self.ttl:
-                self._value = app_settings.web_url()
-                self._read_at = now
-                set_enrollment_web_url(self._value)
+            self._refresh()
             return self._value
+
+    def personal_tokens(self) -> bool:
+        """True while the controller offers personal MCP tokens."""
+        with self._lock:
+            self._refresh()
+            return self._personal
 
 
 enrollment_web_url = EnrollmentWebUrl()
@@ -968,7 +994,8 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
 
 def _enrollment_prompt() -> str:
     """Explain how to get a personal MCP token instead of starting a review."""
-    return prompts.build_enrollment_prompt(enrollment_web_url())
+    url = enrollment_web_url()
+    return prompts.build_enrollment_prompt(url, enrollment_web_url.personal_tokens())
 
 
 # The review prompts keep their names, so that the first review tells how to get a token
@@ -1124,6 +1151,7 @@ def serve(argv: list[str]) -> None:
         allow_open=allow_open,
         web_url=enrollment_web_url,
         oauth=oauth_resource,
+        personal_tokens=enrollment_web_url.personal_tokens,
     )
     if oauth_resource() is not None:
         logger.info("OAuth login of the MCP clients served by the controller")
