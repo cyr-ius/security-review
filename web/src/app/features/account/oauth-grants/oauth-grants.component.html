@@ -1,0 +1,59 @@
+@if (grants.error()) {
+  <div class="alert alert-danger mt-4" role="alert">{{ 'oauth.loadError' | t }}</div>
+} @else if ((grants.value() ?? []).length || message()) {
+  <section class="card card-body mt-4" aria-labelledby="oauth-grants-title">
+    <h2 id="oauth-grants-title" class="h5">{{ 'oauth.grantsTitle' | t }}</h2>
+    <p class="text-body-secondary small">{{ 'oauth.grantsHelp' | t }}</p>
+
+    @if (error(); as text) {
+      <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+    }
+    @if (message(); as text) {
+      <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+    }
+
+    @if ((grants.value() ?? []).length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'oauth.client' | t }}</th>
+              <th scope="col">{{ 'common.createdAt' | t }}</th>
+              <th scope="col">{{ 'oauth.lastUsed' | t }}</th>
+              <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (grant of grants.value() ?? []; track grant.id) {
+              <tr>
+                <td>{{ name(grant) }}</td>
+                <td>{{ grant.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  {{
+                    grant.last_used_at
+                      ? (grant.last_used_at | date: 'dd/MM/yyyy HH:mm')
+                      : ('oauth.neverUsed' | t)
+                  }}
+                </td>
+                <td>{{ grant.expires_at | date: 'dd/MM/yyyy' }}</td>
+                <td class="text-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'oauth.revokeClient' | t: { client: name(grant) }"
+                    (click)="revoke(grant)"
+                  >
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                    {{ 'oauth.revoke' | t }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+}
