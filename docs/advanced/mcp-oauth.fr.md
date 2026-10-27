@@ -109,6 +109,16 @@ dates d'autorisation, de dernière utilisation et d'expiration) et permet de les
 jetons cessent aussitôt de fonctionner. Supprimer un utilisateur supprime ses clients. Un
 utilisateur garde au plus 20 clients ; au-delà, le plus ancien est révoqué.
 
+## Administration
+
+Avec la permission `tokens.manage`, l'écran **Jetons** affiche une section **Clients MCP
+(connexion OAuth)** tant que la connexion est active : les réglages en vigueur (point d'accès
+MCP, redirections acceptées, durée des jetons, nombre de clients), chaque client autorisé avec
+son utilisateur, et chaque client enregistré. **Révoquer** coupe un utilisateur d'un client ;
+**Supprimer** retire un client avec toutes ses autorisations, et le client devra se
+réenregistrer. L'API REST offre la même chose : `GET /api/v1/oauth/clients`,
+`DELETE /api/v1/oauth/grants/{id}`, `DELETE /api/v1/oauth/clients/{client_id}`.
+
 ## Clients enregistrés
 
 N'importe qui peut enregistrer un client, donc tout client est **public** : le serveur remplace

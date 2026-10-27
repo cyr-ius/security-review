@@ -377,6 +377,29 @@ export interface OAuthRedirect {
   redirect_url: string;
 }
 
+/** A registered MCP client (name and redirect URIs chosen by the client). */
+export interface OAuthClientAdmin {
+  client_id: string;
+  client_name: string | null;
+  redirect_uris: string[];
+  created_at: string;
+  /** 0: nobody approved it. */
+  grants: number;
+}
+
+/** The OAuth login of the MCP clients: settings, clients and every grant. */
+export interface OAuthOverview {
+  enabled: boolean;
+  mcp_url: string | null;
+  redirect_hosts: string[];
+  redirect_schemes: string[];
+  access_minutes: number;
+  refresh_days: number;
+  max_clients: number;
+  clients: OAuthClientAdmin[];
+  grants: (OAuthGrant & { username: string })[];
+}
+
 /** An MCP client approved by the logged-in user (never its tokens). */
 export interface OAuthGrant {
   id: string;

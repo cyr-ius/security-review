@@ -15,6 +15,7 @@ import {
   TokenRoleChoice,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { OAuthClientsComponent } from './oauth-clients/oauth-clients.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlFilter,
@@ -37,6 +38,7 @@ type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
   imports: [
     DatePipe,
     FormField,
+    OAuthClientsComponent,
     RefreshButtonComponent,
     SortHeaderComponent,
     TableControlsComponent,

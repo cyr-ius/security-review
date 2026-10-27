@@ -655,6 +655,95 @@ def revoke_user_grant(user_id: int, grant_id: str, username: str) -> None:
         _revoke(session, grant, AuditAction.OAUTH_GRANT_REVOKED, audit.user_actor(username))
 
 
+# ── Administration (tokens.manage) ───────────────────────────────────────────
+
+
+def overview(settings: Settings | None = None) -> dict[str, Any]:
+    """The OAuth login as configured, every registered client and every grant (never a token)."""
+    settings = settings or get_settings()
+    with session_scope() as session:
+        clients = session.exec(
+            select(OAuthClient).order_by(col(OAuthClient.created_at).desc())
+        ).all()
+        rows = session.exec(
+            select(OAuthGrant, OAuthClient, WebUser)
+            .join(OAuthClient, col(OAuthClient.client_id) == col(OAuthGrant.client_id))
+            .join(WebUser, col(WebUser.id) == col(OAuthGrant.user_id))
+            .order_by(col(OAuthGrant.created_at).desc())
+        ).all()
+        approved: dict[str, int] = {}
+        for grant, _, _ in rows:
+            approved[grant.client_id] = approved.get(grant.client_id, 0) + 1
+        return {
+            "enabled": settings.mcp_oauth_enabled,
+            "mcp_url": settings.mcp_url,
+            "redirect_hosts": redirect_hosts(settings.mcp_oauth_redirect_hosts),
+            "redirect_schemes": redirect_schemes(settings.mcp_oauth_redirect_schemes),
+            "access_minutes": settings.mcp_oauth_access_minutes,
+            "refresh_days": settings.mcp_oauth_refresh_days,
+            "max_clients": settings.mcp_oauth_max_clients,
+            "clients": [
+                {
+                    "client_id": client.client_id,
+                    "client_name": client.client_name,
+                    "redirect_uris": [str(uri) for uri in _client_info(client).redirect_uris or []],
+                    "created_at": as_utc(client.created_at).isoformat(),
+                    "grants": approved.get(client.client_id, 0),
+                }
+                for client in clients
+            ],
+            "grants": [
+                {
+                    "id": grant.id,
+                    "client_id": grant.client_id,
+                    "client_name": client.client_name,
+                    "username": user.username,
+                    "created_at": as_utc(grant.created_at).isoformat(),
+                    "last_used_at": as_utc(grant.last_used_at).isoformat()
+                    if grant.last_used_at
+                    else None,
+                    "expires_at": as_utc(grant.refresh_expires_at).isoformat(),
+                }
+                for grant, client, user in rows
+            ],
+        }
+
+
+def revoke_grant(grant_id: str, actor: str) -> None:
+    """Revoke the grant of any user (administration).
+
+    Raises:
+        NotFoundError: If there is no such grant.
+    """
+    with session_scope() as session:
+        grant = session.get(OAuthGrant, grant_id) if len(grant_id) <= 64 else None
+        if grant is None:
+            raise NotFoundError(f"OAuth grant {grant_id} not found")
+        _revoke(session, grant, AuditAction.OAUTH_GRANT_REVOKED, actor)
+
+
+def delete_client(client_id: str, actor: str) -> None:
+    """Delete a registered client with its grants and requests: its tokens stop at once and it
+    must register again (administration).
+
+    Raises:
+        NotFoundError: If there is no such client.
+    """
+    with session_scope() as session:
+        client = session.get(OAuthClient, client_id) if len(client_id) <= 64 else None
+        if client is None:
+            raise NotFoundError(f"OAuth client {client_id} not found")
+        for grant in session.exec(
+            select(OAuthGrant).where(OAuthGrant.client_id == client_id)
+        ).all():
+            _revoke(session, grant, AuditAction.OAUTH_GRANT_REVOKED, actor)
+        session.execute(
+            delete(OAuthAuthorization).where(col(OAuthAuthorization.client_id) == client_id)
+        )
+        session.flush()
+        session.delete(client)
+
+
 def revoke_all_grants(actor: str) -> int:
     """Revoke every grant (controller start with the OAuth login off): the access tokens already
     issued stop at once instead of at their expiry. Return how many were revoked."""

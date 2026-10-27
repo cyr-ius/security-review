@@ -105,6 +105,15 @@ of approval, of last use and of expiry) and revokes them: the tokens stop workin
 Deleting a user deletes its clients. A user keeps at most 20 clients; beyond, the oldest is
 revoked.
 
+## Administration
+
+With the `tokens.manage` permission, the **Tokens** screen shows a **MCP clients (OAuth login)**
+section while the login is on: the settings in use (MCP endpoint, accepted redirects, token
+lifetimes, number of clients), every approved client with its user, and every registered client.
+**Revoke** cuts one user of a client; **Delete** removes a client with all its grants, and the
+client must register again. The same is available in the REST API: `GET /api/v1/oauth/clients`,
+`DELETE /api/v1/oauth/grants/{id}`, `DELETE /api/v1/oauth/clients/{client_id}`.
+
 ## Registered clients
 
 Anyone may register a client, so every client is **public**: the server replaces a requested

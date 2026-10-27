@@ -29,6 +29,7 @@ import {
   Identity,
   LoginSession,
   OAuthGrant,
+  OAuthOverview,
   OAuthPendingRequest,
   OAuthRedirect,
   OidcSettings,
@@ -370,6 +371,19 @@ export class ApiService {
   /** The MCP clients the logged-in user approved. */
   myOAuthGrants(): Observable<OAuthGrant[]> {
     return this.http.get<OAuthGrant[]>(`${API_URL}/me/oauth-grants`);
+  }
+
+  /** Every OAuth client and grant (tokens.manage). */
+  oauthOverview(): Observable<OAuthOverview> {
+    return this.http.get<OAuthOverview>(`${API_URL}/oauth/clients`);
+  }
+
+  revokeOAuthGrant(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/oauth/grants/${encodeURIComponent(id)}`);
+  }
+
+  deleteOAuthClient(clientId: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/oauth/clients/${encodeURIComponent(clientId)}`);
   }
 
   deleteMyOAuthGrant(id: string): Observable<void> {

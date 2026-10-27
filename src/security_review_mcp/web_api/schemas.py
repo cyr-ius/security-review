@@ -795,6 +795,38 @@ class OAuthGrantPublic(BaseModel):
     expires_at: str
 
 
+class OAuthClientAdmin(BaseModel):
+    """A registered MCP client (its name and redirect URIs are chosen by the client)."""
+
+    client_id: str
+    client_name: str | None = None
+    redirect_uris: list[str]
+    created_at: str
+    # Grants of the client (0: nobody approved it; deleted a day after its registration)
+    grants: int
+
+
+class OAuthGrantAdmin(OAuthGrantPublic):
+    """An MCP client approved by a web user."""
+
+    username: str
+
+
+class OAuthOverview(BaseModel):
+    """The OAuth login of the MCP clients: its settings (variables of the controller), the
+    registered clients and every grant (never a token)."""
+
+    enabled: bool
+    mcp_url: str | None = None
+    redirect_hosts: list[str]
+    redirect_schemes: list[str]
+    access_minutes: int
+    refresh_days: int
+    max_clients: int
+    clients: list[OAuthClientAdmin]
+    grants: list[OAuthGrantAdmin]
+
+
 class ProjectTokenProjects(BaseModel):
     """Body of PUT /project-tokens/{id}/projects."""
 

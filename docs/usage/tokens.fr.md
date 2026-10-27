@@ -65,7 +65,8 @@ créer un autre. Il ne se renouvelle pas : révoquez-le et créez-en un nouveau.
 
 Avec la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), l'agent MCP n'a besoin
 d'aucun jeton personnel : les clients que vous avez autorisés sont listés dans **Mon compte** >
-**Clients MCP connectés**, où vous les révoquez.
+**Clients MCP connectés**, où vous les révoquez. Un administrateur voit et révoque tous les
+clients dans la section **Clients MCP (connexion OAuth)** de l'écran **Jetons**.
 
 ### Jetons MCP et CI personnels
 

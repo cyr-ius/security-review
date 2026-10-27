@@ -278,3 +278,25 @@ def test_secreview_token_max_days_bounds_the_whole_grant_not_each_refresh(contro
 def test_the_mcp_url_fits_in_the_www_authenticate_challenge(url):
     with pytest.raises(ValueError, match="ASCII"):
         check_mcp_url(url)
+
+
+def test_a_tokens_manager_lists_revokes_and_deletes_every_client(controller):
+    client_id = register(controller).json()["client_id"]
+    access = log_in(controller, client_id, session(controller))
+    admin = {"Authorization": f"Bearer {token_store.create_token('ops', Role.ADMIN)['token']}"}
+    # dev may approve clients, not manage those of the others
+    assert controller.get("/api/v1/oauth/clients", headers=session(controller)).status_code == 403
+
+    overview = controller.get("/api/v1/oauth/clients", headers=admin).json()
+    assert overview["enabled"] is True
+    assert overview["clients"][0]["grants"] == 1
+    assert overview["grants"][0]["username"] == "dev"
+    assert "access_token_hash" not in overview["grants"][0]
+    grant_id = overview["grants"][0]["id"]
+    assert controller.delete(f"/api/v1/oauth/grants/{grant_id}", headers=admin).status_code == 204
+    assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
+
+    access = log_in(controller, client_id, session(controller))
+    assert controller.delete(f"/api/v1/oauth/clients/{client_id}", headers=admin).status_code == 204
+    assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
+    assert controller.get("/api/v1/oauth/clients", headers=admin).json()["clients"] == []
