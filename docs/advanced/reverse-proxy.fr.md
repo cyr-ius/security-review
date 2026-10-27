@@ -7,11 +7,11 @@ Apache, HAProxy et Traefik.
 ## Ce que doit faire le proxy
 
 **Router chaque chemin vers son processus.** Le serveur MCP et le contrôleur sont deux
-processus (voir [Architecture](../architecture/index.md)) :
+processus (voir [Architecture](architecture/index.md)) :
 
 | Chemins | Processus | Port (fichiers Compose) |
 |---|---|---|
-| `/mcp`, `/.well-known/oauth-protected-resource/…` ([connexion OAuth](../mcp-oauth.md)) | serveur MCP | `8000` |
+| `/mcp`, `/.well-known/oauth-protected-resource/…` ([connexion OAuth](mcp-oauth.md)) | serveur MCP | `8000` |
 | tout le reste : `/ui`, `/api`, `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | contrôleur | `8080` |
 
 Avec **un hôte par processus** (`mcp.secreview.example.com` et `secreview.example.com`), chaque
@@ -47,7 +47,7 @@ Les exemples utilisent un seul hôte `secreview.example.com`, le TLS terminé pa
 ports des fichiers Compose sur `127.0.0.1`. Pour un hôte par processus, gardez la partie
 contrôleur sur `secreview.example.com` et donnez à la partie MCP son propre hôte, sans règle de
 chemin. Quand le proxy tourne sur une autre machine que les processus, les jetons traverseraient
-le réseau en clair : activez le [TLS intégré](../tls.md) des deux processus et pointez le proxy
+le réseau en clair : activez le [TLS intégré](tls.md) des deux processus et pointez le proxy
 vers `https://…` au lieu de `http://127.0.0.1`.
 
 ## nginx

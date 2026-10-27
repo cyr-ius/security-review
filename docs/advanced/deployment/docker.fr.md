@@ -61,7 +61,7 @@ Bon à savoir :
   commitez jamais. Le mot de passe est inséré tel quel dans l'URL de connexion : gardez des
   caractères hexadécimaux, comme ci-dessus.
 - **Ouvrir à l'équipe.** Les ports sont publiés sur toutes les interfaces du serveur, en HTTP
-  simple : activez le [TLS intégré](../tls.md) ou placez un [reverse proxy](reverse-proxy.md) devant avant que
+  simple : activez le [TLS intégré](../tls.md) ou placez un [reverse proxy](../reverse-proxy.md) devant avant que
   l'équipe se connecte. Pour garder un port sur le serveur seulement (derrière un reverse proxy
   sur la même machine, par exemple), préfixez-le par `127.0.0.1` (`"127.0.0.1:8000:8000"`).
   Seuls les `ports` décident de l'exposition : dans son conteneur, chaque

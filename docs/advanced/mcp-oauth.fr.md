@@ -44,7 +44,7 @@ l'[exemple d'Ingress Kubernetes](deployment/kubernetes.md#image-exposition-et-ad
 ces chemins arrivent déjà au bon processus : rien à ajouter. Avec un seul hôte pour les deux,
 routez par chemin : `/mcp` et `/.well-known/oauth-protected-resource` vers le serveur MCP, tout
 le reste vers le contrôleur (exemples nginx, Apache, HAProxy et Traefik :
-[Reverse proxy](deployment/reverse-proxy.md)). L'issuer doit être en `https` : le contrôleur refuse de démarrer
+[Reverse proxy](reverse-proxy.md)). L'issuer doit être en `https` : le contrôleur refuse de démarrer
 avec une URL en `http` hors localhost.
 
 Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste,

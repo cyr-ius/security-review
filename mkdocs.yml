@@ -200,7 +200,6 @@ nav:
       - Database: advanced/database.md
       - Deployment:
           - Docker: advanced/deployment/docker.md
-          - Reverse proxy: advanced/deployment/reverse-proxy.md
           - Kubernetes: advanced/deployment/kubernetes.md
           - Manual installation (without containers): advanced/deployment/manual-install.md
           - "Installation: other cases": advanced/deployment/installation.md
@@ -209,6 +208,7 @@ nav:
       - Reports and monitoring:
           - SARIF export: advanced/reports/sarif.md
           - Triage through the REST API: advanced/reports/triage-api.md
+      - Reverse proxy: advanced/reverse-proxy.md
       - TLS and certificates: advanced/tls.md
   - References:
       - Command line: reference/cli.md

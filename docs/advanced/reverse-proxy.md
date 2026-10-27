@@ -7,11 +7,11 @@ Traefik.
 ## What the proxy must do
 
 **Route each path to its process.** The MCP server and the controller are two processes (see
-[Architecture](../architecture/index.md)):
+[Architecture](architecture/index.md)):
 
 | Paths | Process | Port (Compose files) |
 |---|---|---|
-| `/mcp`, `/.well-known/oauth-protected-resource/…` ([OAuth login](../mcp-oauth.md)) | MCP server | `8000` |
+| `/mcp`, `/.well-known/oauth-protected-resource/…` ([OAuth login](mcp-oauth.md)) | MCP server | `8000` |
 | everything else: `/ui`, `/api`, `/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register`, `/revoke` | controller | `8080` |
 
 With **one host per process** (`mcp.secreview.example.com` and `secreview.example.com`), each host
@@ -45,7 +45,7 @@ The examples use a single host `secreview.example.com`, TLS terminated by the pr
 of the Compose files on `127.0.0.1`. For one host per process, keep the controller part on
 `secreview.example.com` and give the MCP part its own host, without path rule. When the proxy
 runs on another machine than the processes, the tokens would cross the network in clear: enable
-the [built-in TLS](../tls.md) of both processes and proxy to `https://…` instead of
+the [built-in TLS](tls.md) of both processes and proxy to `https://…` instead of
 `http://127.0.0.1`.
 
 ## nginx
