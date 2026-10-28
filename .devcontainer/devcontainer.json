@@ -27,7 +27,7 @@
   },
   // psql client, PostgreSQL driver (extra postgres), then migration of the db service, so that
   // the HTTP MCP server can start right away
-  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends postgresql-client && prek install --overwrite && uv sync --extra dev --extra docs --extra postgres --link-mode=copy && npm --prefix web ci --no-audit --no-fund && uv run security-review-controller db upgrade",
+  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends postgresql-client && prek install --overwrite && uv sync --extra dev --extra docs --extra postgres --link-mode=copy && npm --prefix web ci --no-audit --no-fund",
   "customizations": {
     "vscode": {
       "extensions": [
