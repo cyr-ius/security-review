@@ -96,11 +96,14 @@ Une version correspond à un tag `vX.Y.Z` sur `master`, créé par Release Pleas
    écrit `CHANGELOG.md` et met la version dans `pyproject.toml` (celle que le paquet lit dans
    ses métadonnées installées), `uv.lock`, `web/package.json` et `web/package-lock.json`
    (`release-please-config.json`).
-3. La fusion de cette pull request crée le tag et la release GitHub, puis lance `publish.yml`
-   sur le tag : lint et tests, vérification que le tag correspond à la version, publication
-   sur PyPI et des images Docker (`docker.yml`), puis ajout des distributions à la release
-   GitHub. Un tag créé avec le jeton du workflow ne déclenche aucun workflow :
+3. La fusion de cette pull request crée le tag et une release GitHub en brouillon qui porte le
+   changelog, puis lance `publish.yml` sur le tag : lint et tests, vérification que le tag
+   correspond à la version, publication sur PyPI et des images Docker (`docker.yml`), puis
+   ajout des distributions à la release, qui n'est publiée qu'à ce moment. Un tag créé avec le jeton du workflow ne déclenche aucun workflow :
    `release-please.yml` lance lui-même `publish.yml`, par `workflow_dispatch` sur le tag.
+
+Après une release, `release-please.yml` fusionne `master` dans `dev`, qui reçoit le commit de
+release (`CHANGELOG.md` et les versions) : récupérez `dev` (`git pull`) avant d'y retravailler.
 
 Un tag poussé à la main (`git tag v1.3.0 && git push origin v1.3.0`) déclenche toujours
 `publish.yml`. Si la publication n'a pas démarré, lancez **Build & publish to PyPI and Docker
