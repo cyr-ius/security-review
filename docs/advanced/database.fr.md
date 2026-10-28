@@ -7,24 +7,34 @@ variables sont listées dans [Configuration](../reference/configuration.md#base-
 
 ## SQLite ou PostgreSQL
 
-Une base SQLite est créée par défaut dans le dossier de données de l'utilisateur :
+En [mode local (stdio)](../getting-started/stdio.md), le mode tout-en-un d'un poste de
+développeur, le serveur MCP n'accepte qu'une base SQLite : `security-review-mcp local` la crée et
+la migre lui-même. Par défaut, elle est dans le dossier de données de l'utilisateur :
 `~/.local/share/security-review-mcp/security_reports.db` quand `XDG_DATA_HOME` n'est pas défini.
 
-Pour PostgreSQL (extra `postgres` du paquet PyPI, inclus dans l'image ; mode partagé
-uniquement : le serveur stdio n'accepte que SQLite) :
+`security-review-mcp local` ignore `SECREVIEW_DATABASE_URL` : pour placer la base ailleurs,
+donnez un autre fichier SQLite avec `--database-url` (chemin absolu après `sqlite:///`) :
+
+```bash
+security-review-mcp local --database-url sqlite:////home/me/data/security_reports.db
+```
+
+En mode partagé, la base est désignée par `SECREVIEW_DATABASE_URL`, que l'option
+`--database-url` de `security-review-mcp serve` remplace. Pour PostgreSQL (extra `postgres` du
+paquet PyPI, inclus dans l'image ; mode partagé uniquement) :
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
 ```
+
+Gardez une URL avec mot de passe dans la variable : la valeur de `--database-url` apparaît dans
+la liste des processus.
 
 !!! note "Base partagée"
     Avec SQLite, les deux processus doivent tourner sur la même machine et partager le fichier.
     Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL, déployé
     avec [Docker Compose](deployment/docker.md#docker-compose-avec-postgresql) ou
     [Kubernetes](deployment/kubernetes.md#deploiement).
-
-En [mode local (stdio)](../getting-started/stdio.md), `security-review-mcp local` crée et migre
-lui-même sa base SQLite locale, et ignore `SECREVIEW_DATABASE_URL`.
 
 ## Migrations du schéma
 

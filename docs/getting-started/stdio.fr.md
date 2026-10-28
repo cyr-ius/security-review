@@ -47,11 +47,17 @@ security-review-mcp local   # lancé par l'hôte, pas à la main
 Une base SQLite est créée localement (`~/.local/share/security-review-mcp/security_reports.db`,
 ou sous `$XDG_DATA_HOME` quand elle est définie).
 C'est le seul fichier écrit par le serveur : supprimez-le pour effacer toute trace.
+Pour le placer ailleurs, ajoutez `--database-url` à la commande (SQLite uniquement, chemin absolu
+après `sqlite:///`) :
+
+```bash
+security-review-mcp local --database-url sqlite:////home/me/data/security_reports.db
+```
 
 !!! note "`serve --transport stdio`"
     `security-review-mcp serve --transport stdio` lance aussi le serveur en stdio, mais il lit
-    `SECREVIEW_DATABASE_URL` et n'accepte que SQLite : il refuse de démarrer (code `2`) quand la
-    variable désigne une autre base (PostgreSQL...). Le mode local n'a pas de jeton, et une base
+    `SECREVIEW_DATABASE_URL` (ou `--database-url`) et n'accepte que SQLite : il refuse de démarrer
+    (code `2`) quand l'URL désigne une autre base (PostgreSQL...). Le mode local n'a pas de jeton, et une base
     partagée lui permettrait d'écrire dans tous les projets et de migrer le schéma de l'équipe.
     Pour travailler avec cette base, utilisez le [mode partagé (HTTP)](deploy.md).
 

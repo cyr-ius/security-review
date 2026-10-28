@@ -26,10 +26,13 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ securit
 
 | Command | Role | Page |
 |---|---|---|
-| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (`streamable-http` by default, for the shared mode; `--transport stdio` accepts a SQLite database only) | [Manual installation](../advanced/deployment/manual-install.md#5-start-the-mcp-server) |
-| `local` | Starts the MCP server of the local mode (stdio), on the local SQLite database: ignores remote databases, hence `SECREVIEW_DATABASE_URL` | [Local mode](../getting-started/stdio.md) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--database-url …]` | Starts the MCP server (`streamable-http` by default, for the shared mode; `--transport stdio` accepts a SQLite database only); `--database-url` overrides `SECREVIEW_DATABASE_URL` | [Manual installation](../advanced/deployment/manual-install.md#5-start-the-mcp-server) |
+| `local [--database-url …]` | Starts the MCP server of the local mode (stdio), on the local SQLite database: ignores `SECREVIEW_DATABASE_URL`; `--database-url` chooses another SQLite file | [Local mode](../getting-started/stdio.md) |
 
 Without a command, `security-review-mcp` prints its usage.
+
+The value of `--database-url` shows in the process list: put a URL with a password in
+`SECREVIEW_DATABASE_URL` rather than on the command line.
 
 With stdio, the server migrates its database itself at start-up. With HTTP, it **only checks** the schema: it refuses to
 start (code `2`) while `security-review-controller db upgrade` has not been run.

@@ -13,7 +13,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ResourceError, ResourceNotFoundError, ToolError
 from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, ToolAnnotations
-from pydantic import Field
+from pydantic import Field, SecretStr
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
@@ -1063,12 +1063,25 @@ def local(argv: list[str]) -> None:
         description="Run the MCP server for a local host (stdio): remote databases, hence "
         "SECREVIEW_DATABASE_URL, are ignored",
     )
-    parser.parse_args(argv)
+    _add_database_url_argument(parser, "default: the SQLite file of the user")
+    args = parser.parse_args(argv)
     settings = get_settings()
-    # The engine reads the cached settings: point them to the default SQLite file
-    settings.database_url = default_database_url()
+    # The engine reads the cached settings: point them to the local SQLite file
+    settings.database_url = (
+        SecretStr(args.database_url) if args.database_url else default_database_url()
+    )
     configure_logging(settings.log_level)
     _run_stdio(parser, settings)
+
+
+def _add_database_url_argument(parser: argparse.ArgumentParser, default: str) -> None:
+    """Add the --database-url option of the MCP server commands."""
+    parser.add_argument(
+        "--database-url",
+        metavar="URL",
+        help=f"database URL, SQLite only in stdio ({default}); visible in the process list: "
+        "give a password in SECREVIEW_DATABASE_URL instead",
+    )
 
 
 def _run_stdio(parser: argparse.ArgumentParser, settings: Settings) -> None:
@@ -1079,12 +1092,11 @@ def _run_stdio(parser: argparse.ArgumentParser, settings: Settings) -> None:
         backend = make_url(settings.database_url.get_secret_value()).get_backend_name()
     except ArgumentError:
         # The message of SQLAlchemy quotes the URL, password included
-        parser.error("SECREVIEW_DATABASE_URL is not a valid database URL")
+        parser.error("the database URL is not valid")
     if backend != "sqlite":
         parser.error(
-            f"stdio uses a local SQLite database only, but SECREVIEW_DATABASE_URL points to "
-            f"{backend}: run `security-review-mcp local`, or use the shared mode "
-            "(streamable-http) to work with this database"
+            f"stdio uses a local SQLite database only, but the database URL points to "
+            f"{backend}: use the shared mode (streamable-http) to work with this database"
         )
     try:
         # Local server: it prepares its own database (SECREVIEW_DB_AUTO_UPGRADE)
@@ -1111,7 +1123,11 @@ def serve(argv: list[str]) -> None:
         "SECREVIEW_TRANSPORT, default: %(default)s); --host, --port and TLS apply to HTTP only",
     )
     http_server.add_listen_arguments(parser, settings)
+    _add_database_url_argument(parser, "overrides SECREVIEW_DATABASE_URL")
     args = parser.parse_args(argv)
+    if args.database_url:
+        # The engine reads the cached settings
+        settings.database_url = SecretStr(args.database_url)
     settings = http_server.with_tls_arguments(settings, args)
     configure_logging(settings.log_level)
 
