@@ -7,34 +7,27 @@ variables sont listées dans [Configuration](../reference/configuration.md#base-
 
 ## SQLite ou PostgreSQL
 
-En [mode local (stdio)](../getting-started/stdio.md), le mode tout-en-un d'un poste de
-développeur, le serveur MCP n'accepte qu'une base SQLite : `security-review-mcp local` la crée et
-la migre lui-même. Par défaut, elle est dans le dossier de données de l'utilisateur :
-`~/.local/share/security-review-mcp/security_reports.db` quand `XDG_DATA_HOME` n'est pas défini.
+- En [mode local (stdio)](../getting-started/stdio.md), c'est-à-dire le mode tout-en-un d'un
+  poste de développeur, seule une base SQLite est acceptée. Le serveur MCP local crée et migre
+  lui-même sa base SQLite.
 
-`security-review-mcp local` ignore `SECREVIEW_DATABASE_URL` : pour placer la base ailleurs,
-donnez un autre fichier SQLite avec `--database-url` (chemin absolu après `sqlite:///`) :
+    Une base SQLite est créée par défaut dans le dossier de données de l'utilisateur :
+    `~/.local/share/security-review-mcp/security_reports.db`.
 
-```bash
-security-review-mcp local --database-url sqlite:////home/me/data/security_reports.db
-```
+    Pour changer l'emplacement de la base SQLite, démarrez le serveur MCP local avec la commande
+    `security-review-mcp local --database-url sqlite:////home/me/security_reports.db`.
 
-En mode partagé, la base est désignée par `SECREVIEW_DATABASE_URL`, que l'option
-`--database-url` de `security-review-mcp serve` remplace. Pour PostgreSQL (extra `postgres` du
-paquet PyPI, inclus dans l'image ; mode partagé uniquement) :
+- En mode partagé, vous pouvez utiliser une base PostgreSQL si vous séparez le serveur MCP et le
+  serveur Controller. Pour cela, passez la variable d'environnement aux deux processus :
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
+security-review-controller serve
 ```
 
-Gardez une URL avec mot de passe dans la variable : la valeur de `--database-url` apparaît dans
-la liste des processus.
-
 !!! note "Base partagée"
-    Avec SQLite, les deux processus doivent tourner sur la même machine et partager le fichier.
-    Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL, déployé
-    avec [Docker Compose](deployment/docker.md#docker-compose-avec-postgresql) ou
-    [Kubernetes](deployment/kubernetes.md#deploiement).
+    Avec SQLite, les deux processus doivent tourner sur la même machine et partager le même fichier.
+    Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL.
 
 ## Migrations du schéma
 
