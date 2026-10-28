@@ -7,9 +7,10 @@ authorization server. The client then:
 
 1. registers itself at ``/register`` (dynamic registration, RFC 7591). Every client is a
    **public** client: the requested secret-based method is replaced by ``none`` and no secret is
-   issued nor kept, since anyone may register; PKCE protects the code. Its redirect URIs must
-   point to the loopback interface, to a host of SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS (https) or
-   use a scheme of SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES (see check_redirect_uri);
+   issued nor kept, since anyone may register; PKCE protects the code. Only its redirect URIs
+   that point to the loopback interface, to a host of SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS (https)
+   or use a scheme of SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES are kept, at least one (see
+   check_redirect_uri);
 2. opens ``/authorize`` in the browser of the user: the request is stored (OAuthAuthorization,
    digest of a random handle) and the browser goes to the consent screen of the web interface
    (``/ui/oauth/authorize``), behind the usual login (password or OIDC);
@@ -223,16 +224,26 @@ class OAuthProvider:
         """
         hosts = redirect_hosts(self.settings.mcp_oauth_redirect_hosts)
         schemes = redirect_schemes(self.settings.mcp_oauth_redirect_schemes)
-        uris = [str(uri) for uri in client_info.redirect_uris or []]
+        uris = list(client_info.redirect_uris or [])
         if not uris or len(uris) > MAX_REDIRECT_URIS:
             raise RegistrationError(
                 "invalid_redirect_uri", f"Give between 1 and {MAX_REDIRECT_URIS} redirect URIs"
             )
-        try:
-            for uri in uris:
-                check_redirect_uri(uri, hosts, schemes)
-        except ValueError as exc:
-            raise RegistrationError("invalid_redirect_uri", str(exc)) from exc
+        # A refused URI is dropped, not the client: VS Code also lists https://vscode.dev/redirect
+        # next to its loopback URI. Only the accepted ones are stored, so /authorize refuses the
+        # others.
+        accepted = []
+        refused: ValueError | None = None
+        for uri in uris:
+            try:
+                check_redirect_uri(str(uri), hosts, schemes)
+            except ValueError as exc:
+                refused = exc
+            else:
+                accepted.append(uri)
+        if not accepted:
+            raise RegistrationError("invalid_redirect_uri", str(refused)) from refused
+        client_info.redirect_uris = accepted
         client_info.client_secret = None
         client_info.client_secret_expires_at = None
         client_info.token_endpoint_auth_method = "none"

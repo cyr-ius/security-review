@@ -542,22 +542,32 @@ def test_stdio_server_migrates_its_own_database(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    "argv",
+    [
+        ["serve", "--transport", "stdio"],
+        ["serve", "--transport", "stdio", "--database-url", "{url}"],
+        ["local", "--database-url", "{url}"],
+    ],
+)
+@pytest.mark.parametrize(
     ("url", "message"),
     [
         (
             "postgresql+psycopg2://user:hunter2@db:5432/secreview",  # secreview:ignore GEN-007
             "SQLite database only",
         ),
-        ("not a url hunter2", "not a valid database URL"),
+        ("not a url hunter2", "database URL is not valid"),
     ],
 )
-def test_stdio_server_refuses_a_shared_database(monkeypatch, capsys, url, message):
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(database_url=url))
+def test_stdio_server_refuses_a_shared_database(monkeypatch, capsys, argv, url, message):
+    # The URL comes from SECREVIEW_DATABASE_URL, or from --database-url when given
+    values = {} if "{url}" in argv else {"database_url": url}
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(**values))
     started = []
     monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
 
     with pytest.raises(SystemExit) as exc:
-        server.main(["serve", "--transport", "stdio"])
+        server.main([url if arg == "{url}" else arg for arg in argv])
 
     assert exc.value.code == 2 and not started
     err = capsys.readouterr().err
@@ -576,6 +586,19 @@ def test_local_command_ignores_a_shared_database(monkeypatch):
 
     assert started == ["stdio"]
     assert settings.database_url.get_secret_value() == default_database_url().get_secret_value()
+
+
+@pytest.mark.parametrize("command", [["local"], ["serve", "--transport", "stdio"]])
+def test_database_url_option_overrides_the_database(monkeypatch, tmp_path, command):
+    env_url = f"sqlite:///{tmp_path / 'env.db'}"
+    settings = make_settings(database_url=env_url)
+    monkeypatch.setattr(server, "get_settings", lambda: settings)
+    monkeypatch.setattr(server.mcp, "run", lambda transport: None)
+    url = f"sqlite:///{tmp_path / 'option.db'}"
+
+    server.main([*command, "--database-url", url])
+
+    assert settings.database_url.get_secret_value() == url
 
 
 def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):

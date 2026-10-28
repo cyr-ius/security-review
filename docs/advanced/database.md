@@ -7,24 +7,27 @@ schema migrations, retention, backup and upgrade. The variables are listed in
 
 ## SQLite or PostgreSQL
 
-An SQLite database is created by default in the user's data folder:
-`~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set.
+- In [local mode (stdio)](../getting-started/stdio.md), that is the all-in-one mode of a
+  developer workstation, only an SQLite database is accepted. The local MCP server creates and
+  migrates its SQLite database itself.
 
-For PostgreSQL (`postgres` extra of the PyPI package, included in the image; shared mode only:
-the stdio server accepts SQLite only):
+    An SQLite database is created by default in the user's data folder:
+    `~/.local/share/security-review-mcp/security_reports.db`.
+
+    To change the location of the SQLite database, start the local MCP server with the command
+    `security-review-mcp local --database-url sqlite:////home/me/security_reports.db`.
+
+- In shared mode, you can use a PostgreSQL database if you separate the MCP server and the
+  Controller server. To do so, pass the environment variable to both processes:
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
+security-review-controller serve
 ```
 
 !!! note "Shared database"
-    With SQLite, both processes must run on the same machine and share the file. As soon as
-    they are in different pods or on different machines, use PostgreSQL, deployed with
-    [Docker Compose](deployment/docker.md#docker-compose-with-postgresql) or
-    [Kubernetes](deployment/kubernetes.md#deployment).
-
-In [local mode (stdio)](../getting-started/stdio.md), `security-review-mcp local` creates and
-migrates its local SQLite database itself, and ignores `SECREVIEW_DATABASE_URL`.
+    With SQLite, both processes must run on the same machine and share the same file. As soon
+    as they are in different pods or on different machines, use PostgreSQL.
 
 ## Schema migrations
 

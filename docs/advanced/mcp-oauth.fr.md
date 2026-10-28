@@ -1,29 +1,33 @@
 # Connexion OAuth des clients MCP
 
 Par défaut, un développeur crée un jeton MCP personnel dans **Mon compte** et le copie dans la
-configuration de son hôte (voir [Configuration de l'hôte](../getting-started/host.md)). Avec la
-connexion OAuth, l'hôte n'a besoin d'aucun jeton : à la première connexion, il ouvre le
-navigateur, le développeur se connecte à l'interface web (compte local ou [OIDC](oidc.md)) et
-autorise le client, puis l'hôte reçoit ses jetons et les renouvelle seul.
+configuration de son agent (voir [Configuration de l'agent](../getting-started/host.md)).
+
+Avec la **connexion OAuth**, le développeur n'a plus besoin de jeton. À la première connexion, l'agent ouvre le
+navigateur, le développeur se connecte à l'interface web (compte local ou [OIDC](oidc.md)) et autorise le client,
+puis l'agent reçoit ses jetons et les renouvelle seul.
 
 Le flux suit l'[autorisation de la spécification MCP](https://modelcontextprotocol.io/specification/latest/basic/authorization)
 (OAuth 2.1, code d'autorisation avec PKCE `S256`, enregistrement dynamique des clients,
-métadonnées de la ressource protégée). Le serveur Controller est le serveur d'autorisation ; le serveur
-MCP ne fait que vérifier les jetons. Les jetons MCP personnels restent acceptés, sauf si un
-administrateur les désactive par `SECREVIEW_PERSONAL_MCP_TOKENS=false` une fois que tous les
-hôtes se connectent par OAuth.
+métadonnées de la ressource protégée).
+
+Le serveur Controller est le serveur d'autorisation. Le serveur MCP ne fait que vérifier les jetons.
+Les jetons MCP personnels restent acceptés, sauf si un administrateur les désactive par `SECREVIEW_PERSONAL_MCP_TOKENS=false`.
 
 ## Activation
 
-Dans l'interface web, un administrateur qui a la permission `settings.manage` saisit l'URL
-publique du point d'accès MCP dans la section **Clients MCP (connexion OAuth)** de l'écran
-**Jetons** et active l'interrupteur **Connexion OAuth activée**. L'URL du serveur Controller doit
-être connue (variable ou réglages **Général**). Le changement s'applique aussitôt, sans
-redémarrage ; la désactivation demande une confirmation et révoque toutes les autorisations.
+Dans l'interface web, un administrateur qui a la permission `settings.manage` doit saisir l'URL
+publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de l'écran
+**Jetons** et activer l'interrupteur **Connexion OAuth activée**.
+
+L'URL publique du serveur Controller est aussi nécessaire via le réglage sur la page **Général**.
+
+Le changement s'applique aussitôt, sans redémarrage. La désactivation demande une confirmation et révoque toutes les autorisations.
 Chaque changement est enregistré dans le journal d'audit (`mcp_oauth.changed`).
 
-Ou par variables, sur le **serveur Controller** seulement (elles priment alors, et l'écran les
-affiche verrouillées) :
+Les routes OAuth suivent les réglages à chaque requête. Un changement de l'URL du serveur Controller dans **Général** change l'issuer sans redémarrage.
+
+Si vous ne souhaitez pas utiliser l'interface web, voici les variables d'environnement à passer au **serveur Controller** :
 
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
@@ -31,13 +35,8 @@ SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # URL publique du point d
 SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
 ```
 
-Le serveur Controller enregistre l'URL du point d'accès MCP en base (au démarrage, ou quand elle
-est changée dans l'interface web) ; le serveur MCP l'y lit (sous 30 secondes), comme il y lit
-l'URL du serveur Controller : il n'a besoin d'aucune nouvelle variable. Retirez
-`SECREVIEW_MCP_OAUTH_ENABLED` et redémarrez le serveur Controller pour la désactiver : il révoque
-alors toutes les autorisations, pour que les jetons déjà émis cessent aussitôt de fonctionner.
-Les routes OAuth suivent les réglages à chaque requête : un changement de l'URL du serveur
-Controller dans **Général** change l'issuer sans redémarrage.
+Quelle que soit la méthode employée, le serveur MCP prend en compte les modifications (sous 30 secondes).
+Si vous désactivez la connexion OAuth des clients MCP, le serveur révoque alors toutes les autorisations, pour que les jetons déjà émis cessent aussitôt de fonctionner.
 
 Derrière un reverse proxy, publiez ces chemins publics :
 
@@ -46,18 +45,14 @@ Derrière un reverse proxy, publiez ces chemins publics :
 | `/.well-known/oauth-protected-resource/mcp` (métadonnées de la ressource protégée, RFC 9728) | serveur MCP |
 | `/.well-known/oauth-authorization-server` (métadonnées, RFC 8414), `/authorize`, `/token`, `/register`, `/revoke` | serveur Controller |
 
-Avec un hôte par service (`mcp.example.com` vers le serveur MCP, `secreview.example.com` vers
-le serveur Controller, chacun avec tous ses chemins), comme le font les fichiers Compose et
-l'[exemple d'Ingress Kubernetes](deployment/kubernetes.md#image-exposition-et-administration),
-ces chemins arrivent déjà au bon processus : rien à ajouter. Avec un seul hôte pour les deux,
-routez par chemin : `/mcp` et `/.well-known/oauth-protected-resource` vers le serveur MCP, tout
-le reste vers le serveur Controller (exemples nginx, Apache, HAProxy et Traefik :
-[Reverse proxy](reverse-proxy.md)). L'issuer doit être en `https` : le serveur Controller refuse de démarrer
-avec une URL en `http` hors localhost.
 
-Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste,
-ce qu'utilisent Claude Code et VS Code. Un client qui revient par un site web ou par son propre
-schéma d'URI demande que son hôte ou son schéma soit listé :
+L'issuer doit être en `https` : le serveur Controller refuse de démarrer avec une URL en `http` hors localhost.
+
+Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste (`127.0.0.1`, `localhost`,
+`::1`, en http ou https). Si l'adresse de retour n'est pas sur l'interface loopback (par exemple `https://vscode.dev/redirect`),
+ses noms d'hôte se déclarent dans la variable `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS`.
+Il peut arriver que le schéma de retour ne soit ni http ni https, par exemple **cursor**://localhost/redirect :
+ces schémas se déclarent dans la variable `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`.
 
 ```bash
 SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=vscode.dev     # https seulement
@@ -82,19 +77,15 @@ Le serveur est déclaré avec sa seule URL, sans en-tête `Authorization` :
 }
 ```
 
-Dans Claude Code, `/mcp` indique alors que le serveur demande une authentification :
-choisissez-le pour ouvrir le navigateur. VS Code propose la connexion au premier démarrage du
-serveur.
-
 ## Déroulé
 
-1. L'hôte appelle `/mcp` sans jeton : le serveur MCP répond `401` avec
+1. L'hôte appelle `/mcp` sans jeton. Le serveur MCP répond `401` avec
    `WWW-Authenticate: Bearer …, resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"`.
    Ce document désigne le serveur Controller comme serveur d'autorisation.
 2. L'hôte s'enregistre sur `/register` (enregistrement dynamique, RFC 7591).
 3. Il ouvre `/authorize` dans le navigateur, qui arrive sur l'écran **Connecter un client MCP**
    de l'interface web, derrière la connexion habituelle.
-4. Le développeur y autorise (ou refuse) le client ; le navigateur revient vers l'hôte avec un
+4. Le développeur y autorise (ou refuse) le client, le navigateur revient vers l'hôte avec un
    code à usage unique, valable 60 secondes.
 5. L'hôte échange le code et son vérificateur PKCE sur `/token` contre un jeton d'accès et un
    jeton de rafraîchissement, puis appelle `/mcp` avec le jeton d'accès.
@@ -104,10 +95,8 @@ Une demande restée sans réponse expire au bout de 10 minutes.
 ## Ce que donne un jeton
 
 Un jeton d'accès agit comme un [jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)
-de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire, relus à
-chaque requête, l'outil `request_project`, les rapports signés du nom de l'utilisateur. Il
-n'atteint que le serveur MCP : ni l'API REST ni les routes de pipeline du serveur Controller (gardez un
-jeton `ci` personnel pour `security-review-ci`).
+de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire.
+Les droits sont relus à chaque requête.
 
 Autoriser un client exige la permission `mcp_tokens.create`, comme créer un jeton MCP
 personnel, et une session web : un jeton Bearer n'autorise jamais un client.
@@ -123,48 +112,38 @@ l'hôte doit se reconnecter.
 
 ## Clients connectés
 
-Dès que la connexion est active, **Mon compte** liste les **Clients MCP connectés** de l'utilisateur (nom donné par le client,
-dates d'autorisation, de dernière utilisation et d'expiration) et permet de les révoquer : les
-jetons cessent aussitôt de fonctionner. Supprimer un utilisateur supprime ses clients. Un
-utilisateur garde au plus 20 clients ; au-delà, le plus ancien est révoqué.
+Dès que la connexion est active, la page **Mon compte** liste les **Clients MCP connectés** de l'utilisateur (nom donné par le client,
+dates d'autorisation, de dernière utilisation et d'expiration) et permet de les révoquer (les
+jetons cessent aussitôt de fonctionner).
+
+Supprimer un utilisateur supprime ses clients. Un utilisateur garde au plus 20 clients ; au-delà, le plus ancien est révoqué.
 
 ## Administration
 
-Avec la permission `tokens.manage`, l'écran **Jetons** affiche une section **Clients MCP
-(connexion OAuth)** tant que la connexion est active : les réglages en vigueur (point d'accès
-MCP, redirections acceptées, durée des jetons, nombre de clients), chaque client autorisé avec
-son utilisateur, et chaque client enregistré. **Révoquer** coupe un utilisateur d'un client ;
-**Supprimer** retire un client avec toutes ses autorisations, et le client devra se
-réenregistrer. Avec aussi `settings.manage`, la section est toujours affichée, avec
-l'interrupteur **Connexion OAuth activée** et le champ **Point d'accès MCP** (voir
-[Activation](#activation)). L'API REST offre la même chose : `GET /api/v1/oauth/clients`,
-`DELETE /api/v1/oauth/grants/{id}`, `DELETE /api/v1/oauth/clients/{client_id}`, et
-`PUT /api/v1/oauth/settings` (`settings.manage`) avec `{"enabled": true, "mcp_url": "…"}` : un
-champ omis est inchangé, `null` supprime la valeur définie ici ; une valeur dont la variable est
-définie est refusée (422).
+Avec la permission `tokens.manage`, l'écran **Jetons** affiche une section **Clients MCP (connexion OAuth)**.
+
+ - **Révoquer** coupe un utilisateur d'un client.
+
+ - **Supprimer** retire un client avec toutes ses autorisations, et le client devra se réenregistrer.
+
 
 ## Clients enregistrés
 
-N'importe qui peut enregistrer un client, donc tout client est **public** : le serveur remplace
-une méthode à secret demandée par `none`, n'émet aucun secret et s'appuie sur PKCE. Les URI de
-redirection doivent viser l'interface loopback (`127.0.0.1`, `localhost`, `::1`, en http ou
-https), un hôte de `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` en https, ou utiliser un schéma de
-`SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`. Tout autre site est refusé : sinon, n'importe qui
-pourrait enregistrer un client qui renvoie le navigateur vers son propre site, et recevoir le
-code d'un utilisateur qui suit son lien vers `/authorize`. Au plus
-`SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients existent à la fois ; un client que personne n'a
-autorisé dans la journée est supprimé au prochain enregistrement. Les routes OAuth comptent dans
-la [limitation des requêtes](../reference/configuration.md#limitation-des-requetes) des routes de
-connexion.
+N'importe qui peut enregistrer un client, donc tout client est **public**. Le serveur remplace
+la méthode à secret par `none`, n'émet aucun secret et s'appuie sur PKCE.
 
-L'écran de consentement affiche le nom choisi par le client et l'hôte vers lequel il revient :
-n'autorisez qu'un client que vous venez de lancer vous-même.
+Il ne peut exister plus de `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients à la fois. Un client que personne n'a
+autorisé dans la journée est supprimé au prochain enregistrement. Les routes OAuth sont soumises à la
+[limitation des requêtes](../reference/configuration.md#limitation-des-requetes) des routes de connexion.
+
+L'écran de consentement affiche le nom choisi par le client et l'hôte vers lequel il revient.
+N'autorisez qu'un client que vous venez de lancer vous-même.
 
 ## Enrôlement et clients sans OAuth
 
 Tant que la connexion OAuth est active, un client sans jeton reçoit le `401` qui démarre la
-connexion, et non le [serveur d'enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) :
-un hôte qui ne gère pas OAuth utilise un jeton MCP personnel, comme avant. La description du
+connexion, et non le [serveur d'enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
+Un hôte qui ne gère pas OAuth utilise un jeton MCP personnel, comme avant. La description du
 `401` indique les deux.
 
 ## Audit
@@ -181,6 +160,6 @@ avec un jeton.
 | L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le serveur Controller, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
 | Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` manquant |
 | Le serveur Controller ne démarre pas : `Issuer URL must be HTTPS` | URL du serveur Controller en `http://` hors localhost |
-| `invalid_redirect_uri` à l'enregistrement | URI de redirection hors loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
+| `invalid_redirect_uri` à l'enregistrement, ou VS Code demande un ID client (« Enregistrement client dynamique non pris en charge ») | aucune URI de redirection sur l'interface loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` au retour dans l'hôte | l'hôte demande une autre ressource que `SECREVIEW_MCP_URL` : vérifiez que cette URL est celle configurée dans l'hôte |
 | **Connecter un client MCP** indique que la demande a expiré | plus de 10 minutes, ou déjà traitée : relancez la connexion depuis l'hôte |

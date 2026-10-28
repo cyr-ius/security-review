@@ -36,25 +36,22 @@
       </p>
       @if (current.report_language.env_set) {
         <div class="alert alert-info py-2 mb-0" role="status">
-          <i class="bi bi-lock" aria-hidden="true"></i>
-          {{
-            'settings.variableLocked'
-              | t
-                : {
-                    variable: 'SECREVIEW_REPORT_LANGUAGE',
-                    value: current.report_language.env || ('settings.languageByAgent' | t),
-                  }
-          }}
+          <span class="badge text-bg-secondary">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            {{ 'settings.variable' | t }}
+          </span>
+          <span class="ms-1">
+            {{ 'settings.languageLockedHelp' | t: { variable: 'SECREVIEW_REPORT_LANGUAGE' } }}
+          </span>
           @if (current.report_language.value !== null) {
-            <br />
-            {{
-              'settings.storedIgnored'
-                | t: { value: current.report_language.value || ('settings.languageByAgent' | t) }
-            }}
+            <span class="text-body-secondary ms-1">{{ 'settings.languageStoredIgnored' | t }}</span>
             <button
               type="button"
-              class="btn btn-link btn-sm p-0 align-baseline"
+              class="btn btn-link btn-sm p-0 ms-1 align-baseline"
               [disabled]="busy()"
+              [attr.aria-label]="
+                'settings.languageDeleteStored' | t: { variable: 'SECREVIEW_REPORT_LANGUAGE' }
+              "
               (click)="deleteStoredLanguage()"
             >
               {{ 'common.delete' | t }}
@@ -123,11 +120,29 @@
       </p>
       @if (current.controller_url.env_set) {
         <div class="alert alert-info py-2 mb-0" role="status">
-          <i class="bi bi-lock" aria-hidden="true"></i>
-          {{
-            'settings.variableLocked'
-              | t: { variable: 'SECREVIEW_CONTROLLER_URL', value: current.controller_url.env ?? '' }
-          }}
+          <span class="badge text-bg-secondary">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            {{ 'settings.variable' | t }}
+          </span>
+          <span class="ms-1">
+            {{ 'settings.controllerUrlLockedHelp' | t: { variable: 'SECREVIEW_CONTROLLER_URL' } }}
+          </span>
+          @if (current.controller_url.value !== null) {
+            <span class="text-body-secondary ms-1">{{
+              'settings.controllerUrlStoredIgnored' | t
+            }}</span>
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+              [disabled]="busy()"
+              [attr.aria-label]="
+                'settings.controllerUrlDeleteStored' | t: { variable: 'SECREVIEW_CONTROLLER_URL' }
+              "
+              (click)="deleteStoredControllerUrl()"
+            >
+              {{ 'common.delete' | t }}
+            </button>
+          }
         </div>
       } @else {
         <form class="row g-2 align-items-end" (submit)="saveControllerUrl($event)" novalidate>
@@ -301,15 +316,20 @@
         let-field="field"
       >
         <div class="alert alert-info py-2 mb-0" role="status">
-          <i class="bi bi-lock" aria-hidden="true"></i>
-          {{ 'settings.variableLocked' | t: { variable: variable, value: env } }}
+          <span class="badge text-bg-secondary">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            {{ 'settings.variable' | t }}
+          </span>
+          <span class="ms-1">
+            {{ 'settings.proxyLockedHelp' | t: { variable: variable } }}
+          </span>
           @if (stored !== null) {
-            <br />
-            {{ 'settings.storedIgnored' | t: { value: stored || ('settings.sourceNone' | t) } }}
+            <span class="text-body-secondary ms-1">{{ 'settings.proxyStoredIgnored' | t }}</span>
             <button
               type="button"
-              class="btn btn-link btn-sm p-0 align-baseline"
+              class="btn btn-link btn-sm p-0 ms-1 align-baseline"
               [disabled]="busy()"
+              [attr.aria-label]="'settings.proxyDeleteStored' | t: { variable: variable }"
               (click)="deleteStored(field)"
             >
               {{ 'common.delete' | t }}

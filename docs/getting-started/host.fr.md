@@ -169,7 +169,7 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 ## Autres cas
 
 - **Certificat du serveur signé par une CA interne** (`unable to verify the first certificate`) :
-  voir [Serveur HTTPS avec une CA interne](../advanced/tls.md#serveur-https-avec-une-ca-interne).
+  voir [Autorité de certification](../advanced/tls.md#autorite-de-certification).
 - **Mode local (stdio)**, sans serveur (l'hôte lance lui-même le processus) : voir
   [Mode local (stdio)](stdio.md).
 

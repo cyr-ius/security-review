@@ -26,10 +26,13 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ securit
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (`streamable-http` par défaut, pour le mode partagé ; `--transport stdio` n'accepte qu'une base SQLite) | [Installation manuelle](../advanced/deployment/manual-install.md#5-lancer-le-serveur-mcp) |
-| `local` | Lance le serveur MCP du mode local (stdio), sur la base SQLite locale : ignore les bases distantes, donc `SECREVIEW_DATABASE_URL` | [Mode local](../getting-started/stdio.md) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--database-url …]` | Lance le serveur MCP (`streamable-http` par défaut, pour le mode partagé ; `--transport stdio` n'accepte qu'une base SQLite) ; `--database-url` remplace `SECREVIEW_DATABASE_URL` | [Installation manuelle](../advanced/deployment/manual-install.md#5-lancer-le-serveur-mcp) |
+| `local [--database-url …]` | Lance le serveur MCP du mode local (stdio), sur la base SQLite locale : ignore `SECREVIEW_DATABASE_URL` ; `--database-url` choisit un autre fichier SQLite | [Mode local](../getting-started/stdio.md) |
 
 Sans commande, `security-review-mcp` affiche son aide.
+
+La valeur de `--database-url` apparaît dans la liste des processus : mettez une URL avec mot de
+passe dans `SECREVIEW_DATABASE_URL` plutôt que sur la ligne de commande.
 
 En stdio, le serveur migre lui-même sa base au démarrage.
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que

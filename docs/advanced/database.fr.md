@@ -7,24 +7,27 @@ variables sont listées dans [Configuration](../reference/configuration.md#base-
 
 ## SQLite ou PostgreSQL
 
-Une base SQLite est créée par défaut dans le dossier de données de l'utilisateur :
-`~/.local/share/security-review-mcp/security_reports.db` quand `XDG_DATA_HOME` n'est pas défini.
+- En [mode local (stdio)](../getting-started/stdio.md), c'est-à-dire le mode tout-en-un d'un
+  poste de développeur, seule une base SQLite est acceptée. Le serveur MCP local crée et migre
+  lui-même sa base SQLite.
 
-Pour PostgreSQL (extra `postgres` du paquet PyPI, inclus dans l'image ; mode partagé
-uniquement : le serveur stdio n'accepte que SQLite) :
+    Une base SQLite est créée par défaut dans le dossier de données de l'utilisateur :
+    `~/.local/share/security-review-mcp/security_reports.db`.
+
+    Pour changer l'emplacement de la base SQLite, démarrez le serveur MCP local avec la commande
+    `security-review-mcp local --database-url sqlite:////home/me/security_reports.db`.
+
+- En mode partagé, vous pouvez utiliser une base PostgreSQL si vous séparez le serveur MCP et le
+  serveur Controller. Pour cela, passez la variable d'environnement aux deux processus :
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
+security-review-controller serve
 ```
 
 !!! note "Base partagée"
-    Avec SQLite, les deux processus doivent tourner sur la même machine et partager le fichier.
-    Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL, déployé
-    avec [Docker Compose](deployment/docker.md#docker-compose-avec-postgresql) ou
-    [Kubernetes](deployment/kubernetes.md#deploiement).
-
-En [mode local (stdio)](../getting-started/stdio.md), `security-review-mcp local` crée et migre
-lui-même sa base SQLite locale, et ignore `SECREVIEW_DATABASE_URL`.
+    Avec SQLite, les deux processus doivent tourner sur la même machine et partager le même fichier.
+    Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL.
 
 ## Migrations du schéma
 
