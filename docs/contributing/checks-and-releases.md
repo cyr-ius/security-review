@@ -94,9 +94,10 @@ from the Conventional Commits:
    `CHANGELOG.md` and sets the version in `pyproject.toml` (the version the package reads from
    its installed metadata), `uv.lock`, `web/package.json` and `web/package-lock.json`
    (`release-please-config.json`).
-3. Merging that pull request creates the tag and the GitHub release, then runs `publish.yml` on
-   the tag: lint and tests, check that the tag matches the version, publication on PyPI and of
-   the Docker images (`docker.yml`), then upload of the distributions to the GitHub release.
+3. Merging that pull request creates the tag and a draft GitHub release holding the changelog,
+   then runs `publish.yml` on the tag: lint and tests, check that the tag matches the version,
+   publication on PyPI and of the Docker images (`docker.yml`), then upload of the
+   distributions to the release, which is published only then.
    A tag created with the workflow token triggers no workflow: `release-please.yml` starts
    `publish.yml` itself, with `workflow_dispatch` on the tag.
 

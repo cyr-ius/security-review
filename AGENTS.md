@@ -82,11 +82,12 @@ avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute 
   1. fusionner `dev` dans `master` ;
   2. Release Please ouvre (ou met à jour) la PR de release : `CHANGELOG.md` et la version dans
      `pyproject.toml`, `uv.lock`, `web/package.json` et `web/package-lock.json` ;
-  3. la fusion de cette PR crée le tag et la release GitHub, puis lance `publish.yml` sur le tag
-     (`workflow_dispatch` : un tag créé avec le jeton du workflow ne déclenche aucun workflow) :
-     lint et tests, vérification que le tag correspond à `version` dans `pyproject.toml`,
-     publication sur PyPI (`security-review` et le client seul `security-review-ci`) et des
-     images Docker (GHCR et Docker Hub, `docker.yml`), et ajout des distributions à la release.
+  3. la fusion de cette PR crée le tag et une release GitHub en brouillon, puis lance
+     `publish.yml` sur le tag (`workflow_dispatch` : un tag créé avec le jeton du workflow ne
+     déclenche aucun workflow) : lint et tests, vérification que le tag correspond à `version`
+     dans `pyproject.toml`, publication sur PyPI (`security-review` et le client seul
+     `security-review-ci`) et des images Docker (GHCR et Docker Hub, `docker.yml`), puis ajout
+     des distributions à la release, qui n'est publiée qu'à ce moment.
   Un tag poussé à la main déclenche toujours `publish.yml`.
 - Versionnement sémantique, déduit des Conventional Commits : `X` pour une rupture de
   compatibilité (outil, prompt, option CLI ou paramètre retiré ou renommé), à signaler par `!`
