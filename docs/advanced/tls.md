@@ -26,8 +26,7 @@ addresses used by the clients (for example `DNS:secreview.lan,IP:192.168.1.1`); 
 clients refuse the connection even when they trust the CA. The key file (`key.pem`) never
 leaves the server: keep it readable by the server account only (`chmod 600`).
 
-With an internal CA, the clients must trust its certificate: see
-[HTTPS server with an internal CA](#https-server-with-an-internal-ca).
+With an internal CA, the clients must trust its certificate.
 
 ## Behind a reverse proxy
 

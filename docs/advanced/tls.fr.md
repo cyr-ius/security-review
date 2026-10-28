@@ -27,8 +27,7 @@ doit contenir les noms et adresses utilisés par les clients (par exemple
 confiance à la CA. Le fichier de clé (`key.pem`) ne quitte jamais le serveur : gardez-le lisible
 par le seul compte du serveur (`chmod 600`).
 
-Avec une CA interne, les clients doivent faire confiance à son certificat : voir
-[Serveur HTTPS avec une CA interne](#serveur-https-avec-une-ca-interne).
+Avec une CA interne, les clients doivent faire confiance à son certificat.
 
 ## Derrière un reverse proxy
 

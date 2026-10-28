@@ -169,7 +169,7 @@ token: replace it in the host as in step 4 (see
 ## Other cases
 
 - **Server certificate signed by an internal CA** (`unable to verify the first certificate`):
-  see [HTTPS server with an internal CA](../advanced/tls.md#https-server-with-an-internal-ca).
+  see [Certificate authority](../advanced/tls.md#certificate-authority).
 - **Local mode (stdio)**, without a server (the host starts the process itself): see
   [Local mode (stdio)](stdio.md).
 
