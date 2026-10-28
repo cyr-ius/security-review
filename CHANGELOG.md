@@ -1,5 +1,14 @@
 # Changelog
 
+## [8.1.2](https://github.com/cyr-ius/security-review/compare/v8.1.1...v8.1.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **ci:** merge master back into dev after each release ([5aa749e](https://github.com/cyr-ius/security-review/commit/5aa749e46217f4bf5666c171cd4bfdffd713d339))
+* **ci:** publish the GitHub release at the end of the publication ([c7b5501](https://github.com/cyr-ius/security-review/commit/c7b5501b8ee70f0e75942363ae599238b95f3f6b))
+* **ci:** publish the GitHub release last and sync dev after a release ([ec5fd6b](https://github.com/cyr-ius/security-review/commit/ec5fd6b26191fad8afe270f40f4c92eae728160b))
+
 ## [8.1.1](https://github.com/cyr-ius/security-review/compare/v8.1.0...v8.1.1) (2026-10-28)
 
 
