@@ -1151,7 +1151,7 @@ wheels = [
 
 [[package]]
 name = "security-review"
-version = "8.0.0"
+version = "8.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
