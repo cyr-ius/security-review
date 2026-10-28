@@ -3,7 +3,28 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "extra-files": ["web/src/package.json"]
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='security-review')].version"
+        },
+        {
+          "type": "json",
+          "path": "web/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "web/package-lock.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "web/package-lock.json",
+          "jsonpath": "$.packages[''].version"
+        }
+      ]
     }
   }
 }
