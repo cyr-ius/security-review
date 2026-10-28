@@ -1,5 +1,18 @@
 # Changelog
 
+## [8.1.1](https://github.com/cyr-ius/security-review/compare/v8.1.0...v8.1.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **ci:** make Release Please releases buildable and published ([3b0d626](https://github.com/cyr-ius/security-review/commit/3b0d626531217e40b3178c39aaf9ad5f0fbea340))
+* **ci:** start the publication when Release Please creates a release ([83268cc](https://github.com/cyr-ius/security-review/commit/83268cc16e2a65f869028983a4694d2aecf04839))
+
+
+### Documentation
+
+* **agents:** describe the releases made by Release Please ([44fc4b4](https://github.com/cyr-ius/security-review/commit/44fc4b473ea9939c4500dbd5d8cb13caf0c8c637))
+
 ## [8.1.0](https://github.com/cyr-ius/security-review/compare/v8.0.0...v8.1.0) (2026-10-28)
 
 
