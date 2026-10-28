@@ -102,6 +102,9 @@ Une version correspond à un tag `vX.Y.Z` sur `master`, créé par Release Pleas
    ajout des distributions à la release, qui n'est publiée qu'à ce moment. Un tag créé avec le jeton du workflow ne déclenche aucun workflow :
    `release-please.yml` lance lui-même `publish.yml`, par `workflow_dispatch` sur le tag.
 
+Après une release, `release-please.yml` fusionne `master` dans `dev`, qui reçoit le commit de
+release (`CHANGELOG.md` et les versions) : récupérez `dev` (`git pull`) avant d'y retravailler.
+
 Un tag poussé à la main (`git tag v1.3.0 && git push origin v1.3.0`) déclenche toujours
 `publish.yml`. Si la publication n'a pas démarré, lancez **Build & publish to PyPI and Docker
 registries** depuis l'onglet **Actions**, sur le tag, avec la cible `pypi`.

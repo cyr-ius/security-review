@@ -101,6 +101,9 @@ from the Conventional Commits:
    A tag created with the workflow token triggers no workflow: `release-please.yml` starts
    `publish.yml` itself, with `workflow_dispatch` on the tag.
 
+After a release, `release-please.yml` merges `master` into `dev`, which gets the release commit
+(`CHANGELOG.md` and the versions): pull `dev` before working on it again.
+
 A tag pushed by hand (`git tag v1.3.0 && git push origin v1.3.0`) still triggers `publish.yml`.
 If the publication did not start, run **Build & publish to PyPI and Docker registries** from
 the **Actions** tab, on the tag, with the target `pypi`.
