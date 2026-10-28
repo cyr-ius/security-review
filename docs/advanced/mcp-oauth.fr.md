@@ -56,8 +56,10 @@ le reste vers le serveur Controller (exemples nginx, Apache, HAProxy et Traefik 
 avec une URL en `http` hors localhost.
 
 Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste,
-ce qu'utilisent Claude Code et VS Code. Un client qui revient par un site web ou par son propre
-schéma d'URI demande que son hôte ou son schéma soit listé :
+ce qu'utilisent Claude Code et VS Code. VS Code enregistre aussi `https://vscode.dev/redirect` :
+le serveur l'écarte et garde l'URI loopback, rien n'est donc à lister. Un client qui ne revient
+que par un site web ou par son propre schéma d'URI demande que son hôte ou son schéma soit
+listé :
 
 ```bash
 SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=vscode.dev     # https seulement
@@ -147,9 +149,10 @@ définie est refusée (422).
 
 N'importe qui peut enregistrer un client, donc tout client est **public** : le serveur remplace
 une méthode à secret demandée par `none`, n'émet aucun secret et s'appuie sur PKCE. Les URI de
-redirection doivent viser l'interface loopback (`127.0.0.1`, `localhost`, `::1`, en http ou
-https), un hôte de `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` en https, ou utiliser un schéma de
-`SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`. Tout autre site est refusé : sinon, n'importe qui
+redirection conservées sont celles qui visent l'interface loopback (`127.0.0.1`, `localhost`,
+`::1`, en http ou https), un hôte de `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` en https, ou utilisent
+un schéma de `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` ; les autres sont écartées, et le client est
+refusé s'il n'en reste aucune. Aucun autre site ne reçoit de code : sinon, n'importe qui
 pourrait enregistrer un client qui renvoie le navigateur vers son propre site, et recevoir le
 code d'un utilisateur qui suit son lien vers `/authorize`. Au plus
 `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients existent à la fois ; un client que personne n'a
@@ -181,6 +184,6 @@ avec un jeton.
 | L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le serveur Controller, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
 | Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` manquant |
 | Le serveur Controller ne démarre pas : `Issuer URL must be HTTPS` | URL du serveur Controller en `http://` hors localhost |
-| `invalid_redirect_uri` à l'enregistrement | URI de redirection hors loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
+| `invalid_redirect_uri` à l'enregistrement, ou VS Code demande un ID client (« Enregistrement client dynamique non pris en charge ») | aucune URI de redirection sur l'interface loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` au retour dans l'hôte | l'hôte demande une autre ressource que `SECREVIEW_MCP_URL` : vérifiez que cette URL est celle configurée dans l'hôte |
 | **Connecter un client MCP** indique que la demande a expiré | plus de 10 minutes, ou déjà traitée : relancez la connexion depuis l'hôte |

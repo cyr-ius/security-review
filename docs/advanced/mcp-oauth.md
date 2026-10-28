@@ -54,8 +54,10 @@ else to the Controller server (nginx, Apache, HAProxy and Traefik examples:
 an `http` URL outside localhost.
 
 By default a client may only send the browser back to the loopback interface of the
-workstation, which is what Claude Code and VS Code use. A client that comes back through a web
-site or its own URI scheme needs its host or scheme listed:
+workstation, which is what Claude Code and VS Code use. VS Code also registers
+`https://vscode.dev/redirect`: the server drops it and keeps the loopback URI, so nothing needs
+to be listed. A client that comes back only through a web site or its own URI scheme needs its
+host or scheme listed:
 
 ```bash
 SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=vscode.dev     # https only
@@ -141,10 +143,11 @@ refused (422).
 ## Registered clients
 
 Anyone may register a client, so every client is **public**: the server replaces a requested
-secret-based method with `none`, issues no secret and relies on PKCE. The redirect URIs must
-point to the loopback interface (`127.0.0.1`, `localhost`, `::1`, in http or https), to a host
-of `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` in https, or use a scheme of
-`SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`. Any other site is refused: otherwise, anyone could
+secret-based method with `none`, issues no secret and relies on PKCE. The server only keeps
+the redirect URIs that point to the loopback interface (`127.0.0.1`, `localhost`, `::1`, in
+http or https), to a host of `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` in https, or use a scheme of
+`SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`; it drops the others and refuses the client when none is
+left. Any other site never receives a code: otherwise, anyone could
 register a client that sends the browser back to their own site, and receive the code of a user
 who follows their link to `/authorize`. At most `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients exist at once; a
 client nobody approved within a day is deleted at the next registration. The OAuth routes count
@@ -173,6 +176,6 @@ Registrations (`oauth.client_registered`), approvals (`oauth.grant_approved`), r
 | The host still shows the enrollment server | OAuth off on the Controller server, or the MCP server has not read the setting yet (30 seconds) |
 | The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` missing |
 | The Controller server does not start: `Issuer URL must be HTTPS` | Controller server URL in `http://` outside localhost |
-| `invalid_redirect_uri` at registration | redirect URI outside the loopback interface: add its host to `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) or its scheme to `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
+| `invalid_redirect_uri` at registration, or VS Code asks for a client ID ("Dynamic client registration not supported") | no redirect URI on the loopback interface: add its host to `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) or its scheme to `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` back in the host | the host asks for a resource other than `SECREVIEW_MCP_URL`: check that this URL is the one configured in the host |
 | **Connect an MCP client** says the request expired | more than 10 minutes, or already answered: restart the login from the host |

@@ -59,11 +59,11 @@ def session(client: TestClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {response.json()['session']}"}
 
 
-def register(client: TestClient, redirect: str = REDIRECT):
+def register(client: TestClient, redirect: str | list[str] = REDIRECT):
     return client.post(
         "/register",
         json={
-            "redirect_uris": [redirect],
+            "redirect_uris": [redirect] if isinstance(redirect, str) else redirect,
             "client_name": "Claude Code",
             # Asked for, but replaced: every client is public
             "token_endpoint_auth_method": "client_secret_post",
@@ -212,6 +212,28 @@ def test_listed_redirect_hosts_and_schemes_are_accepted(controller, monkeypatch)
     assert register(controller, "https://vscode.dev/redirect").status_code == 201
     assert register(controller, "cursor://anysphere/callback").status_code == 201
     assert register(controller, "https://evil.example/callback").status_code == 400
+
+
+def test_a_refused_redirect_is_dropped_and_never_reached(controller):
+    # VS Code lists its web redirect next to its loopback one: only the loopback is kept
+    response = register(controller, [REDIRECT, "https://vscode.dev/redirect"])
+
+    assert response.status_code == 201
+    assert response.json()["redirect_uris"] == [REDIRECT]
+    client_id = response.json()["client_id"]
+    assert authorize(controller, client_id).status_code == 302
+    web = controller.get(
+        "/authorize",
+        params={
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": "https://vscode.dev/redirect",
+            "code_challenge": CHALLENGE,
+            "code_challenge_method": "S256",
+        },
+        follow_redirects=False,
+    )
+    assert web.status_code == 400
 
 
 def test_a_token_for_another_resource_is_refused(controller):
