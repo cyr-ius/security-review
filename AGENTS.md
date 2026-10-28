@@ -76,18 +76,25 @@ avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute 
 - Travaillez sur `dev`, sauf rupture importante. Dans ce cas, créez `feat/<sujet>` depuis `dev`.
   En cas de doute, demandez.
 - Ne commitez jamais directement sur `master`.
-- **Une version = un tag sur `master`.** Pousser un tag `vX.Y.Z` déclenche `publish.yml` :
-  lint et tests, vérification que le tag correspond à `version` dans `pyproject.toml`, puis
-  publication sur PyPI (`security-review` et le client seul `security-review-ci`) et des
-  images Docker (GHCR et Docker Hub, `docker.yml`), et création de la release GitHub. Procédure :
-  1. sur `dev`, mettre à jour la version (`uv version X.Y.Z`) et commiter ;
-  2. fusionner `dev` dans `master` ;
-  3. sur `master` : `git tag vX.Y.Z && git push origin vX.Y.Z`.
-- Versionnement sémantique : `X` pour une rupture de compatibilité (outil, prompt, option CLI
-  ou paramètre retiré ou renommé), `Y` pour une fonctionnalité, `Z` pour une correction.
-- **Un agent ne crée et ne pousse jamais un tag, et ne fusionne jamais dans `master`, sans
-  demande explicite** : publier une version est irréversible (PyPI refuse de republier une
-  version).
+- **Une version = un tag `vX.Y.Z` sur `master`, créé par Release Please**
+  (`release-please.yml`, `release-please-config.json`). Ne changez pas la version à la main
+  (`uv version`) : Release Please la calcule. Procédure :
+  1. fusionner `dev` dans `master` ;
+  2. Release Please ouvre (ou met à jour) la PR de release : `CHANGELOG.md` et la version dans
+     `pyproject.toml`, `uv.lock`, `web/package.json` et `web/package-lock.json` ;
+  3. la fusion de cette PR crée le tag et la release GitHub, puis lance `publish.yml` sur le tag
+     (`workflow_dispatch` : un tag créé avec le jeton du workflow ne déclenche aucun workflow) :
+     lint et tests, vérification que le tag correspond à `version` dans `pyproject.toml`,
+     publication sur PyPI (`security-review` et le client seul `security-review-ci`) et des
+     images Docker (GHCR et Docker Hub, `docker.yml`), et ajout des distributions à la release.
+  Un tag poussé à la main déclenche toujours `publish.yml`.
+- Versionnement sémantique, déduit des Conventional Commits : `X` pour une rupture de
+  compatibilité (outil, prompt, option CLI ou paramètre retiré ou renommé), à signaler par `!`
+  (`feat!:`) ou un pied `BREAKING CHANGE:` ; `Y` pour une fonctionnalité (`feat:`) ; `Z` pour une
+  correction (`fix:`). Un type mal choisi donne une mauvaise version.
+- **Un agent ne crée et ne pousse jamais un tag, ne fusionne jamais dans `master` et ne
+  fusionne jamais la PR de Release Please, sans demande explicite** : publier une version est
+  irréversible (PyPI refuse de republier une version).
 
 ### Opérations GitHub
 

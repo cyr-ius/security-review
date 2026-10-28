@@ -86,15 +86,23 @@ trailer, already reviewed in the session of its agent, is not reviewed again.
 
 ## Releasing a version
 
-A version is a tag pushed on `master`:
+A version is a `vX.Y.Z` tag on `master`, created by Release Please (`release-please.yml`)
+from the Conventional Commits:
 
-1. On `dev`, update `version` in `pyproject.toml` (e.g. `uv version 1.3.0`) and commit: it is
-   the only place of the version, which the package reads from its installed metadata.
-2. Merge `dev` into `master`.
-3. On `master`, push the matching tag: `git tag v1.3.0 && git push origin v1.3.0`.
-4. The push of the tag triggers `publish.yml`: lint and tests, check that the tag matches the
-   version, publication on PyPI and of the Docker images (`docker.yml`), then creation of the
-   GitHub release.
+1. Merge `dev` into `master`.
+2. Release Please opens (or updates) the release pull request: it computes the version, writes
+   `CHANGELOG.md` and sets the version in `pyproject.toml` (the version the package reads from
+   its installed metadata), `uv.lock`, `web/package.json` and `web/package-lock.json`
+   (`release-please-config.json`).
+3. Merging that pull request creates the tag and the GitHub release, then runs `publish.yml` on
+   the tag: lint and tests, check that the tag matches the version, publication on PyPI and of
+   the Docker images (`docker.yml`), then upload of the distributions to the GitHub release.
+   A tag created with the workflow token triggers no workflow: `release-please.yml` starts
+   `publish.yml` itself, with `workflow_dispatch` on the tag.
+
+A tag pushed by hand (`git tag v1.3.0 && git push origin v1.3.0`) still triggers `publish.yml`.
+If the publication did not start, run **Build & publish to PyPI and Docker registries** from
+the **Actions** tab, on the tag, with the target `pypi`.
 
 The tag publishes two PyPI distributions at the same version: `security-review` and
 `security-review-ci`, the pipeline client alone (no dependency), whose project is written by
