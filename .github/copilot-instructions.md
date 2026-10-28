@@ -17,7 +17,7 @@ unique pour tous les agents. En résumé, un changement n'est terminé que si :
   `critical` / `high` corrigés.
 
 Branches : on code sur `dev` (branche `feat/<sujet>` depuis `dev` seulement pour une grosse
-rupture) ; `master` est la production. Une version se publie en poussant un tag `vX.Y.Z` sur
-`master` : ne le faites jamais sans demande explicite.
+rupture) ; `master` est la production. Une version se publie en fusionnant la PR de Release
+Please, qui crée le tag `vX.Y.Z` sur `master` : ne le faites jamais sans demande explicite.
 
 Code, docstrings et commentaires en anglais ; documentation utilisateur en français.
