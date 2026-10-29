@@ -104,6 +104,10 @@ export const PERMISSION_META: Record<Permission, { label: MessageKey; help: Mess
     label: 'permission.projectsDelete',
     help: 'permission.projectsDeleteHelp',
   },
+  'projects.autojoin': {
+    label: 'permission.projectsAutojoin',
+    help: 'permission.projectsAutojoinHelp',
+  },
 };
 
 /** Permissions limited to projects (the others concern the whole controller). */

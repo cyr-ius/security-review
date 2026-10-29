@@ -33,6 +33,11 @@
   project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
   a group or tokens) is refused: the permission never grants the reading of an existing
   project.
+- A user with ``projects.autojoin`` whose MCP agent requests a project that already exists
+  joins it at once (see request_project): it is added to the project group, so that it reads
+  the project and nothing more. A user with ``projects.create`` who reads a project may block
+  this autojoin on it (see set_autojoin_blocked): the requests then wait for an approval as the
+  others do.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
   delete_project): its reports, findings and comments, its project group, the project in the
   roles of the other groups and in the tokens (a token left without project is revoked). The
@@ -78,6 +83,7 @@ from ..storage.models import (
     FindingExport,
     GroupMember,
     GroupRole,
+    ProjectAutojoinBlock,
     ProjectEnrollment,
     SecurityReport,
     UserGroup,
@@ -112,6 +118,8 @@ class Permission(StrEnum):
     PROJECTS_CREATE = "projects.create"
     # Delete a project with its reports, findings and references (see delete_project)
     PROJECTS_DELETE = "projects.delete"
+    # Join an existing project, as a reader, when the MCP agent requests it (see request_project)
+    PROJECTS_AUTOJOIN = "projects.autojoin"
 
 
 # Permissions limited to the projects of a binding (the others concern the whole controller)
@@ -1219,6 +1227,7 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
         # Its connector destinations (its exports went with its findings), deleted here rather
         # than by connectors: the MCP server imports this module, never the connectors
         session.exec(delete(ConnectorTarget).where(ConnectorTarget.project == cleaned))
+        session.exec(delete(ProjectAutojoinBlock).where(ProjectAutojoinBlock.project == cleaned))
         audit.record(
             session,
             audit.AuditAction.PROJECT_DELETED,
@@ -1229,6 +1238,90 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
             {key: value for key, value in deleted.items() if key != "project"},
         )
         return deleted
+
+
+# ── Autojoin ─────────────────────────────────────────────────────────────────
+
+
+def autojoin_blocked_projects(session: Session) -> set[str]:
+    """Projects whose autojoin is blocked (see set_autojoin_blocked)."""
+    return set(session.exec(select(ProjectAutojoinBlock.project)).all())
+
+
+def set_autojoin_blocked(project: str, blocked: bool, actor: str | None = None) -> dict[str, Any]:
+    """Block (or allow again) the autojoin of ``project``: while it is blocked, a holder of
+    ``projects.autojoin`` who requests it waits for an approval as the others do. The users
+    who already joined it keep their access. A change is audited, a repeated one is not.
+
+    Raises:
+        ValueError: Invalid name.
+        NotFoundError: If the project is not known (see project_exists).
+    """
+    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    with session_scope() as session:
+        if not project_exists(session, cleaned):
+            raise NotFoundError(f"Project '{cleaned}' not found")
+        row = session.exec(
+            select(ProjectAutojoinBlock).where(ProjectAutojoinBlock.project == cleaned)
+        ).first()
+        if blocked == (row is not None):
+            return {"project": cleaned, "autojoin_blocked": blocked}
+        if blocked:
+            session.add(
+                ProjectAutojoinBlock(
+                    project=cleaned, blocked_by=(actor or audit.ANONYMOUS_ACTOR)[:200]
+                )
+            )
+        else:
+            session.delete(row)
+        try:
+            session.flush()
+        except IntegrityError:
+            # Blocked at the same time by another user: the first stands
+            raise ValueError(f"Project '{cleaned}' was changed concurrently; retry") from None
+        audit.record(
+            session,
+            audit.AuditAction.PROJECT_AUTOJOIN_CHANGED,
+            actor,
+            "project",
+            cleaned,
+            cleaned,
+            {"blocked": blocked},
+        )
+        return {"project": cleaned, "autojoin_blocked": blocked}
+
+
+def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -> None:
+    """Add ``user_id`` to the project group of the known ``project`` (cleaned), as a reader,
+    and settle its request of that project.
+
+    Raises:
+        ValueError: The user already reads MAX_SESSION_PROJECTS projects, or MAX_GROUPS groups
+            are already stored.
+    """
+    reached = scope(user_grants(session, user_id), Permission.REPORTS_READ)
+    if reached is not None and len(reached) >= MAX_SESSION_PROJECTS:
+        raise ValueError(
+            f"The user already reads {MAX_SESSION_PROJECTS} projects; ask an administrator "
+            "for access"
+        )
+    group = ensure_project_group(session, project, actor)
+    add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
+    for pending in session.exec(
+        select(ProjectEnrollment).where(
+            ProjectEnrollment.project == project, ProjectEnrollment.requested_by_user_id == user_id
+        )
+    ).all():
+        session.delete(pending)
+    audit.record(
+        session,
+        audit.AuditAction.PROJECT_JOINED,
+        actor,
+        "project",
+        project,
+        project,
+        {"group": group.name, "user_id": user_id},
+    )
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────
@@ -1301,20 +1394,22 @@ def request_project(
     user). An unknown project is created at once, with that user as its first member, when the
     user holds ``projects.create``; otherwise the request waits for a user with
     ``projects.create`` (see approve_enrollment), which gives the requesting user access to the
-    project. A known project is never opened at once: the user asks for an access to it the same
-    way, and the answer is the same as for a new project, so that it does not tell whether a
-    project exists. A user has one request per project; nothing is recorded for a known project
-    without a user to give access to, or that the user already reaches. Every request is audited
-    (``actor``: the token of the caller), with the user and the client address
-    ``requested_from``.
+    project. A known project is joined at once, as a reader, by a user who holds
+    ``projects.autojoin`` unless its autojoin is blocked (see set_autojoin_blocked); otherwise
+    the user asks for an access to it the same way, and the answer is the same as for a new
+    project, so that it does not tell whether a project exists. A user has one request per
+    project; nothing is recorded for a known project without a user to give access to, or that
+    the user already reaches. Every request is audited (``actor``: the token of the caller),
+    with the user and the client address ``requested_from``.
 
     Returns:
-        ``project``, ``status`` (``created`` or ``requested``) and ``next_steps``, what the
-        user does next.
+        ``project``, ``status`` (``created``, ``joined`` or ``requested``) and ``next_steps``,
+        what the user does next.
 
     Raises:
         EnrollmentThrottled: Too many requests from this user or token.
-        ValueError: Invalid project name, or MAX_PENDING_PROJECTS projects already pending.
+        ValueError: Invalid project name, MAX_PENDING_PROJECTS projects already pending, or a
+            user with ``projects.autojoin`` who already reads MAX_SESSION_PROJECTS projects.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
     actor = (actor or ENROLLMENT_ACTOR)[:MAX_REQUESTED_BY_CHARS]
@@ -1343,6 +1438,20 @@ def request_project(
                 "it: the review can go on.",
             }
         user_id = user.id if user is not None else None
+        if (
+            user_id is not None
+            and known
+            and cleaned not in autojoin_blocked_projects(session)
+            and allows(grants := user_grants(session, user_id), Permission.PROJECTS_AUTOJOIN)
+            and not allows(grants, Permission.REPORTS_READ, cleaned)
+        ):
+            _autojoin(session, user_id, cleaned, actor)
+            return {
+                "project": cleaned,
+                "status": "joined",
+                "next_steps": f"The user joined project '{cleaned}' as a reader: the review can "
+                "go on.",
+            }
         pending = session.exec(
             select(ProjectEnrollment).where(
                 ProjectEnrollment.project == cleaned,

@@ -98,7 +98,9 @@
   serveur Controller, ce qui ajoute l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
   au groupe de projet, créé pour un nouveau projet. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
-  porte aussi `users.manage`. La réponse est la même que le projet existe ou
+  porte aussi `users.manage`, sauf pour un utilisateur portant `projects.autojoin`, qui le
+  rejoint aussitôt en lecture si son adhésion automatique n'est pas bloquée (cet utilisateur
+  apprend quels projets existent). Pour les autres, la réponse est la même que le projet existe ou
   non. Les demandes sont bornées (20 demandes en attente, une par utilisateur et par projet, 5
   par utilisateur ou jeton et par heure), et
   une demande que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est

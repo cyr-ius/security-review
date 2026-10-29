@@ -21,8 +21,9 @@ machines keep a fixed role ([tokens](tokens.md)).
 | `settings.manage` | Change the general settings, the outgoing proxy and the OSV database | |
 | `users.manage` | Manage the users, groups, roles and the OIDC login | |
 | `audit.read` | Read the audit log | |
-| `projects.create` | [Create a project](projects.md#creating-a-project) and approve the projects requested by the agents | |
+| `projects.create` | [Create a project](projects.md#creating-a-project), approve the projects requested by the agents and [block the autojoin](projects.md#blocking-the-autojoin) of a project it reads | |
 | `projects.delete` | [Delete a project](projects.md#deleting-a-project) | |
+| `projects.autojoin` | [Join an existing project](projects.md#joining-a-project) at once, as a reader, when the agent requests it, unless [its autojoin is blocked](projects.md#blocking-the-autojoin) | |
 
 A permission marked **per project** may be limited to some projects; the others apply to the
 whole Controller server. No permission is needed for the

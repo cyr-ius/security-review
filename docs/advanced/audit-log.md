@@ -28,6 +28,8 @@ exists exactly when the change was committed.
 | `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](../usage/access-control.md#groups); the approval of a project request creates a missing [project group](../usage/projects.md#project-group) (`project` in the details) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
 | `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (its project group and the user id in the details) |
+| `project.joined` | A user with `projects.autojoin` joins an existing project through `request_project` (actor: the token) (its project group and the user id in the details) |
+| `project.autojoin_changed` | A user with `projects.create` [blocks or allows again the autojoin](../usage/projects.md#blocking-the-autojoin) of a project (`blocked` in the details) |
 | `project.deleted` | A user with `projects.delete` [deletes a project](../usage/projects.md#deleting-a-project) (counts of reports, findings and tokens, groups deleted or changed in the details) |
 | `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](../usage/projects.md#project-group) (added and removed group ids) |
 | `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |

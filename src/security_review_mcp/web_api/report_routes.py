@@ -49,6 +49,8 @@ from .schemas import (
     Granularity,
     PendingProject,
     PendingProjectApproved,
+    ProjectAutojoin,
+    ProjectAutojoinUpdate,
     ProjectCreate,
     ProjectDeleted,
     ProjectFindingPage,
@@ -89,10 +91,15 @@ async def project_trend(project: str, days: int, granularity: Granularity) -> di
 
 
 def _known_projects() -> list[dict]:
-    """Projects with reports, then those without any report that a role of a group names."""
+    """Projects with reports, then those without any report that a role of a group names,
+    with whether their autojoin is blocked."""
     with session_scope() as session:
         bound = access_control.bound_projects(session)
-    return services.list_projects(bound)
+        blocked = access_control.autojoin_blocked_projects(session)
+    return [
+        item | {"autojoin_blocked": item["project"] in blocked}
+        for item in services.list_projects(bound)
+    ]
 
 
 @router.get("/projects")
@@ -176,6 +183,36 @@ async def reject_pending_project(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info("Project %s rejected by %s", rejected["project"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/projects/{project}/autojoin")
+async def set_project_autojoin(
+    request: Request,
+    project: Annotated[ProjectName, Path()],
+    body: ProjectAutojoinUpdate,
+    identity: ProjectCreator,
+) -> ProjectAutojoin:
+    """Block or allow again the autojoin of a project the caller reads (``projects.create``,
+    logged-in web user only): while it is blocked, a holder of ``projects.autojoin`` who
+    requests it waits for an approval. A project outside the scope of the caller is not
+    found (404)."""
+    web_user_id(request)
+    cleaned = scoped_project(identity, project)
+    try:
+        changed = await run_in_threadpool(
+            access_control.set_autojoin_blocked, cleaned, body.blocked, actor_of(identity)
+        )
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info(
+        "Autojoin of project %s %s by %s",
+        changed["project"],
+        "blocked" if changed["autojoin_blocked"] else "allowed",
+        identity.client,
+    )
+    return ProjectAutojoin.model_validate(changed)
 
 
 @router.delete("/projects/{project}")

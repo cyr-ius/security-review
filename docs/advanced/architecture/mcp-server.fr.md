@@ -113,7 +113,7 @@ message de toute autre erreur lui est masqué.
 
 | Outil | Type | Paramètres | Renvoie |
 |---|---|---|---|
-| `request_project` | écriture | `project` | `status` : `accessible`, `created` ou `requested` avec `next_steps` ([enrôlement](#enrolement-jeton-personnel-et-demande-de-projet)) ; jamais de jeton |
+| `request_project` | écriture | `project` | `status` : `accessible`, `created`, `joined` ou `requested` avec `next_steps` ([enrôlement](#enrolement-jeton-personnel-et-demande-de-projet)) ; jamais de jeton |
 | `save_security_report` | écriture | `project`, `summary`, `findings` (au plus `SECREVIEW_MAX_FINDINGS_PER_REPORT`) ; facultatifs `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (ne peut que relever le risque calculé), `review_type`, `author`, `checklist_results` (500 au plus), `scan_rules` (500 au plus) | Identifiant du rapport, niveau de risque, comptes par sévérité et couverture de la revue ([rapport enregistré](../../review/prompts-tools.md#rapport-enregistre)) |
 | `get_security_report` | lecture seule | `report_id`, `format` (`markdown` par défaut, ou `json`) | Le rapport et ses findings, sans son auteur |
 | `list_security_reports` | lecture seule | `project`, `risk_level`, `review_type`, `limit` (1 à 100, `20` par défaut), `offset` | Les rapports, du plus récent au plus ancien, sans leur auteur (`author` : obsolète, ignoré) |
@@ -219,10 +219,14 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
     - le projet est nouveau et l'utilisateur porte `projects.create` : il est **créé**
       immédiatement, avec l'utilisateur pour membre (groupe `project:<projet>`), et la revue
       continue ;
+    - le projet existe et l'utilisateur porte `projects.autojoin` : il le **rejoint**
+      immédiatement (`joined`, groupe de projet, lecture seule), sauf si un utilisateur portant
+      `projects.create` a [bloqué son adhésion automatique](../../usage/projects.md#blocage-de-ladhesion-automatique),
+      et la revue continue. Un utilisateur lit au plus 200 projets de cette façon ;
     - sinon la réponse est `requested`, et l'agent s'arrête avant la revue, pour qu'aucune revue
       ne soit perdue. Un nouveau projet est **en attente** : ce n'est pas encore un projet et il
       ne donne aucun accès. Pour un projet qui existe déjà, l'utilisateur **demande l'accès** de
-      la même façon (jamais immédiatement, même avec `projects.create`). La réponse est la même
+      la même façon (jamais immédiatement, même avec `projects.create`, sauf avec `projects.autojoin`). La réponse est la même
       dans les deux cas, pour ne pas révéler quels projets existent. Un utilisateur dépose une
       demande par projet ; rien n'est enregistré pour un jeton sans utilisateur sur un projet
       existant, ni pour un utilisateur qui le lit déjà.

@@ -22,8 +22,9 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `settings.manage` | Changer les paramètres généraux, le proxy sortant et la base OSV | |
 | `users.manage` | Gérer les utilisateurs, groupes, rôles et la connexion OIDC | |
 | `audit.read` | Lire le journal d'audit | |
-| `projects.create` | [Créer un projet](projects.md#creation-dun-projet) et valider les projets demandés par les agents | |
+| `projects.create` | [Créer un projet](projects.md#creation-dun-projet), valider les projets demandés par les agents et [bloquer l'adhésion automatique](projects.md#blocage-de-ladhesion-automatique) à un projet qu'il lit | |
 | `projects.delete` | [Supprimer un projet](projects.md#suppression-dun-projet) | |
+| `projects.autojoin` | [Rejoindre un projet existant](projects.md#rejoindre-un-projet) aussitôt, en lecture, quand l'agent le demande, sauf si [son adhésion automatique est bloquée](projects.md#blocage-de-ladhesion-automatique) | |
 
 Une permission marquée **par projet** peut être limitée à certains projets ; les autres
 s'appliquent à tout le serveur Controller. Aucune permission n'est nécessaire pour les

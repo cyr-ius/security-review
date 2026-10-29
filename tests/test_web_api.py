@@ -1151,6 +1151,7 @@ def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
         "open_findings_total": 0,
         "open_findings_by_severity": dict.fromkeys([severity.value for severity in Severity], 0),
         "worst_open_severity": None,
+        "autojoin_blocked": False,
     }
     me = accounts.get("/api/v1/me", headers=headers).json()
     assert me["permissions"] == {"projects.create": None, "reports.read": ["mobile-app"]}
@@ -1642,6 +1643,33 @@ def test_a_requested_project_waits_for_an_approval_on_the_projects_screen(secure
     assert secured.get(url, headers=auth("admin")).json() == []
     assert secured.delete(f"{url}/{second['id']}", headers=auth("admin")).status_code == 404
     assert listed_tokens(secured) == []
+
+
+def test_a_creator_blocks_the_autojoin_of_a_project_it_reads(secured, reports):
+    role = access_control.create_role("Creator", [access_control.Permission.PROJECTS_CREATE])
+    creators = access_control.create_group("creators")
+    access_control.set_group_roles(creators["id"], [(role["id"], None)])
+    make_user("carol", USER_PASSWORD, group_ids=[group_for("reader", ["shop-api"]), creators["id"]])
+    make_user("rita", USER_PASSWORD, "reader", ["shop-api"])
+    headers = session_headers(secured, "carol")
+
+    def put(project: str, blocked: bool, headers: dict = headers):
+        return secured.put(
+            f"/api/v1/projects/{project}/autojoin", json={"blocked": blocked}, headers=headers
+        )
+
+    response = put("Shop-Api", True)
+
+    assert response.status_code == 200
+    assert response.json() == {"project": "shop-api", "autojoin_blocked": True}
+    listed = secured.get("/api/v1/projects", headers=headers).json()
+    assert [(item["project"], item["autojoin_blocked"]) for item in listed] == [("shop-api", True)]
+    # A project it does not read is not found, like an unknown one; a token never changes it
+    assert put("billing", True).status_code == 404
+    assert put("unknown", True).status_code == 404
+    assert put("shop-api", False, session_headers(secured, "rita")).status_code == 403
+    assert put("shop-api", False, auth("admin")).status_code == 403
+    assert put("shop-api", False).json()["autojoin_blocked"] is False
 
 
 def test_reader_of_several_projects_in_the_web_interface(secured, reports):

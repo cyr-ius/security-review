@@ -112,7 +112,7 @@ error is hidden from it.
 
 | Tool | Type | Parameters | Returns |
 |---|---|---|---|
-| `request_project` | write | `project` | `status`: `accessible`, `created` or `requested` with `next_steps` ([enrollment](#enrollment-personal-token-and-project-requests)); never a token |
+| `request_project` | write | `project` | `status`: `accessible`, `created`, `joined` or `requested` with `next_steps` ([enrollment](#enrollment-personal-token-and-project-requests)); never a token |
 | `save_security_report` | write | `project`, `summary`, `findings` (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`); optional `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (can only raise the computed risk), `review_type`, `author`, `checklist_results` (at most 500), `scan_rules` (at most 500) | Report id, risk level, counts by severity and review coverage ([stored report](../../review/prompts-tools.md#stored-report)) |
 | `get_security_report` | read-only | `report_id`, `format` (`markdown` by default, or `json`) | The report and its findings, without its author |
 | `list_security_reports` | read-only | `project`, `risk_level`, `review_type`, `limit` (1 to 100, `20` by default), `offset` | Reports, newest first, without their author (`author`: deprecated, ignored) |
@@ -216,10 +216,14 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
     - the token already reaches the project: `accessible`, the review goes on;
     - the project is new and the user holds `projects.create`: it is **created** at once, with
       the user as its member (group `project:<project>`), and the review goes on;
+    - the project exists and the user holds `projects.autojoin`: the user **joins** it at once
+      (`joined`, project group, reading only), unless a user with `projects.create` has
+      [blocked its autojoin](../../usage/projects.md#blocking-the-autojoin), and the review
+      goes on. A user reads at most 200 projects this way;
     - otherwise the answer is `requested`, and the agent stops before reviewing, so that no
       review is lost. A new project is **pending**: it is not a project yet and gives no access.
       For a project that already exists, the user **requests access** to it the same way
-      (never at once, even with `projects.create`). The answer is the same in both cases, so
+      (never at once, even with `projects.create`, except with `projects.autojoin`). The answer is the same in both cases, so
       that it does not tell which projects exist. A user files one request per project; nothing
       is recorded for a token without a user on an existing project, or for a user who already
       reads it.

@@ -67,8 +67,9 @@ stored results.
 (fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
 web interface. The gate keeps blocking until then.
 - Before a review, call `request_project` with the project name: when the token does not \
-reach the project yet, a user allowed to create projects gets it at once, otherwise the \
-project is requested for an administrator to approve (which gives the user access to it). \
+reach the project yet, a user allowed to create projects gets a new project at once, a user \
+allowed to join projects joins an existing one at once, otherwise the project is requested \
+for an administrator to approve (which gives the user access to it). \
 If its `status` is `requested`, do not review: give the user its `next_steps`.
 - Before writing code, use the prompt `development-standards` (or the tool \
 `get_development_standards`) to get the development standards of the technologies you work on.
@@ -968,7 +969,8 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     """Make sure the token reaches the project of a review, before reviewing.
 
     Returns ``status``: ``accessible`` (the review can start), ``created`` (the user may create
-    projects: the project was created and the user is a member of it) or ``requested`` (the
+    projects: the project was created and the user is a member of it), ``joined`` (the user may
+    join projects: it joined the existing project as a reader) or ``requested`` (the
     project waits for an administrator, or the user must be given access to it: do not review,
     give the user ``next_steps``). No token is created.
     """

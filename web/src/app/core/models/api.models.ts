@@ -105,7 +105,8 @@ export type Permission =
   | 'users.manage'
   | 'audit.read'
   | 'projects.create'
-  | 'projects.delete';
+  | 'projects.delete'
+  | 'projects.autojoin';
 
 /** Each permission held, with its projects (null: every project). */
 export type Grants = Partial<Record<Permission, string[] | null>>;
@@ -286,6 +287,8 @@ export type AuditAction =
   | 'user.groups_changed'
   | 'project.created'
   | 'project.deleted'
+  | 'project.joined'
+  | 'project.autojoin_changed'
   | 'user.roles_changed'
   | 'user.login'
   | 'user.login_failed'
@@ -326,6 +329,8 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.groups_changed',
   'project.created',
   'project.deleted',
+  'project.joined',
+  'project.autojoin_changed',
   'user.roles_changed',
   'user.login',
   'user.login_failed',
@@ -610,6 +615,14 @@ export interface ProjectSummary {
   open_findings_total: number;
   open_findings_by_severity: SeverityCounts;
   worst_open_severity: Severity | null;
+  /** The holders of projects.autojoin may not join this project at once. */
+  autojoin_blocked: boolean;
+}
+
+/** PUT /api/v1/projects/{project}/autojoin: whether the autojoin of a project is blocked. */
+export interface ProjectAutojoin {
+  project: string;
+  autojoin_blocked: boolean;
 }
 
 /** DELETE /api/v1/projects/{project}: what the deletion removed. */

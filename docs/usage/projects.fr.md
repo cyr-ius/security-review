@@ -63,10 +63,27 @@ Une personne dotée des permissions `projects.create` et `users.manage` peut val
 demande ; une personne dotée de `users.manage` peut aussi ajouter l'utilisateur au groupe de
 projet.
 
+Avec la permission `projects.autojoin`, le développeur **rejoint aussitôt le projet**, sans
+demande : la requête de son agent l'ajoute au groupe de projet, pour qu'il lise le projet (jamais
+plus : pas de tri) et que la revue continue. Cette permission ne crée pas de nouveau projet : il
+faut pour cela `projects.create`.
+
+## Blocage de l'adhésion automatique
+
+Avec la permission `projects.create`, un bouton cadenas apparaît sur chaque ligne de la page
+**Projets**, pour les projets que vous lisez. Il **bloque l'adhésion automatique** au projet : les
+titulaires de `projects.autojoin` déposent alors une demande qui attend une validation, comme les
+autres. Le projet affiche le badge **Adhésion automatique bloquée** ; le bouton cadenas ouvert
+autorise de nouveau l'adhésion automatique. Les utilisateurs qui ont déjà rejoint le projet
+gardent leur accès : retirez-les de son groupe de projet si nécessaire.
+
 ## Points d'attention
 
 - **Une demande en attente expire** après 7 jours par défaut : l'agent doit la refaire.
 - **Valider une demande d'accès** à un projet existant demande aussi `users.manage` : créer des
   projets ne donne jamais accès aux autres.
 - **Supprimer un projet révoque ses jetons dédiés** : prévenez les équipes qui les utilisent.
+- **`projects.autojoin` ouvre tous les projets** dont l'adhésion automatique n'est pas bloquée,
+  et indique à son titulaire quels projets existent : bloquez l'adhésion automatique des projets
+  sensibles.
 - **Un nom est normalisé** : `My.App` et `my-app` sont le même projet.

@@ -545,6 +545,17 @@ class ProjectEnrollment(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow, index=True)
 
 
+class ProjectAutojoinBlock(SQLModel, table=True):
+    """A project that the holders of ``projects.autojoin`` may not join at once (see
+    access_control.set_autojoin_blocked): their requests wait for an approval as the others do.
+    Deleted with its project."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    project: str = Field(unique=True, index=True, max_length=200)
+    blocked_by: str = Field(max_length=200)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 # ── Audit log (see audit) ────────────────────────────────────────────────────
 
 

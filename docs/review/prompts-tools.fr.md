@@ -65,7 +65,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton l'atteint, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
+| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton l'atteint, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), `joined` pour un projet existant quand l'utilisateur porte `projects.autojoin` (il le lit), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 

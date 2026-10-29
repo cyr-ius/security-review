@@ -92,7 +92,9 @@
   user with `projects.create` approves it on the Controller server, which adds the requesting user
   (authenticated by the token, never declared) to the project group, created for a new project.
   For an existing project, the request is an access request, never granted at once, and only
-  approved by a user who also holds `users.manage`. The
+  approved by a user who also holds `users.manage`, except for a user holding
+  `projects.autojoin`, who joins it at once as a reader unless its autojoin is blocked (this
+  user learns which projects exist). For the others, the
   answer is the same whether the project existed or not. The requests are bounded (20 pending
   requests, one per user and project, 5 per user or token and per hour), and a request nobody approved within
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted: check the requester before approving.

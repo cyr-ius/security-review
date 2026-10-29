@@ -61,10 +61,25 @@ approval, in **Pending projects** on the **Projects** page.
 A person with the `projects.create` and `users.manage` permissions may approve this request; a
 person with `users.manage` may also add the user to the project group.
 
+With the `projects.autojoin` permission, the developer **joins the project at once**, without
+any request: their agent's request adds them to the project group, so that they read the
+project (never more: no triage) and the review goes on. This permission does not create a new
+project: that takes `projects.create`.
+
+## Blocking the autojoin
+
+With the `projects.create` permission, a lock button shows on each row of the **Projects** page,
+for the projects you read. It **blocks the autojoin** of the project: the holders of
+`projects.autojoin` then file a request that waits for approval, as the others do. The project
+shows the **Autojoin blocked** badge; the unlock button allows the autojoin again. The users who
+already joined the project keep their access: remove them from its project group if needed.
+
 ## Points to watch
 
 - **A pending request expires** after 7 days by default: the agent has to ask again.
 - **Approving an access request** to an existing project also needs `users.manage`: creating
   projects never gives access to the others.
 - **Deleting a project revokes its dedicated tokens**: warn the teams that use them.
+- **`projects.autojoin` opens every project** whose autojoin is not blocked, and tells its
+  holder which projects exist: block the autojoin of the sensitive projects.
 - **A name is normalized**: `My.App` and `my-app` are the same project.

@@ -45,6 +45,7 @@ import {
   ProjectFindingQuery,
   PendingProject,
   PendingProjectApproved,
+  ProjectAutojoin,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
@@ -300,6 +301,15 @@ export class ApiService {
   /** Reject a requested project: the request is deleted. */
   rejectPendingProject(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/projects/pending/${id}`);
+  }
+
+  /** PUT /api/v1/projects/{project}/autojoin: block or allow again the autojoin of a project
+   * the caller reads (projects.create). */
+  setProjectAutojoin(project: string, blocked: boolean): Observable<ProjectAutojoin> {
+    return this.http.put<ProjectAutojoin>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/autojoin`,
+      { blocked },
+    );
   }
 
   /** DELETE /api/v1/projects/{project}: the project and its references (projects.delete). */

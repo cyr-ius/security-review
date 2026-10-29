@@ -162,6 +162,21 @@ class ProjectSummary(BaseModel):
     open_findings_total: int
     open_findings_by_severity: dict[str, int]
     worst_open_severity: Severity | None
+    # The holders of projects.autojoin may not join this project at once
+    autojoin_blocked: bool = False
+
+
+class ProjectAutojoin(BaseModel):
+    """Whether the autojoin of a project is blocked (PUT /projects/{project}/autojoin)."""
+
+    project: str
+    autojoin_blocked: bool
+
+
+class ProjectAutojoinUpdate(BaseModel):
+    """Block (true) or allow again (false) the autojoin of a project."""
+
+    blocked: bool
 
 
 class ProjectCreate(BaseModel):

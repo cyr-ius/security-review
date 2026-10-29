@@ -88,6 +88,9 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Delete projects',
     'permission.projectsDeleteHelp':
       'A project with its reports, findings, project group, and its place in the roles and tokens.',
+    'permission.projectsAutojoin': 'Join projects',
+    'permission.projectsAutojoinHelp':
+      'An existing project, as a reader, when its MCP agent requests it, unless the autojoin of the project is blocked.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (all projects)',
   },
@@ -179,6 +182,9 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Supprimer des projets',
     'permission.projectsDeleteHelp':
       'Un projet avec ses rapports, ses findings, son groupe de projet et sa place dans les rôles et les jetons.',
+    'permission.projectsAutojoin': 'Rejoindre des projets',
+    'permission.projectsAutojoinHelp':
+      "Un projet existant, en lecture, quand son agent MCP le demande, sauf si l'adhésion automatique du projet est bloquée.",
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (tous les projets)',
   },
@@ -270,6 +276,9 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Eliminar proyectos',
     'permission.projectsDeleteHelp':
       'Un proyecto con sus informes, hallazgos, grupo de proyecto y su lugar en los roles y tokens.',
+    'permission.projectsAutojoin': 'Unirse a proyectos',
+    'permission.projectsAutojoinHelp':
+      'Un proyecto existente, en lectura, cuando su agente MCP lo solicita, salvo si la adhesión automática del proyecto está bloqueada.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (todos los proyectos)',
   },

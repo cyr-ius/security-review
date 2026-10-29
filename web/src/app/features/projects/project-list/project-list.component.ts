@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import {
   PendingProject,
+  ProjectSummary,
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
@@ -69,9 +70,13 @@ export class ProjectListComponent {
   readonly canDelete = computed(() => this.auth.can('projects.delete'));
   /** Giving access to an existing project also takes users.manage, as a group membership does. */
   readonly canGrantAccess = computed(() => this.auth.can('users.manage'));
+  /** The row actions: blocking the autojoin (projects.create), deleting (projects.delete). */
+  readonly hasActions = computed(() => this.canCreate() || this.canDelete());
   readonly creating = signal(false);
   /** Project being deleted (its row button shows a spinner). */
   readonly deleting = signal<string | null>(null);
+  /** Project whose autojoin is being changed (its row button shows a spinner). */
+  readonly switchingAutojoin = signal<string | null>(null);
   readonly error = signal<Message | null>(null);
   readonly createError = signal<Message | null>(null);
   readonly notice = signal<Message | null>(null);
@@ -256,6 +261,41 @@ export class ProjectListComponent {
     } finally {
       this.deciding.set(false);
       this.reload();
+    }
+  }
+
+  /** Block the autojoin of a project, or allow it again: while it is blocked, the holders of
+   * projects.autojoin wait for an approval to join it. */
+  async toggleAutojoin(project: ProjectSummary): Promise<void> {
+    if (this.switchingAutojoin()) {
+      return;
+    }
+    this.switchingAutojoin.set(project.project);
+    this.error.set(null);
+    this.notice.set(null);
+    try {
+      const changed = await firstValueFrom(
+        this.api.setProjectAutojoin(project.project, !project.autojoin_blocked),
+      );
+      this.notice.set(
+        msg(
+          changed.autojoin_blocked
+            ? 'projects.autojoinBlockedDone'
+            : 'projects.autojoinAllowedDone',
+          {
+            project: changed.project,
+          },
+        ),
+      );
+      this.projects.reload();
+    } catch (error: unknown) {
+      this.error.set(
+        error instanceof HttpErrorResponse && typeof error.error?.detail === 'string'
+          ? serverDetail(error.error.detail)
+          : msg('projects.autojoinFailed'),
+      );
+    } finally {
+      this.switchingAutojoin.set(null);
     }
   }
 
