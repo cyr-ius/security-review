@@ -14,9 +14,9 @@ Chaque jeton porte un rôle fixe, qui détermine ce qu'il atteint.
 
 | Rôle | Pour | Créé |
 |---|---|---|
-| `mcp` | Un agent MCP (Claude Code, Copilot, Codex...) | Écran **Jetons**, ou jeton personnel |
-| `ci` | Le client de pipeline [`security-review-ci`](../advanced/architecture/ci.md) : gate, SARIF, tendance, scans | Écran **Jetons**, toujours pour certains projets |
-| `api` | Les scripts et la documentation Swagger ([jetons API](#jetons-api)) | Écran **Jetons**, ou jeton personnel |
+| `mcp` | Un agent MCP (Claude Code, Copilot, Codex...) | Page **Jetons**, ou jeton personnel |
+| `ci` | Le client de pipeline [`security-review-ci`](../advanced/architecture/ci.md) : gate, SARIF, tendance, scans | Page **Jetons**, toujours pour certains projets |
+| `api` | Les scripts et la documentation Swagger ([jetons API](#jetons-api)) | Page **Jetons**, ou jeton personnel |
 | `admin` | Les scripts d'administration : toute l'API REST | Ligne de commande uniquement |
 | `metrics` | [Prometheus](../reference/metrics.md) | Ligne de commande uniquement |
 
@@ -25,14 +25,14 @@ connectée à l'interface le fait ([triage](triage.md)). Les agents ne font que 
 
 ## Créer un jeton dans l'interface
 
-Dans l'écran **Jetons**, un administrateur choisit :
+Dans la page **Jetons**, un administrateur choisit :
 
 - l'**Usage** : **MCP**, **Pipeline CI/CD** ou **API REST** (avec le **Rôle** qu'il porte) ;
 - les **Projets autorisés** : **Tous les projets** (y compris ceux revus plus tard, jamais pour
   un jeton CI/CD) ou **Projets sélectionnés** ;
 - la **Validité** : de 30 jours à 1 an.
 
-Un jeton ne donne jamais plus que ce que détient son créateur, et l'écran ne liste que les jetons
+Un jeton ne donne jamais plus que ce que détient son créateur, et la page ne liste que les jetons
 des projets que vous lisez. **Projets** change les projets d'un jeton sans changer son secret ;
 **Renouveler** remplace son secret.
 
@@ -45,7 +45,7 @@ deux sortes :
 - **Jeton personnel** : créé par un utilisateur pour lui-même (voir
   [jetons personnels](#jetons-personnels)). Il porte les droits actuels du compte : il n'atteint
   plus rien dès que le compte les perd.
-- **Jeton de rôle** : créé par un administrateur dans l'écran **Jetons**, avec un **Rôle**. Il
+- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle**. Il
   porte les permissions de ce rôle sur ses projets. Un rôle utilisé par un jeton ne peut pas être
   supprimé.
 
@@ -70,13 +70,14 @@ créer un autre. Il ne se renouvelle pas : révoquez-le et créez-en un nouveau.
 Avec la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), l'agent MCP n'a besoin
 d'aucun jeton personnel : les clients que vous avez autorisés sont listés dans **Mon compte** >
 **Clients MCP connectés**, où vous les révoquez. Un administrateur voit et révoque tous les
-clients dans la section **Clients MCP (connexion OAuth)** de l'écran **Jetons**, où il active ou
+clients dans la section **Clients MCP (connexion OAuth)** de la page **Jetons**, où il active ou
 désactive aussi la connexion et saisit son point d'accès MCP.
 
 ### Jetons MCP et CI personnels
 
 Le jeton personnel **MCP** connecte votre agent MCP, le jeton personnel **CI**
-`security-review-ci`. Ils ne sont proposés que si vos groupes le permettent (rôle `mcp-user`, voir [Rôles](access-control.md#roles)). Il atteint les
+`security-review-ci`. Tout compte peut les créer, sauf si un administrateur les a désactivés
+(`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, voir plus bas). Il atteint les
 projets que votre compte peut lire, affichés dans la colonne **Projets**.
 
 Pour un projet qu'il n'atteint pas encore : un administrateur vous en donne l'accès, vous le
@@ -94,6 +95,12 @@ Quand le serveur utilise la [connexion OAuth des clients MCP](../advanced/mcp-oa
 administrateur peut désactiver les jetons MCP personnels (`SECREVIEW_PERSONAL_MCP_TOKENS=false`) :
 l'usage **MCP** n'est alors plus proposé, et le serveur Controller révoque les jetons MCP restants à son
 prochain démarrage. Les jetons CI et API REST restent.
+
+Un administrateur peut aussi désactiver, pour toute l'application, les jetons MCP et CI
+personnels et la connexion OAuth (`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`) : les usages **MCP**
+et **CI** ne sont plus proposés, et les jetons déjà créés, comme les clients MCP déjà connectés
+par OAuth, sont refusés. Ils sont conservés et fonctionnent de nouveau une fois la variable à
+`true`. Les jetons API REST restent.
 
 ## Points d'attention
 

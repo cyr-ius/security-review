@@ -99,7 +99,7 @@ HTTPS_PROXY=http://user:password@proxy.example.com:3128
 
 #### Hosts without proxy
 
-`NO_PROXY` (or the list of the **General** screen) gives, comma separated, the
+`NO_PROXY` (or the list of the **General** page) gives, comma separated, the
 destinations reached **without** the proxy:
 
 | Entry | Example | Effect |
@@ -112,7 +112,7 @@ destinations reached **without** the proxy:
 An address only applies to a URL whose host **is** that IP address (`https://10.0.0.5/...`): a
 host name is never resolved. To bypass the proxy towards an internal server reached by its name,
 give its domain. Address ranges (CIDR, `10.0.0.0/8`) are not supported: in `NO_PROXY`, such an
-entry matches no host, and the **General** screen refuses it. The loopback (`localhost`,
+entry matches no host, and the **General** page refuses it. The loopback (`localhost`,
 `127.0.0.0/8`, `::1`) is always reached directly.
 
 ```bash
@@ -120,9 +120,9 @@ NO_PROXY=.corp.example,10.0.0.5
 ```
 
 The proxy can also be chosen by an administrator in the **Outgoing proxy of the Controller server**
-section of the [**General**](../../usage/index.md#screens) screen of the web interface, for the variables that are not set: `HTTPS_PROXY` (else
-`HTTP_PROXY`) and `NO_PROXY`, when set, take precedence over the values of the screen. They
-apply to the next download. The **OSV database** screen shows the state of the database, the history of the updates
+section of the [**General**](../../usage/index.md#pages) page of the web interface, for the variables that are not set: `HTTPS_PROXY` (else
+`HTTP_PROXY`) and `NO_PROXY`, when set, take precedence over the values of the page. They
+apply to the next download. The **OSV database** page shows the state of the database, the history of the updates
 (scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
 time), only available when `SECREVIEW_OSV_AUTO_UPDATE=true`.
 

@@ -83,7 +83,7 @@ curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/
 ```
 
 `GET /api/v1/risk-acceptances` accepte `limit` (plafonné par `SECREVIEW_MAX_LIST_LIMIT`) et
-`offset` ; sans `project`, il liste tous les projets que l'appelant peut lire. L'écran s'ouvre
+`offset` ; sans `project`, il liste tous les projets que l'appelant peut lire. La page s'ouvre
 aussi à l'adresse `/ui/risk-acceptances`.
 
 Aucune route de l'API ne modifie ni ne supprime un commentaire. Toute personne qui lit le projet

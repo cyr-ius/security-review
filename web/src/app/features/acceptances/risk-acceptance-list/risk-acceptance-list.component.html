@@ -54,9 +54,9 @@
   <app-table-controls
     idPrefix="risk-acceptances"
     [search]="search()"
-    [filters]="filters()"
+    [multiFilters]="filters()"
     (searchChange)="search.set($event)"
-    (filterChange)="onFilter($event)"
+    (multiFilterChange)="onFilter($event)"
   />
   <div class="card">
     <div class="card-header small text-body-secondary" aria-live="polite">

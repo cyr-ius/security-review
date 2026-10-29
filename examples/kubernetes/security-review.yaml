@@ -47,7 +47,7 @@ data:
   # MCP server gives its web interface (/ui) to the clients without a valid token (enrollment,
   # 401) so that the user knows where to create a personal MCP token. Unset: set it in the web
   # interface (General).
-  # SECREVIEW_CONTROLLER_URL: https://secreview.example.com
+  # SECREVIEW_PUBLIC_URL: https://secreview.example.com
   # OAuth login of the MCP clients (read by the controller, which needs the URL above in https):
   # the hosts sign in through the browser instead of a personal MCP token. Publish the OAuth
   # paths: see the Ingress at the end of this file.

@@ -6,7 +6,7 @@ REST.
 
 ## Activation
 
-L'écran **Connecteurs** (Administration, permission `settings.manage`) présente chaque connecteur
+La page **Connecteurs** (Administration, permission `settings.manage`) présente chaque connecteur
 disponible sous forme de carte : son état, le nombre de projets qui l'utilisent, un
 **interrupteur** et une **roue crantée** qui ouvre ses paramètres (onglets **Connexion** et
 **Projets**).
@@ -20,7 +20,7 @@ enregistré dans le journal d'audit (`connector.changed`, `{"enabled": true}`).
 
 | Valeur | Effet |
 |---|---|
-| `true` (défaut) | Les interrupteurs de l'écran décident ; chaque connecteur est désactivé tant qu'il n'a pas été activé |
+| `true` (défaut) | Les interrupteurs de la page décident ; chaque connecteur est désactivé tant qu'il n'a pas été activé |
 | `false` | Tous les connecteurs sont verrouillés : rien n'est envoyé, les interrupteurs ne peuvent pas être activés, **Tester la connexion** est refusé |
 
 ```bash
@@ -51,7 +51,7 @@ renvoie.
 
 Chaque connecteur reçoit le même contenu : un titre (`[HIGH] shop-api: SQL injection`), le
 projet, la sévérité, l'emplacement, la règle, la CWE, l'OWASP, la branche, le commit, le lien vers
-le rapport (avec `SECREVIEW_CONTROLLER_URL`), puis la description, la preuve et la recommandation, et
+le rapport (avec `SECREVIEW_PUBLIC_URL`), puis la description, la preuve et la recommandation, et
 l'empreinte du problème. Les textes du rapport sont de nouveau masqués (secrets) avant de partir.
 La page de chaque connecteur décrit où chaque champ arrive dans le système.
 
@@ -63,7 +63,7 @@ La page de chaque connecteur décrit où chaque champ arrive dans le système.
   interne), par le [proxy sortant](../reference/configuration.md#proxy-sortant).
 - **Les redirections sont refusées** : elles emporteraient les identifiants ailleurs. Délai de
   15 secondes, réponse bornée à 1 Mio.
-- Les secrets saisis dans l'écran sont stockés en base **en clair**, comme le secret client
+- Les secrets saisis dans la page sont stockés en base **en clair**, comme le secret client
   OIDC : l'API ne les renvoie jamais (`***`), les journaux ne nomment que les réglages modifiés,
   l'événement d'audit les masque. Préférez les variables (secret Kubernetes) si la base n'est pas
   protégée comme un secret.
@@ -144,7 +144,7 @@ SECREVIEW_ACME_API_KEY=...
 
 Le serveur Controller charge les connecteurs autorisés au démarrage et refuse de démarrer si l'un
 manque, est écrit pour une autre version de l'API, ou déclare une variable du serveur lui-même
-(`SECREVIEW_<TYPE>_<CHAMP>` ne doit pas être un réglage existant). L'écran **Connecteurs**
+(`SECREVIEW_<TYPE>_<CHAMP>` ne doit pas être un réglage existant). La page **Connecteurs**
 l'affiche sous forme de carte marquée **Tiers**, désactivé tant qu'il n'a pas été activé. Un
 connecteur s'exécute dans le serveur Controller avec ses droits : n'installez et n'autorisez que du code
 de confiance, comme toute dépendance.

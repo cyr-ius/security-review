@@ -24,7 +24,7 @@ les postes les voient.
 
 | Variable (serveur Controller) | Un hôte par processus | Un seul hôte |
 |---|---|---|
-| `SECREVIEW_CONTROLLER_URL` | `https://secreview.example.com` | `https://secreview.example.com` |
+| `SECREVIEW_PUBLIC_URL` | `https://secreview.example.com` | `https://secreview.example.com` |
 | `SECREVIEW_MCP_URL` (connexion OAuth) | `https://mcp.secreview.example.com/mcp` | `https://secreview.example.com/mcp` |
 
 Les hôtes utilisent alors la même adresse que `SECREVIEW_MCP_URL`.
@@ -191,5 +191,5 @@ curl -si -X POST https://secreview.example.com/mcp | head -1                    
 curl -s https://secreview.example.com/api/health                                 # {"status":"ok"}
 ```
 
-L'`issuer` de la deuxième réponse doit être exactement `SECREVIEW_CONTROLLER_URL`, et les
+L'`issuer` de la deuxième réponse doit être exactement `SECREVIEW_PUBLIC_URL`, et les
 `authorization_servers` de la première la même URL.

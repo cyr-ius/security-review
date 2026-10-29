@@ -1,6 +1,7 @@
 # Tests
 
-Les tests tournent avec pytest, sans accès réseau, sur une base SQLite en mémoire.
+Les tests tournent avec pytest, sans accès réseau, sur une base SQLite en mémoire, en parallèle
+(pytest-xdist, un worker par CPU ; `-n0` les lance en série pour déboguer).
 
 ```bash
 uv run pytest tests/test_scanner.py -k python   # d'abord les tests du module modifié
@@ -31,6 +32,8 @@ sont dans le même commit que lui.
   vide : n'utilisez jamais la base réelle. La fixture `import_pack` importe des règles internes
   (pack TOML), `triage` enregistre une décision comme le ferait une personne, `tmp_path` accueille
   les fichiers.
+- `tests/conftest.py` hache les mots de passe avec un coût scrypt minime ; un test qui vérifie le
+  coût de production est marqué `@pytest.mark.real_password_hashing`.
 - Pas de réseau, pas de `sleep`, pas de dépendance à l'ordre des tests. Les clés et jetons sont
   factices.
 

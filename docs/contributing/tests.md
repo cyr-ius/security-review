@@ -1,6 +1,7 @@
 # Tests
 
-The tests run with pytest, without network access, on an in-memory SQLite database.
+The tests run with pytest, without network access, on an in-memory SQLite database, in
+parallel (pytest-xdist, one worker per CPU; `-n0` runs them serially to debug).
 
 ```bash
 uv run pytest tests/test_scanner.py -k python   # target the tests of the changed module first
@@ -30,6 +31,8 @@ the same commit as the change.
 - `tests/conftest.py` gives each test an in-memory SQLite database and an empty rule registry:
   never use the real database. The `import_pack` fixture imports internal rules (TOML pack),
   `triage` records a decision as a person would, `tmp_path` holds the files.
+- `tests/conftest.py` hashes passwords with a tiny scrypt cost; a test that checks the production
+  cost is marked `@pytest.mark.real_password_hashing`.
 - No network, no `sleep`, no dependency on the order of the tests. Keys and tokens are fake.
 
 ## Tests by kind of code

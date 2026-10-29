@@ -86,7 +86,7 @@ type ProxyField = 'url' | 'no_proxy';
  * Administrator page: general settings. The language of the review reports, the public URL of
  * the controller (the MCP server gives its web interface to the agents without a valid token,
  * the connectors link to it) and the proxy of the outgoing connections of the controller (OSV
- * download and OIDC provider). SECREVIEW_REPORT_LANGUAGE, SECREVIEW_CONTROLLER_URL,
+ * download and OIDC provider). SECREVIEW_REPORT_LANGUAGE, SECREVIEW_PUBLIC_URL,
  * HTTPS_PROXY / HTTP_PROXY and NO_PROXY, when set, take precedence: their field then only shows
  * them.
  */
@@ -144,7 +144,7 @@ export class GeneralSettingsComponent extends SettingsPage {
     );
   }
 
-  /** Delete the stored value that SECREVIEW_CONTROLLER_URL hides. */
+  /** Delete the stored value that SECREVIEW_PUBLIC_URL hides. */
   async deleteStoredControllerUrl(): Promise<void> {
     await this.run(
       () => firstValueFrom(this.api.setControllerUrl(null)),

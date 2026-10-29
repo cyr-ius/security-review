@@ -25,6 +25,7 @@ def stored(database, username: str) -> WebUser:
 # ── Passwords ────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.real_password_hashing
 def test_password_hash_is_salted_and_verified():
     first, second = web_users.hash_password(PASSWORD), web_users.hash_password(PASSWORD)
 
@@ -700,7 +701,7 @@ def test_group_cli_lists_the_groups_and_the_roles(capsys):
     assert [(g["name"], g["roles"][0]["projects"]) for g in groups] == [("devs", ["shop"])]
     assert cli.run(["group", "roles"]) == cli.EXIT_PASSED
     roles = json.loads(capsys.readouterr().out)
-    assert [role["name"] for role in roles] == ["admin", "reader", "mcp-user", "triager"]
+    assert [role["name"] for role in roles] == ["admin", "reader", "triager"]
 
 
 def test_user_cli_reads_the_password_on_stdin(capsys, monkeypatch):

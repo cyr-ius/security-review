@@ -110,6 +110,24 @@ atteint est refusé (`409`). Un projet encore en attente n'est pas encore connu 
 demande de son créateur (celles des autres utilisateurs deviennent des demandes d'accès). Chaque
 création est inscrite au journal d'audit (`project.created`).
 
+### Adhésion automatique à un projet
+
+Un utilisateur portant `projects.autojoin` rejoint un projet existant par l'outil
+`request_project` de son agent : le serveur Controller ajoute le compte au groupe de projet
+(lecture seule), solde sa demande en attente pour ce projet et inscrit `project.joined` au
+journal d'audit. Un utilisateur qui lit déjà 200 projets est refusé.
+`PUT /api/v1/projects/{project}/autojoin` bloque (`true`) ou autorise de nouveau (`false`) cette
+adhésion, avec `projects.create`, depuis une session de l'interface web uniquement, pour un projet
+que l'appelant lit (un autre répond `404`). Un projet bloqué porte `"autojoin_blocked": true`
+dans `GET /api/v1/projects` ; les utilisateurs qui l'ont déjà rejoint gardent leur accès. Chaque
+changement est inscrit au journal d'audit (`project.autojoin_changed`).
+
+```bash
+curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects/mobile-app/autojoin -d '{"blocked": true}'
+# {"project": "mobile-app", "autojoin_blocked": true}
+```
+
 ### Suppression d'un projet
 
 `DELETE /api/v1/projects/{project}` supprime un projet, depuis une session de l'interface web

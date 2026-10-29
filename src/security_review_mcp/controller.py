@@ -12,7 +12,7 @@ import argparse
 import logging
 import sys
 
-from . import app_settings, cli, connectors, http_server, web_api
+from . import __version__, app_settings, cli, connectors, http_server, web_api
 from .auth import oauth_server, oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
@@ -39,7 +39,8 @@ commands:
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
 
-Run `security-review-controller COMMAND --help` for the options of a command.
+Run `security-review-controller COMMAND --help` for the options of a command, `--version` for
+the version.
 Pipeline commands (gate, sarif, trend, scan-code, scan-deps) are run by security-review-ci.
 """
 
@@ -68,6 +69,12 @@ def serve(argv: list[str]) -> None:
     args = parser.parse_args(argv)
     settings = http_server.with_tls_arguments(settings, args)
     configure_logging(settings.log_level)
+    if settings.legacy_controller_url:
+        logger.warning(
+            "SECREVIEW_CONTROLLER_URL is deprecated on the Controller server: set "
+            "SECREVIEW_PUBLIC_URL instead (SECREVIEW_CONTROLLER_URL remains the variable of "
+            "security-review-ci)"
+        )
 
     try:
         init_db()
@@ -80,6 +87,11 @@ def serve(argv: list[str]) -> None:
         oauth_enabled = app_settings.effective_settings(settings).mcp_oauth_enabled
         if not oauth_enabled and (revoked := oauth_server.revoke_all_grants("environment")):
             logger.warning("OAuth login of the MCP clients off: %d grants revoked", revoked)
+        if not settings.personal_tokens_enabled:
+            logger.warning(
+                "SECREVIEW_PERSONAL_TOKENS_ENABLED=false: the personal MCP and CI tokens and the "
+                "OAuth grants are refused"
+            )
         if not settings.personal_mcp_tokens:
             if revoked := token_store.revoke_personal_mcp_tokens("environment"):
                 logger.warning("Personal MCP tokens off: %d tokens revoked", revoked)
@@ -103,6 +115,7 @@ def serve(argv: list[str]) -> None:
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
+    logger.info("Controller server %s listening on %s:%d", __version__, args.host, args.port)
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
@@ -169,6 +182,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(cli.run(arguments))
     elif command in ("-h", "--help"):
         print(USAGE, end="")
+    elif command == "--version":
+        print(f"security-review-controller {__version__}")
     else:
         print(USAGE, end="", file=sys.stderr)
         if command is not None:

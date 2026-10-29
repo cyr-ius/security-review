@@ -88,6 +88,15 @@ def _status_is(status: FindingStatus, now: datetime | None = None) -> ColumnElem
     return Finding.status == status
 
 
+def _values[T: str](value: T | Collection[T] | None) -> list[T]:
+    """Values of a filter given as one value or several (None or empty: no filter)."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]  # type: ignore[list-item]
+    return list(dict.fromkeys(value))
+
+
 def _check_author(author: str | None) -> str | None:
     """Strip and bound the developer username of a report (None when empty).
 
@@ -402,12 +411,12 @@ def get_report(report_id: int) -> SecurityReportPublic:
 
 
 def list_reports(
-    project: str | None = None,
-    risk_level: Severity | None = None,
+    project: str | Collection[str] | None = None,
+    risk_level: Severity | Collection[Severity] | None = None,
     limit: int = 20,
     offset: int = 0,
     projects: Collection[str] | None = None,
-    review_type: ReviewType | None = None,
+    review_type: ReviewType | Collection[ReviewType] | None = None,
     author: str | None = None,
     search: str | None = None,
     sort_by: Literal[
@@ -425,8 +434,9 @@ def list_reports(
 ) -> list[dict]:
     """List reports, newest first, with their number of open findings.
 
-    ``projects`` (the scope of a restricted caller) keeps only the reports of these projects;
-    ``author`` keeps only the reports declared for this developer username. Without
+    ``project``, ``risk_level`` and ``review_type`` take one value or several (any of them
+    matches); ``projects`` (the scope of a restricted caller) keeps only the reports of these
+    projects; ``author`` keeps only the reports declared for this developer username. Without
     ``with_author``, the author is neither returned nor used to filter, search or sort (the
     caller cannot guess it from the order of the results).
     """
@@ -440,14 +450,14 @@ def list_reports(
 
     with session_scope() as session:
         statement = select(SecurityReport)
-        if project:
-            statement = statement.where(SecurityReport.project == normalize_project(project))
+        if names := [normalize_project(name) for name in _values(project) if name]:
+            statement = statement.where(col(SecurityReport.project).in_(names))
         if projects is not None:
             statement = statement.where(col(SecurityReport.project).in_(list(projects)))
-        if risk_level:
-            statement = statement.where(SecurityReport.risk_level == risk_level)
-        if review_type:
-            statement = statement.where(SecurityReport.review_type == review_type)
+        if levels := _values(risk_level):
+            statement = statement.where(col(SecurityReport.risk_level).in_(levels))
+        if types := _values(review_type):
+            statement = statement.where(col(SecurityReport.review_type).in_(types))
         if author:
             statement = statement.where(SecurityReport.author == author)
         if search:
@@ -915,11 +925,11 @@ def project_posture(project: str) -> dict:
 
 def list_project_findings(
     project: str | None,
-    status: FindingStatus = FindingStatus.OPEN,
-    severity: Severity | None = None,
+    status: FindingStatus | Collection[FindingStatus] | None = FindingStatus.OPEN,
+    severity: Severity | Collection[Severity] | None = None,
     limit: int = 100,
     offset: int = 0,
-    review_type: ReviewType | None = None,
+    review_type: ReviewType | Collection[ReviewType] | None = None,
     projects: Collection[str] | None = None,
 ) -> dict:
     """List the findings of a project (or of every project) across all reports, for a review.
@@ -928,21 +938,25 @@ def list_project_findings(
     Worst severity first, then newest report first. ``limit`` is capped by
     SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every matching finding, for paging. Each finding
     carries the project, branch, commit, review type and date of its report; ``review_type``
-    keeps only the findings of the reports of that type. ``project`` None lists every project;
+    keeps only the findings of the reports of that type. ``status``, ``severity`` and
+    ``review_type`` take one value or several (any of them matches; no status: open). ``project``
+    None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
-    filters = [_status_is(status), _current()]
+    statuses = _values(status) or [FindingStatus.OPEN]
+    now = utcnow()
+    filters = [or_(*(_status_is(s, now) for s in statuses)), _current()]
     if project is not None:
         filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:
         filters.append(col(SecurityReport.project).in_(list(projects)))
-    if severity is not None:
-        filters.append(Finding.severity == severity)
-    if review_type is not None:
-        filters.append(SecurityReport.review_type == review_type)
+    if severities := _values(severity):
+        filters.append(col(Finding.severity).in_(severities))
+    if types := _values(review_type):
+        filters.append(col(SecurityReport.review_type).in_(types))
     rank = case(*((Finding.severity == s, r) for s, r in SEVERITY_RANK.items()), else_=0)
 
     with session_scope() as session:

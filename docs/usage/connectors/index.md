@@ -15,7 +15,7 @@ The variables, the guarantees and the REST API are in
 
 ## Enabling
 
-The **Connectors** screen (Administration) shows one card per connector, with its state
+The **Connectors** page (Administration) shows one card per connector, with its state
 (**Inactive**, **To configure**, **Active**), its number of projects, a **switch** and a
 **gear** for its settings:
 

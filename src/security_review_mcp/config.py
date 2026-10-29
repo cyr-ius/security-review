@@ -35,7 +35,7 @@ def check_report_language(value: str) -> str:
     return language
 
 
-# Bound of the public URL of the controller (SECREVIEW_CONTROLLER_URL or web interface)
+# Bound of the public URL of the controller (SECREVIEW_PUBLIC_URL or web interface)
 CONTROLLER_URL_MAX_CHARS = 500
 # Path of the web interface under the controller URL (http_server.UI_PREFIX)
 WEB_UI_PATH = "/ui"
@@ -55,19 +55,19 @@ def check_controller_url(value: str | None) -> str | None:
         return None
     if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
         raise ValueError(
-            f"SECREVIEW_CONTROLLER_URL must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars"
+            f"SECREVIEW_PUBLIC_URL must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars"
         )
     parts = urlsplit(value)
     if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise ValueError("SECREVIEW_CONTROLLER_URL must be an http(s) URL")
+        raise ValueError("SECREVIEW_PUBLIC_URL must be an http(s) URL")
     if parts.username or parts.password:
-        raise ValueError("SECREVIEW_CONTROLLER_URL must not contain credentials")
+        raise ValueError("SECREVIEW_PUBLIC_URL must not contain credentials")
     if parts.query or parts.fragment:
-        raise ValueError("SECREVIEW_CONTROLLER_URL must not contain a query or a fragment")
+        raise ValueError("SECREVIEW_PUBLIC_URL must not contain a query or a fragment")
     value = value.rstrip("/")
     if value.endswith(WEB_UI_PATH):
         raise ValueError(
-            f"SECREVIEW_CONTROLLER_URL is the root URL of the controller, without {WEB_UI_PATH}"
+            f"SECREVIEW_PUBLIC_URL is the root URL of the controller, without {WEB_UI_PATH}"
         )
     return value
 
@@ -214,17 +214,24 @@ class Settings(BaseSettings):
     # project_enrollment_ttl_days is deleted. false: no welcome server (401) and no request.
     enrollment: bool = True
     project_enrollment_ttl_days: int = Field(default=7, ge=1, le=365)
-    # Public root URL of the controller, e.g. https://secreview.example.com (the same variable
-    # gives the controller to security-review-ci). The MCP server gives the address of its web
-    # interface (/ui) to the clients without a valid token (enrollment, 401), so that the user
-    # knows where to sign in and create a personal MCP token; the connectors link their records
-    # to the reports with it. Read by the controller only, which stores it in the database at
-    # start, where the MCP server reads it (the MCP server ignores this variable); unset, an
-    # administrator may set it in the web interface. Unset and not stored: no link.
-    controller_url: str | None = None
+    # Public root URL of the controller (SECREVIEW_PUBLIC_URL), e.g. https://secreview.example.com.
+    # The MCP server gives the address of its web interface (/ui) to the clients without a valid
+    # token (enrollment, 401), so that the user knows where to sign in and create a personal MCP
+    # token; the connectors link their records to the reports with it. Read by the controller
+    # only, which stores it in the database at start, where the MCP server reads it (the MCP
+    # server ignores this variable); unset, an administrator may set it in the web interface.
+    # Unset and not stored: no link. Settings(secreview_public_url=...) sets it (the alias only,
+    # as for the proxy).
+    controller_url: str | None = Field(default=None, validation_alias="secreview_public_url")
+    # Former name of SECREVIEW_PUBLIC_URL, read when that is not set (the controller logs a
+    # warning; see _legacy_controller_url). SECREVIEW_CONTROLLER_URL now only gives the
+    # controller to security-review-ci; None once SECREVIEW_PUBLIC_URL is set.
+    legacy_controller_url: str | None = Field(
+        default=None, validation_alias="secreview_controller_url"
+    )
     # Controller only: OAuth 2.1 login of the MCP clients (authorization code flow with PKCE,
     # dynamic client registration), served by the controller at the root of
-    # SECREVIEW_CONTROLLER_URL, its issuer. An MCP client without a token then gets a 401 that
+    # SECREVIEW_PUBLIC_URL, its issuer. An MCP client without a token then gets a 401 that
     # starts the login in the browser instead of the enrollment server, and receives tokens that
     # act as a personal MCP token of the user who approved the client. Needs mcp_url and the
     # controller URL (variable or web interface); the controller stores mcp_url in the database
@@ -377,6 +384,12 @@ class Settings(BaseSettings):
     # clients logged in with OAuth, see mcp_oauth_enabled): none is offered nor created, and
     # the controller revokes those left at start. Personal CI and REST API tokens stay.
     personal_mcp_tokens: bool = True
+    # Whole application (controller and MCP server): the web users may connect their own MCP
+    # agent or security-review-ci, with a personal mcp or ci token or the OAuth login of the MCP
+    # clients. false: none is created nor approved, and the personal mcp and ci tokens and the
+    # OAuth grants already given are refused at authentication (kept: true allows them again).
+    # The controller stores it in the database, where the MCP server reads it too.
+    personal_tokens_enabled: bool = True
 
     # Controller only: delete the audit events older than audit_retention_days, checked at start
     # then every day. 0 keeps them forever.
@@ -444,6 +457,7 @@ class Settings(BaseSettings):
         "audit_syslog_address",
         "audit_syslog_cafile",
         "controller_url",
+        "legacy_controller_url",
         "connectors_cafile",
         "mcp_url",
     )
@@ -480,9 +494,18 @@ class Settings(BaseSettings):
     @classmethod
     def _check_controller_url(cls, value: str | None) -> str | None:
         """Accept an http(s) URL without credentials: it is shown to unauthenticated clients.
-        Empty counts as unset (Compose passes ${SECREVIEW_CONTROLLER_URL:-} when .env lacks
-        it)."""
+        Empty counts as unset (Compose passes ${SECREVIEW_PUBLIC_URL:-} when .env lacks it)."""
         return check_controller_url(value)
+
+    @model_validator(mode="after")
+    def _legacy_controller_url(self) -> Self:
+        """Read SECREVIEW_CONTROLLER_URL, the former name, when SECREVIEW_PUBLIC_URL is not set."""
+        if self.controller_url is not None:
+            self.legacy_controller_url = None
+        elif self.legacy_controller_url is not None:
+            self.legacy_controller_url = check_controller_url(self.legacy_controller_url)
+            self.controller_url = self.legacy_controller_url
+        return self
 
     @field_validator("mcp_url")
     @classmethod

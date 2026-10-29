@@ -188,7 +188,7 @@ def oauth_routes_of(issuer: str | None, settings: Settings | None = None) -> lis
     if issuer is None:
         raise ValueError(
             "the OAuth login of the MCP clients needs the public URL of the controller: set "
-            "SECREVIEW_CONTROLLER_URL"
+            "SECREVIEW_PUBLIC_URL"
         )
     # RFC 8414 compares the issuer as a string: no slash added to a URL without path
     url = TypeAdapter(AnyHttpUrl, config=ConfigDict(url_preserve_empty_path=True)).validate_python(

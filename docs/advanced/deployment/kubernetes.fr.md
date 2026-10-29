@@ -134,13 +134,13 @@ d'aucune règle propre. Avec un seul hôte pour les deux, routez `/mcp` et
 
 Ensuite, dans la ConfigMap :
 
-- réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du serveur Controller (`https://…`), ou
-  renseignez l'écran **Général** : le serveur MCP donne son interface web (`/ui`) aux clients
+- réglez `SECREVIEW_PUBLIC_URL` sur l'URL publique racine du serveur Controller (`https://…`), ou
+  renseignez la page **Général** : le serveur MCP donne son interface web (`/ui`) aux clients
   sans jeton valide, pour que l'utilisateur sache où créer un
   jeton MCP personnel ;
 - pour que les hôtes MCP se connectent par le navigateur plutôt qu'avec un jeton MCP personnel,
   réglez `SECREVIEW_MCP_OAUTH_ENABLED` et `SECREVIEW_MCP_URL` (URL publique de `/mcp`), avec
-  `SECREVIEW_CONTROLLER_URL` en `https` (voir [Connexion OAuth des clients MCP](../mcp-oauth.md)) ;
+  `SECREVIEW_PUBLIC_URL` en `https` (voir [Connexion OAuth des clients MCP](../mcp-oauth.md)) ;
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods de l'ingress
   controller : sinon tous les clients partagent leur adresse pour la limitation des connexions,
   la limite de débit et le journal d'audit.

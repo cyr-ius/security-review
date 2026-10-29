@@ -96,8 +96,8 @@ Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pip
 - **Jeton personnel** (avec l'enrôlement, activé par défaut) : le développeur connecte son hôte
   sans jeton, l'agent l'envoie vers l'interface web à la première revue, où il crée un jeton
   MCP personnel ; à la revue suivante, l'agent demande le projet, qu'un administrateur valide
-  (écran **Projets**), ce qui lui en donne l'accès. Définissez
-  `SECREVIEW_CONTROLLER_URL` sur le serveur Controller (ou l'écran **Général**) pour que
+  (page **Projets**), ce qui lui en donne l'accès. Définissez
+  `SECREVIEW_PUBLIC_URL` sur le serveur Controller (ou la page **Général**) pour que
   l'agent donne le lien : voir
   [Obtenir un jeton](../../getting-started/host.md#obtenir-un-jeton).
 - **Créé par l'administrateur** : `security-review-controller token create --label <nom>`, par
@@ -111,7 +111,7 @@ curl http://127.0.0.1:8000/healthz   # serveur MCP : {"status":"ok"}
 ```
 
 Connectez-vous à l'interface web sur `http://127.0.0.1:8080/ui/` avec le compte `admin`, puis
-créez un compte pour chaque personne dans l'écran **Utilisateurs** (voir les
+créez un compte pour chaque personne dans la page **Utilisateurs** (voir les
 [comptes utilisateurs](../../usage/user-accounts.md)).
 
 **Étape suivante :** [connectez l'hôte](../../getting-started/host.md) de chaque développeur au

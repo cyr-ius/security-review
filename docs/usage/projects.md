@@ -18,13 +18,13 @@ project `mobile-app`, so that the members of a team reach the same project whate
 
 | Way | Who | Result |
 |---|---|---|
-| **New project** button of the **Projects** screen | A person with `projects.create` | Created at once ([creating a project](#creating-a-project)) |
-| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once if the developer may create projects; otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
+| **New project** button of the **Projects** page | A person with `projects.create` | Created at once ([creating a project](#creating-a-project)) |
+| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once, with its project group, if the developer may create projects (even when their token already reaches every project); otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | First report saved for it | A token that reaches it (pipeline, token for **All projects**) | The project shows with its first report |
 
 A project created without a report shows **No report yet** until its first review.
 
-## Project groups
+## Project group
 
 Each project has its **project group**, `project:<project>`, which gives the reading of that
 project alone (`reader` role). Its creator, or the developer whose request was approved, is its
@@ -37,24 +37,42 @@ group in **Groups** or **Users**, or approve the **Access request** filed by the
 
 ## Creating a project
 
-With the `projects.create` permission, **New project** on the **Projects** screen creates the
-project and makes you a member of its project group: you read it at once, and your agent can
-save its reviews there. Only a **new** name is accepted: this permission never opens a project
-that already exists. You only get the reading; an administrator gives the triage through the
-groups.
+With the `projects.create` permission, the **New project** button shows on the **Projects**
+page. Creating a project makes you a member of its project group: you read it at once, and
+your agent can save its reviews there.
 
 ## Deleting a project
 
-With the `projects.delete` permission (only `admin` by default), the trash button of a row of
-the **Projects** screen deletes the project after a confirmation. The deletion **cannot be
-undone** and removes everything that refers to the project:
+With the `projects.delete` permission, a trash button shows on each row of the **Projects**
+page. The deletion **cannot be undone** and removes everything that refers to the project:
 
 - its reports, findings and comments;
 - the project in the roles of the groups; its project group is deleted;
 - the project in the tokens: a token that reached only this project is **revoked**, so a
   pipeline that used it stops.
 
-The audit log keeps the events of the project.
+The audit log keeps the events of the project. A confirmation is asked before the deletion.
+
+## Joining a project
+
+The agent of a developer may ask to join an existing project. Its request shows, waiting for
+approval, in **Pending projects** on the **Projects** page.
+
+A person with the `projects.create` and `users.manage` permissions may approve this request; a
+person with `users.manage` may also add the user to the project group.
+
+With the `projects.autojoin` permission, the developer **joins the project at once**, without
+any request: their agent's request adds them to the project group, so that they read the
+project (never more: no triage) and the review goes on. This permission does not create a new
+project: that takes `projects.create`.
+
+## Blocking the autojoin
+
+With the `projects.create` permission, a lock button shows on each row of the **Projects** page,
+for the projects you read. It **blocks the autojoin** of the project: the holders of
+`projects.autojoin` then file a request that waits for approval, as the others do. The project
+shows the **Autojoin blocked** badge; the unlock button allows the autojoin again. The users who
+already joined the project keep their access: remove them from its project group if needed.
 
 ## Points to watch
 
@@ -62,4 +80,6 @@ The audit log keeps the events of the project.
 - **Approving an access request** to an existing project also needs `users.manage`: creating
   projects never gives access to the others.
 - **Deleting a project revokes its dedicated tokens**: warn the teams that use them.
+- **`projects.autojoin` opens every project** whose autojoin is not blocked, and tells its
+  holder which projects exist: block the autojoin of the sensitive projects.
 - **A name is normalized**: `My.App` and `my-app` are the same project.

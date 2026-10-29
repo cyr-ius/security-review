@@ -44,7 +44,10 @@ instead. Each personal token has one usage: an ``mcp`` token only reaches the MC
 ``ci`` token only the pipeline routes. A web user holds at most
 SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role. With
 SECREVIEW_PERSONAL_MCP_TOKENS=false (MCP clients logged in with OAuth, see oauth_server), no
-personal ``mcp`` token is created and the controller revokes those left at start.
+personal ``mcp`` token is created and the controller revokes those left at start. With
+SECREVIEW_PERSONAL_TOKENS_ENABLED=false (see app_settings.personal_tokens_enabled), no personal
+``mcp`` or ``ci`` token is created, and those already created are refused like the OAuth grants:
+they authenticate nothing until it is true again.
 
 Like every token, an ``api`` token never accepts a risk nor marks a false positive.
 
@@ -65,6 +68,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, or_, select
 
+from .. import app_settings
 from ..config import MAX_RETENTION_DAYS, get_settings
 from ..http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
 from ..observability import audit
@@ -288,9 +292,10 @@ def _user_projects(session: Session, user_id: int) -> frozenset[str] | None:
 def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | None:
     """Identity of a personal ``mcp`` or ``ci`` token: the projects its user may read now. None
     when the user is gone, must change a password set by an administrator (as its api tokens,
-    see web_api.deps), its grants cannot be read or the role is not a scoped personal one (fail
-    closed); a user without any project gets a token that reaches none."""
-    if info.role not in SCOPED_PERSONAL_ROLES:
+    see web_api.deps), its grants cannot be read, the role is not a scoped personal one or
+    SECREVIEW_PERSONAL_TOKENS_ENABLED is false (fail closed); a user without any project gets a
+    token that reaches none."""
+    if info.role not in SCOPED_PERSONAL_ROLES or not app_settings.personal_tokens_enabled(session):
         return None
     user = session.get(WebUser, row.user_id)
     if user is None or user.must_change_password:
@@ -316,12 +321,14 @@ OAUTH_LAST_USED_RESOLUTION = timedelta(minutes=5)
 def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
     """Identity of an OAuth access token (see oauth_server): the projects the user who approved
     the client may read now, as a personal ``mcp`` token without the pipeline routes. None when
-    unknown, or when the user is gone or must change its password; an expired one is marked
-    ``expired``."""
+    unknown, when the user is gone or must change its password, or while
+    SECREVIEW_PERSONAL_TOKENS_ENABLED is false; an expired one is marked ``expired``."""
     grant = session.exec(
         select(OAuthGrant).where(OAuthGrant.access_token_hash == digest.hex())
     ).first()
     if grant is None or not hmac.compare_digest(bytes.fromhex(grant.access_token_hash), digest):
+        return None
+    if not app_settings.personal_tokens_enabled(session):
         return None
     user = session.get(WebUser, grant.user_id)
     if user is None or user.must_change_password:
@@ -846,12 +853,15 @@ def create_personal_token(
     ``ci`` token reaches the projects the user may read (see _personal_scoped_info).
 
     Raises:
-        ValueError: Unknown user, role other than ``api``, ``mcp`` or ``ci``, an ``mcp`` token
+        ValueError: Unknown user, role other than ``api``, ``mcp`` or ``ci``, an ``mcp`` or
+            ``ci`` token while SECREVIEW_PERSONAL_TOKENS_ENABLED is false, an ``mcp`` token
             while SECREVIEW_PERSONAL_MCP_TOKENS is false, invalid label or validity, or
             SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of this role held already.
     """
     kind = _personal_role(role)
     settings = get_settings()
+    if kind in SCOPED_PERSONAL_ROLES and not settings.personal_tokens_enabled:
+        raise ValueError("Personal MCP and CI tokens are disabled on this server")
     if kind == Role.MCP and not settings.personal_mcp_tokens:
         raise ValueError(
             "Personal MCP tokens are disabled on this server: connect the MCP client with its "

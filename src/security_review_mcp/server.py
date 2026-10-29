@@ -67,8 +67,9 @@ stored results.
 (fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
 web interface. The gate keeps blocking until then.
 - Before a review, call `request_project` with the project name: when the token does not \
-reach the project yet, a user allowed to create projects gets it at once, otherwise the \
-project is requested for an administrator to approve (which gives the user access to it). \
+reach the project yet, a user allowed to create projects gets a new project at once, a user \
+allowed to join projects joins an existing one at once, otherwise the project is requested \
+for an administrator to approve (which gives the user access to it). \
 If its `status` is `requested`, do not review: give the user its `next_steps`.
 - Before writing code, use the prompt `development-standards` (or the tool \
 `get_development_standards`) to get the development standards of the technologies you work on.
@@ -968,25 +969,31 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     """Make sure the token reaches the project of a review, before reviewing.
 
     Returns ``status``: ``accessible`` (the review can start), ``created`` (the user may create
-    projects: the project was created and the user is a member of it) or ``requested`` (the
+    projects: the project was created and the user is a member of it), ``joined`` (the user may
+    join projects: it joined the existing project as a reader) or ``requested`` (the
     project waits for an administrator, or the user must be given access to it: do not review,
     give the user ``next_steps``). No token is created.
     """
     allowed = _caller_projects(ctx)
-    if allowed is None or project in allowed:
+    state = _auth_state(ctx)
+    label = state.get("auth_client")
+    actor = audit.token_actor(label) if label is not None else None
+    if allowed is None:
+        # A token of a user that reaches every project still creates the project group
+        if state.get("auth_owner") is None:
+            return {"project": project, "status": "accessible"}
+        adopted = access_control.adopt_project(project, state["auth_owner"], actor)
+        logger.info("Project %s %s by %s", adopted["project"], adopted["status"], label)
+        return adopted
+    if project in allowed:
         return {"project": project, "status": "accessible"}
     if not get_settings().enrollment:
         raise ValueError(
             "Project requests are disabled on this server; ask an administrator for access to "
             f"project '{project}'"
         )
-    state = _auth_state(ctx)
-    label = state.get("auth_client")
     requested = access_control.request_project(
-        project,
-        state.get("auth_owner"),
-        _caller_address(ctx),
-        audit.token_actor(label) if label is not None else None,
+        project, state.get("auth_owner"), _caller_address(ctx), actor
     )
     logger.info("Project %s %s by %s", requested["project"], requested["status"], label)
     return requested
@@ -1025,8 +1032,9 @@ commands:
   serve        run the MCP server: streamable-http for a shared server, stdio for a local host
   local        run the MCP server for a local host (stdio), ignoring remote databases
 
-Run `security-review-mcp COMMAND --help` for the options of a command.
-Administration (db, token, user, rules, advisories...) is run by security-review-controller.
+Run `security-review-mcp COMMAND --help` for the options of a command, `--version` for the
+version. Administration (db, token, user, rules, advisories...) is run by
+security-review-controller.
 """
 
 
@@ -1046,6 +1054,8 @@ def main(argv: list[str] | None = None) -> None:
         local(arguments[1:])
     elif command in ("-h", "--help"):
         print(USAGE, end="")
+    elif command == "--version":
+        print(f"security-review-mcp {__version__}")
     else:
         print(USAGE, end="", file=sys.stderr)
         if command is not None and command.startswith("--"):
@@ -1132,6 +1142,7 @@ def serve(argv: list[str]) -> None:
     configure_logging(settings.log_level)
 
     if args.transport == "stdio":
+        logger.info("MCP server %s started on stdio", __version__)
         _run_stdio(parser, settings)
         return
     try:
@@ -1149,10 +1160,11 @@ def serve(argv: list[str]) -> None:
         parser.error(str(exc))
     if settings.enrollment:
         logger.info("Enrollment enabled: clients without a token are told how to get one")
-    if settings.controller_url:
-        # Often shared with the controller (ConfigMap, .env): only the controller copies it
+    if settings.controller_url and not settings.legacy_controller_url:
+        # Often shared with the controller (ConfigMap, .env): only the controller copies it.
+        # SECREVIEW_CONTROLLER_URL alone is rather the variable of security-review-ci.
         logger.info(
-            "SECREVIEW_CONTROLLER_URL is not read here: the controller stores it in the database"
+            "SECREVIEW_PUBLIC_URL is not read here: the controller stores it in the database"
         )
     allow_open = http_server.allows_open_mcp(args.host, settings.allow_unauthenticated)
     if settings.allow_unauthenticated:

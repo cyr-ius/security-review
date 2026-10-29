@@ -249,7 +249,7 @@ def is_controller_public_path(path: str) -> bool:
 
 def renew_token_hint(web_url: str | None, personal_tokens: bool = True) -> str:
     """What a user does when the MCP server refuses its token (or receives none): sign in to the
-    web interface (``web_url``, from SECREVIEW_CONTROLLER_URL, when known) and create a personal
+    web interface (``web_url``, from SECREVIEW_PUBLIC_URL, when known) and create a personal
     MCP token, or, when the controller offers none (``personal_tokens`` false), ask an
     administrator for an MCP token."""
     if not personal_tokens:

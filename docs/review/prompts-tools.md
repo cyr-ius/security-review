@@ -10,7 +10,7 @@ To understand when the rules, the checklists and the standards apply, and how to
 | `security-review` | General review of Python, Java, Go, C#, Rust, TypeScript/Node.js or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | REST API (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
-| `codebase-review` | Review of the **whole repository** (not only a diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
+| `codebase-review` | Review of the **whole repository** (not only a diff); [how it works and its cost](analysis/code-scan.md#what-codebase-review-does) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifests and lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualify the findings of a stored report | `report_id`, `context`, `report_language` |
 | `development-standards` | Gives the assistant the [development standards](standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
@@ -32,12 +32,12 @@ the other available checklists, internal domains included, for the agent to fetc
 stored report (summary, scope, titles, descriptions, recommendations), for example `French`,
 `fr` or `pt-BR`. Without this argument, the prompt uses
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#mcp-server) when it is set, else the language
-chosen by an administrator in the [**General**](../usage/index.md#screens) screen of the
+chosen by an administrator on the [**General**](../usage/index.md#pages) page of the
 web interface; if none is set, the agent chooses (usually the language of the conversation).
 
 An agent that reviews **without a prompt**, with the tools only (a common case: an MCP prompt is
 a command started by the user, the agent cannot call it itself), gets the same configured
-language (variable, else **General** screen) in the results of `get_review_checklist`
+language (variable, else **General** page) in the results of `get_review_checklist`
 ("Report language" section) and of `scan_code` (`report_language` field, `null` if the agent
 chooses).
 
@@ -64,7 +64,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
-| `request_project` | Called before a review with `project`: `accessible` when the token reaches it, `created` for a new project when the user holds `projects.create` (the user becomes its member), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
+| `request_project` | Called before a review with `project`: `accessible` when the token reaches it, `created` for a new project when the user holds `projects.create` (the user becomes its member), `joined` for an existing project when the user holds `projects.autojoin` (the user reads it), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |
 | `list_rules` / `reload_rules` | Active rules ([default and custom](rules.md), stored in the database), loading errors, immediate reload |
 
@@ -84,12 +84,12 @@ revoked or expired gets a `401` instead, see
 
 | Item | Role |
 |---|---|
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | No argument; tell the user to sign in to the web interface (`SECREVIEW_CONTROLLER_URL` + `/ui`), to create a personal MCP token and to add it to the host configuration, instead of running the review |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | No argument; tell the user to sign in to the web interface (`SECREVIEW_PUBLIC_URL` + `/ui`), to create a personal MCP token and to add it to the host configuration, instead of running the review |
 
 The instructions it sends at connection, shown by the host, give the same steps and the
 address of the web interface, from the URL stored by the Controller server (its
-`SECREVIEW_CONTROLLER_URL`, or the
-[General](../usage/index.md#screens) screen); without it, no link is given.
+`SECREVIEW_PUBLIC_URL`, or the
+[General](../usage/index.md#pages) page); without it, no link is given.
 
 See [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 

@@ -11,7 +11,7 @@ then **allows** explicitly: installing it is not enough. The commands are in
 [Connectors in detail](../../advanced/connectors.md#third-party-connectors); writing one is
 described in [Writing a connector](../../contributing/connectors.md).
 
-Once allowed, it shows on the **Connectors** screen as a card marked **Third-party**, off until
+Once allowed, it shows on the **Connectors** page as a card marked **Third-party**, off until
 an administrator enables it.
 
 !!! warning

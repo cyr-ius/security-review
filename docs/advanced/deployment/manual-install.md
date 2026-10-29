@@ -95,7 +95,7 @@ Then, two ways to give a token to each developer and pipeline:
 - **Personal token** (with the enrollment, enabled by default): the developer connects their
   host without a token, the agent sends them to the web interface at the first review, where
   they create a personal MCP token; at the next review, the agent requests the project, which an
-  administrator approves (**Projects** screen), giving them access to it. Set `SECREVIEW_CONTROLLER_URL` on the Controller server (or the **General** screen) so that the agent gives the link: see
+  administrator approves (**Projects** page), giving them access to it. Set `SECREVIEW_PUBLIC_URL` on the Controller server (or the **General** page) so that the agent gives the link: see
   [Getting a token](../../getting-started/host.md#getting-a-token).
 - **Created by the administrator**: `security-review-controller token create --label <name>`,
   for example for a pipeline, then handed to its owner.
@@ -108,7 +108,7 @@ curl http://127.0.0.1:8000/healthz   # MCP server: {"status":"ok"}
 ```
 
 Sign in to the web interface on `http://127.0.0.1:8080/ui/` with the `admin` account, then
-create an account for each person in the **Users** screen (see
+create an account for each person on the **Users** page (see
 [User accounts](../../usage/user-accounts.md)).
 
 **Next step:** [connect the host](../../getting-started/host.md) of each developer to the MCP server.

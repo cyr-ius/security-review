@@ -9,6 +9,7 @@ copyright: Security Review MCP
 theme:
   name: material
   language: en
+  logo: assets/favicon.svg
   favicon: assets/favicon.svg
   features:
     - navigation.top
@@ -121,7 +122,7 @@ plugins:
             User accounts: Comptes utilisateurs
             Web interface (Angular): Interface web (Angular)
             Web interface: Interface web
-            Whole codebase scan: Scan du code complet
+            Whole codebase analysis: Analyse du code complet
             Writing a connector: Écrire un connecteur
 
 hooks:
@@ -170,7 +171,7 @@ nav:
       - Development standards: review/standards.md
       - Gate: review/gate.md
       - Analysis:
-          - Whole codebase scan: review/analysis/code-scan.md
+          - Whole codebase analysis: review/analysis/code-scan.md
           - Dependency analysis: review/analysis/dependencies.md
           - Read guard for AI assistants: review/analysis/read-guard.md
   - Application:

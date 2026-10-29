@@ -33,6 +33,7 @@ written anywhere.
 
 import argparse
 import fnmatch
+import importlib.metadata
 import json
 import os
 import re
@@ -1102,6 +1103,16 @@ def _add_report_options(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _version() -> str:
+    """Version of the installed client: published alone (security-review-ci) or in the package."""
+    for distribution in ("security-review-ci", "security-review"):
+        try:
+            return importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return "unknown"
+
+
 def _parser() -> argparse.ArgumentParser:
     """Build the parser of ``security-review-ci`` and its sub-commands."""
     common = argparse.ArgumentParser(add_help=False)
@@ -1132,6 +1143,7 @@ def _parser() -> argparse.ArgumentParser:
         "trend, code scan and dependency scan of a project through the REST API, with a ci "
         "token restricted to its projects. No database access.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     commands = parser.add_subparsers(dest="command", required=True)
     gate = commands.add_parser(
         "gate", parents=[common], help="fail when open findings reach a severity threshold"

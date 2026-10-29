@@ -37,4 +37,20 @@
       </select>
     </div>
   }
+
+  @for (filter of multiFilters(); track filter.key) {
+    <div class="col-6 col-md-2">
+      <label class="form-label small" [for]="idPrefix() + '-filter-' + filter.key">
+        {{ filter.label }}
+      </label>
+      <app-multi-select-dropdown
+        [id]="idPrefix() + '-filter-' + filter.key"
+        [label]="filter.label"
+        [allLabel]="filter.allLabel"
+        [options]="filter.options"
+        [selected]="filter.values"
+        (selectedChange)="multiFilterChange.emit({ key: filter.key, values: $event })"
+      />
+    </div>
+  }
 </div>

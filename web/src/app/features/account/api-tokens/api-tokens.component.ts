@@ -17,9 +17,9 @@ import { AuthService } from '../../../core/services/auth.service';
  * Personal tokens of the logged-in user (My account), one usage each: a REST API token (Swagger,
  * scripts), which holds the current rights of the user; an MCP token for its agent and a CI
  * token for security-review-ci on its workstation, which reach the projects the user may read
- * (with the mcp_tokens.create permission). The MCP token is not offered when the server turned
- * it off (SECREVIEW_PERSONAL_MCP_TOKENS=false: OAuth login of the MCP clients). The secret is
- * shown once.
+ * (unless the server turned them off: SECREVIEW_PERSONAL_TOKENS_ENABLED=false). The MCP token is
+ * not offered either when the server turned it off (SECREVIEW_PERSONAL_MCP_TOKENS=false: OAuth
+ * login of the MCP clients). The secret is shown once.
  */
 @Component({
   selector: 'app-api-tokens',
@@ -39,15 +39,16 @@ export class ApiTokensComponent {
     maxLength(path.label, 64);
   });
   readonly validities = VALIDITY_DAYS;
-  /** The MCP usage is offered only to a user with mcp_tokens.create (the server checks it). */
-  readonly roles = computed(() =>
-    PERSONAL_ROLES.filter(
+  /** The MCP and CI usages are offered while the server allows them (it checks it too). */
+  readonly roles = computed(() => {
+    const identity = this.auth.identity();
+    return PERSONAL_ROLES.filter(
       (role) =>
         role === 'api' ||
-        (this.auth.can('mcp_tokens.create') &&
-          (role === 'ci' || this.auth.identity()?.personal_mcp_tokens !== false)),
-    ),
-  );
+        (identity?.personal_tokens_enabled !== false &&
+          (role === 'ci' || identity?.personal_mcp_tokens !== false)),
+    );
+  });
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);

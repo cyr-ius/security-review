@@ -106,7 +106,7 @@ export type Permission =
   | 'audit.read'
   | 'projects.create'
   | 'projects.delete'
-  | 'mcp_tokens.create';
+  | 'projects.autojoin';
 
 /** Each permission held, with its projects (null: every project). */
 export type Grants = Partial<Record<Permission, string[] | null>>;
@@ -136,6 +136,11 @@ export interface Identity {
   risk_acceptance_min_severity?: Severity | null;
   /** False when the server offers no personal MCP token (OAuth login of the MCP clients). */
   personal_mcp_tokens?: boolean;
+  /**
+   * False when the server turned the personal MCP and CI tokens and the OAuth login off
+   * (SECREVIEW_PERSONAL_TOKENS_ENABLED).
+   */
+  personal_tokens_enabled?: boolean;
   /** True while the OAuth login of the MCP clients is on. */
   mcp_oauth?: boolean;
   version: string;
@@ -282,6 +287,8 @@ export type AuditAction =
   | 'user.groups_changed'
   | 'project.created'
   | 'project.deleted'
+  | 'project.joined'
+  | 'project.autojoin_changed'
   | 'user.roles_changed'
   | 'user.login'
   | 'user.login_failed'
@@ -322,6 +329,8 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.groups_changed',
   'project.created',
   'project.deleted',
+  'project.joined',
+  'project.autojoin_changed',
   'user.roles_changed',
   'user.login',
   'user.login_failed',
@@ -606,6 +615,14 @@ export interface ProjectSummary {
   open_findings_total: number;
   open_findings_by_severity: SeverityCounts;
   worst_open_severity: Severity | null;
+  /** The holders of projects.autojoin may not join this project at once. */
+  autojoin_blocked: boolean;
+}
+
+/** PUT /api/v1/projects/{project}/autojoin: whether the autojoin of a project is blocked. */
+export interface ProjectAutojoin {
+  project: string;
+  autojoin_blocked: boolean;
 }
 
 /** DELETE /api/v1/projects/{project}: what the deletion removed. */
@@ -849,9 +866,12 @@ export interface FindingComment {
 export interface ProjectFindingQuery {
   /** Omitted: the findings of every project in the scope of the caller. */
   project?: string;
-  status: FindingStatus;
-  severity: Severity | '';
-  reviewType: ReviewType | '';
+  /** Any of these statuses (empty: open). */
+  status: readonly FindingStatus[];
+  /** Any of these severities (empty: every severity). */
+  severity: readonly Severity[];
+  /** Any of these review types (empty: every type). */
+  reviewType: readonly ReviewType[];
   limit: number;
   offset: number;
 }
@@ -913,8 +933,10 @@ export interface Trend {
 
 /** Query parameters of the report list. */
 export interface ReportQuery {
-  project?: string;
-  risk_level?: Severity | '';
+  /** Any of these projects (empty: every project in the scope). */
+  project?: readonly string[];
+  /** Any of these risk levels (empty: every level). */
+  risk_level?: readonly Severity[];
   search?: string;
   sort_by?:
     'created_at' | 'project' | 'risk_level' | 'review_type' | 'branch' | 'submitted_by' | 'summary';
@@ -967,10 +989,10 @@ export interface AppSettings {
   };
   /** Public root URL of the controller; its web interface is given to the agents without a token. */
   controller_url: {
-    /** Stored: set here, or copied from SECREVIEW_CONTROLLER_URL by the controller at start. */
+    /** Stored: set here, or copied from SECREVIEW_PUBLIC_URL by the controller at start. */
     value: string | null;
     env: string | null;
-    /** SECREVIEW_CONTROLLER_URL is set on the controller: it takes precedence over this screen. */
+    /** SECREVIEW_PUBLIC_URL is set on the controller: it takes precedence over this screen. */
     env_set: boolean;
     effective: string | null;
   };

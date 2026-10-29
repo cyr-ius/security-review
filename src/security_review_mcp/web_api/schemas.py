@@ -65,6 +65,9 @@ class Identity(BaseModel):
     risk_acceptance_min_severity: Severity | None = None
     # A web user may create a personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS)
     personal_mcp_tokens: bool = True
+    # A web user may create a personal MCP or CI token and approve an MCP client with the OAuth
+    # login (SECREVIEW_PERSONAL_TOKENS_ENABLED)
+    personal_tokens_enabled: bool = True
     # The OAuth login of the MCP clients is on (variable or web interface)
     mcp_oauth: bool = False
     version: str
@@ -159,6 +162,21 @@ class ProjectSummary(BaseModel):
     open_findings_total: int
     open_findings_by_severity: dict[str, int]
     worst_open_severity: Severity | None
+    # The holders of projects.autojoin may not join this project at once
+    autojoin_blocked: bool = False
+
+
+class ProjectAutojoin(BaseModel):
+    """Whether the autojoin of a project is blocked (PUT /projects/{project}/autojoin)."""
+
+    project: str
+    autojoin_blocked: bool
+
+
+class ProjectAutojoinUpdate(BaseModel):
+    """Block (true) or allow again (false) the autojoin of a project."""
+
+    blocked: bool
 
 
 class ProjectCreate(BaseModel):
@@ -1155,7 +1173,7 @@ class ReportLanguageUpdate(BaseModel):
 class ControllerUrlUpdate(BaseModel):
     """Body of PUT /settings/controller-url: public root URL of the controller, whose web
     interface (/ui) the MCP server gives to the clients without a valid token; null or ""
-    removes the stored value. Refused (422) when SECREVIEW_CONTROLLER_URL is set on the
+    removes the stored value. Refused (422) when SECREVIEW_PUBLIC_URL is set on the
     controller: the variable takes precedence."""
 
     value: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)

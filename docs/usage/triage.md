@@ -2,8 +2,8 @@
 
 Triaging a finding means deciding what to do with it. The decision is always taken by a
 **person** signed in to the web interface: an agent can only propose a status, never apply it.
-The details of the REST API, the limits and the settings are in
-[Triage through the REST API](../advanced/reports/triage-api.md).
+
+To use the REST API, see [Triage through the REST API](../advanced/reports/triage-api.md).
 
 | Status | Meaning | What is asked | Expires |
 |---|---|---|---|
@@ -14,10 +14,11 @@ The details of the REST API, the limits and the settings are in
 
 Worth knowing:
 
-- **Proposal of an agent**: shown on the finding in a separate box, with its author, date and
-  reason. **Apply** takes it over (the form opens for an acceptance or a false positive),
-  **Reject** removes it. The reason comes from an agent that read the code: check it before
+- **An agent may make a proposal**: it shows on the finding in a separate box, with its author,
+  date and reason. The proposal comes from an agent that read the code: check it before
   applying it.
+    - **Apply** takes the proposal over (the form opens for an acceptance or a false positive).
+    - **Reject** removes the proposal.
 - **Low-severity findings** (`low` and `info` by default) are accepted by a plain validation,
   with no reason and no date.
 - **An expired acceptance counts as open again** everywhere: lists, posture, [gate](../review/gate.md),
@@ -31,7 +32,7 @@ Worth knowing:
 
 When a later report raises the same issue again (same project, rule, file and title, whatever
 the line), it does not add a second finding to review: the new occurrence **replaces** the
-previous one.
+previous one. The system detects the duplicates.
 
 - A still valid **acceptance** or **false positive** is carried over, with its reason, approver
   and expiry date, as are the comments and a raised severity. The gate does not block again.
@@ -46,16 +47,17 @@ previous one.
 ## Severity of a finding
 
 An analyst may **raise** the severity given by a report, for example when the code is exposed
-to the Internet or handles sensitive data: **Raise the severity**, at the top of the card, asks
-for the **New severity** and a **Justification**. The raised severity then counts everywhere,
-and the risk level of the report goes up with it.
+to the Internet or handles sensitive data.
+The **Raise the severity** button, at the top of the card, asks for the **New severity** and a
+**Justification**. The raised severity counts everywhere, and the risk level of the report goes
+up with it.
 
 A severity never goes below the one of the report: the analyst can only go back to it to undo
 the escalation. To close a finding judged less serious, accept the risk.
 
 ## Risk acceptances
 
-The **Risk acceptances** screen lists the accepted risks, expired ones included, nearest
+The **Risk acceptances** page lists the accepted risks, expired ones included, nearest
 expiry first: this is where you renew them, before or after their end.
 
 - **Comments**: the history of the acceptance, oldest first. The reason is the first comment.

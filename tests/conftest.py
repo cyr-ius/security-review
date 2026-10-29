@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, StaticPool, create_engine
 
-from security_review_mcp.auth import access_control
+from security_review_mcp.auth import access_control, web_users
 from security_review_mcp.auth.access_control import Permission
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.reports.services import update_finding_status
@@ -35,19 +35,13 @@ def _memory_engine() -> Engine:
 
 
 def _add_ordinary_roles(engine: Engine) -> None:
-    """Create the ordinary ``triager`` and ``mcp-user`` roles, as migrations 0021 and 0024 do
-    on a real database."""
+    """Create the ordinary ``triager`` role, as migration 0021 does on a real database."""
     with Session(engine) as session:
         session.add(
             models.AccessRole(
                 name="triager",
                 permissions='["findings.triage", "reports.read"]',
                 created_by="migration",
-            )
-        )
-        session.add(
-            models.AccessRole(
-                name="mcp-user", permissions='["mcp_tokens.create"]', created_by="migration"
             )
         )
         session.commit()
@@ -103,6 +97,17 @@ def isolate_controller_environment(monkeypatch):
         "SECREVIEW_OSV_AUTO_UPDATE",
     ):
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def fast_password_hashing(request, monkeypatch):
+    """Hash passwords with a tiny scrypt cost: the production one takes ~150 ms per hash.
+
+    A stored hash carries its own cost, so verification is unchanged. A test marked
+    ``real_password_hashing`` keeps the production cost.
+    """
+    if not request.node.get_closest_marker("real_password_hashing"):
+        monkeypatch.setattr(web_users, "SCRYPT_N", 2**4)
 
 
 @pytest.fixture(scope="session")

@@ -17,27 +17,29 @@ exists exactly when the change was committed.
 | `finding.proposal_rejected` | A triager rejects the proposal of an agent |
 | `finding.commented` | A person comments a finding (`POST /api/v1/findings/{id}/comments`): the comment, secrets masked |
 | `finding.severity_changed` | A security analyst raises the severity of a finding, or restores the report's one (`PATCH /api/v1/findings/{id}/severity`): previous, new and original severity, justification |
-| `token.created` | A token is created (CLI `token create`, **Tokens** screen) |
+| `token.created` | A token is created (CLI `token create`, **Tokens** page) |
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |
-| `token.projects_changed` | An administrator changes the projects of a token (**Projects** button of the **Tokens** screen), with the previous projects (`null`: every project) |
+| `token.projects_changed` | An administrator changes the projects of a token (**Projects** button of the **Tokens** page), with the previous projects (`null`: every project) |
 | `enrollment.requested` | The agent of a user requests a project with `request_project` ([enrollment](architecture/mcp-server.md#enrollment-personal-token-and-project-requests)), with the token as actor, the requesting user, its address, whether a new request was filed (`requested`) and whether the project already existed (`existing`: an access request) |
 | `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details); the requester is added to the group (`user.groups_changed`) |
 | `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](../usage/access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](../usage/access-control.md#groups); the approval of a project request creates a missing [project group](../usage/projects.md#project-groups) (`project` in the details) |
+| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](../usage/access-control.md#groups); the approval of a project request creates a missing [project group](../usage/projects.md#project-group) (`project` in the details) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
 | `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (its project group and the user id in the details) |
+| `project.joined` | A user with `projects.autojoin` joins an existing project through `request_project` (actor: the token) (its project group and the user id in the details) |
+| `project.autojoin_changed` | A user with `projects.create` [blocks or allows again the autojoin](../usage/projects.md#blocking-the-autojoin) of a project (`blocked` in the details) |
 | `project.deleted` | A user with `projects.delete` [deletes a project](../usage/projects.md#deleting-a-project) (counts of reports, findings and tokens, groups deleted or changed in the details) |
-| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](../usage/projects.md#project-groups) (added and removed group ids) |
+| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](../usage/projects.md#project-group) (added and removed group ids) |
 | `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
 | `user.logout` | A web user logs out with **Log out** (address) |
 | `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
-| `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** screen, or copied from `SECREVIEW_CONTROLLER_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
+| `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** page, or copied from `SECREVIEW_PUBLIC_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
-| `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** screen |
+| `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** page |
 | `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, by the client (`/revoke`), or with its user |
 | `oauth.refresh_reused` | A refresh token already replaced is presented again: the grant is revoked |
 | `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface (turning it off also records the revocation of each grant) |
@@ -58,7 +60,7 @@ changes them.
 
 ## Reading the log
 
-Administrators read it in the **Audit log** screen of the web interface (filters by event and
+Administrators read it on the **Audit log** page of the web interface (filters by event and
 project), with `GET /api/v1/audit` (`audit.read` permission; `action`, `project`, `actor`, `since`,
 `limit`, `offset` parameters, newest first) or on the command line:
 

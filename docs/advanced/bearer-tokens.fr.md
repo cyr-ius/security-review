@@ -68,7 +68,7 @@ Pendant `--grace-hours` (`0` par défaut, `168` au plus), l'ancien secret reste 
 de mettre à jour les clients (`grace_until` dans `token list`) ; ensuite, seul le nouveau
 authentifie. L'ancien secret d'un jeton expiré ne revient jamais. Après une fuite, renouvelez sans délai de
 grâce (ou révoquez) : le secret divulgué cesse alors immédiatement de fonctionner. Un jeton personnel ne peut pas
-être renouvelé : son utilisateur en crée un nouveau. Dans l'interface web, l'écran **Jetons**
+être renouvelé : son utilisateur en crée un nouveau. Dans l'interface web, la page **Jetons**
 renouvelle les jetons de projet (bouton **Renouveler**, délai de grâce choisi au-dessus de la
 liste).
 
@@ -85,8 +85,8 @@ security-review-controller token create --label shop-ci --project shop-api      
 security-review-controller token create --label shop-gate --role ci --project shop-api
 ```
 
-Un jeton sans `--project` accède à tous les projets. Dans l'interface web, l'écran
-[**Jetons**](../usage/index.md#ecrans) crée un jeton pour certains projets ou pour
+Un jeton sans `--project` accède à tous les projets. Dans l'interface web, la page
+[**Jetons**](../usage/index.md#pages) crée un jeton pour certains projets ou pour
 **Tous les projets**, et change les projets d'un jeton existant (sauf `admin` et `metrics` ; un
 jeton `ci` garde toujours au moins un projet). Un jeton restreint :
 
@@ -122,19 +122,19 @@ Ses changements de statut se limitent à `open` et `fixed`, comme ceux d'un jeto
 ([triage par l'API REST](reports/triage-api.md)).
 
 L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
-du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
-`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
+du plus grave au moins grave (filtres `status`, `severity` et `review_type`, chacun répétable :
+l'une des valeurs suffit ; `limit` plafonné par `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
 Sans `project`, elle liste les findings de tous les projets que lit l'appelant
 (`"project": null`) :
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
+  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&severity=critical&severity=high&limit=50"
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 `GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
-`author`), chacun avec son `author` et son `submitted_by`. L'`author` n'est renvoyé, filtré,
+`author` ; les trois premiers sont répétables, 50 projets au plus), chacun avec son `author` et son `submitted_by`. L'`author` n'est renvoyé, filtré,
 recherché et trié que pour un appelant qui détient `users.manage` ou `tokens.manage` : pour les
 autres, il vaut `null` (dans le rapport et son export Markdown aussi) et le filtre `author` est
 ignoré :
@@ -170,7 +170,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
 projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du
 jeton, avant et après un changement de ses projets, et, pour un jeton `api` de rôle, chaque
-permission de son rôle sur ces projets. L'écran **Jetons** ne liste que les jetons des projets
+permission de son rôle sur ces projets. La page **Jetons** ne liste que les jetons des projets
 que l'utilisateur lit. Sa **Validité** va de 30 jours à 1 an, ou le défaut du serveur
 (`SECREVIEW_TOKEN_MAX_DAYS`).
 
@@ -183,11 +183,12 @@ règles :
 - label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, et
   validité bornée par `SECREVIEW_TOKEN_MAX_DAYS` ;
 - personne ne peut le renouveler ni changer ses projets ; un administrateur peut le révoquer
-  depuis l'écran **Jetons**.
+  depuis la page **Jetons**.
 
-Un jeton `mcp` personnel exige `mcp_tokens.create` dans les groupes du compte (`403` sans elle) ;
-un jeton déjà créé continue de fonctionner quand le compte la perd, et un administrateur le
-révoque au besoin. Il atteint les projets de `reports.read` des groupes du compte : tous les
+Tout compte peut créer un jeton `mcp` ou `ci` personnel, sauf avec
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` (`422`) : les jetons déjà créés sont alors refusés
+(`401`) par le serveur MCP et le serveur Controller, mais conservés, et fonctionnent de nouveau
+une fois la variable à `true`. Il atteint les projets de `reports.read` des groupes du compte : tous les
 projets quand l'un de ses groupes lit tous les projets, aucun quand il n'en a pas. Quand le
 serveur le refuse (inconnu, révoqué ou expiré), l'agent reçoit un `401` qui invite
 l'utilisateur à se reconnecter pour en créer un nouveau.

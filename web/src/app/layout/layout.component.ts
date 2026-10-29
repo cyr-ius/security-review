@@ -1,6 +1,7 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter, firstValueFrom, map } from 'rxjs';
 import { ROLE_META } from '../core/constants/labels';
 import { I18nService } from '../core/i18n/i18n.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
@@ -66,6 +67,22 @@ export class LayoutComponent {
     { path: '/reports', label: 'layout.reports', icon: 'bi-file-earmark-text' },
   ];
 
+  /** Review of the findings, in the projects whose reports the user reads. */
+  private readonly reviewItems: readonly NavItem[] = [
+    {
+      path: '/findings',
+      label: 'layout.findings',
+      icon: 'bi-shield-check',
+      permission: 'reports.read',
+    },
+    {
+      path: '/risk-acceptances',
+      label: 'acceptances.title',
+      icon: 'bi-shield-exclamation',
+      permission: 'reports.read',
+    },
+  ];
+
   /** What the reviews rely on: scan rules, checklists and development standards. */
   private readonly referenceItems: readonly NavItem[] = [
     { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.manage' },
@@ -121,6 +138,32 @@ export class LayoutComponent {
 
   /** Sidebar shown as a rail of icons. */
   readonly rail = computed(() => !this.menuOpen() && (this.narrow() || this.collapsed()));
+
+  /** Entries of the Revue section the current user may open. */
+  readonly reviewNav = computed(() => this.allowed(this.reviewItems));
+
+  /** Counts the navigations, so that the badges follow the triage done on the pages. */
+  private readonly navigations = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      map((_, index) => index),
+    ),
+    { initialValue: -1 },
+  );
+
+  /** Open findings in the scope of the user, shown on the Findings entry (one row loaded). */
+  private readonly openFindings = rxResource({
+    params: () => (this.auth.can('reports.read') ? { navigation: this.navigations() } : undefined),
+    stream: () =>
+      this.api.projectFindings({ status: [], severity: [], reviewType: [], limit: 1, offset: 0 }),
+  });
+
+  /** Number shown next to an entry of the sidebar (null: no badge). */
+  badge(item: NavItem): number | null {
+    return item.path === '/findings' && this.openFindings.hasValue()
+      ? this.openFindings.value().total
+      : null;
+  }
 
   /** Entries of the Référentiel section the current user may open. */
   readonly referenceNav = computed(() => this.allowed(this.referenceItems));

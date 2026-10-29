@@ -9,7 +9,7 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import app_settings, server
+from security_review_mcp import __version__, app_settings, server
 from security_review_mcp.auth import access_control, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.observability import audit
@@ -21,6 +21,7 @@ from security_review_mcp.server import (
     mcp,
     set_enrollment_web_url,
 )
+from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
 
 pytestmark = pytest.mark.anyio
@@ -692,6 +693,18 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     assert json.loads(text) == {"project": "mobile-app", "status": "accessible"}
     assert carol.call("save_security_report", {"project": "mobile-app", **review})[0] is False
 
+    # A token that reaches every project still creates the project group, with its user in it
+    dave = McpOverHttp(http_app, personal_token("dave", ["projects.create", "reports.read"]))
+    assert json.loads(dave.call("request_project", {"project": "intranet"})[1])["status"] == (
+        "created"
+    )
+    with session_scope() as session:
+        group_id = access_control.find_project_group(session, "intranet").id
+    members = access_control.get_group(group_id)["members"]
+    assert [member["username"] for member in members] == ["dave"]
+    _, text = dave.call("request_project", {"project": "intranet"})
+    assert json.loads(text) == {"project": "intranet", "status": "accessible"}
+
     # Without it: a new project and an existing one get the same answer, and no review is saved
     alice = McpOverHttp(http_app, personal_token("alice"))
     new = json.loads(alice.call("request_project", {"project": "billing"})[1])
@@ -939,3 +952,9 @@ def test_mcp_server_does_not_load_the_controller_modules():
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "[]"
+
+
+def test_version_is_written_on_stdout(capsys):
+    server.main(["--version"])
+
+    assert capsys.readouterr().out == f"security-review-mcp {__version__}\n"

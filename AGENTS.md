@@ -131,9 +131,9 @@ l'utiliser.
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `observability/audit.py`, `observability/audit_syslog.py` ; `observability/metrics.py` |
 | Export et tendances | `reports/sarif.py`, `reports/trends.py` |
 | Connecteurs : envoi des findings vers des systèmes externes (tickets, registre de vulnérabilités...), manuel et automatique par le contrôleur : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_CONNECTORS_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `connectors/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/connector_routes.py`, exemple `examples/connector/` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; connexion OAuth des clients MCP (serveur d'autorisation du contrôleur, routes du SDK MCP, écran de consentement : `web_api/oauth_routes.py`) : `auth/oauth_server.py`, jetons vérifiés par `auth/token_store.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim), demandes de projet (`request_project`) : `auth/access_control.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; connexion OAuth des clients MCP (serveur d'autorisation du contrôleur, routes du SDK MCP, page de consentement : `web_api/oauth_routes.py`) : `auth/oauth_server.py`, jetons vérifiés par `auth/token_store.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim), demandes de projet (`request_project`) : `auth/access_control.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
-| Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
+| Normes de développement par technologie (prompt `development-standards`, page « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
 
 Tous les modules sont dans `src/security_review_mcp/` : à la racine, les points d'entrée et
@@ -356,9 +356,9 @@ essentielles.
 | Le serveur MCP (routes, transports, démarrage, réponse selon le jeton, enrôlement, garanties, exposition, réplicas) | `docs/advanced/architecture/mcp-server` |
 | Le client de pipeline `security-review-ci` (installation, jeton `ci`, commandes, exemples par plateforme CI/CD, tendance) | `docs/advanced/architecture/ci` (+ `review/gate`) |
 | Le contrôleur (routes, démarrage, tâches de fond, connexions sortantes, exposition, réplicas, premier administrateur, sessions, sécurité de l'interface) | `docs/advanced/architecture/controller` |
-| Les normes de développement (prompt, outils, ressources, écran) | `docs/review/standards` (+ `review/prompts-tools`, `getting-started/stored-standards`) |
-| L'interface web, l'API REST ou les rôles | `docs/usage/index` (écrans), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes), `docs/usage/access-control` (rôles, groupes, permissions), `docs/usage/projects` (projets) ; connexion OIDC : `docs/usage/sso` ; détails et API : `docs/advanced/reports/triage-api`, `docs/advanced/access-control-api`, `docs/advanced/oidc` |
-| Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/usage/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/advanced/connectors`, `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
+| Les normes de développement (prompt, outils, ressources, page) | `docs/review/standards` (+ `review/prompts-tools`, `getting-started/stored-standards`) |
+| L'interface web, l'API REST ou les rôles | `docs/usage/index` (pages), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes), `docs/usage/access-control` (rôles, groupes, permissions), `docs/usage/projects` (projets) ; connexion OIDC : `docs/usage/sso` ; détails et API : `docs/advanced/reports/triage-api`, `docs/advanced/access-control-api`, `docs/advanced/oidc` |
+| Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, page **Connecteurs**, routes) | `docs/usage/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/advanced/connectors`, `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/deployment/installation`, `docs/advanced/deployment/manual-install`, `docs/advanced/deployment/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | Le journal d'audit (événements, conservation, syslog) ou les métriques Prometheus | `docs/usage/audit-metrics`, `docs/advanced/audit-log`, `docs/reference/metrics` |
@@ -377,6 +377,8 @@ essentielles.
   commandes, identifiants et clés (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`,
   `settings.controllerUrlTitle`...) ne changent pas, ni les noms des configurations de
   `.vscode/launch.json`.
+- Une vue de l'interface web s'appelle une **page** (**page** en anglais, **página** en espagnol),
+  jamais un « écran » / « screen » / « pantalla » (sauf « plein écran », « full screen »).
 - L'interface web est traduite (anglais, français, espagnol) : chaque version de la doc cite les
   libellés de l'interface dans sa langue, tels qu'ils s'affichent (**Tokens** / **Jetons**).
 - Tout texte affiché par l'interface passe par les catalogues de `web/src/app/core/i18n/messages/`,

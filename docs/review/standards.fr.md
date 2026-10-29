@@ -3,7 +3,7 @@
 Les **normes de développement** sont les conventions de votre organisation pour chaque
 technologie (Python, Angular, FastAPI, Spring…) : nommage, structure, typage, tests, gestion des
 erreurs, dépendances, sécurité. Les administrateurs les rédigent dans
-l'[interface web](../usage/index.md#ecrans) ; le serveur MCP les transmet à l'assistant IA du
+l'[interface web](../usage/index.md#pages) ; le serveur MCP les transmet à l'assistant IA du
 développeur **avant qu'il écrive du code**, pour que le code produit les respecte dès le départ.
 
 Elles complètent la revue de sécurité : les normes guident l'écriture, les prompts de revue
@@ -57,7 +57,7 @@ projet : tout client autorisé sur `/mcp` les lit.
 
 ## Gestion (interface web et API REST)
 
-L'écran **Normes** de l'interface web liste les normes avec leurs technologies et motifs de
+La page **Normes** de l'interface web liste les normes avec leurs technologies et motifs de
 fichiers, et permet de rechercher et de lire chacune, avec son rendu Markdown. Comme les règles
 et les checklists, il est réservé aux administrateurs, qui les créent, les modifient, les
 désactivent ou les suppriment. Le champ du contenu s'ouvre en plein écran, à côté de son aperçu
@@ -81,7 +81,7 @@ curl -X POST https://secreview.example.com/api/v1/standards \
 
 ### Import et export
 
-Le bouton **Exporter** de l'écran **Normes** télécharge toutes les normes, désactivées
+Le bouton **Exporter** de la page **Normes** télécharge toutes les normes, désactivées
 comprises, dans un fichier TOML (`security-review-standards.toml`), sans les champs d'audit
 (auteur et date de la dernière modification). Le bouton **Importer** lit un tel fichier, **tout
 ou rien** : une norme est créée, ou remplacée si son identifiant (`slug`) existe ; les autres

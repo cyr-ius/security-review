@@ -51,7 +51,7 @@
   par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
   l'adresse du client) ; la [métrique](metrics.md)
   `secreview_auth_rejections_total` ne compte que les refus du serveur Controller. L'adresse
-  de l'interface web donnée dans cette description (`SECREVIEW_CONTROLLER_URL` + `/ui`) est une
+  de l'interface web donnée dans cette description (`SECREVIEW_PUBLIC_URL` + `/ui`) est une
   URL publique : elle ne contient aucun identifiant
   (refusé au démarrage et dans l'interface web, où chaque modification est auditée).
 - **Connexion OAuth des clients MCP** (`SECREVIEW_MCP_OAUTH_ENABLED`, désactivée par défaut) :
@@ -62,7 +62,8 @@
   codes sont à usage
   unique (60 secondes), seules les empreintes SHA-256 des jetons sont conservées, un
   rafraîchissement remplace les deux jetons et un jeton de rafraîchissement réutilisé révoque
-  l'autorisation. Autoriser un client exige une session web et `mcp_tokens.create` ; un jeton
+  l'autorisation. Autoriser un client exige une session web et est refusé, comme toute
+  autorisation et tout jeton `mcp` ou `ci` personnel, avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false` ; un jeton
   agit comme un jeton `mcp` personnel de son utilisateur, sur le serveur MCP seulement, et est
   supprimé avec l'utilisateur ; un serveur Controller démarré avec la connexion désactivée révoque
   toutes les autorisations (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).
@@ -97,7 +98,9 @@
   serveur Controller, ce qui ajoute l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
   au groupe de projet, créé pour un nouveau projet. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
-  porte aussi `users.manage`. La réponse est la même que le projet existe ou
+  porte aussi `users.manage`, sauf pour un utilisateur portant `projects.autojoin`, qui le
+  rejoint aussitôt en lecture si son adhésion automatique n'est pas bloquée (cet utilisateur
+  apprend quels projets existent). Pour les autres, la réponse est la même que le projet existe ou
   non. Les demandes sont bornées (20 demandes en attente, une par utilisateur et par projet, 5
   par utilisateur ou jeton et par heure), et
   une demande que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est
@@ -111,7 +114,7 @@
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
   journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
   accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
-  l'écran **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
+  la page **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
@@ -134,12 +137,12 @@
   10 secondes, au plus une requête par processus du serveur Controller toutes les 6 heures (15 minutes
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Une fois
-  un connecteur activé dans l'écran **Connecteurs** (tous désactivés par défaut, tous verrouillés
+  un connecteur activé dans la page **Connecteurs** (tous désactivés par défaut, tous verrouillés
   par `SECREVIEW_CONNECTORS_ENABLED=false`), le serveur Controller envoie les findings par ce connecteur
   (tickets dans les Jira et ServiceNow configurés, enregistrements d'un connecteur tiers) :
   HTTPS uniquement, par le proxy sortant, **aucune redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
   nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki ; les secrets saisis
-  dans l'écran **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
+  dans la page **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
   leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme et
   ne joint que son URL configurée par le client du serveur Controller, voir
   [connecteurs](../advanced/connectors.md#securite). Avec

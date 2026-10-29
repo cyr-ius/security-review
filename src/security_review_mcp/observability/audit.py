@@ -65,6 +65,10 @@ class AuditAction(StrEnum):
     USER_GROUPS_CHANGED = "user.groups_changed"
     PROJECT_CREATED = "project.created"
     PROJECT_DELETED = "project.deleted"
+    # A holder of projects.autojoin joined a project at once (see access_control.request_project)
+    PROJECT_JOINED = "project.joined"
+    # The autojoin of a project blocked or allowed again (see access_control.set_autojoin_blocked)
+    PROJECT_AUTOJOIN_CHANGED = "project.autojoin_changed"
     # Recorded by the direct roles of a user, removed since revision 0018: kept for the history
     USER_ROLES_CHANGED = "user.roles_changed"
     USER_LOGIN = "user.login"

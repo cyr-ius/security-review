@@ -4,7 +4,7 @@ Ce qu'un [compte utilisateur](user-accounts.md) peut faire vient uniquement de s
 Un groupe donne des **rôles**, chacun sur tous les projets ou sur certains
 [projets](projects.md) ; un rôle est un ensemble de **permissions**. Un compte n'a jamais de rôle
 propre : pour donner un accès à une personne, ajoutez-la à un groupe. Les administrateurs gèrent
-tout cela dans les écrans **Groupes**, **Rôles** et **Utilisateurs**.
+tout cela dans les pages **Groupes**, **Rôles** et **Utilisateurs**.
 
 L'API REST, les limites et les règles détaillées sont dans
 [Contrôle d'accès par l'API REST](../advanced/access-control-api.md). Les jetons des machines
@@ -22,21 +22,22 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `settings.manage` | Changer les paramètres généraux, le proxy sortant et la base OSV | |
 | `users.manage` | Gérer les utilisateurs, groupes, rôles et la connexion OIDC | |
 | `audit.read` | Lire le journal d'audit | |
-| `projects.create` | [Créer un projet](projects.md#creation-dun-projet) et valider les projets demandés par les agents | |
+| `projects.create` | [Créer un projet](projects.md#creation-dun-projet), valider les projets demandés par les agents et [bloquer l'adhésion automatique](projects.md#blocage-de-ladhesion-automatique) à un projet qu'il lit | |
 | `projects.delete` | [Supprimer un projet](projects.md#suppression-dun-projet) | |
-| `mcp_tokens.create` | Créer un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | |
+| `projects.autojoin` | [Rejoindre un projet existant](projects.md#rejoindre-un-projet) aussitôt, en lecture, quand l'agent le demande, sauf si [son adhésion automatique est bloquée](projects.md#blocage-de-ladhesion-automatique) | |
 
 Une permission marquée **par projet** peut être limitée à certains projets ; les autres
-s'appliquent à tout le serveur Controller.
+s'appliquent à tout le serveur Controller. Aucune permission n'est nécessaire pour les
+[jetons MCP et CI personnels](tokens.md#jetons-mcp-et-ci-personnels) : tout compte peut les
+créer, sauf avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
 
 ## Rôles
 
 | Rôle | Permissions | Remarque |
 |---|---|---|
-| `reader` | `reports.read` | Intégré, non modifiable : utilisé par les [groupes de projet](projects.md#groupes-de-projet) |
+| `reader` | `reports.read` | Intégré, non modifiable : utilisé par les [groupes de projet](projects.md#groupe-de-projet) |
 | `admin` | Toutes les permissions, y compris celles des versions ultérieures | Intégré, non modifiable : le rôle du groupe `administrators` |
 | `triager` | `reports.read`, `findings.triage` | Créé avec la base, modifiable |
-| `mcp-user` | `mcp_tokens.create` | Créé avec la base, modifiable ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que lit son utilisateur |
 
 Les administrateurs créent d'autres rôles, par exemple un rôle *Auditeur* avec `audit.read` et
 `reports.read`.
@@ -58,7 +59,7 @@ Les membres ont deux origines :
 Les permissions d'un utilisateur s'additionnent sur **tous ses groupes**, chacune avec ses
 propres projets. Par exemple, un utilisateur `reader` sur tous les projets par un groupe et
 `triager` sur `crm` par un autre lit tous les projets et ne trie que `crm`. **Mon compte** et
-l'écran **Utilisateurs** affichent ces permissions.
+la page **Utilisateurs** affichent ces permissions.
 
 Un changement de groupe ou de rôle s'applique aussitôt aux sessions ouvertes. Un compte sans
 aucune permission ne peut pas se connecter.

@@ -18,13 +18,13 @@ leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
 
 | Moyen | Qui | Résultat |
 |---|---|---|
-| Bouton **Nouveau projet** de l'écran **Projets** | Une personne qui a `projects.create` | Créé aussitôt ([création d'un projet](#creation-dun-projet)) |
-| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt si le développeur peut créer des projets ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
+| Bouton **Nouveau projet** de la page **Projets** | Une personne qui a `projects.create` | Créé aussitôt ([création d'un projet](#creation-dun-projet)) |
+| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt, avec son groupe de projet, si le développeur peut créer des projets (même si son jeton atteint déjà tous les projets) ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | Premier rapport enregistré pour lui | Un jeton qui l'atteint (pipeline, jeton pour **Tous les projets**) | Le projet apparaît avec son premier rapport |
 
 Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première revue.
 
-## Groupes de projet
+## Groupe de projet
 
 Chaque projet a son **groupe de projet**, `project:<projet>`, qui donne la lecture de ce seul
 projet (rôle `reader`). Son créateur, ou le développeur dont la demande a été validée, en est le
@@ -37,24 +37,45 @@ dans **Groupes** ou **Utilisateurs**, ou validez la **Demande d'accès** dépos�
 
 ## Création d'un projet
 
-Avec la permission `projects.create`, **Nouveau projet** sur l'écran **Projets** crée le projet
-et vous rend membre de son groupe de projet : vous le lisez aussitôt, et votre agent peut y
-enregistrer ses revues. Seul un **nouveau** nom est accepté : cette permission n'ouvre jamais un
-projet qui existe déjà. Vous n'obtenez que la lecture ; un administrateur donne le triage par les
-groupes.
+Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur la page
+**Projets**. Créer un projet vous rend membre de son groupe de projet : vous le lisez aussitôt, et
+votre agent peut y enregistrer ses revues.
 
 ## Suppression d'un projet
 
-Avec la permission `projects.delete` (seul `admin` par défaut), le bouton corbeille d'une ligne de
-l'écran **Projets** supprime le projet après confirmation. La suppression est **irréversible** et
-retire tout ce qui se rapporte au projet :
+Avec la permission `projects.delete`, un bouton corbeille apparaît sur chaque ligne de la page
+**Projets**. La suppression est **irréversible** et retire tout ce qui se rapporte au projet :
 
 - ses rapports, findings et commentaires ;
 - le projet dans les rôles des groupes ; son groupe de projet est supprimé ;
 - le projet dans les jetons : un jeton qui n'atteignait que ce projet est **révoqué**, et un
   pipeline qui l'utilisait s'arrête.
 
-Le journal d'audit conserve les événements du projet.
+Le journal d'audit conserve les événements du projet. Une confirmation est demandée au moment
+de l'action.
+
+## Rejoindre un projet
+
+L'agent d'un développeur peut demander à rejoindre un projet existant. Sa demande apparaît,
+en attente de validation, dans **Projets en attente** sur la page **Projets**.
+
+Une personne dotée des permissions `projects.create` et `users.manage` peut valider cette
+demande ; une personne dotée de `users.manage` peut aussi ajouter l'utilisateur au groupe de
+projet.
+
+Avec la permission `projects.autojoin`, le développeur **rejoint aussitôt le projet**, sans
+demande : la requête de son agent l'ajoute au groupe de projet, pour qu'il lise le projet (jamais
+plus : pas de tri) et que la revue continue. Cette permission ne crée pas de nouveau projet : il
+faut pour cela `projects.create`.
+
+## Blocage de l'adhésion automatique
+
+Avec la permission `projects.create`, un bouton cadenas apparaît sur chaque ligne de la page
+**Projets**, pour les projets que vous lisez. Il **bloque l'adhésion automatique** au projet : les
+titulaires de `projects.autojoin` déposent alors une demande qui attend une validation, comme les
+autres. Le projet affiche le badge **Adhésion automatique bloquée** ; le bouton cadenas ouvert
+autorise de nouveau l'adhésion automatique. Les utilisateurs qui ont déjà rejoint le projet
+gardent leur accès : retirez-les de son groupe de projet si nécessaire.
 
 ## Points d'attention
 
@@ -62,4 +83,7 @@ Le journal d'audit conserve les événements du projet.
 - **Valider une demande d'accès** à un projet existant demande aussi `users.manage` : créer des
   projets ne donne jamais accès aux autres.
 - **Supprimer un projet révoque ses jetons dédiés** : prévenez les équipes qui les utilisent.
+- **`projects.autojoin` ouvre tous les projets** dont l'adhésion automatique n'est pas bloquée,
+  et indique à son titulaire quels projets existent : bloquez l'adhésion automatique des projets
+  sensibles.
 - **Un nom est normalisé** : `My.App` et `my-app` sont le même projet.

@@ -14,12 +14,14 @@ resource metadata).
 
 The Controller server is the authorization server. The MCP server only checks the tokens.
 The personal MCP tokens keep working, unless an administrator turns them off with `SECREVIEW_PERSONAL_MCP_TOKENS=false`.
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` turns off the OAuth login too: no client is approved
+any more, and the clients already connected are refused.
 
 ## Enabling it
 
 In the web interface, an administrator with the `settings.manage` permission must enter the public
-URL of the MCP server in the **MCP clients (OAuth login)** section of the **Tokens** screen and
-turn on the **OAuth login enabled** switch.
+URL of the MCP server in the **MCP clients (OAuth login)** section of the **Tokens** page and
+turn on the **Enable OAuth login** switch.
 
 The public URL of the Controller server is also needed, through the setting on the **General** page.
 
@@ -33,7 +35,7 @@ If you would rather not use the web interface, here are the environment variable
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
 SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # public URL of the MCP endpoint
-SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http on localhost only)
+SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http on localhost only)
 ```
 
 Whatever the method used, the MCP server picks up the changes (within 30 seconds).
@@ -83,7 +85,7 @@ The server is declared with its URL only, without `Authorization` header:
    `WWW-Authenticate: Bearer …, resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"`.
    This document names the Controller server as authorization server.
 2. The host registers itself at `/register` (dynamic registration, RFC 7591).
-3. It opens `/authorize` in the browser, which goes to the **Connect an MCP client** screen of the
+3. It opens `/authorize` in the browser, which goes to the **Connect an MCP client** page of the
    web interface, behind the usual login.
 4. The developer approves (or denies) the client there, the browser goes back to the host with
    a single-use code, valid 60 seconds.
@@ -98,8 +100,8 @@ An access token acts as a [personal MCP token](../usage/tokens.md#personal-mcp-a
 the user who approved the client: the projects the user may read.
 The rights are read again at each request.
 
-Approving a client needs the `mcp_tokens.create` permission, like creating a personal MCP
-token, and a web session: a Bearer token never approves a client.
+Approving a client needs a web session (a Bearer token never approves a client), and is refused
+(`403`) while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, like creating a personal MCP token.
 
 | Token | Lifetime | Renewal |
 |---|---|---|
@@ -118,7 +120,7 @@ Deleting a user deletes its clients. A user keeps at most 20 clients; beyond, th
 
 ## Administration
 
-With the `tokens.manage` permission, the **Tokens** screen shows a **MCP clients (OAuth login)** section.
+With the `tokens.manage` permission, the **Tokens** page shows a **MCP clients (OAuth login)** section.
 
  - **Revoke** cuts one user of a client.
 
@@ -134,7 +136,7 @@ At most `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients can exist at once. A client no
 within a day is deleted at the next registration. The OAuth routes are subject to the
 [rate limiting](../reference/configuration.md#rate-limiting) of the login routes.
 
-The consent screen shows the name chosen by the client and the host it goes back to.
+The consent page shows the name chosen by the client and the host it goes back to.
 Only approve a client you started yourself.
 
 ## Enrollment and clients without OAuth
@@ -155,7 +157,7 @@ Registrations (`oauth.client_registered`), approvals (`oauth.grant_approved`), r
 | Symptom | Cause |
 |---|---|
 | The host still shows the enrollment server | OAuth off on the Controller server, or the MCP server has not read the setting yet (30 seconds) |
-| The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` missing |
+| The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` missing |
 | The Controller server does not start: `Issuer URL must be HTTPS` | Controller server URL in `http://` outside localhost |
 | `invalid_redirect_uri` at registration, or VS Code asks for a client ID ("Dynamic client registration not supported") | no redirect URI on the loopback interface: add its host to `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) or its scheme to `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` back in the host | the host asks for a resource other than `SECREVIEW_MCP_URL`: check that this URL is the one configured in the host |

@@ -51,6 +51,16 @@ export const projects = defineMessages({
     'projects.deleted':
       'Project {project} deleted: {reports} report(s), {findings} finding(s), {tokens} token(s) revoked.',
     'projects.deleteFailed': 'Could not delete the project.',
+    'projects.autojoinBlocked': 'Autojoin blocked',
+    'projects.autojoinBlockedHelp':
+      'The users allowed to join projects wait for an approval to join this project.',
+    'projects.blockAutojoin': 'Block the autojoin of project {project}',
+    'projects.allowAutojoin': 'Allow the autojoin of project {project}',
+    'projects.autojoinBlockedDone':
+      'Autojoin of project {project} blocked: the requests to join it wait for an approval.',
+    'projects.autojoinAllowedDone':
+      'Autojoin of project {project} allowed: the users allowed to join projects join it at once.',
+    'projects.autojoinFailed': 'Could not change the autojoin of the project.',
     'projects.noReport': 'No report yet',
     'project.allReports': 'All reports',
     'project.exportSarif': 'SARIF export',
@@ -142,6 +152,16 @@ export const projects = defineMessages({
     'projects.deleted':
       'Projet {project} supprimé : {reports} rapport(s), {findings} finding(s), {tokens} jeton(s) révoqué(s).',
     'projects.deleteFailed': 'Impossible de supprimer le projet.',
+    'projects.autojoinBlocked': 'Adhésion automatique bloquée',
+    'projects.autojoinBlockedHelp':
+      'Les utilisateurs autorisés à rejoindre des projets attendent une validation pour rejoindre ce projet.',
+    'projects.blockAutojoin': "Bloquer l'adhésion automatique au projet {project}",
+    'projects.allowAutojoin': "Autoriser l'adhésion automatique au projet {project}",
+    'projects.autojoinBlockedDone':
+      'Adhésion automatique au projet {project} bloquée : les demandes pour le rejoindre attendent une validation.',
+    'projects.autojoinAllowedDone':
+      'Adhésion automatique au projet {project} autorisée : les utilisateurs autorisés à rejoindre des projets le rejoignent aussitôt.',
+    'projects.autojoinFailed': "Impossible de modifier l'adhésion automatique du projet.",
     'projects.noReport': 'Aucun rapport',
     'project.allReports': 'Tous les rapports',
     'project.exportSarif': 'Export SARIF',
@@ -233,6 +253,16 @@ export const projects = defineMessages({
     'projects.deleted':
       'Proyecto {project} eliminado: {reports} informe(s), {findings} hallazgo(s), {tokens} token(s) revocado(s).',
     'projects.deleteFailed': 'No se pudo eliminar el proyecto.',
+    'projects.autojoinBlocked': 'Adhesión automática bloqueada',
+    'projects.autojoinBlockedHelp':
+      'Los usuarios autorizados a unirse a proyectos esperan una aprobación para unirse a este proyecto.',
+    'projects.blockAutojoin': 'Bloquear la adhesión automática al proyecto {project}',
+    'projects.allowAutojoin': 'Permitir la adhesión automática al proyecto {project}',
+    'projects.autojoinBlockedDone':
+      'Adhesión automática al proyecto {project} bloqueada: las solicitudes para unirse esperan una aprobación.',
+    'projects.autojoinAllowedDone':
+      'Adhesión automática al proyecto {project} permitida: los usuarios autorizados a unirse a proyectos se unen enseguida.',
+    'projects.autojoinFailed': 'No se pudo cambiar la adhesión automática del proyecto.',
     'projects.noReport': 'Sin informes',
     'project.allReports': 'Todos los informes',
     'project.exportSarif': 'Exportar SARIF',

@@ -11,7 +11,7 @@ export const access = defineMessages({
     'access.failed': 'The management of the access failed.',
     'roles.subtitle': 'Named sets of permissions, given to groups',
     'roles.help':
-      'A role holds permissions; a group gives its roles to its members. The built-in roles reader and admin can be neither changed nor deleted; triager and mcp-user, like every other role, can. A role made only of permissions marked “per project” can be limited to projects in a group. A change applies at once to the open sessions.',
+      'A role holds permissions; a group gives its roles to its members. The built-in roles reader and admin can be neither changed nor deleted; triager, like every other role, can. A role made only of permissions marked “per project” can be limited to projects in a group. A change applies at once to the open sessions.',
     'roles.editTitle': 'Edit the role “{role}”',
     'roles.createTitle': 'Create a role',
     'roles.namePlaceholder': 'e.g. Auditor',
@@ -88,9 +88,9 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Delete projects',
     'permission.projectsDeleteHelp':
       'A project with its reports, findings, project group, and its place in the roles and tokens.',
-    'permission.mcpTokensCreate': 'Create a personal token (PAT)',
-    'permission.mcpTokensCreateHelp':
-      'My account: a token for the MCP agent of the user, or for security-review-ci on its workstation, which reaches the projects the user may read.',
+    'permission.projectsAutojoin': 'Join projects',
+    'permission.projectsAutojoinHelp':
+      'An existing project, as a reader, when its MCP agent requests it, unless the autojoin of the project is blocked.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (all projects)',
   },
@@ -103,7 +103,7 @@ export const access = defineMessages({
     'access.failed': 'La gestion des accès a échoué.',
     'roles.subtitle': 'Ensembles nommés de permissions, donnés aux groupes',
     'roles.help':
-      "Un rôle regroupe des permissions ; un groupe donne ses rôles à ses membres. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés ; triager et mcp-user, comme tout autre rôle, peuvent l'être. Un rôle fait uniquement de permissions marquées « par projet » peut être limité à des projets dans un groupe. Une modification s'applique aussitôt aux sessions ouvertes.",
+      "Un rôle regroupe des permissions ; un groupe donne ses rôles à ses membres. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés ; triager, comme tout autre rôle, peut l'être. Un rôle fait uniquement de permissions marquées « par projet » peut être limité à des projets dans un groupe. Une modification s'applique aussitôt aux sessions ouvertes.",
     'roles.editTitle': 'Modifier le rôle « {role} »',
     'roles.createTitle': 'Créer un rôle',
     'roles.namePlaceholder': 'ex. Auditeur',
@@ -182,9 +182,9 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Supprimer des projets',
     'permission.projectsDeleteHelp':
       'Un projet avec ses rapports, ses findings, son groupe de projet et sa place dans les rôles et les jetons.',
-    'permission.mcpTokensCreate': 'Créer un jeton personnel (PAT)',
-    'permission.mcpTokensCreateHelp':
-      "Mon compte : un jeton pour l'agent MCP de l'utilisateur, ou pour security-review-ci sur son poste, qui atteint les projets qu'il peut lire.",
+    'permission.projectsAutojoin': 'Rejoindre des projets',
+    'permission.projectsAutojoinHelp':
+      "Un projet existant, en lecture, quand son agent MCP le demande, sauf si l'adhésion automatique du projet est bloquée.",
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (tous les projets)',
   },
@@ -197,7 +197,7 @@ export const access = defineMessages({
     'access.failed': 'La gestión de los accesos falló.',
     'roles.subtitle': 'Conjuntos con nombre de permisos, asignados a grupos',
     'roles.help':
-      'Un rol agrupa permisos; un grupo asigna sus roles a sus miembros. Los roles integrados reader y admin no se pueden modificar ni eliminar; triager y mcp-user, como cualquier otro rol, sí. Un rol formado solo por permisos marcados «por proyecto» puede limitarse a proyectos en un grupo. Un cambio se aplica de inmediato a las sesiones abiertas.',
+      'Un rol agrupa permisos; un grupo asigna sus roles a sus miembros. Los roles integrados reader y admin no se pueden modificar ni eliminar; triager, como cualquier otro rol, sí. Un rol formado solo por permisos marcados «por proyecto» puede limitarse a proyectos en un grupo. Un cambio se aplica de inmediato a las sesiones abiertas.',
     'roles.editTitle': 'Editar el rol «{role}»',
     'roles.createTitle': 'Crear un rol',
     'roles.namePlaceholder': 'p. ej. Auditor',
@@ -276,9 +276,9 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Eliminar proyectos',
     'permission.projectsDeleteHelp':
       'Un proyecto con sus informes, hallazgos, grupo de proyecto y su lugar en los roles y tokens.',
-    'permission.mcpTokensCreate': 'Crear un token personal (PAT)',
-    'permission.mcpTokensCreateHelp':
-      'Mi cuenta: un token para el agente MCP del usuario, o para security-review-ci en su equipo, que alcanza los proyectos que puede leer.',
+    'permission.projectsAutojoin': 'Unirse a proyectos',
+    'permission.projectsAutojoinHelp':
+      'Un proyecto existente, en lectura, cuando su agente MCP lo solicita, salvo si la adhesión automática del proyecto está bloqueada.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (todos los proyectos)',
   },

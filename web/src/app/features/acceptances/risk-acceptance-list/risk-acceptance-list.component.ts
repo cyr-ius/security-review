@@ -21,8 +21,8 @@ import { RefreshButtonComponent } from '../../../shared/components/refresh-butto
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { TableSort } from '../../../shared/utils/table-sort';
@@ -33,7 +33,8 @@ import { RiskAcceptanceDetailComponent } from '../risk-acceptance-detail/risk-ac
 const PAGE_SIZE = 100;
 
 type SortKey = 'severity' | 'title' | 'project' | 'approver' | 'accepted' | 'expires' | 'comments';
-type StateFilter = '' | 'active' | 'expired';
+type AcceptanceState = 'active' | 'expired';
+const STATES: readonly AcceptanceState[] = ['active', 'expired'];
 
 /**
  * Every risk acceptance of a project (or of every project, at /risk-acceptances), expired ones
@@ -92,21 +93,21 @@ export class RiskAcceptanceListComponent {
   });
 
   readonly search = signal('');
-  readonly stateFilter = signal<StateFilter>('');
-  readonly severityFilter = signal<Severity | ''>('');
+  readonly stateFilter = signal<AcceptanceState[]>([]);
+  readonly severityFilter = signal<Severity[]>([]);
   readonly sort = new TableSort<SortKey>(
     'risk-acceptances',
     ['severity', 'title', 'project', 'approver', 'accepted', 'expires', 'comments'],
     'expires',
     'asc',
   );
-  readonly filters = computed<TableControlFilter[]>(() => [
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'state',
       label: this.i18n.translate('acceptances.state'),
-      value: this.stateFilter(),
+      allLabel: this.i18n.translate('common.all'),
+      values: this.stateFilter(),
       options: [
-        { value: '', label: this.i18n.translate('common.all') },
         { value: 'active', label: this.i18n.translate('acceptances.active') },
         { value: 'expired', label: this.i18n.translate('acceptances.expired') },
       ],
@@ -114,24 +115,22 @@ export class RiskAcceptanceListComponent {
     {
       key: 'severity',
       label: this.i18n.translate('report.filterSeverity'),
-      value: this.severityFilter(),
-      options: [
-        { value: '', label: this.i18n.translate('report.allSeverities') },
-        ...SEVERITIES.map((severity) => ({
-          value: severity,
-          label: this.i18n.translate(SEVERITY_META[severity].label),
-        })),
-      ],
+      allLabel: this.i18n.translate('report.allSeverities'),
+      values: this.severityFilter(),
+      options: SEVERITIES.map((severity) => ({
+        value: severity,
+        label: this.i18n.translate(SEVERITY_META[severity].label),
+      })),
     },
   ]);
 
   readonly visible = computed(() => {
-    const state = this.stateFilter();
-    const severity = this.severityFilter();
+    const states = this.stateFilter();
+    const severities = this.severityFilter();
     const rows = this.acceptances().filter(
       (row) =>
-        (!state || row.expired === (state === 'expired')) &&
-        (!severity || row.severity === severity),
+        (!states.length || states.includes(row.expired ? 'expired' : 'active')) &&
+        (!severities.length || severities.includes(row.severity)),
     );
     const key = this.sort.key();
     return filterAndSortRows(
@@ -146,15 +145,11 @@ export class RiskAcceptanceListComponent {
     );
   });
 
-  onFilter(change: TableControlFilterChange): void {
+  onFilter(change: TableControlMultiFilterChange): void {
     if (change.key === 'state') {
-      this.stateFilter.set(
-        change.value === 'active' || change.value === 'expired' ? change.value : '',
-      );
+      this.stateFilter.set(STATES.filter((state) => change.values.includes(state)));
     } else if (change.key === 'severity') {
-      this.severityFilter.set(
-        SEVERITIES.includes(change.value as Severity) ? (change.value as Severity) : '',
-      );
+      this.severityFilter.set(SEVERITIES.filter((severity) => change.values.includes(severity)));
     }
   }
 

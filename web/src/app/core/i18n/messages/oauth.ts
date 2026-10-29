@@ -17,7 +17,7 @@ export const oauth = defineMessages({
     'oauth.expired':
       'This request is unknown or has expired: start the connection again from the MCP client.',
     'oauth.forbidden':
-      'You may not connect an MCP client: ask an administrator for the MCP token permission.',
+      'Connecting an MCP client is disabled on this server: ask an administrator for an MCP token.',
     'oauth.failed': 'The decision could not be saved. Try again.',
     'oauth.redirecting': 'Back to the MCP client...',
     'oauth.grantsTitle': 'Connected MCP clients',
@@ -38,7 +38,7 @@ export const oauth = defineMessages({
     'oauth.adminHelp':
       'Clients that log in through the browser instead of a personal token. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The other settings are variables of the Controller server.',
     'oauth.mcpUrl': 'MCP endpoint',
-    'oauth.enabled': 'OAuth login enabled',
+    'oauth.enabled': 'Enable OAuth login',
     'oauth.mcpUrlHelp':
       'Enter the public address of your MCP server (e.g. https://mcp.example.com/mcp).',
     'oauth.off':
@@ -82,7 +82,7 @@ export const oauth = defineMessages({
     'oauth.expired':
       'Cette demande est inconnue ou a expiré : relancez la connexion depuis le client MCP.',
     'oauth.forbidden':
-      'Vous ne pouvez pas connecter de client MCP : demandez la permission des jetons MCP à un administrateur.',
+      'La connexion d’un client MCP est désactivée sur ce serveur : demandez un jeton MCP à un administrateur.',
     'oauth.failed': 'La décision n’a pas pu être enregistrée. Réessayez.',
     'oauth.redirecting': 'Retour vers le client MCP...',
     'oauth.grantsTitle': 'Clients MCP connectés',
@@ -103,7 +103,7 @@ export const oauth = defineMessages({
     'oauth.adminHelp':
       'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les autres réglages sont des variables du serveur Controller.',
     'oauth.mcpUrl': 'Point d’accès MCP',
-    'oauth.enabled': 'Connexion OAuth activée',
+    'oauth.enabled': 'Connexion OAuth',
     'oauth.mcpUrlHelp':
       'Saisissez l’adresse publique de votre serveur MCP (ex. https://mcp.example.com/mcp).',
     'oauth.off':
@@ -148,7 +148,7 @@ export const oauth = defineMessages({
     'oauth.expired':
       'Esta solicitud es desconocida o ha caducado: vuelva a iniciar la conexión desde el cliente MCP.',
     'oauth.forbidden':
-      'No puede conectar un cliente MCP: pida a un administrador el permiso de los tokens MCP.',
+      'La conexión de un cliente MCP está desactivada en este servidor: pida un token MCP a un administrador.',
     'oauth.failed': 'No se pudo guardar la decisión. Inténtelo de nuevo.',
     'oauth.redirecting': 'Volviendo al cliente MCP...',
     'oauth.grantsTitle': 'Clientes MCP conectados',
@@ -169,7 +169,7 @@ export const oauth = defineMessages({
     'oauth.adminHelp':
       'Los clientes que inician sesión con el navegador en lugar de un token personal. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los demás ajustes son variables del servidor Controller.',
     'oauth.mcpUrl': 'Punto de acceso MCP',
-    'oauth.enabled': 'Inicio de sesión OAuth activado',
+    'oauth.enabled': 'Activar el inicio de sesión OAuth',
     'oauth.mcpUrlHelp':
       'Introduzca la dirección pública de su servidor MCP (p. ej. https://mcp.example.com/mcp).',
     'oauth.off':

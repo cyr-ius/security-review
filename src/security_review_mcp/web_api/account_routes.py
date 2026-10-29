@@ -15,10 +15,8 @@ from ..storage.models import Severity
 from .auth_routes import LOGIN_HEADERS, open_session
 from .deps import (
     CurrentIdentity,
-    Permission,
     actor_of,
     client_address,
-    has_permission,
     unprocessable,
     web_user_id,
 )
@@ -103,6 +101,7 @@ async def me(identity: CurrentIdentity) -> Identity:
                 else None
             ),
             "personal_mcp_tokens": settings.personal_mcp_tokens,
+            "personal_tokens_enabled": settings.personal_tokens_enabled,
             "mcp_oauth": oauth,
         }
     )
@@ -140,14 +139,10 @@ async def create_my_token(
     An ``api`` token (REST API, Swagger) holds the current rights of the user; an ``mcp`` token
     (MCP agent) or a ``ci`` token (security-review-ci on a workstation: scans, gate) reaches the
     projects the user may read. They are read at each request; like every token, they never
-    accept a risk nor mark a false positive. An ``mcp`` or ``ci`` token needs the
-    ``mcp_tokens.create`` permission (403 without it). A user holds at most
+    accept a risk nor mark a false positive. An ``mcp`` or ``ci`` token is refused while
+    SECREVIEW_PERSONAL_TOKENS_ENABLED is false (422). A user holds at most
     SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of each role (422 beyond)."""
     user_id = web_user_id(request)
-    if body.role in ("mcp", "ci") and not has_permission(identity, Permission.MCP_TOKENS_CREATE):
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, f"Permission '{Permission.MCP_TOKENS_CREATE}' required"
-        )
     try:
         created = await run_in_threadpool(
             token_store.create_personal_token,

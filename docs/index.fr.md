@@ -143,7 +143,7 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 | Docker, Kubernetes, PostgreSQL, sans conteneur | [Architecture](advanced/architecture/index.md), [Docker](advanced/deployment/docker.md), [Kubernetes](advanced/deployment/kubernetes.md), [Installation manuelle](advanced/deployment/manual-install.md) |
 | Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet), [TLS](advanced/tls.md) |
 | Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](usage/sso.md) |
-| Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Scan du code complet](review/analysis/code-scan.md), [Analyse des dépendances](review/analysis/dependencies.md), [Règles](review/rules.md) |
+| Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Analyse du code complet](review/analysis/code-scan.md), [Analyse des dépendances](review/analysis/dependencies.md), [Règles](review/rules.md) |
 | SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/reports/sarif.md), [Rapport de tendance](advanced/architecture/ci.md#rapport-de-tendance), [Journal d'audit](usage/audit-metrics.md), [Métriques Prometheus](reference/metrics.md) |
 
 !!! warning "Ce n'est pas un SAST"

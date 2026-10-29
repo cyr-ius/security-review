@@ -7,7 +7,7 @@ This page explains what that changes, and how to point an agent to them from `AG
 
 - The standards are stored **in the database**, like the rules. They are not in your
   repository.
-- An administrator writes them in the **Standards** screen of the web interface. They can also
+- An administrator writes them on the **Standards** page of the web interface. They can also
   be imported from a TOML file.
 - Each standard lists its technologies and its file patterns (`*.py`, `angular.json`).
 - Every project gets the same standards. An update applies at once to every agent.
@@ -27,7 +27,7 @@ The centralized standards avoid this for the conventions:
 | Skills or instruction files | Centralized standards |
 |---|---|
 | One format per agent | Any MCP agent (Claude Code, GitHub Copilot, Codex, Cursor...) reads them through the `security-review` server |
-| Copied into each repository or workstation | Written once, in the **Standards** screen |
+| Copied into each repository or workstation | Written once, on the **Standards** page |
 | Updated by hand everywhere | An update applies at once to every agent |
 | All loaded, or chosen by the agent | Selected by technology or by file (`*.py`, `angular.json`) |
 

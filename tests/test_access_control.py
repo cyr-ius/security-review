@@ -103,18 +103,6 @@ def test_built_in_roles_exist_and_cannot_change():
     assert access_control.ensure_system_roles() == built_in
 
 
-def test_mcp_user_is_an_ordinary_role_that_creates_mcp_tokens():
-    roles = {role["name"]: role for role in access_control.list_roles()}
-    mcp_user = roles["mcp-user"]
-    assert not mcp_user["system"] and not mcp_user["scoped"]
-    assert mcp_user["permissions"] == ["mcp_tokens.create"]
-    assert {"name": "mcp_tokens.create", "scoped": False} in access_control.list_permissions()
-    # A controller-wide permission: never limited to projects
-    with pytest.raises(ValueError):
-        access_control.clean_projects(["mcp_tokens.create"], ["shop"])
-    access_control.delete_role(mcp_user["id"])
-
-
 def test_triager_is_an_ordinary_role():
     roles = {role["name"]: role for role in access_control.list_roles()}
     triager = roles["triager"]
@@ -732,6 +720,53 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
         ("first", "enrollment"),
         ("second", "user:root"),
     ]
+
+
+def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monkeypatch):
+    """projects.autojoin joins a known project at once as a reader, never creates one, and
+    waits for an approval as the others do on a project whose autojoin is blocked."""
+    from security_review_mcp.reports import services
+
+    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 10)
+    role = access_control.create_role("Joiner", [Permission.PROJECTS_AUTOJOIN])
+    group = access_control.create_group("joiners")
+    access_control.set_group_roles(group["id"], [(role["id"], None)])
+    joe = web_users.create_user("joe", PASSWORD)
+    for project in ("shop", "crm", "vault"):
+        services.save_report(project, "Review", [])
+    # Requested before it held the permission
+    access_control.request_project("shop", "joe")
+    web_users.update_user(joe["id"], [group["id"]])
+    access_control.set_autojoin_blocked("vault", True, "user:root")
+
+    joined = access_control.request_project("shop", "joe", actor="token:joe:agent")
+    new = access_control.request_project("mobile-app", "joe")
+    blocked = access_control.request_project("vault", "joe")
+
+    assert (joined["project"], joined["status"]) == ("shop", "joined")
+    assert (new["status"], blocked["status"]) == ("requested", "requested")
+    grants = grants_of(joe["id"])
+    assert grants["reports.read"] == frozenset({"shop"})
+    assert "findings.triage" not in grants
+    # Its pending request of the joined project is settled
+    assert [item["project"] for item in access_control.list_enrollments()] == [
+        "mobile-app",
+        "vault",
+    ]
+    (event,) = audit.list_events(action="project.joined")["events"]
+    assert (event["project"], event["actor"]) == ("shop", "token:joe:agent")
+    (changed,) = audit.list_events(action="project.autojoin_changed")["events"]
+    assert (changed["project"], changed["details"]) == ("vault", {"blocked": True})
+    # Allowed again: joined at once; an unknown project cannot be blocked
+    access_control.set_autojoin_blocked("vault", False, "user:root")
+    assert access_control.request_project("vault", "joe")["status"] == "joined"
+    with pytest.raises(NotFoundError):
+        access_control.set_autojoin_blocked("unknown", True)
+    # Never beyond the projects one session may reach
+    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    with pytest.raises(ValueError, match="already reads 2 projects"):
+        access_control.request_project("crm", "joe")
+    assert grants_of(joe["id"])["reports.read"] == frozenset({"shop", "vault"})
 
 
 def test_creating_a_project_settles_its_pending_request():

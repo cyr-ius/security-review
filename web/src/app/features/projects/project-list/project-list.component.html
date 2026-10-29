@@ -164,7 +164,7 @@
               <th scope="col" [appSortHeader]="sort" sortKey="activity">
                 {{ 'projects.lastReport' | t }}
               </th>
-              @if (canDelete()) {
+              @if (hasActions()) {
                 <th scope="col" class="text-end">
                   <span class="visually-hidden">{{ 'common.actions' | t }}</span>
                 </th>
@@ -178,6 +178,15 @@
                   <a class="fw-semibold" [routerLink]="['/projects', project.project]">
                     {{ project.project }}
                   </a>
+                  @if (project.autojoin_blocked) {
+                    <span
+                      class="badge text-bg-secondary ms-1"
+                      [attr.title]="'projects.autojoinBlockedHelp' | t"
+                    >
+                      <i class="bi bi-lock" aria-hidden="true"></i>
+                      {{ 'projects.autojoinBlocked' | t }}
+                    </span>
+                  }
                 </td>
                 <td>
                   @if (project.worst_open_severity; as worst) {
@@ -205,22 +214,53 @@
                     <span class="text-body-secondary">{{ 'projects.noReport' | t }}</span>
                   }
                 </td>
-                @if (canDelete()) {
-                  <td class="text-end">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger action-button"
-                      [disabled]="deleting() !== null"
-                      [attr.aria-label]="'projects.delete' | t: { project: project.project }"
-                      [attr.title]="'projects.delete' | t: { project: project.project }"
-                      (click)="deleteProject(project.project)"
-                    >
-                      @if (deleting() === project.project) {
-                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                      } @else {
-                        <i class="bi bi-trash" aria-hidden="true"></i>
-                      }
-                    </button>
+                @if (hasActions()) {
+                  <td class="text-end text-nowrap">
+                    @if (canCreate()) {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary action-button me-1"
+                        [disabled]="switchingAutojoin() !== null"
+                        [attr.aria-pressed]="project.autojoin_blocked"
+                        [attr.aria-label]="
+                          (project.autojoin_blocked
+                            ? 'projects.allowAutojoin'
+                            : 'projects.blockAutojoin'
+                          ) | t: { project: project.project }
+                        "
+                        [attr.title]="
+                          (project.autojoin_blocked
+                            ? 'projects.allowAutojoin'
+                            : 'projects.blockAutojoin'
+                          ) | t: { project: project.project }
+                        "
+                        (click)="toggleAutojoin(project)"
+                      >
+                        @if (switchingAutojoin() === project.project) {
+                          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        } @else if (project.autojoin_blocked) {
+                          <i class="bi bi-unlock" aria-hidden="true"></i>
+                        } @else {
+                          <i class="bi bi-lock" aria-hidden="true"></i>
+                        }
+                      </button>
+                    }
+                    @if (canDelete()) {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger action-button"
+                        [disabled]="deleting() !== null"
+                        [attr.aria-label]="'projects.delete' | t: { project: project.project }"
+                        [attr.title]="'projects.delete' | t: { project: project.project }"
+                        (click)="deleteProject(project.project)"
+                      >
+                        @if (deleting() === project.project) {
+                          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        } @else {
+                          <i class="bi bi-trash" aria-hidden="true"></i>
+                        }
+                      </button>
+                    }
                   </td>
                 }
               </tr>

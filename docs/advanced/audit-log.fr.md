@@ -17,27 +17,29 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `finding.proposal_rejected` | Un trieur rejette la proposition d'un agent |
 | `finding.commented` | Une personne commente un finding (`POST /api/v1/findings/{id}/comments`) : le commentaire, secrets masqués |
 | `finding.severity_changed` | Un analyste de sécurité relève la criticité d'un finding, ou rétablit celle du rapport (`PATCH /api/v1/findings/{id}/severity`) : criticité précédente, nouvelle et d'origine, justification |
-| `token.created` | Un jeton est créé (CLI `token create`, écran **Jetons**) |
+| `token.created` | Un jeton est créé (CLI `token create`, page **Jetons**) |
 | `token.rotated` | Le secret d'un jeton est remplacé (`token rotate`, bouton **Renouveler**), avec le délai de grâce |
 | `token.revoked` | Un jeton est révoqué |
-| `token.projects_changed` | Un administrateur change les projets d'un jeton (bouton **Projets** de l'écran **Jetons**), avec les projets précédents (`null` : tous les projets) |
+| `token.projects_changed` | Un administrateur change les projets d'un jeton (bouton **Projets** de la page **Jetons**), avec les projets précédents (`null` : tous les projets) |
 | `enrollment.requested` | L'agent d'un utilisateur demande un projet avec `request_project` ([enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)), avec le jeton pour acteur, l'utilisateur demandeur, son adresse, si une nouvelle demande a été déposée (`requested`) et si le projet existait déjà (`existing` : une demande d'accès) |
 | `enrollment.approved` | Un utilisateur portant `projects.create` valide un projet en attente (son groupe dans le détail) ; le demandeur est ajouté au groupe (`user.groups_changed`) |
 | `enrollment.rejected` | Un utilisateur refuse un projet en attente, ou il expire (acteur `enrollment`, `reason` : `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](../usage/access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](../usage/access-control.md#groupes) ; la validation d'une demande de projet crée un [groupe de projet](../usage/projects.md#groupes-de-projet) manquant (`project` dans le détail) |
+| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](../usage/access-control.md#groupes) ; la validation d'une demande de projet crée un [groupe de projet](../usage/projects.md#groupe-de-projet) manquant (`project` dans le détail) |
 | `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
 | `project.created` | Un utilisateur avec `projects.create` [crée un projet](../usage/projects.md#creation-dun-projet), ou son agent avec `request_project` (acteur : le jeton) (son groupe de projet et l'identifiant de l'utilisateur dans le détail) |
+| `project.joined` | Un utilisateur avec `projects.autojoin` rejoint un projet existant par `request_project` (acteur : le jeton) (son groupe de projet et l'identifiant de l'utilisateur dans le détail) |
+| `project.autojoin_changed` | Un utilisateur avec `projects.create` [bloque ou autorise de nouveau l'adhésion automatique](../usage/projects.md#blocage-de-ladhesion-automatique) à un projet (`blocked` dans le détail) |
 | `project.deleted` | Un utilisateur avec `projects.delete` [supprime un projet](../usage/projects.md#suppression-dun-projet) (nombre de rapports, de findings et de jetons, groupes supprimés ou modifiés dans le détail) |
-| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, par exemple pour l'ajouter à un [groupe de projet](../usage/projects.md#groupes-de-projet) (identifiants de groupes ajoutés et retirés) |
+| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, par exemple pour l'ajouter à un [groupe de projet](../usage/projects.md#groupe-de-projet) (identifiants de groupes ajoutés et retirés) |
 | `user.roles_changed` | Anciens rôles directs d'un compte (`roles` : `rôle` ou `rôle:projet,projet`) : plus enregistré depuis que les comptes n'ont plus de rôle propre, gardé dans l'historique |
 | `user.login` | Un utilisateur web se connecte (méthode `password` ou `oidc`, adresse) |
 | `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
 | `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |
 | `audit_syslog.changed` | Le [serveur syslog](#envoi-vers-syslog) est modifié sur la page **Journal d'audit** (adresse et *facility* définies, `null` : valeur enregistrée supprimée) |
-| `controller_url.changed` | L'URL publique du serveur Controller, dont l'interface web est donnée aux agents sans jeton, est modifiée dans l'écran **Général**, ou recopiée depuis `SECREVIEW_CONTROLLER_URL` par le serveur Controller au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
+| `controller_url.changed` | L'URL publique du serveur Controller, dont l'interface web est donnée aux agents sans jeton, est modifiée dans la page **Général**, ou recopiée depuis `SECREVIEW_PUBLIC_URL` par le serveur Controller au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
 | `oauth.client_registered` | Un client MCP s'enregistre pour la [connexion OAuth](mcp-oauth.md) (acteur `anonymous`, nom du client) |
-| `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur l'écran **Connecter un client MCP** |
+| `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur la page **Connecter un client MCP** |
 | `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, par le client (`/revoke`), ou avec son utilisateur |
 | `oauth.refresh_reused` | Un jeton de rafraîchissement déjà remplacé est présenté à nouveau : l'autorisation est révoquée |
 | `mcp_oauth.changed` | La [connexion OAuth](mcp-oauth.md) est activée ou désactivée, ou son point d'accès MCP changé, dans l'interface web (la désactivation enregistre aussi la révocation de chaque autorisation) |
@@ -58,7 +60,7 @@ outil MCP ni aucune route ne les change.
 
 ## Consulter le journal
 
-Les administrateurs le consultent dans l'écran **Journal d'audit** de l'interface web (filtres
+Les administrateurs le consultent dans la page **Journal d'audit** de l'interface web (filtres
 par événement et par projet), avec `GET /api/v1/audit` (permission `audit.read` ; paramètres `action`,
 `project`, `actor`, `since`, `limit`, `offset`, du plus récent au plus ancien) ou en ligne de
 commande :

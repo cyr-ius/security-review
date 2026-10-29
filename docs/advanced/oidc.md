@@ -45,13 +45,13 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 The issuer must use HTTPS (HTTP is only accepted on `localhost`, for development); its
 `/.well-known/openid-configuration` document must announce the same `issuer`. If the provider
 uses an internal CA, give it with `SECREVIEW_OIDC_CAFILE`. The Controller server reaches the provider
-through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General** screen).
+through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General** page).
 
 ## Configuring OIDC in the interface
 
-The same settings can be changed in the **Sign-in** screen (`users.manage` permission: the OIDC
+The same settings can be changed on the **Sign-in** page (`users.manage` permission: the OIDC
 settings decide who joins which group), without restarting the Controller server. As for
-the proxy of the **General** screen, **a `SECREVIEW_OIDC_*` variable that is set always takes
+the proxy of the **General** page, **a `SECREVIEW_OIDC_*` variable that is set always takes
 precedence**, field by field; a value stored in the database applies only to the fields whose
 variable is not set:
 
@@ -74,8 +74,8 @@ again at every login and rebuilds the OIDC flow when it changes). Sessions alrea
 valid until they expire. Still variables only: `SECREVIEW_OIDC_CAFILE` (a file of the
 deployment) and the session settings (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`).
 If a variable changed later makes the combination with the stored values invalid, the
-Controller server starts anyway: the OIDC login is disabled and the error logged, to be fixed in the
-screen or in the variables.
+Controller server starts anyway: the OIDC login is disabled and the error logged, to be fixed on the
+page or in the variables.
 
 Through the API (`/api/v1/oidc/settings`, `users.manage` permission): `GET` describes every setting (stored
 `value` or `null`, `env`, `env_set`: the variable is set and takes precedence, `effective`; a
@@ -94,7 +94,7 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
 
 ## OIDC accounts
 
-Every OIDC user is an account of the **Users** screen (**OIDC** badge), **identified by the
+Every OIDC user is an account of the **Users** page (**OIDC** badge), **identified by the
 issuer and the `sub` claim** bound at its first login, never by a name. It is named at its
 creation by the value of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (`preferred_username` by default),
 compared exactly, case included. There is no fallback to `email` or `sub`, and a value that is
@@ -123,13 +123,13 @@ An account bound when only the `sub` was recorded gets the issuer of its next lo
 the user name to someone else, delete then create the account again.
 
 What an OIDC account may do comes from its [groups](../usage/access-control.md#groups): those an administrator
-gave it (**Users** or **Groups** screen) and the groups open to OIDC
+gave it (**Users** or **Groups** page) and the groups open to OIDC
 named by its groups claim, recorded at every login (see
 [groups of the identity provider](#groups-of-the-identity-provider)). An account without any
 permission is refused and its open sessions are closed. A change of its given groups applies at
 once; a change of its groups at the provider, at the next login.
 
-**Deleting an OIDC account** (**Utilisateurs** screen, `DELETE /api/v1/users/{id}` or
+**Deleting an OIDC account** (**Utilisateurs** page, `DELETE /api/v1/users/{id}` or
 `security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
 user name and its identity (issuer and `sub`): an OIDC login no longer creates it again, under
 that name or another one (name changed at the provider), even with the automatic creation and
@@ -154,7 +154,7 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 ## Groups of the identity provider
 
 The values of the `SECREVIEW_OIDC_ROLES_CLAIM` claim (list or string, dotted path accepted) are
-compared with the **names of the groups** of the **Groups** screen: at each login, the user joins
+compared with the **names of the groups** of the **Groups** page: at each login, the user joins
 every group **open to OIDC** whose name is **exactly** one of these values (case included), and
 leaves the OIDC groups it no longer has. The other values are ignored: create a group of the same
 name to use one. The roles of the group, and their projects, then apply (see

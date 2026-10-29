@@ -136,7 +136,7 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 | Docker, Kubernetes, PostgreSQL, without containers | [Architecture](advanced/architecture/index.md), [Docker](advanced/deployment/docker.md), [Kubernetes](advanced/deployment/kubernetes.md), [Manual installation](advanced/deployment/manual-install.md) |
 | Tokens restricted to a project, enrollment, rotation, TLS | [Bearer tokens](advanced/bearer-tokens.md), [Enrollment](advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests), [TLS](advanced/tls.md) |
 | Log in with the company identity provider | [OIDC login](usage/sso.md) |
-| Scan a whole repository, the dependencies, add my company's rules | [Whole codebase scan](review/analysis/code-scan.md), [Dependency analysis](review/analysis/dependencies.md), [Rules](review/rules.md) |
+| Scan a whole repository, the dependencies, add my company's rules | [Whole codebase analysis](review/analysis/code-scan.md), [Dependency analysis](review/analysis/dependencies.md), [Rules](review/rules.md) |
 | SARIF, trends, audit log, Prometheus | [SARIF export](advanced/reports/sarif.md), [Trend report](advanced/architecture/ci.md#trend-report), [Audit log](usage/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |
 
 !!! warning "This is not a SAST"

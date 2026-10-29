@@ -50,7 +50,7 @@
   (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
   `secreview_auth_rejections_total` [metric](metrics.md) only counts the
   rejections of the Controller server. The address of the web interface given in that description
-  (`SECREVIEW_CONTROLLER_URL` + `/ui`) is a public URL:
+  (`SECREVIEW_PUBLIC_URL` + `/ui`) is a public URL:
   it holds no credentials (refused at start-up and in the web interface, where each change is
   audited).
 - **OAuth login of the MCP clients** (`SECREVIEW_MCP_OAUTH_ENABLED`, off by default): the
@@ -59,7 +59,8 @@
   to the loopback interface unless an https host or a scheme is listed by the operator (no
   other site receives a code); at most 10,000 requests are pending at once; codes are single use (60 seconds), only the SHA-256
   digests of the tokens are stored, a refresh rotates both tokens and a reused refresh token
-  revokes the grant. Approving a client needs a web session and `mcp_tokens.create`; a token
+  revokes the grant. Approving a client needs a web session and is refused, like every grant and
+  personal `mcp` or `ci` token, while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`; a token
   acts as a personal `mcp` token of its user, on the MCP server only, and is deleted with the
   user; a Controller server started with the login off revokes every grant (see
   [OAuth login of MCP clients](../advanced/mcp-oauth.md)).
@@ -91,7 +92,9 @@
   user with `projects.create` approves it on the Controller server, which adds the requesting user
   (authenticated by the token, never declared) to the project group, created for a new project.
   For an existing project, the request is an access request, never granted at once, and only
-  approved by a user who also holds `users.manage`. The
+  approved by a user who also holds `users.manage`, except for a user holding
+  `projects.autojoin`, who joins it at once as a reader unless its autojoin is blocked (this
+  user learns which projects exist). For the others, the
   answer is the same whether the project existed or not. The requests are bounded (20 pending
   requests, one per user and project, 5 per user or token and per hour), and a request nobody approved within
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted: check the requester before approving.
@@ -105,7 +108,7 @@
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
   **Update now** button of the web interface (`settings.manage` permission) is only accepted if
   `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General**
-  screen) serves the OSV download and the OIDC provider; only the name of the changed settings
+  page) serves the OSV download and the OIDC provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
   the history are scrubbed of them, but prefer `HTTPS_PROXY` (Kubernetes secret) if the
@@ -127,11 +130,11 @@
   most one request per Controller server process every 6 hours (15 minutes after a failure); only the
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. Once a
-  connector is switched on in the **Connectors** screen (every one off by default, all locked
+  connector is switched on on the **Connectors** page (every one off by default, all locked
   off by `SECREVIEW_CONNECTORS_ENABLED=false`), the Controller server sends the findings through it
   (tickets in the configured Jira and ServiceNow, records of a third-party connector): HTTPS
   only, through the outgoing proxy, **no redirect**, answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
-  never read as wiki markup; the secrets entered in the **Connectors** screen are stored in clear
+  never read as wiki markup; the secrets entered on the **Connectors** page are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
   is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
   URL through the client of the Controller server, see [connectors](../advanced/connectors.md#security). With

@@ -23,7 +23,7 @@ command line `cli`...), its target, its project and its details.
 
 ## Reading the log
 
-Administrators read it in the **Audit log** screen: newest first, with filters by event and
+Administrators read it on the **Audit log** page: newest first, with filters by event and
 project, a search in the details and **Load more** for the older events.
 
 ## Retention
@@ -35,7 +35,7 @@ administrator may change this duration or bound the number of events kept
 ## Forwarding to syslog
 
 To keep the events outside the database (SIEM, central log), the Controller server can also send each
-one to a syslog server. On the **Audit log** screen, the **Syslog** button (next to **Refresh**)
+one to a syslog server. On the **Audit log** page, the **Syslog** button (next to **Refresh**)
 opens the **Syslog forwarding** dialog: **No forwarding**, or **Set here** with the address of
 the server and its facility. The change applies within a few seconds.
 

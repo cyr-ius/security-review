@@ -20,7 +20,7 @@ The provider must be reachable in HTTPS by the Controller server, through the ou
 
 ## Configuring OIDC in the interface
 
-An administrator fills in the **Sign-in** screen, without restarting the Controller server:
+An administrator fills on the **Sign-in** page, without restarting the Controller server:
 
 1. **Issuer**, **Client ID**, **Client secret** (empty for a public client) and **Callback URL**;
 2. the **Groups claim**, and the **Administration groups** whose members become administrators;
@@ -34,7 +34,7 @@ is kept.
 
 ## OIDC accounts
 
-Each OIDC user is an account of the **Users** screen, with the **OIDC** badge and no password.
+Each OIDC user is an account of the **Users** page, with the **OIDC** badge and no password.
 It is bound at its first login to its identity at the provider: a name changed at the provider
 keeps the same account.
 
@@ -61,7 +61,7 @@ A group not open to OIDC (for example `administrators`) is never joined this way
 ## Project read access
 
 To let a developer read a project, add their OIDC account to the
-[project group](projects.md#project-groups) in **Groups** or **Users**, or approve the access
+[project group](projects.md#project-group) in **Groups** or **Users**, or approve the access
 request of their agent in **Projects**. The account must exist first: the developer has logged
 in once (automatic creation), or an administrator has created it in **Users**.
 

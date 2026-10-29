@@ -57,7 +57,7 @@ The Controller server is the only process that may connect outside, and every co
 default**: the OSV download, the [OIDC](../oidc.md) provider, the search for a newer release on the
 **About** page (`SECREVIEW_UPDATE_CHECK_ENABLED`), the syslog server and the connectors. They
 use HTTPS (syslog: UDP, TCP or TLS), through the outgoing proxy (`HTTPS_PROXY`, `NO_PROXY`,
-or the **Settings** screen). See [Security and limits](../../reference/security.md).
+or the **Settings** page). See [Security and limits](../../reference/security.md).
 
 ## Exposure
 
@@ -66,8 +66,8 @@ interface, personal tokens) and to the pipeline runners. Behind a reverse proxy 
 
 - set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address of the proxy, otherwise every client shares
   its address for the login throttling and the rate limit;
-- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the Controller server, without `/ui` (or
-  fill in the **General** screen): the Controller server copies it to the database at start and the MCP server
+- set `SECREVIEW_PUBLIC_URL` to the public root URL of the Controller server, without `/ui` (or
+  fill on the **General** page): the Controller server copies it to the database at start and the MCP server
   reads it there, so that an agent without a valid token knows where to create one. While it is
   unknown, a banner at the top of the web interface tells the administrators (permission
   `settings.manage`) and links to the field.
@@ -101,7 +101,7 @@ variables of the Controller server: [Configuration](../../reference/configuratio
 
 ## Managing the accounts
 
-The [user accounts](../../usage/user-accounts.md) are managed in the **Users** screen, through the
+The [user accounts](../../usage/user-accounts.md) are managed on the **Users** page, through the
 `/api/v1/users` REST API (`users.manage` permission) or with the
 [CLI](../../reference/cli.md#security-review-controller). A user name holds letters, digits and
 `. _ @ -`, 64 characters at most; the type of an account is its `auth_source` (`local` or
@@ -173,7 +173,7 @@ password** before anything else: it opens **My account**, and the API refuses ev
 (`403`) until the password is changed. If it is lost, see [lost password](#lost-password).
 
 The same applies to every password set by someone else: a local account created or reset by an
-administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
+administrator (page or CLI) changes its password at its first login. The **Users** page shows
 **password to change** until then.
 
 ### Lost password
@@ -260,7 +260,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Settings stored in the database
 
-The **General** (report language, Controller server address, outgoing proxy) and **Sign-in** (OIDC) screens of the
+The **General** (report language, Controller server address, outgoing proxy) and **Sign-in** (OIDC) pages of the
 [web interface](../../usage/index.md) store settings in the database, shared by the MCP
 server and the Controller server (`settings.manage` permission; the former `/ui/settings`,
 `/ui/settings/language` and `/ui/settings/proxy` addresses open **General**). **An environment variable that is set

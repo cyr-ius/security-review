@@ -20,11 +20,9 @@ from ..config import get_settings
 from .auth_routes import LOGIN_HEADERS
 from .deps import (
     CurrentIdentity,
-    Permission,
     SettingsManager,
     TokensManager,
     actor_of,
-    has_permission,
     unprocessable,
     web_user_id,
 )
@@ -73,12 +71,13 @@ async def oauth_approve(
     request: Request, body: OAuthRequestRef, identity: CurrentIdentity, response: Response
 ) -> OAuthRedirect:
     """Approve a pending OAuth request for the logged-in user: the client gets tokens that act
-    as a personal MCP token of the user, so the ``mcp_tokens.create`` permission is needed."""
+    as a personal MCP token of the user, so it is refused (403) while
+    SECREVIEW_PERSONAL_TOKENS_ENABLED is false."""
     _enabled()
     user_id = web_user_id(request)
-    if not has_permission(identity, Permission.MCP_TOKENS_CREATE):
+    if not get_settings().personal_tokens_enabled:
         raise HTTPException(
-            status.HTTP_403_FORBIDDEN, f"Permission '{Permission.MCP_TOKENS_CREATE}' required"
+            status.HTTP_403_FORBIDDEN, "Personal MCP and CI tokens are disabled on this server"
         )
     url = await run_in_threadpool(oauth_server.approve, body.request, user_id, identity.client)
     logger.info("OAuth client approved by %s", identity.client)

@@ -45,6 +45,7 @@ import {
   ProjectFindingQuery,
   PendingProject,
   PendingProjectApproved,
+  ProjectAutojoin,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
@@ -302,6 +303,15 @@ export class ApiService {
     return this.http.delete<void>(`${API_URL}/projects/pending/${id}`);
   }
 
+  /** PUT /api/v1/projects/{project}/autojoin: block or allow again the autojoin of a project
+   * the caller reads (projects.create). */
+  setProjectAutojoin(project: string, blocked: boolean): Observable<ProjectAutojoin> {
+    return this.http.put<ProjectAutojoin>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/autojoin`,
+      { blocked },
+    );
+  }
+
   /** DELETE /api/v1/projects/{project}: the project and its references (projects.delete). */
   deleteProject(project: string): Observable<ProjectDeleted> {
     return this.http.delete<ProjectDeleted>(`${API_URL}/projects/${encodeURIComponent(project)}`);
@@ -438,13 +448,13 @@ export class ApiService {
   }
 
   reports(query: ReportQuery): Observable<ReportSummary[]> {
-    let params = new HttpParams().set('limit', query.limit).set('offset', query.offset);
-    if (query.project) {
-      params = params.set('project', query.project);
-    }
-    if (query.risk_level) {
-      params = params.set('risk_level', query.risk_level);
-    }
+    let params = new HttpParams()
+      .set('limit', query.limit)
+      .set('offset', query.offset)
+      .appendAll({
+        project: [...(query.project ?? [])],
+        risk_level: [...(query.risk_level ?? [])],
+      });
     if (query.search) {
       params = params.set('search', query.search);
     }
@@ -471,18 +481,17 @@ export class ApiService {
 
   /** Findings of a project (or of every project) across all reports, worst first. */
   projectFindings(query: ProjectFindingQuery): Observable<ProjectFindingPage> {
+    // Repeated parameters: any of the values matches
     let params = new HttpParams()
-      .set('status', query.status)
       .set('limit', query.limit)
-      .set('offset', query.offset);
+      .set('offset', query.offset)
+      .appendAll({
+        status: [...query.status],
+        severity: [...query.severity],
+        review_type: [...query.reviewType],
+      });
     if (query.project) {
       params = params.set('project', query.project);
-    }
-    if (query.severity) {
-      params = params.set('severity', query.severity);
-    }
-    if (query.reviewType) {
-      params = params.set('review_type', query.reviewType);
     }
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }

@@ -110,6 +110,24 @@ or that a token reaches is refused (`409`). A project still pending is not known
 it settles the creator's own request (the requests of other users become access requests). Each
 creation is written to the audit log (`project.created`).
 
+### Autojoin of a project
+
+A user holding `projects.autojoin` joins an existing project through the `request_project`
+tool of its agent: the Controller server adds the account to the project group (reading only),
+settles its pending request of the project and writes `project.joined` to the audit log. A
+user who already reads 200 projects is refused. `PUT /api/v1/projects/{project}/autojoin`
+blocks (`true`) or allows again (`false`) this autojoin, with `projects.create`, from a session
+of the web interface only, for a project the caller reads (another one is `404`). A blocked
+project shows `"autojoin_blocked": true` in `GET /api/v1/projects`; the users who already
+joined it keep their access. Each change is written to the audit log
+(`project.autojoin_changed`).
+
+```bash
+curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects/mobile-app/autojoin -d '{"blocked": true}'
+# {"project": "mobile-app", "autojoin_blocked": true}
+```
+
 ### Deleting a project
 
 `DELETE /api/v1/projects/{project}` deletes a project, from a session of the web interface only:

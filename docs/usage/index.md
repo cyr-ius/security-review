@@ -2,7 +2,8 @@
 
 The web interface is where you follow the security of your projects: you browse the reports
 saved by the agents and the pipelines, see the open findings and decide what to do with them
-(the [triage](triage.md)).
+(the [triage](triage.md)). It is optional and provided by the Controller server
+(`security-review-controller`).
 
 ## Signing in
 
@@ -11,14 +12,15 @@ Open the address of the Controller server followed by `/ui/` (for example
 a user name and a password, or your company login (OIDC) when it is configured. A token never
 opens the interface: tokens are for the agents and the pipelines.
 
-A screen is missing? You do not hold its permission: ask an administrator (see
+A page is missing? You do not hold its permission: ask an administrator (see
 [permissions](access-control.md#permissions)).
 
 ## Finding your way
 
-- The **sidebar** groups the screens in three sections: **Supervision** (projects and reports),
-  **Reference** (rules, checklists, standards) and **Administration**. You only see the screens
-  your permissions allow.
+- The **sidebar** groups the pages in four sections: **Supervision** (projects and reports),
+  **Review** (findings and risk acceptances, with `reports.read`), **Reference** (rules,
+  checklists, standards) and **Administration**. You only see the pages your permissions
+  allow. **Findings** shows the number of open findings in the projects you read.
 - At the top right, choose the language (English, French, Spanish) and the theme (automatic,
   light, dark). The language only changes the interface: the language of the reports is set in
   **General**.
@@ -26,25 +28,31 @@ A screen is missing? You do not hold its permission: ask an administrator (see
   link to **About**.
 - Click a column header to sort a table; the browser remembers the sort.
 - The circled question mark next to a title opens the page of this documentation that explains
-  the screen (in French for a French interface, else in English).
-- If the Controller server stops answering, the **Backend unavailable** page opens: **Retry** brings
-  you back to your page once it answers again.
+  the page (in French for a French interface, else in English).
+- If the Controller server stops answering, the **Backend unavailable** page opens: it checks again
+  on its own (after 5 s, then with a delay doubled after each failure, up to 60 s, paused while the
+  tab is hidden) or when you click **Retry**, and brings you back to your page once it answers again.
 
-## Screens
+## Pages
 
 **Supervision**
 
-| Screen | What for |
+| Page | What for |
 |---|---|
 | **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
 | **Project** | Trend, worst and oldest open findings, SARIF export, **All reports** of the project |
-| **Findings to review** | Every open finding of the project, once each, worst first: this is where you triage |
-| **Risk acceptances** | The accepted risks, with their expiry date |
-| **Reports**, **Report** | Every saved review, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings, Markdown and SARIF download |
+| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings, Markdown and SARIF download |
+
+**Review**, for the users holding `reports.read` (on the projects they read)
+
+| Page | What for |
+|---|---|
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The status, severity and review type filters accept several values |
+| **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange TOML files)
 
-| Screen | What for |
+| Page | What for |
 |---|---|
 | **Rules** | The patterns of the code scan ([rules](../review/rules.md)) |
 | **Checklists** | The check items followed by the agents ([checklists](../review/checklists.md)) |
@@ -57,9 +65,9 @@ together. The changes go to the form, which still saves or cancels them.
 
 **Administration**
 
-| Screen | What for |
+| Page | What for |
 |---|---|
-| **General** | Report language, Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every screen links to it |
+| **General** | Report language, Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
 | **Users**, **Groups**, **Roles** | The accounts and what they may do ([roles, groups and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |

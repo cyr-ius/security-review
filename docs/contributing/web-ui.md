@@ -24,19 +24,19 @@ local workstation and port 4200 is forwarded automatically.
 | Folder | Content |
 |---|---|
 | `core/` | Services (API calls, session, triage), guards, interceptors, models of the API (`models/api.models.ts`), translations (`i18n/`) |
-| `features/` | One folder per screen (`reports`, `rules`, `tokens`, `access`…), loaded by `app.routes.ts` |
+| `features/` | One folder per page (`reports`, `rules`, `tokens`, `access`…), loaded by `app.routes.ts` |
 | `shared/` | Reusable components and utilities without business logic |
 | `layout/` | Shell of the application (menu, header) |
 
 ## Code conventions
 
-- **Components**: template and styles in separate files. A feature with several screens has one
+- **Components**: template and styles in separate files. A feature with several pages has one
   folder per component (`features/access/role-list/`); its shared files (styles, base class,
   error messages) stay at the root of the feature.
 - **Forms**: the input forms use the Signal Forms (`form()`, `[formField]`, validators with a
   translated message); the list filters and the dynamic lists of checkboxes stay plain event
   handlers.
-- **HTTP calls**: through `rxResource` for the data of a screen, or `await
+- **HTTP calls**: through `rxResource` for the data of a page, or `await
   firstValueFrom(...)` for an action; no `.subscribe()` in the components.
 - **State**: `signal()` and `computed()`; a value derived from another one but still editable (a
   form filled with the loaded settings) is a `linkedSignal()`. `effect()` is kept for real side
@@ -58,8 +58,8 @@ local workstation and port 4200 is forwarded automatically.
 ## Interface translations
 
 The interface is translated into English, French and Spanish by an in-house service
-(`web/src/app/core/i18n/`), without any extra dependency. Each screen has its catalog in
-`core/i18n/messages/<screen>.ts`, declared in `messages/index.ts`, with its messages in the three
+(`web/src/app/core/i18n/`), without any extra dependency. Each page has its catalog in
+`core/i18n/messages/<page>.ts`, declared in `messages/index.ts`, with its messages in the three
 languages:
 
 ```ts

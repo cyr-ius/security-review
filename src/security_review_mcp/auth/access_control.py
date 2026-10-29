@@ -7,7 +7,7 @@
   ``admin`` can be neither changed nor deleted, because the code relies on them: ``admin`` is
   given to the first administrator and to SECREVIEW_OIDC_ADMIN_GROUPS, ``reader`` to the project
   groups. Their permissions are those of SYSTEM_ROLES, so that a new permission reaches
-  ``admin`` without a migration. Every other role, ``triager`` and ``mcp-user`` included
+  ``admin`` without a migration. Every other role, ``triager`` included
   (created with the database), is an ordinary role that an administrator changes or deletes.
 - A **group** (UserGroup) has roles (GroupRole, each on every project or on a list of projects)
   and members (GroupMember). An administrator adds members (``local``); for a group with
@@ -33,13 +33,17 @@
   project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
   a group or tokens) is refused: the permission never grants the reading of an existing
   project.
+- A user with ``projects.autojoin`` whose MCP agent requests a project that already exists
+  joins it at once (see request_project): it is added to the project group, so that it reads
+  the project and nothing more. A user with ``projects.create`` who reads a project may block
+  this autojoin on it (see set_autojoin_blocked): the requests then wait for an approval as the
+  others do.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
   delete_project): its reports, findings and comments, its project group, the project in the
   roles of the other groups and in the tokens (a token left without project is revoked). The
   audit log keeps its events.
-- A user needs ``mcp_tokens.create`` to create a personal ``mcp`` or ``ci`` token, held by the
-  ordinary role ``mcp-user`` (created with the database). A token already created keeps working
-  without it: an administrator revokes it from the Tokens screen.
+- No permission gives the personal ``mcp`` and ``ci`` tokens: every web user may create them
+  while SECREVIEW_PERSONAL_TOKENS_ENABLED is true (see token_store).
 
 The grants of a user (see user_grants) are the union of the permissions of the roles of all its
 groups. A scoped permission reaches every project when one of its
@@ -79,6 +83,7 @@ from ..storage.models import (
     FindingExport,
     GroupMember,
     GroupRole,
+    ProjectAutojoinBlock,
     ProjectEnrollment,
     SecurityReport,
     UserGroup,
@@ -113,14 +118,14 @@ class Permission(StrEnum):
     PROJECTS_CREATE = "projects.create"
     # Delete a project with its reports, findings and references (see delete_project)
     PROJECTS_DELETE = "projects.delete"
-    # Create a personal mcp or ci token (My account), which reaches the projects its user may read
-    MCP_TOKENS_CREATE = "mcp_tokens.create"
+    # Join an existing project, as a reader, when the MCP agent requests it (see request_project)
+    PROJECTS_AUTOJOIN = "projects.autojoin"
 
 
 # Permissions limited to the projects of a binding (the others concern the whole controller)
 SCOPED_PERMISSIONS = frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE})
 ALL_PERMISSIONS = frozenset(Permission)
-# Built-in roles, which the code relies on (``triager`` and ``mcp-user`` are ordinary ones)
+# Built-in roles, which the code relies on (``triager`` is an ordinary one)
 READER_ROLE = "reader"
 ADMIN_ROLE = "admin"
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {
@@ -1048,6 +1053,37 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
         return _create_project(session, user_id, cleaned, actor)
 
 
+def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[str, Any]:
+    """Settle ``project`` for the web user ``owner`` whose token already reaches every project:
+    an unknown project is created as by request_project when the user holds
+    ``projects.create`` (its project group, with the user as first member), so that it does not
+    appear later through a report without any group.
+
+    Returns:
+        ``project`` and ``status`` (``created`` or ``accessible``), with ``next_steps`` when
+        created.
+
+    Raises:
+        ValueError: Invalid project name, or MAX_GROUPS groups already stored.
+    """
+    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    with session_scope() as session:
+        user = session.exec(select(WebUser).where(WebUser.username == owner)).first()
+        if (
+            user is not None
+            and not project_exists(session, cleaned)
+            and allows(user_grants(session, user.id), Permission.PROJECTS_CREATE)  # type: ignore[arg-type]
+        ):
+            _create_project(session, user.id, cleaned, actor)  # type: ignore[arg-type]
+            return {
+                "project": cleaned,
+                "status": "created",
+                "next_steps": f"Project '{cleaned}' was created and the user is a member of "
+                "it: the review can go on.",
+            }
+    return {"project": cleaned, "status": "accessible"}
+
+
 def _create_project(
     session: Session, user_id: int, project: str, actor: str | None
 ) -> dict[str, Any]:
@@ -1191,6 +1227,7 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
         # Its connector destinations (its exports went with its findings), deleted here rather
         # than by connectors: the MCP server imports this module, never the connectors
         session.exec(delete(ConnectorTarget).where(ConnectorTarget.project == cleaned))
+        session.exec(delete(ProjectAutojoinBlock).where(ProjectAutojoinBlock.project == cleaned))
         audit.record(
             session,
             audit.AuditAction.PROJECT_DELETED,
@@ -1201,6 +1238,90 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
             {key: value for key, value in deleted.items() if key != "project"},
         )
         return deleted
+
+
+# ── Autojoin ─────────────────────────────────────────────────────────────────
+
+
+def autojoin_blocked_projects(session: Session) -> set[str]:
+    """Projects whose autojoin is blocked (see set_autojoin_blocked)."""
+    return set(session.exec(select(ProjectAutojoinBlock.project)).all())
+
+
+def set_autojoin_blocked(project: str, blocked: bool, actor: str | None = None) -> dict[str, Any]:
+    """Block (or allow again) the autojoin of ``project``: while it is blocked, a holder of
+    ``projects.autojoin`` who requests it waits for an approval as the others do. The users
+    who already joined it keep their access. A change is audited, a repeated one is not.
+
+    Raises:
+        ValueError: Invalid name.
+        NotFoundError: If the project is not known (see project_exists).
+    """
+    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    with session_scope() as session:
+        if not project_exists(session, cleaned):
+            raise NotFoundError(f"Project '{cleaned}' not found")
+        row = session.exec(
+            select(ProjectAutojoinBlock).where(ProjectAutojoinBlock.project == cleaned)
+        ).first()
+        if blocked == (row is not None):
+            return {"project": cleaned, "autojoin_blocked": blocked}
+        if blocked:
+            session.add(
+                ProjectAutojoinBlock(
+                    project=cleaned, blocked_by=(actor or audit.ANONYMOUS_ACTOR)[:200]
+                )
+            )
+        else:
+            session.delete(row)
+        try:
+            session.flush()
+        except IntegrityError:
+            # Blocked at the same time by another user: the first stands
+            raise ValueError(f"Project '{cleaned}' was changed concurrently; retry") from None
+        audit.record(
+            session,
+            audit.AuditAction.PROJECT_AUTOJOIN_CHANGED,
+            actor,
+            "project",
+            cleaned,
+            cleaned,
+            {"blocked": blocked},
+        )
+        return {"project": cleaned, "autojoin_blocked": blocked}
+
+
+def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -> None:
+    """Add ``user_id`` to the project group of the known ``project`` (cleaned), as a reader,
+    and settle its request of that project.
+
+    Raises:
+        ValueError: The user already reads MAX_SESSION_PROJECTS projects, or MAX_GROUPS groups
+            are already stored.
+    """
+    reached = scope(user_grants(session, user_id), Permission.REPORTS_READ)
+    if reached is not None and len(reached) >= MAX_SESSION_PROJECTS:
+        raise ValueError(
+            f"The user already reads {MAX_SESSION_PROJECTS} projects; ask an administrator "
+            "for access"
+        )
+    group = ensure_project_group(session, project, actor)
+    add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
+    for pending in session.exec(
+        select(ProjectEnrollment).where(
+            ProjectEnrollment.project == project, ProjectEnrollment.requested_by_user_id == user_id
+        )
+    ).all():
+        session.delete(pending)
+    audit.record(
+        session,
+        audit.AuditAction.PROJECT_JOINED,
+        actor,
+        "project",
+        project,
+        project,
+        {"group": group.name, "user_id": user_id},
+    )
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────
@@ -1273,20 +1394,22 @@ def request_project(
     user). An unknown project is created at once, with that user as its first member, when the
     user holds ``projects.create``; otherwise the request waits for a user with
     ``projects.create`` (see approve_enrollment), which gives the requesting user access to the
-    project. A known project is never opened at once: the user asks for an access to it the same
-    way, and the answer is the same as for a new project, so that it does not tell whether a
-    project exists. A user has one request per project; nothing is recorded for a known project
-    without a user to give access to, or that the user already reaches. Every request is audited
-    (``actor``: the token of the caller), with the user and the client address
-    ``requested_from``.
+    project. A known project is joined at once, as a reader, by a user who holds
+    ``projects.autojoin`` unless its autojoin is blocked (see set_autojoin_blocked); otherwise
+    the user asks for an access to it the same way, and the answer is the same as for a new
+    project, so that it does not tell whether a project exists. A user has one request per
+    project; nothing is recorded for a known project without a user to give access to, or that
+    the user already reaches. Every request is audited (``actor``: the token of the caller),
+    with the user and the client address ``requested_from``.
 
     Returns:
-        ``project``, ``status`` (``created`` or ``requested``) and ``next_steps``, what the
-        user does next.
+        ``project``, ``status`` (``created``, ``joined`` or ``requested``) and ``next_steps``,
+        what the user does next.
 
     Raises:
         EnrollmentThrottled: Too many requests from this user or token.
-        ValueError: Invalid project name, or MAX_PENDING_PROJECTS projects already pending.
+        ValueError: Invalid project name, MAX_PENDING_PROJECTS projects already pending, or a
+            user with ``projects.autojoin`` who already reads MAX_SESSION_PROJECTS projects.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
     actor = (actor or ENROLLMENT_ACTOR)[:MAX_REQUESTED_BY_CHARS]
@@ -1315,6 +1438,20 @@ def request_project(
                 "it: the review can go on.",
             }
         user_id = user.id if user is not None else None
+        if (
+            user_id is not None
+            and known
+            and cleaned not in autojoin_blocked_projects(session)
+            and allows(grants := user_grants(session, user_id), Permission.PROJECTS_AUTOJOIN)
+            and not allows(grants, Permission.REPORTS_READ, cleaned)
+        ):
+            _autojoin(session, user_id, cleaned, actor)
+            return {
+                "project": cleaned,
+                "status": "joined",
+                "next_steps": f"The user joined project '{cleaned}' as a reader: the review can "
+                "go on.",
+            }
         pending = session.exec(
             select(ProjectEnrollment).where(
                 ProjectEnrollment.project == cleaned,

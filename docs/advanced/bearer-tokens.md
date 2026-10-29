@@ -67,7 +67,7 @@ default, at most `168`) the previous secret keeps working, the time to update th
 (`grace_until` in `token list`); after that, only the new one authenticates. The previous secret
 of an expired token never comes back. After a leak, rotate without a grace period (or revoke):
 the leaked secret then stops at once. A personal token cannot be rotated: its user creates a
-new one. In the web interface, the **Tokens** screen rotates the project tokens (button
+new one. In the web interface, the **Tokens** page rotates the project tokens (button
 **Rotate**, grace period chosen above the list).
 
 Expired tokens still count as configured tokens: a server whose tokens have all expired stays
@@ -83,7 +83,7 @@ security-review-controller token create --label shop-gate --role ci --project sh
 ```
 
 A token without `--project` reaches every project. In the web interface, the
-[**Tokens**](../usage/index.md#screens) screen creates a token for some projects
+[**Tokens**](../usage/index.md#pages) page creates a token for some projects
 or for **All projects**, and changes the projects of an existing token (except `admin` and
 `metrics`; a `ci` token always keeps at least one project). A restricted token:
 
@@ -119,18 +119,18 @@ Its status changes are limited to `open` and `fixed`, like those of an `api` tok
 ([triage through the REST API](reports/triage-api.md)).
 
 The REST API lists the findings of a project across all its reports, open by default, worst
-first (`status`, `severity` and `review_type` filter, `limit` is capped by
-`SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
+first (`status`, `severity` and `review_type` filter, each repeatable: any of the values
+matches; `limit` is capped by `SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
 `project`, it lists the findings of every project the caller reads (`"project": null`):
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
+  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&severity=critical&severity=high&limit=50"
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 `GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
-filter), each with its `author` and `submitted_by`. The `author` is returned, filtered, searched
+filter; the first three are repeatable, at most 50 projects), each with its `author` and `submitted_by`. The `author` is returned, filtered, searched
 and sorted only for a caller holding `users.manage` or `tokens.manage`: for the others it is
 `null` (in the report and its Markdown export too) and the `author` filter is ignored:
 
@@ -165,7 +165,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 A token never grants more than its creator holds: creating a token, changing its projects,
 rotating its secret or revoking it needs `reports.read` on every project of the token, before
 and after a change of its projects, and, for a role `api` token, each permission of its role on
-these projects. The **Tokens** screen only lists the tokens of the projects the user reads. Its
+these projects. The **Tokens** page only lists the tokens of the projects the user reads. Its
 **Validity** goes from 30 days to 1 year, or the default of the server
 (`SECREVIEW_TOKEN_MAX_DAYS`).
 
@@ -178,11 +178,12 @@ rules:
 - label `<user>:<label>`, with a `:` that no other token label may hold, and validity bounded by
   `SECREVIEW_TOKEN_MAX_DAYS`;
 - nobody can rotate it nor change its projects; an administrator can revoke it from the
-  **Tokens** screen.
+  **Tokens** page.
 
-A personal `mcp` token needs `mcp_tokens.create` in the groups of the account (`403` without
-it); a token already created keeps working when the account loses it, and an administrator
-revokes it if needed. It reaches the projects of `reports.read` of the groups of the account:
+Every account may create a personal `mcp` or `ci` token, unless
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` (`422`): the tokens already created are then refused
+(`401`) by the MCP server and the Controller server, but kept, and work again once it is `true`.
+It reaches the projects of `reports.read` of the groups of the account:
 every project when one of its groups reads every project, none when it has none. When the
 server refuses it (unknown, revoked or expired), the agent receives a `401` that tells the user
 to sign in again and create a new one.

@@ -10,7 +10,7 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](index.md).
 | `security-review` | Revue générale de code Python, Java, Go, C#, Rust, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
-| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
+| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) ; [fonctionnement et coût](analysis/code-scan.md#ce-que-fait-codebase-review) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
 | `development-standards` | Donne à l'assistant les [normes de développement](standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
@@ -32,13 +32,13 @@ récupère avec `get_review_checklist` quand elles s'appliquent
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
 `fr` ou `pt-BR`. Sans cet argument, le prompt reprend
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#serveur-mcp) quand elle est définie, sinon la
-langue choisie par un administrateur dans l'écran [**Général**](../usage/index.md#ecrans)
+langue choisie par un administrateur dans la page [**Général**](../usage/index.md#pages)
 de l'interface web ; si aucune n'est définie, l'agent choisit (en général la langue de la
 conversation).
 
 Un agent qui fait la revue **sans prompt**, avec les seuls outils (cas courant : un prompt MCP
 est une commande lancée par l'utilisateur, l'agent ne peut pas l'appeler lui-même), reçoit la
-même langue configurée (variable, sinon écran **Général**) dans les résultats de
+même langue configurée (variable, sinon page **Général**) dans les résultats de
 `get_review_checklist` (section « Report language ») et de `scan_code` (champ
 `report_language`, `null` si l'agent choisit).
 
@@ -65,7 +65,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton l'atteint, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
+| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton l'atteint, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), `joined` pour un projet existant quand l'utilisateur porte `projects.autojoin` (il le lit), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
@@ -84,12 +84,12 @@ plutôt un `401`, voir [jeton refusé](../advanced/architecture/mcp-server.md#je
 
 | Élément | Rôle |
 |---|---|
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Sans argument ; invitent l'utilisateur à se connecter à l'interface web (`SECREVIEW_CONTROLLER_URL` + `/ui`), à créer un jeton MCP personnel et à l'ajouter à la configuration de l'hôte, au lieu de lancer la revue |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Sans argument ; invitent l'utilisateur à se connecter à l'interface web (`SECREVIEW_PUBLIC_URL` + `/ui`), à créer un jeton MCP personnel et à l'ajouter à la configuration de l'hôte, au lieu de lancer la revue |
 
 Les instructions qu'il envoie à la connexion, affichées par l'hôte, donnent les mêmes étapes et
 l'adresse de l'interface web, tirée de l'URL enregistrée par le serveur Controller (sa
-`SECREVIEW_CONTROLLER_URL`, ou l'écran
-[Général](../usage/index.md#ecrans)) ; sans elle, aucun lien n'est donné.
+`SECREVIEW_PUBLIC_URL`, ou la page
+[Général](../usage/index.md#pages)) ; sans elle, aucun lien n'est donné.
 
 Voir [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 

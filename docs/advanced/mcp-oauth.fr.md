@@ -13,12 +13,14 @@ métadonnées de la ressource protégée).
 
 Le serveur Controller est le serveur d'autorisation. Le serveur MCP ne fait que vérifier les jetons.
 Les jetons MCP personnels restent acceptés, sauf si un administrateur les désactive par `SECREVIEW_PERSONAL_MCP_TOKENS=false`.
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` désactive aussi la connexion OAuth : plus aucun client
+n'est autorisé, et les clients déjà connectés sont refusés.
 
 ## Activation
 
 Dans l'interface web, un administrateur qui a la permission `settings.manage` doit saisir l'URL
-publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de l'écran
-**Jetons** et activer l'interrupteur **Connexion OAuth activée**.
+publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de la page
+**Jetons** et activer l'interrupteur **Connexion OAuth**.
 
 L'URL publique du serveur Controller est aussi nécessaire via le réglage sur la page **Général**.
 
@@ -32,7 +34,7 @@ Si vous ne souhaitez pas utiliser l'interface web, voici les variables d'environ
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
 SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # URL publique du point d'accès MCP
-SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
+SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
 ```
 
 Quelle que soit la méthode employée, le serveur MCP prend en compte les modifications (sous 30 secondes).
@@ -83,7 +85,7 @@ Le serveur est déclaré avec sa seule URL, sans en-tête `Authorization` :
    `WWW-Authenticate: Bearer …, resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"`.
    Ce document désigne le serveur Controller comme serveur d'autorisation.
 2. L'hôte s'enregistre sur `/register` (enregistrement dynamique, RFC 7591).
-3. Il ouvre `/authorize` dans le navigateur, qui arrive sur l'écran **Connecter un client MCP**
+3. Il ouvre `/authorize` dans le navigateur, qui arrive sur la page **Connecter un client MCP**
    de l'interface web, derrière la connexion habituelle.
 4. Le développeur y autorise (ou refuse) le client, le navigateur revient vers l'hôte avec un
    code à usage unique, valable 60 secondes.
@@ -98,8 +100,8 @@ Un jeton d'accès agit comme un [jeton MCP personnel](../usage/tokens.md#jetons-
 de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire.
 Les droits sont relus à chaque requête.
 
-Autoriser un client exige la permission `mcp_tokens.create`, comme créer un jeton MCP
-personnel, et une session web : un jeton Bearer n'autorise jamais un client.
+Autoriser un client exige une session web (un jeton Bearer n'autorise jamais un client), et est
+refusé (`403`) avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, comme créer un jeton MCP personnel.
 
 | Jeton | Durée | Renouvellement |
 |---|---|---|
@@ -120,7 +122,7 @@ Supprimer un utilisateur supprime ses clients. Un utilisateur garde au plus 20 c
 
 ## Administration
 
-Avec la permission `tokens.manage`, l'écran **Jetons** affiche une section **Clients MCP (connexion OAuth)**.
+Avec la permission `tokens.manage`, la page **Jetons** affiche une section **Clients MCP (connexion OAuth)**.
 
  - **Révoquer** coupe un utilisateur d'un client.
 
@@ -136,7 +138,7 @@ Il ne peut exister plus de `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients à la fois.
 autorisé dans la journée est supprimé au prochain enregistrement. Les routes OAuth sont soumises à la
 [limitation des requêtes](../reference/configuration.md#limitation-des-requetes) des routes de connexion.
 
-L'écran de consentement affiche le nom choisi par le client et l'hôte vers lequel il revient.
+La page de consentement affiche le nom choisi par le client et l'hôte vers lequel il revient.
 N'autorisez qu'un client que vous venez de lancer vous-même.
 
 ## Enrôlement et clients sans OAuth
@@ -158,7 +160,7 @@ avec un jeton.
 | Symptôme | Cause |
 |---|---|
 | L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le serveur Controller, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
-| Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` manquant |
+| Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` manquant |
 | Le serveur Controller ne démarre pas : `Issuer URL must be HTTPS` | URL du serveur Controller en `http://` hors localhost |
 | `invalid_redirect_uri` à l'enregistrement, ou VS Code demande un ID client (« Enregistrement client dynamique non pris en charge ») | aucune URI de redirection sur l'interface loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` au retour dans l'hôte | l'hôte demande une autre ressource que `SECREVIEW_MCP_URL` : vérifiez que cette URL est celle configurée dans l'hôte |

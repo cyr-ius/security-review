@@ -42,6 +42,8 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
   server** in English and **serveur Controller** in French: "Controller" keeps its English form
   and its capital C, and is never used alone. Commands, file names and identifiers
   (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`) are unchanged.
+- A view of the web interface is called a **page** (the **Tokens** page), never a "screen",
+  except in "full screen".
 - The examples can be copied as they are: options, variable names and outputs match the current
   code.
 - A change of the code updates its documentation in the same commit. The table "Si vous
