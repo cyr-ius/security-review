@@ -375,6 +375,12 @@ def test_help(capsys):
     assert all(command in out for command in ("serve", *cli.CONTROLLER_COMMANDS))
 
 
+def test_version(capsys):
+    controller.main(["--version"])
+
+    assert capsys.readouterr().out == f"security-review-controller {__version__}\n"
+
+
 class FakeUpdater:
     """Records how the controller drives the OSV updater."""
 

@@ -39,7 +39,8 @@ commands:
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
 
-Run `security-review-controller COMMAND --help` for the options of a command.
+Run `security-review-controller COMMAND --help` for the options of a command, `--version` for
+the version.
 Pipeline commands (gate, sarif, trend, scan-code, scan-deps) are run by security-review-ci.
 """
 
@@ -176,6 +177,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(cli.run(arguments))
     elif command in ("-h", "--help"):
         print(USAGE, end="")
+    elif command == "--version":
+        print(f"security-review-controller {__version__}")
     else:
         print(USAGE, end="", file=sys.stderr)
         if command is not None:

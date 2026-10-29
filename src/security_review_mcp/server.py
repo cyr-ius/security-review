@@ -1025,8 +1025,9 @@ commands:
   serve        run the MCP server: streamable-http for a shared server, stdio for a local host
   local        run the MCP server for a local host (stdio), ignoring remote databases
 
-Run `security-review-mcp COMMAND --help` for the options of a command.
-Administration (db, token, user, rules, advisories...) is run by security-review-controller.
+Run `security-review-mcp COMMAND --help` for the options of a command, `--version` for the
+version. Administration (db, token, user, rules, advisories...) is run by
+security-review-controller.
 """
 
 
@@ -1046,6 +1047,8 @@ def main(argv: list[str] | None = None) -> None:
         local(arguments[1:])
     elif command in ("-h", "--help"):
         print(USAGE, end="")
+    elif command == "--version":
+        print(f"security-review-mcp {__version__}")
     else:
         print(USAGE, end="", file=sys.stderr)
         if command is not None and command.startswith("--"):

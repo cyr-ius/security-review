@@ -9,7 +9,7 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import app_settings, server
+from security_review_mcp import __version__, app_settings, server
 from security_review_mcp.auth import access_control, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.observability import audit
@@ -939,3 +939,9 @@ def test_mcp_server_does_not_load_the_controller_modules():
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "[]"
+
+
+def test_version_is_written_on_stdout(capsys):
+    server.main(["--version"])
+
+    assert capsys.readouterr().out == f"security-review-mcp {__version__}\n"

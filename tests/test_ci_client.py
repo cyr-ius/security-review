@@ -163,6 +163,14 @@ def test_no_argument_prints_the_help(capsys):
         assert command in out
 
 
+def test_version(capsys):
+    with pytest.raises(SystemExit) as exc:
+        ci_client.main(["--version"])
+
+    assert exc.value.code == 0
+    assert capsys.readouterr().out == f"security-review-ci {ci_client._version()}\n"
+
+
 def test_oversized_answer_is_refused(controller, ci_token, monkeypatch, capsys):
     monkeypatch.setattr(ci_client, "MAX_RESPONSE_BYTES", 100)
 

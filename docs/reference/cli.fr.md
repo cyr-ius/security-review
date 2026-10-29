@@ -104,3 +104,5 @@ renvoient `0` en cas de succès et `2` en cas d'erreur (identifiant inconnu, pac
 avec l'erreur en JSON sur stderr.
 
 Chaque commande accepte `--help` pour la liste complète de ses options.
+`security-review-mcp --version`, `security-review-controller --version` et
+`security-review-ci --version` affichent la version installée.

@@ -103,4 +103,6 @@ The administration commands (`token`, `rules`, `advisories`, `db upgrade`,
 on success and `2` on error (unknown identifier, invalid pack…), with the error as JSON on
 stderr.
 
-Every command accepts `--help` for the full list of its options.
+Every command accepts `--help` for the full list of its options. `security-review-mcp
+--version`, `security-review-controller --version` and `security-review-ci --version` print
+the installed version.
