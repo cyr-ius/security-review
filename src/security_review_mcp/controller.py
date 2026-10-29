@@ -12,7 +12,7 @@ import argparse
 import logging
 import sys
 
-from . import app_settings, cli, connectors, http_server, web_api
+from . import __version__, app_settings, cli, connectors, http_server, web_api
 from .auth import oauth_server, oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
@@ -68,6 +68,12 @@ def serve(argv: list[str]) -> None:
     args = parser.parse_args(argv)
     settings = http_server.with_tls_arguments(settings, args)
     configure_logging(settings.log_level)
+    if settings.legacy_controller_url:
+        logger.warning(
+            "SECREVIEW_CONTROLLER_URL is deprecated on the Controller server: set "
+            "SECREVIEW_PUBLIC_URL instead (SECREVIEW_CONTROLLER_URL remains the variable of "
+            "security-review-ci)"
+        )
 
     try:
         init_db()
@@ -103,6 +109,7 @@ def serve(argv: list[str]) -> None:
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
+    logger.info("Controller server %s listening on %s:%d", __version__, args.host, args.port)
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")

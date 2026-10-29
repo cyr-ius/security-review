@@ -7,7 +7,7 @@ import pytest
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import app_settings, cli, controller, http_server, web_api
+from security_review_mcp import __version__, app_settings, cli, controller, http_server, web_api
 from security_review_mcp.auth import access_control, token_store, web_users
 from security_review_mcp.auth.rate_limit import RateLimitMiddleware
 from security_review_mcp.config import Settings
@@ -94,9 +94,11 @@ def ui_dir(tmp_path, monkeypatch):
     return tmp_path
 
 
-def test_serve_migrates_and_serves_the_web_interface(settings, captured_run, ui_dir):
-    controller.main(["serve", "--host", "0.0.0.0", "--port", "9000"])
+def test_serve_migrates_and_serves_the_web_interface(settings, captured_run, ui_dir, caplog):
+    with caplog.at_level("INFO", logger="security_review_mcp"):
+        controller.main(["serve", "--host", "0.0.0.0", "--port", "9000"])
 
+    assert f"Controller server {__version__} listening on 0.0.0.0:9000" in caplog.text
     (call,) = captured_run
     # Requests are limited per address before the token is checked
     # Security headers outermost, then the rate limit before the token is checked

@@ -1132,6 +1132,7 @@ def serve(argv: list[str]) -> None:
     configure_logging(settings.log_level)
 
     if args.transport == "stdio":
+        logger.info("MCP server %s started on stdio", __version__)
         _run_stdio(parser, settings)
         return
     try:
@@ -1149,10 +1150,11 @@ def serve(argv: list[str]) -> None:
         parser.error(str(exc))
     if settings.enrollment:
         logger.info("Enrollment enabled: clients without a token are told how to get one")
-    if settings.controller_url:
-        # Often shared with the controller (ConfigMap, .env): only the controller copies it
+    if settings.controller_url and not settings.legacy_controller_url:
+        # Often shared with the controller (ConfigMap, .env): only the controller copies it.
+        # SECREVIEW_CONTROLLER_URL alone is rather the variable of security-review-ci.
         logger.info(
-            "SECREVIEW_CONTROLLER_URL is not read here: the controller stores it in the database"
+            "SECREVIEW_PUBLIC_URL is not read here: the controller stores it in the database"
         )
     allow_open = http_server.allows_open_mcp(args.host, settings.allow_unauthenticated)
     if settings.allow_unauthenticated:
