@@ -109,6 +109,8 @@ export const access = defineMessages({
     'projectMembers.noUserFound': 'No user found.',
     'projectMembers.saved': 'Members of the project saved.',
     'projectMembers.loadError': 'Could not load the members of the project.',
+    'access.ignoredOnProject':
+      'Not applied on a project (give the role on every project for that): {permissions}.',
   },
   fr: {
     'access.name': 'Nom',
@@ -220,6 +222,8 @@ export const access = defineMessages({
     'projectMembers.noUserFound': 'Aucun utilisateur trouvé.',
     'projectMembers.saved': 'Membres du projet enregistrés.',
     'projectMembers.loadError': 'Impossible de charger les membres du projet.',
+    'access.ignoredOnProject':
+      'Non appliqué sur un projet (donnez le rôle sur tous les projets pour cela) : {permissions}.',
   },
   es: {
     'access.name': 'Nombre',
@@ -331,5 +335,7 @@ export const access = defineMessages({
     'projectMembers.noUserFound': 'Ningún usuario encontrado.',
     'projectMembers.saved': 'Miembros del proyecto guardados.',
     'projectMembers.loadError': 'No se pudieron cargar los miembros del proyecto.',
+    'access.ignoredOnProject':
+      'No se aplica en un proyecto (asigne el rol en todos los proyectos para ello): {permissions}.',
   },
 });

@@ -1,9 +1,11 @@
 import { Component, computed, inject, input, model, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { SCOPED_PERMISSIONS } from '../../../core/constants/labels';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { AccessRole } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
+import { ignoredOnProject } from '../../utils/permission-utils';
 
 /** A role given on a project. */
 export interface ProjectRoleDraft {
@@ -28,6 +30,7 @@ const SEARCH_LIMIT = 50;
 })
 export class ProjectRolesComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   /** Every role. */
   readonly roles = input<AccessRole[]>([]);
@@ -83,6 +86,11 @@ export class ProjectRolesComponent {
         this.roleName(left.roleId).localeCompare(this.roleName(right.roleId)),
     ),
   );
+
+  /** Permissions of a role that give nothing on a project (empty: none). */
+  ignored(roleId: number): string {
+    return ignoredOnProject(this.roleById().get(roleId), this.i18n);
+  }
 
   roleName(roleId: number): string {
     return this.roleById().get(roleId)?.name ?? String(roleId);

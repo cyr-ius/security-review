@@ -9,6 +9,7 @@ import { OidcRoleMapping, OidcRoleMappingWrite } from '../../../core/models/api.
 import { ApiService } from '../../../core/services/api.service';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { describeAccessError } from '../../access/access-errors';
+import { ignoredOnProject } from '../../../shared/utils/permission-utils';
 
 /** The mapping being added: a value of the claim, a role and its projects. */
 interface MappingFormModel {
@@ -73,6 +74,14 @@ export class OidcMappingsComponent {
   readonly roleChoices = computed(() =>
     this.mappingModel().allProjects ? (this.roles.value() ?? []) : this.projectRoles(),
   );
+
+  /** Permissions of a role that give nothing on a project (empty: none). */
+  ignored(roleId: number | string): string {
+    return ignoredOnProject(
+      (this.roles.value() ?? []).find((role) => role.id === Number(roleId)),
+      this.i18n,
+    );
+  }
 
   readonly canSubmit = computed(() => !this.busy() && this.mappingForm().valid());
 

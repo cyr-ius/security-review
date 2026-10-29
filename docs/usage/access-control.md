@@ -48,7 +48,9 @@ A role is given to an account in two ways, in **Users**:
 - **on every project** (**Roles on every project**): all its permissions apply everywhere, also to the
   projects created later, the sensitive ones included;
 - **on a project**: only its **per-project** permissions apply, on that project. An `admin` role
-  given on a project gives reading and triage there, nothing more.
+  given on a project gives reading and triage there, nothing more. The interface warns about
+  the permissions of a role that do not apply on a project: to give one of them (`audit.read`
+  for instance), give a role that holds it on every project.
 
 Several projects are added at once: search them, tick them, choose the role (`reader` by
 default) and add them. An account may hold several roles on the same project.

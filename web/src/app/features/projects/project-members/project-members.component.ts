@@ -2,11 +2,12 @@ import { Component, computed, inject, input, linkedSignal, signal } from '@angul
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { SCOPED_PERMISSIONS } from '../../../core/constants/labels';
-import { Message, msg } from '../../../core/i18n/i18n.service';
+import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { describeAccessError } from '../../access/access-errors';
+import { ignoredOnProject } from '../../../shared/utils/permission-utils';
 
 /** A role given to a user on the project, being edited. */
 interface MemberDraft {
@@ -29,6 +30,7 @@ const SEARCH_LIMIT = 50;
 })
 export class ProjectMembersComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly project = input.required<string>();
 
@@ -102,6 +104,14 @@ export class ProjectMembersComponent {
     }));
     return key(stored) !== key(this.drafts());
   });
+
+  /** Permissions of a role that give nothing on a project (empty: none). */
+  ignored(roleId: number): string {
+    return ignoredOnProject(
+      (this.roles.value() ?? []).find((role) => role.id === roleId),
+      this.i18n,
+    );
+  }
 
   username(userId: number): string {
     return this.usernames().get(userId) ?? String(userId);

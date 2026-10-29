@@ -48,7 +48,9 @@ Un rôle est donné à un compte de deux façons, dans **Utilisateurs** :
 - **sur tous les projets** (**Rôles sur tous les projets**) : toutes ses permissions s'appliquent partout, y
   compris aux projets créés plus tard et aux projets sensibles ;
 - **sur un projet** : seules ses permissions **par projet** s'appliquent, sur ce projet. Un rôle
-  `admin` donné sur un projet y donne la lecture et le triage, rien de plus.
+  `admin` donné sur un projet y donne la lecture et le triage, rien de plus. L'interface signale
+  les permissions d'un rôle qui ne s'appliquent pas sur un projet : pour en donner une
+  (`audit.read` par exemple), donnez un rôle qui la porte sur tous les projets.
 
 Plusieurs projets s'ajoutent d'un coup : recherchez-les, cochez-les, choisissez le rôle
 (`reader` par défaut) et ajoutez-les. Un compte peut porter plusieurs rôles sur un même projet.

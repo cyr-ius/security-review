@@ -46,6 +46,12 @@
               <td>{{ mapping.role }}</td>
               <td class="small">
                 {{ mapping.projects?.join(', ') ?? ('reports.allProjects' | t) }}
+                @if (mapping.projects && ignored(mapping.role_id); as permissions) {
+                  <div class="form-text text-warning-emphasis">
+                    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                    {{ 'access.ignoredOnProject' | t: { permissions } }}
+                  </div>
+                }
               </td>
               <td class="text-end">
                 <button
@@ -114,6 +120,12 @@
           [formField]="mappingForm.projects"
         />
         <div class="form-text">{{ 'mappings.projectsHelp' | t }}</div>
+        @if (ignored(mappingModel().roleId); as permissions) {
+          <div class="form-text text-warning-emphasis">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            {{ 'access.ignoredOnProject' | t: { permissions } }}
+          </div>
+        }
       }
     </div>
     <div class="col-md-2 pt-md-4">

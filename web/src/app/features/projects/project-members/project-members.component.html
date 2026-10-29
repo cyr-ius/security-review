@@ -41,6 +41,12 @@
                       </option>
                     }
                   </select>
+                  @if (ignored(row.roleId); as permissions) {
+                    <div class="form-text text-warning-emphasis">
+                      <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                      {{ 'access.ignoredOnProject' | t: { permissions } }}
+                    </div>
+                  }
                 </td>
                 <td class="text-end">
                   <button
@@ -93,6 +99,12 @@
               <option [value]="role.id" [selected]="role.id === addRole()">{{ role.name }}</option>
             }
           </select>
+          @if (ignored(addRole()); as permissions) {
+            <div class="form-text text-warning-emphasis">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              {{ 'access.ignoredOnProject' | t: { permissions } }}
+            </div>
+          }
         </div>
         <div class="col-md-3">
           <button
