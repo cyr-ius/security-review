@@ -44,6 +44,7 @@ import {
   ProjectFindingPage,
   ProjectFindingQuery,
   PendingProject,
+  Permission,
   PendingProjectApproved,
   ProjectAutojoin,
   ProjectSummary,
@@ -148,7 +149,7 @@ export class ApiService {
     username: string,
     authSource: AuthSource,
     roleIds: number[],
-    allProjects: boolean,
+    allProjectsPermissions: Permission[],
     projects: UserProjectBinding[],
     password: string | null,
   ): Observable<WebUserWithPassword> {
@@ -156,7 +157,7 @@ export class ApiService {
       username,
       auth_source: authSource,
       role_ids: roleIds,
-      all_projects: allProjects,
+      all_projects_permissions: allProjectsPermissions,
       projects,
       password,
     });
@@ -166,12 +167,12 @@ export class ApiService {
   updateUser(
     id: number,
     roleIds: number[],
-    allProjects: boolean,
+    allProjectsPermissions: Permission[],
     projects: UserProjectBinding[],
   ): Observable<WebUser> {
     return this.http.put<WebUser>(`${API_URL}/users/${id}`, {
       role_ids: roleIds,
-      all_projects: allProjects,
+      all_projects_permissions: allProjectsPermissions,
       projects,
     });
   }
@@ -192,7 +193,7 @@ export class ApiService {
   /** Replace the users who have a project (users.manage). */
   setProjectMembers(
     project: string,
-    members: { user_id: number; read_only: boolean }[],
+    members: { user_id: number; permissions: Permission[] }[],
   ): Observable<ProjectMember[]> {
     return this.http.put<ProjectMember[]>(
       `${API_URL}/access/projects/${encodeURIComponent(project)}/members`,
@@ -362,7 +363,8 @@ export class ApiService {
 
   /**
    * projects null: every project (refused for a CI/CD token). expiresInDays null: the default
-   * validity of the server (SECREVIEW_TOKEN_MAX_DAYS). accessRoleId: the role of an api token.
+   * validity of the server (SECREVIEW_TOKEN_MAX_DAYS). accessRoleId and projectPermissions: the
+   * role of an api token and its per-project permissions on its projects.
    */
   createProjectToken(
     label: string,
@@ -370,6 +372,7 @@ export class ApiService {
     role: ProjectTokenRole,
     expiresInDays: number | null = null,
     accessRoleId: number | null = null,
+    projectPermissions: Permission[] = [],
   ): Observable<ProjectTokenCreated> {
     return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, {
       label,
@@ -377,6 +380,7 @@ export class ApiService {
       role,
       expires_in_days: expiresInDays,
       access_role_id: accessRoleId,
+      project_permissions: projectPermissions,
     });
   }
 

@@ -751,8 +751,7 @@ class ProjectTokenCreate(BaseModel):
     # mcp: MCP agent; ci: pipeline token (gate, SARIF, trend and scans of its projects only,
     # see ci_client); api: REST API (Swagger, scripts) with the permissions of access_role_id
     role: Literal["mcp", "ci", "api"] = "mcp"
-    # null: every project (refused for a ci token); a list is refused for an api token whose
-    # role holds a permission on the whole controller
+    # null: every project (refused for a ci token)
     projects: list[_ProjectName] | None = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
@@ -760,6 +759,10 @@ class ProjectTokenCreate(BaseModel):
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
     # Role of an api token (required for it, refused for the others)
     access_role_id: int | None = Field(default=None, ge=1)
+    # Per-project permissions of an api token on its projects (refused for the others)
+    project_permissions: list[access_control.Permission] = Field(
+        default_factory=list, max_length=len(access_control.SCOPED_PERMISSIONS)
+    )
 
 
 class TokenRoleChoice(BaseModel):
@@ -768,8 +771,6 @@ class TokenRoleChoice(BaseModel):
     id: int
     name: str
     permissions: list[access_control.Permission]
-    # Only scoped permissions: the token may be limited to projects
-    scoped: bool
 
 
 class PersonalTokenCreate(BaseModel):
@@ -926,8 +927,10 @@ class ProjectToken(BaseModel):
     rotated_at: str | None
     # End of the grace period of the previous secret after a rotation
     grace_until: str | None
-    # api token: its role (role token), or personal (the rights of the user who created it)
+    # api token: its role (role token) and its per-project permissions on its projects, or
+    # personal (the rights of the user who created it)
     access_role_id: int | None
+    project_permissions: list[str] = []
     personal: bool
 
 
@@ -948,19 +951,20 @@ class UserRoleRef(BaseModel):
 
 
 class UserProjectItem(BaseModel):
-    """A project of a web user; ``read_only``: only read, whatever its roles."""
+    """A project of a web user, with its per-project permissions there."""
 
     project: str
-    read_only: bool
+    permissions: list[access_control.Permission]
 
 
 class UserOidcAccess(BaseModel):
     """What the mapping of a value of the roles claim of an OIDC user (last login) gives: roles,
-    and every project (``projects`` None) or projects."""
+    per-project permissions on every project, projects with their permissions."""
 
     claim: str
     roles: list[str]
-    projects: list[str] | None
+    all_projects_permissions: list[access_control.Permission]
+    projects: list[UserProjectItem]
 
 
 class WebUser(BaseModel):
@@ -969,9 +973,10 @@ class WebUser(BaseModel):
     id: int
     username: str
     auth_source: AuthSource
-    # Roles and projects given by an administrator (all_projects: every project)
+    # Roles (permissions on the whole controller), per-project permissions on every project and
+    # projects with their permissions, given by an administrator
     roles: list[UserRoleRef]
-    all_projects: bool
+    all_projects_permissions: list[access_control.Permission]
     projects: list[UserProjectItem]
     # Roles and projects of its OIDC mappings (read only, recomputed at each login)
     oidc: list[UserOidcAccess]
@@ -1003,11 +1008,18 @@ class RevokedUser(BaseModel):
     revoked_by: str | None
 
 
+_ProjectPermissions = list[access_control.Permission]
+
+
 class UserProjectBinding(BaseModel):
-    """A known project given to a web user; ``read_only``: only read, whatever its roles."""
+    """A known project given to a web user, with its per-project permissions there."""
 
     project: _ProjectName
-    read_only: bool = False
+    permissions: _ProjectPermissions = Field(
+        default_factory=lambda: [access_control.Permission.REPORTS_READ],
+        min_length=1,
+        max_length=len(access_control.SCOPED_PERMISSIONS),
+    )
 
 
 _RoleIds = list[Annotated[int, Field(ge=1)]]
@@ -1015,10 +1027,10 @@ _ProjectBindings = list[UserProjectBinding]
 
 
 class WebUserCreate(BaseModel):
-    """A web user with its roles and its projects (every project with ``all_projects``), the only
-    source of its permissions. A local one without ``password`` gets a random one, returned
-    once; an OIDC one (``auth_source="oidc"``) has no password and also gets the roles and
-    projects of its OIDC mappings at each login."""
+    """A web user with its roles, its per-project permissions on every project and its projects
+    with their permissions, the only source of its permissions. A local one without
+    ``password`` gets a random one, returned once; an OIDC one (``auth_source="oidc"``) has no
+    password and also gets those of its OIDC mappings at each login."""
 
     # An unknown field (such as the former "group_ids") is refused, not ignored
     model_config = ConfigDict(extra="forbid")
@@ -1031,7 +1043,9 @@ class WebUserCreate(BaseModel):
         max_length=web_users.MAX_PASSWORD_CHARS,
     )
     role_ids: _RoleIds = Field(default_factory=list, max_length=access_control.MAX_ROLES)
-    all_projects: bool = False
+    all_projects_permissions: _ProjectPermissions = Field(
+        default_factory=list, max_length=len(access_control.SCOPED_PERMISSIONS)
+    )
     projects: _ProjectBindings = Field(
         default_factory=list, max_length=access_control.MAX_SESSION_PROJECTS
     )
@@ -1045,7 +1059,9 @@ class WebUserUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     role_ids: _RoleIds | None = Field(default=None, max_length=access_control.MAX_ROLES)
-    all_projects: bool | None = None
+    all_projects_permissions: _ProjectPermissions | None = Field(
+        default=None, max_length=len(access_control.SCOPED_PERMISSIONS)
+    )
     projects: _ProjectBindings | None = Field(
         default=None, max_length=access_control.MAX_SESSION_PROJECTS
     )
@@ -1085,10 +1101,8 @@ class AccessRole(BaseModel):
     name: str
     description: str
     permissions: list[access_control.Permission]
-    # Built-in role (reader, admin): neither changed nor deleted
+    # Built-in role (admin): neither changed nor deleted
     system: bool
-    # Only scoped permissions: a token with this role may be limited to projects
-    scoped: bool
     # Users who hold the role, and OIDC mappings that give it
     users: int
     mappings: int
@@ -1098,19 +1112,23 @@ class AccessRole(BaseModel):
 
 
 class ProjectMember(BaseModel):
-    """A web user who has the project; ``read_only``: only reads it, whatever its roles."""
+    """A web user who has the project, with its per-project permissions there."""
 
     user_id: int
     username: str
     auth_source: AuthSource
-    read_only: bool
+    permissions: list[access_control.Permission]
 
 
 class ProjectMemberBinding(BaseModel):
-    """A web user given the project."""
+    """A web user given the project, with its per-project permissions there."""
 
     user_id: int = Field(ge=1)
-    read_only: bool = False
+    permissions: _ProjectPermissions = Field(
+        default_factory=lambda: [access_control.Permission.REPORTS_READ],
+        min_length=1,
+        max_length=len(access_control.SCOPED_PERMISSIONS),
+    )
 
 
 class ProjectMembersUpdate(BaseModel):
@@ -1120,26 +1138,30 @@ class ProjectMembersUpdate(BaseModel):
 
 
 class OidcRoleMapping(BaseModel):
-    """A value of the OIDC roles claim that gives roles and projects: every project
-    (``projects`` None) or a list (a project not known yet is ignored until it is created)."""
+    """A value of the OIDC roles claim that gives roles, per-project permissions on every
+    project and projects with their permissions (a project not known yet is ignored until it is
+    created)."""
 
     id: int
     claim: str
     role_ids: list[int]
     roles: list[str]
-    projects: list[str] | None
+    all_projects_permissions: list[access_control.Permission]
+    projects: list[UserProjectItem]
     created_at: str
     created_by: str | None
 
 
 class OidcRoleMappingWrite(BaseModel):
-    """An OIDC mapping: a value of the roles claim, the roles and the projects it gives (every
-    project with ``all_projects``)."""
+    """An OIDC mapping: a value of the roles claim, the roles, the per-project permissions on
+    every project and the projects with their permissions it gives."""
 
     claim: str = Field(min_length=1, max_length=access_control.MAX_CLAIM_CHARS)
     role_ids: _RoleIds = Field(default_factory=list, max_length=access_control.MAX_ROLES)
-    all_projects: bool = False
-    projects: list[_ProjectName] = Field(
+    all_projects_permissions: _ProjectPermissions = Field(
+        default_factory=list, max_length=len(access_control.SCOPED_PERMISSIONS)
+    )
+    projects: _ProjectBindings = Field(
         default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
 

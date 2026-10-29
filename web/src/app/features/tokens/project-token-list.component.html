@@ -58,6 +58,16 @@
           }
         </select>
       </div>
+      <div class="col-md-2">
+        <label for="token-project-permissions" class="form-label">{{
+          'access.projectPermissions' | t
+        }}</label>
+        <app-project-permissions
+          id="token-project-permissions"
+          [label]="'access.projectPermissions' | t"
+          [(permissions)]="projectPermissions"
+        />
+      </div>
     }
     <div class="col-md-2">
       <label for="token-validity" class="form-label">{{ 'tokens.validity' | t }}</label>
@@ -90,7 +100,6 @@
           type="radio"
           name="token-scope"
           id="token-scope-some"
-          [disabled]="wholeControllerRole()"
           [checked]="!creationAllProjects()"
           (change)="allProjects.set(false)"
         />
@@ -100,8 +109,6 @@
       </div>
       @if (formModel().usage === 'ci') {
         <div class="form-text">{{ 'tokens.pipelineProjects' | t }}</div>
-      } @else if (wholeControllerRole()) {
-        <div class="form-text">{{ 'tokens.wholeControllerRole' | t }}</div>
       } @else if (creationAllProjects()) {
         <div class="form-text">{{ 'tokens.allProjectsHelp' | t }}</div>
       }

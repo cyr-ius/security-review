@@ -1,23 +1,24 @@
-"""Roles and projects are given to the users: the groups are removed.
+"""Roles hold the permissions on the whole controller; each project of a user holds its own
+per-project permissions: the groups are removed.
 
-A user now holds roles (``webuserrole``) and projects (``userproject``, or every project with
-``webuser.all_projects``): the permissions of its roles limited to projects apply to its
-projects, the others to the whole controller; a project in ``read_only`` is only read.
-
-- Each local member of a group gets the roles of the group. A role given on every project stays
-  a role (``all_projects`` when it holds a permission limited to projects). Roles given on
-  projects become roles of the user with these projects when they all share the same projects
-  and the user has no role on every project limited to projects; otherwise their projects are
-  only read (``read_only``) and the triage limited to some projects is dropped. A conversion
-  never widens a right.
-- ``oidcclaimmapping`` replaces the groups with ``sso``: each one becomes a mapping of its name (a
-  value of the roles claim) to its roles and projects, by the same rules (projects shared by its
-  roles given on projects, the others dropped). ``useroidcclaim`` keeps the values of the claim
-  of each OIDC user at its last login: its OIDC memberships of these groups become claims, so
-  that it keeps its rights until its next login. An OIDC membership of a group without ``sso``
+- A role keeps only its permissions on the whole controller; its per-project permissions
+  (``reports.read``, ``findings.triage``) move to where it was given. The built-in role
+  ``reader`` (per-project permissions only) is removed.
+- Each local member of a group gets the roles of the group (``webuserrole``) and, for each
+  project of a role of the group, the per-project permissions of that role on that project
+  (``userproject.permissions``), or on every project (``webuser.all_projects_permissions``) for a
+  role given on every project: the rights of a user stay exactly the same.
+- ``oidcclaimmapping`` replaces the groups with ``sso`` the same way: one mapping of the group name
+  (a value of the roles claim) to its roles, its per-project permissions on every project and
+  its projects with their permissions. ``useroidcclaim`` keeps the values of the claim of each
+  OIDC user at its last login: its OIDC memberships of these groups become claims, so that it
+  keeps its rights until its next login. An OIDC membership of a group without ``sso``
   (SECREVIEW_OIDC_DEFAULT_GROUP, which is removed with its stored setting) is lost.
-- The ordinary roles ``triager`` and ``mcp-user`` are deleted with their bindings; the api
-  tokens of these roles are revoked (each revocation is audited).
+- An api token of a role keeps its role and gets the per-project permissions of the role on its
+  projects (``apitoken.project_permissions``). A role left without any permission is deleted,
+  unless a token uses it.
+- The ordinary roles ``triager`` and ``mcp-user`` are deleted with their bindings; the api tokens
+  of these roles are revoked (each revocation is audited).
 - ``usergroup``, ``grouprole`` and ``groupmember`` are dropped.
 
 Downgrading is refused: the groups cannot be rebuilt from the roles of the users.
@@ -28,7 +29,6 @@ Create Date: 2026-10-29
 """
 
 import json
-from collections import Counter
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -45,6 +45,22 @@ _REMOVED_ROLES = ("triager", "mcp-user")
 _OLD_TABLES = ("groupmember", "grouprole", "usergroup")
 
 _SCOPED = frozenset({"reports.read", "findings.triage"})
+# Permissions of the built-in admin role at this revision
+_ADMIN = frozenset(
+    {
+        "reports.read",
+        "findings.triage",
+        "rules.manage",
+        "standards.manage",
+        "tokens.manage",
+        "settings.manage",
+        "users.manage",
+        "audit.read",
+        "projects.create",
+        "projects.delete",
+        "projects.autojoin",
+    }
+)
 _user_roles = sa.table(
     "webuserrole",
     sa.column("user_id", sa.Integer),
@@ -56,7 +72,7 @@ _user_projects = sa.table(
     "userproject",
     sa.column("user_id", sa.Integer),
     sa.column("project_id", sa.Integer),
-    sa.column("read_only", sa.Boolean),
+    sa.column("permissions", sa.String),
     sa.column("created_at", sa.DateTime(timezone=True)),
     sa.column("created_by", sa.String),
 )
@@ -64,7 +80,7 @@ _mappings = sa.table(
     "oidcclaimmapping",
     sa.column("claim", sa.String),
     sa.column("role_ids", sa.String),
-    sa.column("all_projects", sa.Boolean),
+    sa.column("all_projects_permissions", sa.String),
     sa.column("projects", sa.String),
     sa.column("created_at", sa.DateTime(timezone=True)),
     sa.column("created_by", sa.String),
@@ -107,7 +123,7 @@ def _create_tables(inspector: sa.Inspector) -> None:
             sa.Column("id", sa.Integer(), primary_key=True),
             sa.Column("user_id", sa.Integer(), sa.ForeignKey("webuser.id"), nullable=False),
             sa.Column("project_id", sa.Integer(), sa.ForeignKey("project.id"), nullable=False),
-            sa.Column("read_only", sa.Boolean(), nullable=False),
+            sa.Column("permissions", sa.String(), nullable=False),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.Column("created_by", sa.String(200), nullable=True),
             sa.UniqueConstraint("user_id", "project_id"),
@@ -120,7 +136,7 @@ def _create_tables(inspector: sa.Inspector) -> None:
             sa.Column("id", sa.Integer(), primary_key=True),
             sa.Column("claim", sa.String(200), nullable=False),
             sa.Column("role_ids", sa.String(), nullable=False),
-            sa.Column("all_projects", sa.Boolean(), nullable=False),
+            sa.Column("all_projects_permissions", sa.String(), nullable=False),
             sa.Column("projects", sa.String(), nullable=False),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.Column("created_by", sa.String(200), nullable=True),
@@ -138,10 +154,18 @@ def _create_tables(inspector: sa.Inspector) -> None:
         op.create_index("ix_useroidcclaim_user_id", "useroidcclaim", ["user_id"])
         op.create_index("ix_useroidcclaim_claim", "useroidcclaim", ["claim"])
     columns = {column["name"] for column in inspector.get_columns("webuser")}
-    if "all_projects" not in columns:
+    if "all_projects_permissions" not in columns:
         with op.batch_alter_table("webuser") as batch:
             batch.add_column(
-                sa.Column("all_projects", sa.Boolean(), nullable=False, server_default=sa.false())
+                sa.Column(
+                    "all_projects_permissions", sa.String(), nullable=False, server_default="[]"
+                )
+            )
+    columns = {column["name"] for column in inspector.get_columns("apitoken")}
+    if "project_permissions" not in columns:
+        with op.batch_alter_table("apitoken") as batch:
+            batch.add_column(
+                sa.Column("project_permissions", sa.String(), nullable=False, server_default="[]")
             )
 
 
@@ -200,13 +224,12 @@ def _remove_roles(connection: sa.Connection, now: datetime, groups: bool) -> Non
 
 def _permissions(connection: sa.Connection) -> dict[int, frozenset[str]]:
     """Permissions of each role (those of the code for a built-in role)."""
-    every = {"reports.read", "findings.triage", "users.manage"}  # enough to tell scoped ones
     permissions: dict[int, frozenset[str]] = {}
     for role_id, name, system, stored in connection.execute(
         sa.text("SELECT id, name, system, permissions FROM accessrole")
     ):
         if system and name == "admin":
-            permissions[role_id] = frozenset(every)
+            permissions[role_id] = frozenset(_ADMIN)
         elif system and name == "reader":
             permissions[role_id] = frozenset({"reports.read"})
         else:
@@ -214,35 +237,29 @@ def _permissions(connection: sa.Connection) -> dict[int, frozenset[str]]:
     return permissions
 
 
-def _convert(
-    bindings: list[tuple[int, list[str]]], permissions: dict[int, frozenset[str]]
-) -> tuple[set[int], bool, set[str], set[str]]:
-    """Roles, every project, projects and read-only projects of the bindings (role, projects or
-    an empty list for every project) of one user or group, never wider than they were."""
-    roles = {role_id for role_id, projects in bindings if not projects}
-    every = any(permissions.get(role_id, frozenset()) & _SCOPED for role_id in roles)
-    bound: dict[int, set[str]] = {}
-    for role_id, projects in bindings:
-        if projects:
-            bound.setdefault(role_id, set()).update(projects)
-    if every or not bound:
-        return roles, every, set(), set()
-    shared = Counter(frozenset(projects) for projects in bound.values()).most_common(1)[0][0]
-    if all(projects == shared for projects in bound.values()):
-        return roles | set(bound), False, set(shared), set()
-    # Different projects per role: they are only read
-    read = {
-        project
-        for role_id, projects in bound.items()
-        if "reports.read" in permissions.get(role_id, frozenset())
-        for project in projects
-    }
-    return roles, False, set(), read
+class _Access:
+    """Roles, per-project permissions on every project and per project of one user or group."""
+
+    def __init__(self) -> None:
+        self.roles: set[int] = set()
+        self.every: set[str] = set()
+        self.projects: dict[str, set[str]] = {}
+
+    def add(self, role_id: int, projects: list[str], permissions: frozenset[str]) -> None:
+        """Add a role given on ``projects`` (empty: every project), with its permissions."""
+        if permissions - _SCOPED:
+            self.roles.add(role_id)
+        scoped = permissions & _SCOPED
+        if not projects:
+            self.every |= scoped
+        for project in projects:
+            if scoped:
+                self.projects.setdefault(project, set()).update(scoped)
 
 
 def _move_groups(connection: sa.Connection, now: datetime) -> None:
-    """Give each local member the roles and projects of its groups; turn the ``sso`` groups into
-    mappings and the OIDC memberships of these groups into claims."""
+    """Give each local member the roles and per-project permissions of its groups; turn the
+    ``sso`` groups into mappings and the OIDC memberships of these groups into claims."""
     project_ids = dict(connection.execute(sa.text("SELECT name, id FROM project")).all())
     permissions = _permissions(connection)
     groups = {
@@ -256,35 +273,36 @@ def _move_groups(connection: sa.Connection, now: datetime) -> None:
         sa.text("SELECT group_id, role_id, projects FROM grouprole ORDER BY id")
     ):
         group_bindings.setdefault(group_id, []).append((role_id, json.loads(projects)))
-    user_bindings: dict[int, list[tuple[int, list[str]]]] = {}
+    users: dict[int, _Access] = {}
     claims: set[tuple[int, str]] = set()
     for group_id, user_id, source in connection.execute(
         sa.text("SELECT group_id, user_id, source FROM groupmember")
     ):
         if source == "local":
-            user_bindings.setdefault(user_id, []).extend(group_bindings.get(group_id, []))
+            access = users.setdefault(user_id, _Access())
+            for role_id, projects in group_bindings.get(group_id, []):
+                access.add(role_id, projects, permissions.get(role_id, frozenset()))
         elif groups[group_id][1]:
             claims.add((user_id, groups[group_id][0]))
-    for user_id, bindings in sorted(user_bindings.items()):
-        roles, every, projects, read = _convert(bindings, permissions)
-        for role_id in sorted(roles):
+    for user_id, access in sorted(users.items()):
+        for role_id in sorted(access.roles):
             connection.execute(
                 _user_roles.insert().values(
                     user_id=user_id, role_id=role_id, created_at=now, created_by=_ACTOR
                 )
             )
-        if every:
+        if access.every:
             connection.execute(
-                sa.text("UPDATE webuser SET all_projects = :yes WHERE id = :user"),
-                {"yes": True, "user": user_id},
+                sa.text("UPDATE webuser SET all_projects_permissions = :every WHERE id = :user"),
+                {"every": json.dumps(sorted(access.every)), "user": user_id},
             )
-        for name in sorted(projects | read):
-            if name in project_ids:
+        for name, scoped in sorted(access.projects.items()):
+            if name in project_ids and scoped - access.every:
                 connection.execute(
                     _user_projects.insert().values(
                         user_id=user_id,
                         project_id=project_ids[name],
-                        read_only=name not in projects,
+                        permissions=json.dumps(sorted(scoped)),
                         created_at=now,
                         created_by=_ACTOR,
                     )
@@ -292,19 +310,61 @@ def _move_groups(connection: sa.Connection, now: datetime) -> None:
     for group_id, (name, sso) in sorted(groups.items()):
         if not sso:
             continue
-        roles, every, projects, _ = _convert(group_bindings.get(group_id, []), permissions)
+        access = _Access()
+        for role_id, projects in group_bindings.get(group_id, []):
+            access.add(role_id, projects, permissions.get(role_id, frozenset()))
         connection.execute(
             _mappings.insert().values(
                 claim=name,
-                role_ids=json.dumps(sorted(roles)),
-                all_projects=every,
-                projects=json.dumps(sorted(projects)),
+                role_ids=json.dumps(sorted(access.roles)),
+                all_projects_permissions=json.dumps(sorted(access.every)),
+                projects=json.dumps(
+                    [
+                        {"project": project, "permissions": sorted(scoped)}
+                        for project, scoped in sorted(access.projects.items())
+                    ]
+                ),
                 created_at=now,
                 created_by=_ACTOR,
             )
         )
     for user_id, claim in sorted(claims):
         connection.execute(_claims.insert().values(user_id=user_id, claim=claim, created_at=now))
+
+
+def _split_roles(connection: sa.Connection) -> None:
+    """Keep only the permissions on the whole controller in the roles: the api tokens of a role
+    get its per-project permissions on their projects; a role left without any permission (the
+    built-in ``reader`` among them) is deleted, unless a token uses it."""
+    permissions = _permissions(connection)
+    used = {
+        role_id
+        for (role_id,) in connection.execute(
+            sa.text("SELECT DISTINCT access_role_id FROM apitoken WHERE access_role_id IS NOT NULL")
+        )
+    }
+    for role_id, held in permissions.items():
+        connection.execute(
+            sa.text(
+                "UPDATE apitoken SET project_permissions = :scoped WHERE access_role_id = :role"
+            ),
+            {"scoped": json.dumps(sorted(held & _SCOPED)), "role": role_id},
+        )
+        system, name = connection.execute(
+            sa.text("SELECT system, name FROM accessrole WHERE id = :role"), {"role": role_id}
+        ).one()
+        if system and name == "admin":
+            continue
+        site = sorted(held - _SCOPED)
+        if site or role_id in used:
+            connection.execute(
+                sa.text("UPDATE accessrole SET permissions = :site, system = :no WHERE id = :role"),
+                {"site": json.dumps(site), "no": False, "role": role_id},
+            )
+        else:
+            connection.execute(
+                sa.text("DELETE FROM accessrole WHERE id = :role"), {"role": role_id}
+            )
 
 
 def upgrade() -> None:
@@ -320,6 +380,7 @@ def upgrade() -> None:
     for table in _OLD_TABLES:
         if inspector.has_table(table):
             op.drop_table(table)
+    _split_roles(connection)
     connection.execute(sa.text("DELETE FROM appsetting WHERE key = 'oidc_default_group'"))
 
 

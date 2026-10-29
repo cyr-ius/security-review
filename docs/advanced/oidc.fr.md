@@ -162,33 +162,32 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 
 Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
 comparées aux **correspondances OIDC** de la page **Connexions**. Une correspondance, une par
-valeur, donne des **rôles** et des **projets** (tous les projets, ou une liste) aux utilisateurs
-dont le claim contient **exactement** sa valeur (casse comprise). À chaque connexion, les valeurs
-du claim nommées par une correspondance sont gardées pour le compte ; les autres valeurs sont
-ignorées. Les rôles et projets de ces correspondances s'ajoutent à ceux donnés au compte : les
-permissions par projet de tous ses rôles s'appliquent à tous ses projets (voir
+valeur, donne des **rôles** (droits sur tout le serveur Controller), des droits par projet sur
+tous les projets et des **projets** avec leurs droits par projet aux utilisateurs dont le claim
+contient **exactement** sa valeur (casse comprise). À chaque connexion, les valeurs du claim
+nommées par une correspondance sont gardées pour le compte ; les autres valeurs sont ignorées. Ils
+s'ajoutent aux rôles et projets donnés au compte (voir
 [Rôles et permissions](../usage/access-control.md)).
 
 - Un changement des correspondances s'applique aussitôt, à chaque compte OIDC, par les valeurs de
   sa dernière connexion ; une valeur qu'aucune correspondance ne nomme plus est oubliée.
-- Une correspondance peut ne donner que des rôles, ou que des projets. Un projet pas encore créé
-  est ignoré jusqu'à sa création, jamais créé par le fournisseur d'identité. Une correspondance
-  qui n'a plus de projet quand son dernier projet est supprimé est supprimée, pour que ses rôles
-  n'atteignent jamais les autres projets de ses utilisateurs.
+- Un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur
+  d'identité. Un projet supprimé est retiré des correspondances ; une correspondance qui ne donne
+  plus rien est supprimée.
 - Une connexion ne retire jamais le dernier détenteur de `users.manage` : les valeurs du claim qui
   la lui donnaient sont gardées, avec un avertissement dans les journaux et un événement
   `user.roles_changed`. Supprimer une telle correspondance dans l'interface est refusé.
 
 | Réglage | Effet |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Valeurs du claim, séparées par des virgules, qui ont le rôle `admin` : une telle valeur, sans aucune correspondance à la connexion d'un utilisateur qui la porte, reçoit une correspondance vers `admin` et tous les projets. Une correspondance qui la nomme déjà reste telle que les administrateurs l'ont modifiée. Sert à nommer le premier administrateur |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Valeurs du claim, séparées par des virgules, qui ont le rôle `admin` : une telle valeur, sans aucune correspondance à la connexion d'un utilisateur qui la porte, reçoit une correspondance vers `admin` avec la lecture et le triage de tous les projets. Une correspondance qui la nomme déjà reste telle que les administrateurs l'ont modifiée. Sert à nommer le premier administrateur |
 
 ```bash
 # Toutes les correspondances OIDC, remplacées d'un bloc
 curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"mappings": [{"claim": "secreview-admins", "role_ids": [2], "all_projects": true},
-                    {"claim": "payments-team", "role_ids": [3], "projects": ["billing"]}]}'
+  -d '{"mappings": [{"claim": "secreview-admins", "role_ids": [1], "all_projects_permissions": ["reports.read", "findings.triage"]},
+                    {"claim": "payments-team", "projects": [{"project": "billing", "permissions": ["reports.read", "findings.triage"]}]}]}'
 ```
 
 Une session restreinte se comporte comme un
@@ -196,8 +195,8 @@ Une session restreinte se comporte comme un
 projets, leurs rapports et leurs findings sont traités comme inexistants.
 
 Exemple : avec le claim `["payments-team", "staff"]`, une correspondance de `payments-team` vers
-un rôle *Triager* et le projet `billing`, et aucune correspondance de `staff`, l'utilisateur trie
-`billing` (et les projets donnés à son compte).
+le projet `billing` avec la lecture et le triage, et aucune correspondance de `staff`,
+l'utilisateur lit et trie `billing` (et garde les projets donnés à son compte).
 
 Le label d'une session OIDC est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.

@@ -30,8 +30,8 @@
   (`mcp`, `api`, `admin`, `ci`, `metrics`). Un jeton `api` ne porte que des droits du contrôle
   d'accès, lus à chaque requête : ceux de son utilisateur (jeton personnel, supprimé avec
   l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
-  l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir
-  chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
+  l'utilisateur) ou ceux de son rôle et ses droits par projet sur ses projets (jeton de rôle,
+  dont le créateur doit détenir chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
   accède à tous les outils MCP et à tous les projets ; un jeton `mcp` personnel atteint les
   projets que son utilisateur peut lire à l'instant, aucun quand l'utilisateur n'en a pas (jamais
   tous les projets par défaut), et s'arrête quand l'utilisateur est supprimé ou doit changer un mot
@@ -96,7 +96,7 @@
   utilisateur portant `projects.create` (jamais un projet existant) ; sinon la demande reste
   **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` la valide sur le
   serveur Controller, ce qui donne à l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
-  le projet en lecture seule, créé s'il est nouveau. Pour un projet existant, la demande est une
+  la lecture du projet, créé s'il est nouveau. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
   porte aussi `users.manage`, sauf pour un utilisateur portant `projects.autojoin`, qui le
   rejoint aussitôt en lecture si son adhésion automatique n'est pas bloquée (cet utilisateur

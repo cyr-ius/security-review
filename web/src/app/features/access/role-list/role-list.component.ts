@@ -137,13 +137,11 @@ export class RoleListComponent {
     }
   }
 
-  /** Only per-project permissions: a token with the role may be limited to projects. */
-  readonly scoped = computed(() => {
-    const scoped = new Set(
-      (this.permissions.value() ?? []).filter((item) => item.scoped).map((item) => item.name),
-    );
-    return this.selected().every((permission) => scoped.has(permission));
-  });
+  /** Permissions a role may hold: those on the whole Controller server (the per-project ones
+   * are given with the projects). */
+  readonly sitePermissions = computed(() =>
+    (this.permissions.value() ?? []).filter((item) => !item.scoped),
+  );
 
   readonly canSubmit = computed(
     () =>

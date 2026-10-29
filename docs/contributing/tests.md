@@ -34,9 +34,11 @@ the same commit as the change.
   marked at the latest revision: `outdated_schema` marks it one revision behind, and
   `legacy_database` replaces it by a database of version 1.x (no revision), for the migration
   tests.
-- `make_user` creates an account with a role (and `role_ids`) and projects (`read_only` for those
-  only read; without any project, every project), `known_projects` makes projects known and
-  `map_claim` adds an OIDC mapping; the database has the built-in roles and an ordinary `triager` role.
+- `make_user` creates an account with `role` (`reader` and `triager` stand for their per-project
+  permissions, `admin` for the built-in role with reading and triage) on its projects (every
+  project without any), roles `role_ids` and projects `read_only` that it only reads;
+  `known_projects` makes projects known and `map_claim` adds an OIDC mapping the same way; the
+  database has the built-in `admin` role.
 - `tests/conftest.py` hashes passwords with a tiny scrypt cost; a test that checks the production
   cost is marked `@pytest.mark.real_password_hashing`.
 - No network, no `sleep`, no dependency on the order of the tests. Keys and tokens are fake.

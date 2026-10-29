@@ -2,57 +2,56 @@
 users.
 
 - A **permission** (Permission) allows one kind of action. ``reports.read`` and
-  ``findings.triage`` are *scoped*: they apply to the projects of the user. The other
-  permissions concern the whole controller.
-- A **role** (AccessRole) is a named set of permissions. The two built-in roles ``reader`` and
-  ``admin`` can be neither changed nor deleted, because the code relies on them: ``admin`` is
-  given to the first administrator and by SECREVIEW_OIDC_ADMIN_GROUPS. Their permissions are
-  those of SYSTEM_ROLES, so that a new permission reaches ``admin`` without a migration. Every
-  other role is an ordinary role that an administrator changes or deletes.
-- A user holds **roles** (UserRole) and **projects** (UserProject, or every project with
-  ``WebUser.all_projects``): the scoped permissions of its roles apply to its projects, the
-  others to the whole controller. A project in **reading only** (joined, approved or created
-  through a request) is only read, whatever the roles. An administrator gives them (see
-  set_user_roles, set_user_projects and set_project_members).
-- An OIDC user also holds the roles and projects of the **mappings** (OidcRoleMapping) that name a
-  value of its roles claim: each one gives roles, and every project or a list of projects (a
-  project not known yet is ignored until it is created); they add up with those of the user. The
-  values of the claim named by a mapping are kept at each login (UserOidcClaim, see
-  sync_oidc_claims); a change of the mappings applies at once.
-  ``SECREVIEW_OIDC_ADMIN_GROUPS`` names values of the claim that hold the ``admin`` role: at a
-  login, a listed value of the claim without a mapping gets one (``admin``, every project), so
-  that a deployment that only uses OIDC gets its first administrator.
+  ``findings.triage`` are *per project* (SCOPED_PERMISSIONS): they are given with a project, or
+  with every project. The other permissions concern the whole controller (SITE_PERMISSIONS).
+- A **role** (AccessRole) is a named set of permissions on the whole controller: a role holds
+  no per-project permission. The built-in role ``admin`` (every permission on the whole
+  controller) can be neither changed nor deleted, because the code relies on it: it is given to
+  the first administrator and by SECREVIEW_OIDC_ADMIN_GROUPS. Its permissions are those of
+  SYSTEM_ROLES, so that a new permission reaches it without a migration.
+- A user holds **roles** (UserRole), **per-project permissions on every project**
+  (``WebUser.all_projects_permissions``) and **projects** (UserProject), each with its own
+  per-project permissions. An administrator gives them (see set_user_roles, set_user_projects
+  and set_project_members).
+- An OIDC user also holds the roles, permissions on every project and projects of the
+  **mappings** (OidcRoleMapping) that name a value of its roles claim (a project not known yet is
+  ignored until it is created); they add up with those of the user. The values of the claim named
+  by a mapping are kept at each login (UserOidcClaim, see sync_oidc_claims); a change of the
+  mappings applies at once. ``SECREVIEW_OIDC_ADMIN_GROUPS`` names values of the claim that hold
+  ``admin``: at a login, a listed value of the claim without a mapping gets one (``admin`` and
+  every per-project permission on every project), so that a deployment that only uses OIDC gets
+  its first administrator.
 - The MCP agent of a user **requests** a project its token does not reach (see
   request_project): a new project is created at once for a user with ``projects.create``;
   otherwise, and always for a project that already exists, the request waits
   (``ProjectEnrollment``) until a user with ``projects.create`` approves it, which gives the
-  project to the requesting user in reading only (created for a new project), or rejects it; a
+  requesting user the reading of the project (created for a new project), or rejects it; a
   request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.
 - A user with ``projects.create`` may create a **new** project (see create_project): the
-  controller creates it and gives it to the user in reading only, so that the user reads the
-  project and its personal ``mcp`` token reaches it. A project already known (see
-  storage.projects) is refused: the permission never grants the reading of an existing project.
+  controller creates it and gives its reading to the user, so that its personal ``mcp`` token
+  reaches it. A project already known (see storage.projects) is refused: the permission never
+  grants the reading of an existing project.
 - A user with ``projects.autojoin`` whose MCP agent requests a project that already exists
-  joins it at once (see request_project), in reading only, so that it reads the project and
-  nothing more. A user with ``projects.create`` who reads a project may block this autojoin on
-  it (see set_autojoin_blocked): the requests then wait for an approval as the others do.
+  joins it at once (see request_project), with its reading only. A user with ``projects.create``
+  who reads a project may block this autojoin on it (see set_autojoin_blocked): the requests
+  then wait for an approval as the others do.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
   delete_project): its reports, findings and comments, the project of the users, of the mappings
   and of the tokens (a token left without project is revoked). The audit log keeps its events.
 - No permission gives the personal ``mcp`` and ``ci`` tokens: every web user may create them
   while SECREVIEW_PERSONAL_TOKENS_ENABLED is true (see token_store).
 
-The grants of a user (see user_grants) are the union of the permissions of all its roles (its
-own and those of its mappings), the scoped ones on its projects, with the reading of its
-read-only projects. At least one user keeps ``users.manage``: a change that would remove the last
-one is refused (see _guard_managers), and an OIDC login never removes it (see
+The grants of a user (see user_grants) are the permissions of all its roles (its own and those
+of its mappings) on the whole controller, with its per-project permissions on every project and
+on each of its projects. At least one user keeps ``users.manage``: a change that would remove
+the last one is refused (see _guard_managers), and an OIDC login never removes it (see
 sync_oidc_claims).
 
 The bearer tokens are for machines and keep their fixed roles (see http_server.TOKEN_ROLES):
 token_grants gives every permission to an ``admin`` token, none to the others. An ``api`` token
 follows this model instead: a personal token holds the grants of its user (user_grants), a role
-token the permissions of its role on its projects (role_token_grants), both read at each
-request. A role used by a token cannot be deleted.
+token the permissions of its role and its per-project permissions on its projects
+(role_token_grants), both read at each request. A role used by a token cannot be deleted.
 """
 
 import json
@@ -124,19 +123,14 @@ class Permission(StrEnum):
     PROJECTS_AUTOJOIN = "projects.autojoin"
 
 
-# Permissions limited to the projects of a binding (the others concern the whole controller)
-
-
-# Permissions limited to the projects of a role (the others concern the whole controller)
+# Per-project permissions: given with a project (or every project), never by a role; the others
+# concern the whole controller and are given by the roles
 SCOPED_PERMISSIONS = frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE})
 ALL_PERMISSIONS = frozenset(Permission)
-# Built-in roles, which the code relies on
-READER_ROLE = "reader"
+SITE_PERMISSIONS = ALL_PERMISSIONS - SCOPED_PERMISSIONS
+# The built-in role, which the code relies on
 ADMIN_ROLE = "admin"
-SYSTEM_ROLES: dict[str, frozenset[Permission]] = {
-    READER_ROLE: frozenset({Permission.REPORTS_READ}),
-    ADMIN_ROLE: ALL_PERMISSIONS,
-}
+SYSTEM_ROLES: dict[str, frozenset[Permission]] = {ADMIN_ROLE: SITE_PERMISSIONS}
 
 MAX_ROLES = 100
 MAX_ROLE_NAME_CHARS = 64
@@ -239,36 +233,38 @@ def _project_names(session: Session, names: Iterable[str]) -> list[str]:
 
 
 def _bindings(session: Session, user_id: int) -> list[tuple[frozenset[str], list[str] | None]]:
-    """Permissions and projects of a user: its roles and those of the mappings of its OIDC
-    claims, their permissions limited to projects on its projects (every project with
-    ``all_projects``), the others everywhere; reading only on its read-only projects."""
+    """Permissions and projects of a user: the permissions of its roles and of the roles of the
+    mappings of its OIDC claims everywhere, its per-project permissions on every project and on
+    each of its projects (and those of its mappings)."""
     user = session.get(WebUser, user_id)
     if user is None:
         return []
     role_ids = set(session.exec(select(UserRole.role_id).where(UserRole.user_id == user_id)).all())
-    every = user.all_projects
-    names: set[str] = set()
-    for mapping in _claim_mappings(session, user_id):
-        role_ids.update(json.loads(mapping.role_ids))
-        every = every or mapping.all_projects
-        names.update(json.loads(mapping.projects))
-    rows = session.exec(
-        select(Project.name, UserProject.read_only)
+    every = set(json.loads(user.all_projects_permissions))
+    per_project: dict[str, set[str]] = {}
+    for name, permissions in session.exec(
+        select(Project.name, UserProject.permissions)
         .join(UserProject, col(UserProject.project_id) == col(Project.id))
         .where(UserProject.user_id == user_id)
-    ).all()
-    full = set(_project_names(session, names)) | {name for name, read_only in rows if not read_only}
-    read = {name for name, read_only in rows if read_only} - full
-    projects = None if every else sorted(full)
+    ).all():
+        per_project.setdefault(name, set()).update(json.loads(permissions))
+    mapped: dict[str, set[str]] = {}
+    for mapping in _claim_mappings(session, user_id):
+        role_ids.update(json.loads(mapping.role_ids))
+        every.update(json.loads(mapping.all_projects_permissions))
+        for item in json.loads(mapping.projects):
+            mapped.setdefault(item["project"], set()).update(item["permissions"])
+    for name in _project_names(session, mapped):
+        per_project.setdefault(name, set()).update(mapped[name])
     bindings: list[tuple[frozenset[str], list[str] | None]] = []
     if role_ids:
         for role in session.exec(select(AccessRole).where(col(AccessRole.id).in_(role_ids))).all():
-            permissions = _permissions(role)
-            bindings.append((permissions - SCOPED_PERMISSIONS, None))
-            if permissions & SCOPED_PERMISSIONS and (projects is None or projects):
-                bindings.append((permissions & SCOPED_PERMISSIONS, projects))
-    if read:
-        bindings.append((frozenset({Permission.REPORTS_READ}), sorted(read)))
+            bindings.append((_permissions(role) - SCOPED_PERMISSIONS, None))
+    bindings.append((frozenset(every) & SCOPED_PERMISSIONS, None))
+    for permission in SCOPED_PERMISSIONS - every:
+        projects = sorted(name for name, held in per_project.items() if permission in held)
+        if projects:
+            bindings.append((frozenset({permission}), projects))
     return bindings
 
 
@@ -359,7 +355,8 @@ def clean_description(description: str | None) -> str:
 
 
 def clean_permissions(permissions: Iterable[str]) -> list[str]:
-    """Validate the permissions of a role: at least one, all known."""
+    """Validate the permissions of a role: at least one, all known, none per project (those are
+    given with the projects)."""
     cleaned: list[str] = []
     for name in permissions:
         try:
@@ -368,7 +365,26 @@ def clean_permissions(permissions: Iterable[str]) -> list[str]:
             raise ValueError(f"Unknown permission '{str(name)[:50]}'") from None
     if not cleaned:
         raise ValueError("A role needs at least one permission")
+    scoped = sorted(set(cleaned) & SCOPED_PERMISSIONS)
+    if scoped:
+        raise ValueError(
+            f"A role holds no per-project permission ({', '.join(scoped)}): give it with the "
+            "projects"
+        )
     return sorted(set(cleaned))
+
+
+def clean_project_permissions(permissions: Iterable[str], empty: bool = False) -> list[str]:
+    """Validate per-project permissions (SCOPED_PERMISSIONS); at least one unless ``empty``."""
+    cleaned: set[str] = set()
+    for name in permissions:
+        value = str(name).strip()
+        if value not in SCOPED_PERMISSIONS:
+            raise ValueError(f"'{value[:50]}' is not a per-project permission")
+        cleaned.add(value)
+    if not cleaned and not empty:
+        raise ValueError("A project needs at least one per-project permission")
+    return sorted(cleaned)
 
 
 def clean_projects(permissions: Iterable[str], projects: Iterable[str] | None) -> list[str]:
@@ -434,7 +450,6 @@ def _role_public(session: Session, row: AccessRole) -> dict[str, Any]:
         "description": row.description,
         "permissions": sorted(_permissions(row)),
         "system": row.system,
-        "scoped": _permissions(row) <= SCOPED_PERMISSIONS,
         "users": users,
         "mappings": len(_mappings_of(session, row.id)),  # type: ignore[arg-type]
         "created_at": row.created_at.isoformat(),
@@ -538,8 +553,7 @@ def update_role(
 ) -> dict[str, Any]:
     """Replace the name, description and permissions of a custom role (not a built-in role).
 
-    The users and mappings that give the role keep it. A role of a token limited to projects keeps
-    only scoped permissions (ValueError).
+    The users, mappings and tokens that give the role keep it.
     """
     cleaned = clean_permissions(permissions)
     text = clean_description(description)
@@ -549,17 +563,6 @@ def update_role(
             if row.system:
                 raise ValueError(f"The built-in role {row.name} cannot be changed")
             before = managers(session)
-            if not set(cleaned) <= SCOPED_PERMISSIONS:
-                limited = session.exec(
-                    select(ApiToken).where(
-                        ApiToken.access_role_id == role_id, col(ApiToken.project).is_not(None)
-                    )
-                ).first()
-                if limited is not None:
-                    raise ValueError(
-                        "A token limited to projects has this role: it cannot hold permissions "
-                        "on the whole controller"
-                    )
             previous = sorted(_permissions(row))
             if name is not None:
                 row.name = clean_role_name(name)
@@ -628,53 +631,60 @@ def list_token_roles() -> list[dict[str, Any]]:
             select(AccessRole).order_by(col(AccessRole.system).desc(), col(AccessRole.name))
         ).all()
         return [
-            {
-                "id": row.id,
-                "name": row.name,
-                "permissions": sorted(_permissions(row)),
-                "scoped": _permissions(row) <= SCOPED_PERMISSIONS,
-            }
+            {"id": row.id, "name": row.name, "permissions": sorted(_permissions(row))}
             for row in rows
         ]
 
 
 def role_token_scope(
-    role_id: int, projects: Iterable[str] | None
-) -> tuple[list[str], list[str] | None]:
-    """Permissions of the role of a new role token, and its validated projects (None: every
-    project). Only a role made of scoped permissions may be limited to projects.
+    role_id: int, projects: Iterable[str] | None, project_permissions: Iterable[str] = ()
+) -> tuple[list[str], list[str] | None, list[str]]:
+    """Permissions of the role of a role token, its validated projects (None: every project)
+    and its per-project permissions on them.
 
     Raises:
         NotFoundError: Unknown role.
-        ValueError: Projects refused for this role, or an empty list.
+        ValueError: An empty list of projects, or a permission that is not per project.
     """
     with session_scope() as session:
         permissions = sorted(_permissions(_get_role(session, role_id)))
+    scoped = clean_project_permissions(project_permissions, empty=True)
     if projects is None:
-        return permissions, None
-    cleaned = clean_projects(permissions, projects)
+        return permissions, None, scoped
+    cleaned = list(dict.fromkeys(_clean_project(name) for name in projects))
     if not cleaned:
         raise ValueError("A token needs at least one project (None: every project)")
-    return permissions, cleaned
+    if len(cleaned) > MAX_PROJECTS_PER_TOKEN:
+        raise ValueError(f"A token may reach at most {MAX_PROJECTS_PER_TOKEN} projects")
+    return permissions, cleaned, scoped
 
 
 def role_token_grants(
-    session: Session, role_id: int, projects: Iterable[str] | None
+    session: Session,
+    role_id: int,
+    projects: Iterable[str] | None,
+    project_permissions: Iterable[str] = (),
 ) -> dict[str, Any] | None:
-    """Grants of a role ``api`` token: the permissions of its role (read now) on its projects
-    (None: every project); None when the role no longer exists."""
+    """Grants of a role ``api`` token: the permissions of its role (read now) and its per-project
+    permissions on its projects (None: every project); None when the role no longer exists."""
     row = session.get(AccessRole, role_id)
     if row is None:
         return None
-    return combine([(_permissions(row), None if projects is None else list(projects))])
+    scoped = frozenset(project_permissions) & SCOPED_PERMISSIONS
+    return combine(
+        [
+            (_permissions(row) - SCOPED_PERMISSIONS, None),
+            (scoped, None if projects is None else list(projects)),
+        ]
+    )
 
 
 # ── Roles of a user ──────────────────────────────────────────────────────────
 
 
 def user_access(session: Session, user_id: int) -> dict[str, Any]:
-    """Roles and projects of a user (``all_projects``: every project), and those of the mappings
-    of its OIDC claims (``oidc``, read only)."""
+    """Roles of a user, its per-project permissions on every project and its projects with their
+    permissions, and those of the mappings of its OIDC claims (``oidc``, read only)."""
     user = session.get(WebUser, user_id)
     roles = session.exec(
         select(AccessRole)
@@ -683,7 +693,7 @@ def user_access(session: Session, user_id: int) -> dict[str, Any]:
         .order_by(col(AccessRole.name))
     ).all()
     projects = session.exec(
-        select(Project.name, UserProject.read_only)
+        select(Project.name, UserProject.permissions)
         .join(UserProject, col(UserProject.project_id) == col(Project.id))
         .where(UserProject.user_id == user_id)
         .order_by(col(Project.name))
@@ -691,13 +701,17 @@ def user_access(session: Session, user_id: int) -> dict[str, Any]:
     names = {row.id: row.name for row in session.exec(select(AccessRole)).all()}
     return {
         "roles": [{"role_id": role.id, "name": role.name} for role in roles],
-        "all_projects": bool(user and user.all_projects),
-        "projects": [{"project": name, "read_only": read_only} for name, read_only in projects],
+        "all_projects_permissions": json.loads(user.all_projects_permissions) if user else [],
+        "projects": [
+            {"project": name, "permissions": json.loads(permissions)}
+            for name, permissions in projects
+        ],
         "oidc": [
             {
                 "claim": mapping.claim,
                 "roles": [names[item] for item in json.loads(mapping.role_ids) if item in names],
-                "projects": None if mapping.all_projects else json.loads(mapping.projects),
+                "all_projects_permissions": json.loads(mapping.all_projects_permissions),
+                "projects": json.loads(mapping.projects),
             }
             for mapping in _claim_mappings(session, user_id)
         ],
@@ -760,53 +774,64 @@ def _check_reach(session: Session, user_id: int) -> None:
 def set_user_projects(
     session: Session,
     user_id: int,
-    projects: Iterable[tuple[str, bool]],
-    all_projects: bool | None = None,
+    projects: Iterable[tuple[str, Iterable[str]]],
+    all_projects_permissions: Iterable[str] | None = None,
     actor: str | None = None,
 ) -> None:
-    """Replace the projects of a user: ``projects`` holds (project, read only); ``all_projects``
-    (None: unchanged) gives every project to the permissions limited to projects of its roles.
+    """Replace the projects of a user: ``projects`` holds (project, per-project permissions);
+    ``all_projects_permissions`` (None: unchanged) are its per-project permissions on every
+    project.
 
     Runs in the session of the caller (web_users). Only known projects may be given.
 
     Raises:
         NotFoundError: Unknown project.
-        ValueError: Invalid project, or more than MAX_SESSION_PROJECTS projects.
+        ValueError: Invalid project or permission, or more than MAX_SESSION_PROJECTS projects.
     """
-    wanted: dict[int, bool] = {}
+    wanted: dict[int, list[str]] = {}
     names: dict[int, str] = {}
-    for project, read_only in projects:
+    for project, permissions in projects:
         row = _get_project(session, project)
-        # Given twice: the full access wins over the reading only
-        wanted[row.id] = wanted.get(row.id, True) and read_only  # type: ignore[index]
+        cleaned = clean_project_permissions(permissions)
+        wanted[row.id] = sorted(set(wanted.get(row.id, [])) | set(cleaned))  # type: ignore[index]
         names[row.id] = row.name  # type: ignore[index]
     if len(wanted) > MAX_SESSION_PROJECTS:
         raise ValueError(f"A user may have at most {MAX_SESSION_PROJECTS} projects")
     user = session.get(WebUser, user_id)
-    changed_all = (
-        user is not None and all_projects is not None and user.all_projects != all_projects
+    every = (
+        None
+        if all_projects_permissions is None
+        else clean_project_permissions(all_projects_permissions, empty=True)
     )
-    if changed_all:
-        user.all_projects = all_projects  # type: ignore[union-attr,assignment]
+    changed_every = (
+        user is not None
+        and every is not None
+        and (json.loads(user.all_projects_permissions) != every)
+    )
+    if changed_every:
+        user.all_projects_permissions = json.dumps(every)  # type: ignore[union-attr]
         session.add(user)
     current = {
         row.project_id: row
         for row in session.exec(select(UserProject).where(UserProject.user_id == user_id)).all()
     }
-    previous = {project_id: row.read_only for project_id, row in current.items()}
-    if previous == wanted and not changed_all:
+    previous = {project_id: json.loads(row.permissions) for project_id, row in current.items()}
+    if previous == wanted and not changed_every:
         return
     for project_id, row in current.items():
         if project_id not in wanted:
             session.delete(row)
-        elif row.read_only != wanted[project_id]:
-            row.read_only = wanted[project_id]
+        elif previous[project_id] != wanted[project_id]:
+            row.permissions = json.dumps(wanted[project_id])
             session.add(row)
-    for project_id, read_only in wanted.items():
+    for project_id, permissions in wanted.items():
         if project_id not in current:
             session.add(
                 UserProject(
-                    user_id=user_id, project_id=project_id, read_only=read_only, created_by=actor
+                    user_id=user_id,
+                    project_id=project_id,
+                    permissions=json.dumps(permissions),
+                    created_by=actor,
                 )
             )
     session.flush()
@@ -823,10 +848,11 @@ def set_user_projects(
         "user",
         user_id,
         details={
-            "added": sorted(known.get(item, "") for item in set(wanted) - set(previous)),
+            "projects": sorted(
+                f"{known.get(item, '')}={','.join(wanted[item])}" for item in wanted
+            ),
             "removed": sorted(known.get(item, "") for item in set(previous) - set(wanted)),
-            "read_only": sorted(known.get(item, "") for item, ro in wanted.items() if ro),
-            "all_projects": all_projects if changed_all else None,
+            "all_projects_permissions": every if changed_every else None,
         },
     )
 
@@ -834,23 +860,33 @@ def set_user_projects(
 def add_user_project(
     session: Session, user_id: int, project: str, actor: str | None = None
 ) -> None:
-    """Give the known ``project`` (cleaned) to a user in reading only (no change when the user
-    already has it); the change is audited as ``user.projects_changed``.
+    """Give the reading of the known ``project`` (cleaned) to a user, nothing more: added with
+    ``reports.read`` alone, or ``reports.read`` added to the permissions the user already holds
+    there (no change when it reads it already); audited as ``user.projects_changed``.
 
     Raises:
         ValueError: The user would have more than MAX_SESSION_PROJECTS projects.
     """
     row = project_store.ensure_project(session, project, actor)
-    exists = session.exec(
-        select(UserProject.id).where(
-            UserProject.user_id == user_id, UserProject.project_id == row.id
-        )
+    current = session.exec(
+        select(UserProject).where(UserProject.user_id == user_id, UserProject.project_id == row.id)
     ).first()
-    if exists is not None:
-        return
-    session.add(
-        UserProject(user_id=user_id, project_id=row.id, read_only=True, created_by=actor)  # type: ignore[arg-type]
-    )
+    reading = Permission.REPORTS_READ.value
+    if current is not None:
+        held = json.loads(current.permissions)
+        if reading in held:
+            return
+        current.permissions = json.dumps(sorted([*held, reading]))
+        session.add(current)
+    else:
+        session.add(
+            UserProject(
+                user_id=user_id,
+                project_id=row.id,  # type: ignore[arg-type]
+                permissions=json.dumps([reading]),
+                created_by=actor,
+            )
+        )
     _check_reach(session, user_id)
     audit.record(
         session,
@@ -859,7 +895,7 @@ def add_user_project(
         "user",
         user_id,
         project,
-        {"added": [project], "removed": [], "read_only": [project], "all_projects": None},
+        {"projects": [f"{project}={reading}"], "removed": [], "all_projects_permissions": None},
     )
 
 
@@ -880,9 +916,9 @@ def list_project_members(project: str) -> list[dict[str, Any]]:
 
 
 def _members_public(session: Session, project: Project) -> list[dict[str, Any]]:
-    """The users who have ``project`` in their projects."""
+    """The users who have ``project``, with their permissions there."""
     rows = session.exec(
-        select(WebUser, UserProject.read_only)
+        select(WebUser, UserProject.permissions)
         .join(UserProject, col(UserProject.user_id) == col(WebUser.id))
         .where(UserProject.project_id == project.id)
         .order_by(col(WebUser.username))
@@ -892,25 +928,27 @@ def _members_public(session: Session, project: Project) -> list[dict[str, Any]]:
             "user_id": user.id,
             "username": user.username,
             "auth_source": user.auth_source,
-            "read_only": read_only,
+            "permissions": json.loads(permissions),
         }
-        for user, read_only in rows
+        for user, permissions in rows
     ]
 
 
 def set_project_members(
-    project: str, members: Iterable[tuple[int, bool]], actor: str | None = None
+    project: str, members: Iterable[tuple[int, Iterable[str]]], actor: str | None = None
 ) -> list[dict[str, Any]]:
-    """Replace the users who have ``project``: ``members`` holds (user id, read only).
+    """Replace the users who have ``project``: ``members`` holds (user id, per-project
+    permissions).
 
     Raises:
         NotFoundError: Unknown project or user.
-        ValueError: Invalid project, more than MAX_PROJECT_MEMBERS members, or a user who would
-            have more than MAX_SESSION_PROJECTS projects.
+        ValueError: Invalid project or permission, more than MAX_PROJECT_MEMBERS members, or a
+            user who would have more than MAX_SESSION_PROJECTS projects.
     """
-    wanted: dict[int, bool] = {}
-    for user_id, read_only in members:
-        wanted[user_id] = wanted.get(user_id, True) and read_only
+    wanted: dict[int, list[str]] = {}
+    for user_id, permissions in members:
+        cleaned = clean_project_permissions(permissions)
+        wanted[user_id] = sorted(set(wanted.get(user_id, [])) | set(cleaned))
     if len(wanted) > MAX_PROJECT_MEMBERS:
         raise ValueError(f"At most {MAX_PROJECT_MEMBERS} members can be set at once")
     with session_scope() as session:
@@ -929,17 +967,17 @@ def set_project_members(
             if user_id not in wanted:
                 session.delete(item)
                 changed.add(user_id)
-            elif item.read_only != wanted[user_id]:
-                item.read_only = wanted[user_id]
+            elif json.loads(item.permissions) != wanted[user_id]:
+                item.permissions = json.dumps(wanted[user_id])
                 session.add(item)
                 changed.add(user_id)
-        for user_id, read_only in wanted.items():
+        for user_id, permissions in wanted.items():
             if user_id not in current:
                 session.add(
                     UserProject(
                         user_id=user_id,
                         project_id=row.id,  # type: ignore[arg-type]
-                        read_only=read_only,
+                        permissions=json.dumps(permissions),
                         created_by=actor,
                     )
                 )
@@ -955,10 +993,11 @@ def set_project_members(
                 user_id,
                 row.name,
                 {
-                    "added": [row.name] if user_id not in current and user_id in wanted else [],
-                    "removed": [row.name] if user_id not in wanted else [],
-                    "read_only": [row.name] if wanted.get(user_id) else [],
-                    "all_projects": None,
+                    "projects": [f"{row.name}={','.join(wanted[user_id])}"]
+                    if user_id in wanted
+                    else [],
+                    "removed": [] if user_id in wanted else [row.name],
+                    "all_projects_permissions": None,
                 },
             )
         return _members_public(session, row)
@@ -1059,7 +1098,7 @@ def _create_project(
         "project",
         project,
         project,
-        {"user_id": user_id, "read_only": True},
+        {"user_id": user_id, "permissions": [Permission.REPORTS_READ.value]},
     )
     return {"project": project}
 
@@ -1087,12 +1126,8 @@ def _delete_reports(session: Session, project: str) -> dict[str, int]:
 
 
 def _forget_project_access(session: Session, project: Project, actor: str | None) -> dict[str, Any]:
-    """Remove ``project`` from the users and from the OIDC mappings.
-
-    A mapping left without project is deleted (its roles would apply to the other projects of its
-    users). Each mapping changed is audited with
-    ``oidc.mappings_changed``.
-    """
+    """Remove ``project`` from the users and from the OIDC mappings (a mapping left giving
+    nothing is deleted). Each mapping changed is audited with ``oidc.mappings_changed``."""
     members = session.exec(
         select(func.count()).select_from(UserProject).where(UserProject.project_id == project.id)
     ).one()
@@ -1100,12 +1135,11 @@ def _forget_project_access(session: Session, project: Project, actor: str | None
     changed: list[str] = []
     for mapping in session.exec(select(OidcRoleMapping)).all():
         projects = json.loads(mapping.projects)
-        if project.name not in projects:
+        remaining = [item for item in projects if item["project"] != project.name]
+        if len(remaining) == len(projects):
             continue
-        remaining = [name for name in projects if name != project.name]
         mapping.projects = json.dumps(remaining)
-        # Limited to projects, it never gives its roles once it has none left
-        if not remaining:
+        if _empty_mapping(mapping):
             session.delete(mapping)
         else:
             session.add(mapping)
@@ -1225,7 +1259,7 @@ def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -
         "project",
         project,
         project,
-        {"user_id": user_id, "read_only": True},
+        {"user_id": user_id, "permissions": [Permission.REPORTS_READ.value]},
     )
 
 
@@ -1516,7 +1550,7 @@ def _empty_mapping(mapping: OidcRoleMapping) -> bool:
     """True for a mapping that gives nothing: no role, no project."""
     return (
         not json.loads(mapping.role_ids)
-        and not mapping.all_projects
+        and not json.loads(mapping.all_projects_permissions)
         and not json.loads(mapping.projects)
     )
 
@@ -1529,7 +1563,8 @@ def _mapping_public(mapping: OidcRoleMapping, names: Mapping[int, str]) -> dict[
         "claim": mapping.claim,
         "role_ids": role_ids,
         "roles": [names[item] for item in role_ids if item in names],
-        "projects": None if mapping.all_projects else json.loads(mapping.projects),
+        "all_projects_permissions": json.loads(mapping.all_projects_permissions),
+        "projects": json.loads(mapping.projects),
         "created_at": mapping.created_at.isoformat(),
         "created_by": mapping.created_by,
     }
@@ -1543,57 +1578,67 @@ def _list_mappings(session: Session) -> list[dict[str, Any]]:
 
 
 def list_oidc_mappings() -> list[dict[str, Any]]:
-    """Every OIDC mapping (value of the roles claim, roles, projects or None for every
-    project)."""
+    """Every OIDC mapping (value of the roles claim, roles, per-project permissions on every
+    project and projects with their permissions)."""
     with session_scope() as session:
         return _list_mappings(session)
 
 
 def set_oidc_mappings(
-    mappings: Iterable[tuple[str, Iterable[int], Iterable[str] | None]], actor: str | None = None
+    mappings: Iterable[
+        tuple[str, Iterable[int], Iterable[str], Iterable[tuple[str, Iterable[str]]]]
+    ],
+    actor: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Replace the OIDC mappings: ``mappings`` holds (claim value, role ids, projects or None for
-    every project). A project not known yet is kept and ignored until it is created. The change
-    applies at once to the OIDC users (their claims of the last login); a change that removes
-    the last holder of ``users.manage`` is refused.
+    """Replace the OIDC mappings: ``mappings`` holds (claim value, role ids, per-project
+    permissions on every project, (project, per-project permissions) pairs). A project not known
+    yet is kept and ignored until it is created. The change applies at once to the OIDC users
+    (their claims of the last login); a change that removes the last holder of ``users.manage``
+    is refused.
 
     Raises:
         NotFoundError: Unknown role.
-        ValueError: Invalid claim or project, a claim given twice, a mapping that gives nothing,
-            more than MAX_PROJECTS_PER_TOKEN projects or MAX_ROLES roles in a mapping, or more
-            than MAX_OIDC_MAPPINGS mappings.
+        ValueError: Invalid claim, project or permission, a claim given twice, a mapping that
+            gives nothing, more than MAX_PROJECTS_PER_TOKEN projects or MAX_ROLES roles in a
+            mapping, or more than MAX_OIDC_MAPPINGS mappings.
     """
     items = list(mappings)
     if len(items) > MAX_OIDC_MAPPINGS:
         raise ValueError(f"At most {MAX_OIDC_MAPPINGS} OIDC mappings can be stored")
     with session_scope() as session:
-        cleaned: dict[str, tuple[list[int], list[str] | None]] = {}
-        for claim, role_ids, projects in items:
+        cleaned: dict[str, tuple[list[int], list[str], list[dict[str, Any]]]] = {}
+        for claim, role_ids, every, projects in items:
             value = clean_claim(claim)
             if value in cleaned:
                 raise ValueError(f"The claim '{value}' is given twice")
             roles = _check_roles(session, role_ids)
-            names = (
-                None
-                if projects is None
-                else list(dict.fromkeys(_clean_project(name) for name in projects))
-            )
-            if names is not None and len(names) > MAX_PROJECTS_PER_TOKEN:
+            scoped = clean_project_permissions(every, empty=True)
+            given: dict[str, list[str]] = {}
+            for name, permissions in projects:
+                project = _clean_project(name)
+                given[project] = sorted(
+                    set(given.get(project, [])) | set(clean_project_permissions(permissions))
+                )
+            if len(given) > MAX_PROJECTS_PER_TOKEN:
                 raise ValueError(f"A mapping may name at most {MAX_PROJECTS_PER_TOKEN} projects")
-            if not roles and names == []:
+            if not roles and not scoped and not given:
                 raise ValueError(f"The mapping of '{value}' gives neither a role nor a project")
-            cleaned[value] = (roles, names)
+            cleaned[value] = (
+                roles,
+                scoped,
+                [{"project": name, "permissions": held} for name, held in sorted(given.items())],
+            )
         before = managers(session)
         previous = {row["claim"] for row in _list_mappings(session)}
         session.exec(delete(OidcRoleMapping))  # type: ignore[arg-type]
         session.flush()
-        for claim, (roles, projects) in cleaned.items():
+        for claim, (roles, scoped, projects) in cleaned.items():
             session.add(
                 OidcRoleMapping(
                     claim=claim,
                     role_ids=json.dumps(roles),
-                    all_projects=projects is None,
-                    projects=json.dumps(projects or []),
+                    all_projects_permissions=json.dumps(scoped),
+                    projects=json.dumps(projects),
                     created_by=actor,
                 )
             )
@@ -1621,8 +1666,9 @@ def set_oidc_mappings(
 
 
 def _ensure_admin_mapping(session: Session, claim: str) -> None:
-    """Map ``claim`` (a value of SECREVIEW_OIDC_ADMIN_GROUPS) to ``admin`` on every project,
-    when no mapping names it yet: a mapping an administrator changed is left as it is."""
+    """Map ``claim`` (a value of SECREVIEW_OIDC_ADMIN_GROUPS) to ``admin`` and every
+    per-project permission on every project, when no mapping names it yet: a mapping an
+    administrator changed is left as it is."""
     admin = ensure_system_roles(session)[ADMIN_ROLE]
     if session.exec(select(OidcRoleMapping.id).where(OidcRoleMapping.claim == claim)).first():
         return
@@ -1633,7 +1679,7 @@ def _ensure_admin_mapping(session: Session, claim: str) -> None:
         OidcRoleMapping(
             claim=claim,
             role_ids=json.dumps([admin]),
-            all_projects=True,
+            all_projects_permissions=json.dumps(sorted(SCOPED_PERMISSIONS)),
             projects="[]",
             created_by=OIDC_ACTOR,
         )

@@ -7,7 +7,7 @@ export const users = defineMessages({
     'users.subtitle':
       'Accounts of the web interface: local (username and password) or OIDC (identity provider)',
     'users.help':
-      'Only accounts can access the interface. What a user may do comes only from its roles and its projects: the per-project permissions of its roles apply to its projects (or every project), the others to the whole Controller server; an OIDC user also gets those of the OIDC mappings of its claim at its last login. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
+      'Only accounts can access the interface. What a user may do comes only from its roles (permissions on the whole Controller server) and its projects with their per-project permissions (reading, triage), and for an OIDC user from those of the OIDC mappings of its claim at its last login. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
     'users.generatedPassword': 'Generated password',
     'users.passwordOf': 'Password of “{user}”',
     'users.copyNow': 'Copy it now: it will not be shown again.',
@@ -68,10 +68,10 @@ export const users = defineMessages({
     'users.failed': 'The management of the users failed.',
     'users.access': 'Access',
     'users.rolesHelp':
-      'reader by default. The per-project permissions of these roles apply to the projects of the user.',
+      'Permissions on the whole Controller server (rules, tokens, users, audit...).',
     'users.projects': 'Projects',
     'users.projectsHelp':
-      'Search the projects, tick them and add them. A read-only project is only read, whatever the roles. Without any project, the user reads nothing.',
+      'Per-project permissions (reading, triage): on every project, and on each project added (search them, tick them and add them; reading by default). Without any, the user reads nothing.',
     'users.oidcAccess': 'Roles and projects of its OIDC mappings (last login):',
   },
   fr: {
@@ -79,7 +79,7 @@ export const users = defineMessages({
     'users.subtitle':
       "Comptes de l'interface web : locaux (identifiant et mot de passe) ou OIDC (fournisseur d'identité)",
     'users.help':
-      "Seuls les comptes ouvrent l'interface. Ce qu'un utilisateur peut faire vient uniquement de ses rôles et de ses projets : les permissions par projet de ses rôles s'appliquent à ses projets (ou à tous les projets), les autres à tout le serveur Controller ; un utilisateur OIDC reçoit aussi ceux des correspondances OIDC de son claim à sa dernière connexion. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
+      "Seuls les comptes ouvrent l'interface. Ce qu'un utilisateur peut faire vient uniquement de ses rôles (droits sur tout le serveur Controller) et de ses projets avec leurs droits par projet (lecture, triage), et pour un utilisateur OIDC de ceux des correspondances OIDC de son claim à sa dernière connexion. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
     'users.generatedPassword': 'Mot de passe généré',
     'users.passwordOf': 'Mot de passe de « {user} »',
     'users.copyNow': 'Copiez-le maintenant : il ne sera plus affiché.',
@@ -143,10 +143,10 @@ export const users = defineMessages({
     'users.failed': 'La gestion des utilisateurs a échoué.',
     'users.access': 'Accès',
     'users.rolesHelp':
-      "reader par défaut. Les permissions par projet de ces rôles s'appliquent aux projets de l'utilisateur.",
+      'Droits sur tout le serveur Controller (règles, jetons, utilisateurs, audit...).',
     'users.projects': 'Projets',
     'users.projectsHelp':
-      "Recherchez les projets, cochez-les et ajoutez-les. Un projet en lecture seule n'est que lu, quels que soient les rôles. Sans aucun projet, l'utilisateur ne voit rien.",
+      "Droits par projet (lecture, triage) : sur tous les projets, et sur chaque projet ajouté (recherchez-les, cochez-les et ajoutez-les ; lecture par défaut). Sans aucun, l'utilisateur ne voit rien.",
     'users.oidcAccess': 'Rôles et projets de ses correspondances OIDC (dernière connexion) :',
   },
   es: {
@@ -154,7 +154,7 @@ export const users = defineMessages({
     'users.subtitle':
       'Cuentas de la interfaz web: locales (usuario y contraseña) o OIDC (proveedor de identidad)',
     'users.help':
-      'Solo estas cuentas abren la interfaz. Lo que un usuario puede hacer viene solo de sus roles y de sus proyectos: los permisos por proyecto de sus roles se aplican a sus proyectos (o a todos los proyectos), los demás a todo el servidor Controller; un usuario OIDC recibe también los de las correspondencias OIDC de su claim en su último inicio de sesión. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
+      'Solo estas cuentas abren la interfaz. Lo que un usuario puede hacer viene solo de sus roles (permisos sobre todo el servidor Controller) y de sus proyectos con sus permisos por proyecto (lectura, clasificación), y para un usuario OIDC de los de las correspondencias OIDC de su claim en su último inicio de sesión. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
     'users.generatedPassword': 'Contraseña generada',
     'users.passwordOf': 'Contraseña de «{user}»',
     'users.copyNow': 'Cópiela ahora: no se volverá a mostrar.',
@@ -216,10 +216,10 @@ export const users = defineMessages({
     'users.failed': 'La gestión de los usuarios ha fallado.',
     'users.access': 'Acceso',
     'users.rolesHelp':
-      'reader por defecto. Los permisos por proyecto de estos roles se aplican a los proyectos del usuario.',
+      'Permisos sobre todo el servidor Controller (reglas, tokens, usuarios, auditoría...).',
     'users.projects': 'Proyectos',
     'users.projectsHelp':
-      'Busque los proyectos, márquelos y añádalos. Un proyecto de solo lectura solo se lee, sean cuales sean los roles. Sin ningún proyecto, el usuario no ve nada.',
+      'Permisos por proyecto (lectura, clasificación): en todos los proyectos, y en cada proyecto añadido (búsquelos, márquelos y añádalos; lectura por defecto). Sin ninguno, el usuario no ve nada.',
     'users.oidcAccess': 'Roles y proyectos de sus correspondencias OIDC (último inicio de sesión):',
   },
 });

@@ -222,12 +222,12 @@ def test_user_grants_become_sso_web_users(empty_engine):
     alice = users["alice"]
     assert (alice["auth_source"], alice["created_by"]) == ("oidc", "admin")
     # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role,
-    # 0018 into the groups of its projects and 0039 into a role and these projects
+    # 0018 into the groups of its projects and 0039 into these projects, with their reading
     assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
-    assert [role["name"] for role in alice["roles"]] == ["reader"]
-    assert [(item["project"], item["read_only"]) for item in alice["projects"]] == [
-        ("billing", False),
-        ("shop-api", False),
+    assert alice["roles"] == []
+    assert [(item["project"], item["permissions"]) for item in alice["projects"]] == [
+        ("billing", ["reports.read"]),
+        ("shop-api", ["reports.read"]),
     ]
     assert (users["bob"]["auth_source"], users["bob"]["permissions"]) == ("local", ADMIN_GRANTS)
 
@@ -595,7 +595,6 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.auth import token_store
     from security_review_mcp.observability import audit
 
     with empty_engine.begin() as connection:
@@ -633,14 +632,12 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
                 )
         command.upgrade(database.alembic_config(connection), "0038")  # 0039 removes triager
         links = connection.execute(text("SELECT token_id FROM apitokenproject")).scalars().all()
+        labels = connection.execute(text("SELECT label FROM apitoken")).scalars().all()
         triager = connection.execute(
             text("SELECT system, permissions FROM accessrole WHERE name = 'triager'")
         ).one()
 
-    assert sorted(token["label"] for token in token_store.list_tokens()) == [
-        "ci-token",
-        "mcp-token",
-    ]
+    assert sorted(labels) == ["ci-token", "mcp-token"]
     assert sorted(links) == ["t3", "t4"]
     events = audit.list_events(action="token.revoked")["events"]
     assert sorted((e["actor"], e["target_id"], e["details"]["role"]) for e in events) == [
@@ -664,10 +661,7 @@ def test_a_new_database_gets_only_the_built_in_roles(empty_engine):
     database.upgrade_db()
 
     roles = access_control.list_roles()
-    assert [(role["name"], role["system"]) for role in roles] == [
-        ("admin", True),
-        ("reader", True),
-    ]
+    assert [(role["name"], role["system"]) for role in roles] == [("admin", True)]
 
 
 def test_the_mcp_tokens_create_permission_is_removed_from_every_role(empty_engine):
@@ -1099,24 +1093,59 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
             ),
             {"now": now},
         )
+        connection.execute(
+            text(
+                "INSERT INTO apitoken (id, label, role, project, token_hash, created_at, "
+                "access_role_id) VALUES ('t2', 'crm-bot', 'api', 'crm', :digest, :now, :role)"
+            ),
+            {"digest": "c" * 64, "now": now, "role": roles["lead"]},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO apitokenproject (id, token_id, project, created_at) "
+                "VALUES ('l2', 't2', 'crm', :now)"
+            ),
+            {"now": now},
+        )
         command.upgrade(config, "head")
+        token = connection.execute(
+            text("SELECT access_role_id, project_permissions FROM apitoken WHERE id = 't2'")
+        ).one()
         settings = connection.execute(text("SELECT key FROM appsetting")).scalars().all()
 
     users = {user["username"]: user for user in web_users.list_users()}
     assert users["root"]["permissions"] == ADMIN_GRANTS
-    # The roles of its groups and their projects; triager is removed
+    # The roles of its groups keep their permissions on the whole controller, the per-project
+    # ones move to the projects; triager is removed
     assert users["dev"]["permissions"] == {"audit.read": None, "reports.read": ["crm", "shop"]}
-    assert [role["name"] for role in users["dev"]["roles"]] == ["auditor", "reader"]
+    assert [role["name"] for role in users["dev"]["roles"]] == ["auditor"]
     assert [item["project"] for item in users["dev"]["projects"]] == ["crm", "shop"]
-    # Roles on different projects: never widened, the projects are only read
-    assert users["lea"]["permissions"] == {"reports.read": ["crm", "shop"]}
-    assert all(item["read_only"] for item in users["lea"]["projects"])
+    # Roles on different projects: exactly the same rights
+    assert users["lea"]["permissions"] == {
+        "findings.triage": ["crm"],
+        "reports.read": ["crm", "shop"],
+    }
+    assert {item["project"]: item["permissions"] for item in users["lea"]["projects"]} == {
+        "crm": ["findings.triage", "reports.read"],
+        "shop": ["reports.read"],
+    }
     # The OIDC user keeps the rights of its OIDC group until its next login
     assert users["carol"]["permissions"] == {"reports.read": ["crm", "shop"]}
-    assert [
-        (m["claim"], m["roles"], m["projects"]) for m in access_control.list_oidc_mappings()
-    ] == [("devs", ["reader"], ["crm", "shop"])]
-    assert "triager" not in {role["name"] for role in access_control.list_roles()}
+    (mapping,) = access_control.list_oidc_mappings()
+    assert (mapping["claim"], mapping["roles"], mapping["all_projects_permissions"]) == (
+        "devs",
+        [],
+        [],
+    )
+    assert mapping["projects"] == [
+        {"project": "crm", "permissions": ["reports.read"]},
+        {"project": "shop", "permissions": ["reports.read"]},
+    ]
+    # A role keeps its permissions on the whole controller; a role token keeps its role and gets
+    # its per-project permissions; a role left empty goes, unless a token uses it
+    assert tuple(token) == (roles["lead"], '["findings.triage", "reports.read"]')
+    listed = {role["name"]: role["permissions"] for role in access_control.list_roles()}
+    assert listed == {"admin": listed["admin"], "auditor": ["audit.read"], "lead": []}
     revoked = audit.list_events(action="token.revoked")["events"]
     assert [(event["actor"], event["target_id"]) for event in revoked] == [("migration", "t1")]
     assert "oidc_default_group" not in settings

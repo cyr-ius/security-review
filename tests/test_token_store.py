@@ -477,7 +477,7 @@ def test_the_label_of_a_personal_token_names_its_user():
 @pytest.mark.parametrize("role", [Role.MCP, Role.CI])
 def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
     """The projects are read at each request: a project granted or removed applies at once."""
-    from conftest import known_projects, role_id
+    from conftest import known_projects
 
     from security_review_mcp.auth import web_users
 
@@ -493,14 +493,14 @@ def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
     assert [item["projects"] for item in listed] == [["shop-api"]]
 
     known_projects("billing")
-    reader = role_id("reader")
-    web_users.update_user(user["id"], [reader], [("billing", False), ("shop-api", False)])
+    reading = ["reports.read"]
+    web_users.update_user(user["id"], [], [("billing", reading), ("shop-api", reading)])
     info = STORE.lookup(digest_of(created["token"]))
     assert info.projects == frozenset({"billing", "shop-api"})
     # Without any project, the token reaches no project (never every project)
-    web_users.update_user(user["id"], [reader], [])
+    web_users.update_user(user["id"], [], [])
     assert STORE.lookup(digest_of(created["token"])).projects == frozenset()
-    web_users.update_user(user["id"], [reader], all_projects=True)
+    web_users.update_user(user["id"], [], all_projects_permissions=reading)
     assert STORE.lookup(digest_of(created["token"])).projects is None
 
 

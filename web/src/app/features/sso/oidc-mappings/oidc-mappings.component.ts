@@ -2,35 +2,41 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
+import { PERMISSION_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { OidcRoleMapping, OidcRoleMappingWrite } from '../../../core/models/api.models';
+import {
+  OidcRoleMapping,
+  OidcRoleMappingWrite,
+  Permission,
+  UserProjectItem,
+} from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
+import { ProjectPermissionsComponent } from '../../../shared/components/project-permissions/project-permissions.component';
 import { describeAccessError } from '../../access/access-errors';
 
 /** The mapping being added: a value of the claim and the projects it gives. */
 interface MappingFormModel {
   claim: string;
-  allProjects: boolean;
-  /** Comma-separated project names (when not every project; may be empty). */
+  /** Comma-separated project names (may be empty). */
   projects: string;
 }
 
-const EMPTY_MAPPING: MappingFormModel = { claim: '', allProjects: false, projects: '' };
+const EMPTY_MAPPING: MappingFormModel = { claim: '', projects: '' };
 
 /** Projects a mapping may name (as the API). */
 const MAX_PROJECTS = 50;
 
 /**
- * The OIDC mappings: each value of the roles claim gives roles, and every project or a list of
- * projects (a project not created yet is ignored until it is); they add up with those given to
- * the user. They apply at once to the OIDC users, through the values of their claim at their last
- * login.
+ * The OIDC mappings: each value of the roles claim gives roles, per-project permissions on
+ * every project and projects with their permissions (a project not created yet is ignored until
+ * it is); they add up with those given to the user. They apply at once to the OIDC users, through
+ * the values of their claim at their last login.
  */
 @Component({
   selector: 'app-oidc-mappings',
-  imports: [FormField, HelpLinkComponent, TranslatePipe],
+  imports: [FormField, HelpLinkComponent, ProjectPermissionsComponent, TranslatePipe],
   templateUrl: './oidc-mappings.component.html',
 })
 export class OidcMappingsComponent {
@@ -44,8 +50,8 @@ export class OidcMappingsComponent {
   readonly mappingForm = form(this.mappingModel, (path) => {
     required(path.claim);
     maxLength(path.claim, 200);
-    validate(path.projects, ({ value, valueOf }) =>
-      !valueOf(path.allProjects) && splitProjects(value()).length > MAX_PROJECTS
+    validate(path.projects, ({ value }) =>
+      splitProjects(value()).length > MAX_PROJECTS
         ? { kind: 'projects', message: this.i18n.translate('mappings.projectsHelp') }
         : undefined,
     );
@@ -57,16 +63,42 @@ export class OidcMappingsComponent {
 
   /** Ids of the roles the new mapping gives. */
   readonly pickedRoles = signal<number[]>([]);
+  /** Per-project permissions of the new mapping on every project. */
+  readonly allProjectsPermissions = signal<Permission[]>([]);
+  /** Per-project permissions of the new mapping on its projects: their reading by default. */
+  readonly projectPermissions = signal<Permission[]>(['reports.read']);
 
-  /** A mapping gives a role, every project or a project. */
-  readonly canSubmit = computed(
-    () =>
+  /** A mapping gives a role, permissions on every project or projects with permissions. */
+  readonly canSubmit = computed(() => {
+    const projects = splitProjects(this.mappingModel().projects);
+    return (
       !this.busy() &&
       this.mappingForm().valid() &&
+      (!projects.length || this.projectPermissions().length > 0) &&
       (this.pickedRoles().length > 0 ||
-        this.mappingModel().allProjects ||
-        splitProjects(this.mappingModel().projects).length > 0),
-  );
+        this.allProjectsPermissions().length > 0 ||
+        projects.length > 0)
+    );
+  });
+
+  /** Text of a list of projects with their permissions. */
+  describe(projects: UserProjectItem[]): string {
+    return projects
+      .map(
+        (item) =>
+          `${item.project} (${item.permissions
+            .map((permission) => this.i18n.translate(PERMISSION_META[permission].label))
+            .join(', ')})`,
+      )
+      .join(' · ');
+  }
+
+  /** Labels of per-project permissions. */
+  labels(permissions: Permission[]): string {
+    return permissions
+      .map((permission) => this.i18n.translate(PERMISSION_META[permission].label))
+      .join(', ');
+  }
 
   toggleRole(roleId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
@@ -80,17 +112,20 @@ export class OidcMappingsComponent {
     if (!this.canSubmit()) {
       return;
     }
-    const { claim, allProjects, projects } = this.mappingModel();
+    const { claim, projects } = this.mappingModel();
+    const permissions = this.projectPermissions();
     const added: OidcRoleMappingWrite = {
       claim: claim.trim(),
       role_ids: this.pickedRoles(),
-      all_projects: allProjects,
-      projects: allProjects ? [] : splitProjects(projects),
+      all_projects_permissions: this.allProjectsPermissions(),
+      projects: splitProjects(projects).map((project) => ({ project, permissions })),
     };
     const ok = await this.save([...this.current(), added], msg('mappings.saved'));
     if (ok) {
       this.mappingForm().reset({ ...EMPTY_MAPPING });
       this.pickedRoles.set([]);
+      this.allProjectsPermissions.set([]);
+      this.projectPermissions.set(['reports.read']);
     }
   }
 
@@ -110,8 +145,8 @@ export class OidcMappingsComponent {
     return (this.catalog.value()?.mappings ?? []).map((item) => ({
       claim: item.claim,
       role_ids: item.role_ids,
-      all_projects: item.projects === null,
-      projects: item.projects ?? [],
+      all_projects_permissions: item.all_projects_permissions,
+      projects: item.projects,
     }));
   }
 

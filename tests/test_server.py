@@ -666,13 +666,17 @@ def test_a_personal_token_saves_its_user_as_the_author(http_app):
 
 
 def personal_token(username: str, permissions: list[str] | None = None) -> str:
-    """A personal mcp token of a new web user whose only role holds ``permissions``."""
-    from conftest import make_user
+    """A personal mcp token of a new web user that holds ``permissions``: those on the whole
+    controller by a role, the per-project ones on every project."""
+    from security_review_mcp.auth import web_users
 
-    role = None
-    if permissions:
-        role = access_control.create_role(f"role-{username}", permissions)["name"]
-    user = make_user(username, "Correct horse battery 9", role)
+    site = [name for name in permissions or [] if name not in access_control.SCOPED_PERMISSIONS]
+    scoped = [name for name in permissions or [] if name in access_control.SCOPED_PERMISSIONS]
+    roles = [access_control.create_role(f"role-{username}", site)["id"]] if site else []
+    # An OIDC user: no password to change before its tokens work
+    user = web_users.create_user(
+        username, None, roles, auth_source="oidc", all_projects_permissions=scoped
+    )
     return token_store.create_personal_token(user["id"], "agent", role="mcp")["token"]
 
 
@@ -695,7 +699,9 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
         "created"
     )
     members = access_control.list_project_members("intranet")
-    assert [(member["username"], member["read_only"]) for member in members] == [("dave", True)]
+    assert [(member["username"], member["permissions"]) for member in members] == [
+        ("dave", ["reports.read"])
+    ]
     _, text = dave.call("request_project", {"project": "intranet"})
     assert json.loads(text) == {"project": "intranet", "status": "accessible"}
 

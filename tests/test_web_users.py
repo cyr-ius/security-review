@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from conftest import ADMIN_GRANTS, TRIAGER_GRANTS, known_projects, make_user, map_claim, role_id
+from conftest import ADMIN_GRANTS, TRIAGER_GRANTS, known_projects, make_user, map_claim
 from sqlmodel import Session, select
 
 from security_review_mcp import cli
@@ -162,7 +162,7 @@ def test_last_administrator_is_kept(auth_source):
     password = PASSWORD if auth_source == "local" else None
     admin = make_user("admin", password, "admin", auth_source=auth_source)
     known_projects("shop-api")
-    readers = [("shop-api", role_id("reader"))]
+    readers = [("shop-api", ["reports.read"])]
 
     with pytest.raises(ValueError, match="last holder of users.manage"):
         web_users.delete_user(admin["id"])
@@ -172,7 +172,7 @@ def test_last_administrator_is_kept(auth_source):
     assert web_users.list_revoked_users() == []
 
     other = make_user("root", PASSWORD, "admin")
-    demoted = web_users.update_user(admin["id"], [], readers)
+    demoted = web_users.update_user(admin["id"], [], readers, all_projects_permissions=[])
     assert demoted["permissions"] == {"reports.read": ["shop-api"]}
     with pytest.raises(ValueError, match="last holder of users.manage"):
         web_users.delete_user(other["id"])
@@ -200,7 +200,7 @@ def test_change_own_password_needs_the_current_one():
 def test_a_password_set_by_someone_else_must_be_changed(database):
     signer = oidc.SessionSigner(SECRET)
     created = web_users.create_user(
-        "alice", PASSWORD, [role_id("reader")], created_by="admin", all_projects=True
+        "alice", PASSWORD, [], created_by="admin", all_projects_permissions=["reports.read"]
     )
     assert created["must_change_password"] is True
     assert web_users.new_session(signer, created["id"])["must_change_password"] is True
@@ -254,8 +254,10 @@ def test_session_follows_the_stored_user():
         user["id"],
     )
     assert info.grants == {"reports.read": frozenset({"shop-api"})}
-    # A new role and every project apply to the open session at once
-    web_users.update_user(user["id"], [role_id("triager")], [], all_projects=True)
+    # New permissions apply to the open session at once
+    web_users.update_user(
+        user["id"], [], [], all_projects_permissions=["findings.triage", "reports.read"]
+    )
     info = verifier.verify_session(session)
     assert (info.role, info.projects, info.grants) == (Role.USER, None, TRIAGER_GRANTS)
     # A deleted user loses its sessions
@@ -355,8 +357,8 @@ def test_sso_login_creates_the_user_when_auto_creation_is_enabled(database):
         "oidc",
         "oidc",
     )
-    assert [(r["claim"], r["roles"], r["projects"]) for r in user["oidc"]] == [
-        ("devs", ["triager"], None)
+    assert [(r["claim"], r["all_projects_permissions"]) for r in user["oidc"]] == [
+        ("devs", ["findings.triage", "reports.read"])
     ]
     assert user["permissions"] == TRIAGER_GRANTS
     assert user["sso_linked"] and user["last_login_at"]
@@ -384,13 +386,14 @@ def test_sso_login_maps_the_admin_groups_of_the_settings():
 
     assert web_users.find_user("alice")["permissions"] == ADMIN_GRANTS
     mappings = [
-        (m["claim"], m["roles"], m["projects"]) for m in access_control.list_oidc_mappings()
+        (m["claim"], m["roles"], m["all_projects_permissions"])
+        for m in access_control.list_oidc_mappings()
     ]
     # Mapped only when a user who holds it logs in
-    assert mappings == [("sec-admins", ["admin"], None)]
+    assert mappings == [("sec-admins", ["admin"], ["findings.triage", "reports.read"])]
     # A mapping changed by an administrator is left as it is
     make_user("root", PASSWORD, "admin")
-    access_control.set_oidc_mappings([("sec-admins", [role_id("reader")], None)])
+    access_control.set_oidc_mappings([("sec-admins", [], ["reports.read"], [])])
     login(signer, identity("alice", "sub-1", "sec-admins"), **settings)
     assert web_users.find_user("alice")["permissions"] == {"reports.read": None}
 
@@ -408,11 +411,11 @@ def test_sso_login_combines_the_given_roles_with_the_oidc_ones(database):
         frozenset({"shop", "billing"}),
         {"reports.read": frozenset({"shop", "billing"})},
     )
-    # The roles and the projects add up: the triage role applies to every project of the user
+    # Each project keeps its own permissions: triage on crm only
     info = verifier.verify_session(login(signer, identity("alice", "sub-1", "leads"))["session"])
     assert (info.projects, info.grants["findings.triage"]) == (
         frozenset({"shop", "crm"}),
-        frozenset({"shop", "crm"}),
+        frozenset({"crm"}),
     )
     # The OIDC claims are replaced at each login
     login(signer, identity("alice", "sub-1"))
@@ -623,11 +626,11 @@ def test_last_administrator_by_its_oidc_claim_is_kept():
     root = make_user("root", PASSWORD, "admin")
 
     # Demoting the local admin keeps an administrator (alice, by its OIDC claim)
-    web_users.update_user(root["id"], [role_id("reader")])
+    web_users.update_user(root["id"], [])
     with pytest.raises(ValueError, match="last holder of users.manage"):
         web_users.delete_user(alice["id"])
     # The roles given by hand may change: the OIDC claim keeps it administrator
-    updated = web_users.update_user(alice["id"], [role_id("reader")])
+    updated = web_users.update_user(alice["id"], [])
     assert updated["permissions"]["users.manage"] is None
     # Neither the mappings nor a login without the claim remove the last administrator
     with pytest.raises(ValueError, match="keep the users.manage"):
@@ -648,7 +651,9 @@ def run_cli(capsys, *argv: str) -> tuple[int, object]:
 
 def test_user_cli_create_list_set_access_delete(capsys):
     known_projects("shop")
-    code, created = run_cli(capsys, "create", "alice", "--role", "triager", "--project", "shop")
+    code, created = run_cli(
+        capsys, "create", "alice", "--project", "shop=reports.read,findings.triage"
+    )
 
     assert code == cli.EXIT_PASSED
     assert created["created_by"] == "cli"
@@ -678,9 +683,7 @@ def test_user_cli_creates_an_sso_user(capsys):
     assert code == cli.EXIT_PASSED
     assert (created["auth_source"], created["roles"]) == ("oidc", [])
     assert "password" not in created
-    code, updated = run_cli(
-        capsys, "set-access", "alice@example.com", "--role", "triager", "--all-projects"
-    )
+    code, updated = run_cli(capsys, "set-access", "alice@example.com", "--all-projects")
     assert (code, updated["permissions"]) == (cli.EXIT_PASSED, TRIAGER_GRANTS)
     # An unknown role or project is refused; an OIDC user never has a password
     assert cli.run(["user", "create", "bob", "--role", "nope"]) == cli.EXIT_ERROR
@@ -695,10 +698,12 @@ def test_role_cli_lists_the_roles_and_the_oidc_mappings(capsys):
 
     assert cli.run(["role", "mappings"]) == cli.EXIT_PASSED
     mappings = json.loads(capsys.readouterr().out)
-    assert [(m["claim"], m["projects"]) for m in mappings] == [("devs", ["shop"])]
+    assert [(m["claim"], m["projects"]) for m in mappings] == [
+        ("devs", [{"project": "shop", "permissions": ["reports.read"]}])
+    ]
     assert cli.run(["role", "list"]) == cli.EXIT_PASSED
     roles = json.loads(capsys.readouterr().out)
-    assert [role["name"] for role in roles] == ["admin", "reader", "triager"]
+    assert [role["name"] for role in roles] == ["admin"]
 
 
 def test_user_cli_reads_the_password_on_stdin(capsys, monkeypatch):

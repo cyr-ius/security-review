@@ -26,22 +26,22 @@ Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première re
 
 ## Membres
 
-Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets : les permissions par
-projet de leurs rôles s'y appliquent. Son créateur, ou le développeur dont la demande a été
-validée, l'a en **lecture seule**.
+Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets, chacun avec ses droits
+par projet ici (lecture, triage). Son créateur, ou le développeur dont la demande a été validée,
+n'en reçoit que la lecture.
 
 Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet :
-recherchez des comptes, cochez-les et ajoutez-les, mettez un membre en lecture seule ou retirez-le,
-puis **Enregistrer**. Les mêmes projets se donnent dans **Utilisateurs** ([rôles et projets d'un
-compte](access-control.md#roles-et-projets-dun-compte)), ou en validant la **Demande d'accès**
-déposée par un agent dans **Projets**. Pour qu'un collègue trie, donnez-lui le projet et un rôle
-qui porte `findings.triage`. Les comptes qui ont tous les projets et ceux des
-[correspondances OIDC](sso.md#correspondances-oidc) n'y sont pas listés.
+recherchez des comptes, cochez-les et ajoutez-les (avec la lecture), choisissez les droits de
+chaque membre ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans
+**Utilisateurs** ([rôles et projets d'un compte](access-control.md#roles-et-projets-dun-compte)),
+ou en validant la **Demande d'accès** déposée par un agent dans **Projets**. Les comptes qui ont
+tous les projets et ceux des [correspondances OIDC](sso.md#correspondances-oidc) n'y sont pas
+listés.
 
 ## Création d'un projet
 
 Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur la page
-**Projets**. Créer un projet l'ajoute à vos projets en lecture seule : vous le lisez aussitôt, et
+**Projets**. Créer un projet l'ajoute à vos projets avec sa lecture : vous le lisez aussitôt, et
 votre agent peut y enregistrer ses revues.
 
 ## Suppression d'un projet
@@ -68,7 +68,7 @@ demande ; une personne dotée de `users.manage` peut aussi donner le projet à l
 ([membres](#membres)).
 
 Avec la permission `projects.autojoin`, le développeur **rejoint aussitôt le projet**, sans
-demande : la requête de son agent ajoute le projet aux siens en lecture seule, pour qu'il le lise
+demande : la requête de son agent ajoute le projet aux siens avec sa lecture, pour qu'il le lise
 (jamais plus : pas de tri) et que la revue continue. Cette permission ne crée pas de nouveau projet : il
 faut pour cela `projects.create`.
 

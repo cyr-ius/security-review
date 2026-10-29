@@ -150,22 +150,17 @@
     </fieldset>
     <fieldset class="col-md-7">
       <legend class="form-label">{{ 'users.projects' | t }}</legend>
-      <div class="form-check form-switch mb-2">
-        <input
-          id="user-all-projects"
-          class="form-check-input"
-          type="checkbox"
-          role="switch"
-          [checked]="allProjects()"
-          (change)="onAllProjects($event)"
-        />
-        <label class="form-check-label" for="user-all-projects">{{
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <label for="user-all-projects" class="form-label mb-0">{{
           'reports.allProjects' | t
         }}</label>
+        <app-project-permissions
+          id="user-all-projects"
+          [label]="'reports.allProjects' | t"
+          [(permissions)]="allProjectsPermissions"
+        />
       </div>
-      @if (!allProjects()) {
-        <app-project-picker idPrefix="user-projects" [(projects)]="projects" />
-      }
+      <app-project-picker idPrefix="user-projects" [(projects)]="projects" />
       <div class="form-text">{{ 'users.projectsHelp' | t }}</div>
       @if (oidcAccess().length) {
         <div class="form-text">
@@ -173,9 +168,7 @@
           @for (item of oidcAccess(); track item.claim) {
             <span class="badge text-bg-primary bg-opacity-75 ms-1">
               <i class="bi bi-shield-lock" aria-hidden="true"></i>
-              {{ item.claim }} → {{ item.roles.join(', ') || '—' }} ({{
-                item.projects?.join(', ') ?? ('reports.allProjects' | t)
-              }})
+              {{ item.claim }} → {{ item.roles.join(', ') || '—' }}
             </span>
           }
         </div>

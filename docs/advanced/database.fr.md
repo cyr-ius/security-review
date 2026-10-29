@@ -50,11 +50,11 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
   démarrent ensemble (plusieurs réplicas, un `db upgrade` lancé à la main) s'attendent, et la
   suivante trouve le schéma à jour.
 - La version 10 (révision `0039`) transforme les groupes d'utilisateurs web en rôles et projets
-  des utilisateurs et en correspondances OIDC, sans jamais élargir un droit (des rôles donnés sur
-  des projets différents deviennent des projets en lecture seule, leur triage limité à certains
-  projets est perdu), et supprime les
-  rôles `triager` et `mcp-user` (les jetons API de ces rôles sont révoqués). Elle **ne peut pas
-  être rétrogradée** : sauvegardez la base avant la mise à niveau.
+  des utilisateurs et en correspondances OIDC, en gardant les droits de chaque compte : les rôles
+  gardent leurs droits sur tout le serveur Controller, leurs droits par projet passent aux projets
+  des utilisateurs, des correspondances et des jetons de rôle, et le rôle intégré `reader`
+  disparaît. Elle supprime les rôles `triager` et `mcp-user` (les jetons API de ces rôles sont
+  révoqués). Elle **ne peut pas être rétrogradée** : sauvegardez la base avant la mise à niveau.
 
 ### Tâche de migration dédiée
 

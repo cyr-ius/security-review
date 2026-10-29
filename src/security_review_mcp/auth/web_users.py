@@ -14,9 +14,10 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
   deleted OIDC user is revoked by its name and its identity (``RevokedSsoUser``): a login never
   creates it again, even under another name, until an administrator creates it again.
 
-What a web user may do comes only from its roles and its projects (see access_control): those
-an administrator gave it (with the projects it created or joined, in reading only) and, for an
-OIDC user, those of the mappings that name a value of its roles claim at its last login.
+What a web user may do comes only from its roles (permissions on the whole controller) and its
+projects with their per-project permissions (see access_control): those an administrator gave
+it (with the projects it created or joined, read only) and, for an OIDC user, those of the
+mappings that name a value of its roles claim at its last login.
 
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
 SessionVerifier reads the user again: a deleted user loses its sessions at once, a new role or
@@ -27,9 +28,9 @@ that a session never opens another account that reuses the id of a deleted one.
 
 The first administrator is the local user ``SECREVIEW_ADMIN_USERNAME`` (``admin``), created on
 the first start of the controller with a random password that only ``user reset-password`` sets,
-with the ``admin`` role and every project. The last user that holds ``users.manage`` can be
-neither deleted nor lose that permission, so that the web interface always keeps an
-administrator.
+with the ``admin`` role and every per-project permission on every project. The last user that
+holds ``users.manage`` can be neither deleted nor lose that permission, so that the web
+interface always keeps an administrator.
 
 Failed logins are throttled per username and address and per address, in the database
 (rate_limit.LoginThrottle): every worker and replica of the controller shares the counts.
@@ -285,7 +286,7 @@ def _public(session: Session, row: WebUser) -> dict[str, Any]:
         **(
             access_control.user_access(session, row.id)
             if row.id is not None
-            else {"roles": [], "all_projects": False, "projects": [], "oidc": []}
+            else {"roles": [], "all_projects_permissions": [], "projects": [], "oidc": []}
         ),
         "permissions": {
             name: None if projects is None else sorted(projects)
@@ -407,14 +408,15 @@ def create_user(
     username: str,
     password: str | None,
     roles: Iterable[int] | None = None,
-    projects: Iterable[tuple[str, bool]] | None = None,
+    projects: Iterable[tuple[str, Iterable[str]]] | None = None,
     created_by: str | None = None,
     auth_source: str = AUTH_LOCAL,
     actor: str | None = None,
-    all_projects: bool = False,
+    all_projects_permissions: Iterable[str] = (),
 ) -> dict[str, Any]:
-    """Create a user with ``roles`` (ids) and ``projects`` ((project, read only) pairs, or every
-    project with ``all_projects``); a local one without ``password`` gets a random one.
+    """Create a user with ``roles`` (ids), ``projects`` ((project, per-project permissions)
+    pairs) and per-project permissions on every project; a local one without ``password`` gets
+    a random one.
     ``actor`` is written to the audit log (default: ``created_by``).
 
     An OIDC user (``auth_source="oidc"``) has no password; the roles and projects of its OIDC
@@ -449,12 +451,13 @@ def create_user(
             session.flush()
             if roles:
                 access_control.set_user_roles(session, row.id, roles, actor or created_by)  # type: ignore[arg-type]
-            if projects or all_projects:
+            every = list(all_projects_permissions)
+            if projects or every:
                 access_control.set_user_projects(
                     session,
                     row.id,  # type: ignore[arg-type]
                     projects or [],
-                    all_projects,
+                    every,
                     actor or created_by,
                 )
             session.refresh(row)
@@ -468,12 +471,13 @@ def create_user(
 def update_user(
     user_id: int,
     roles: Iterable[int] | None,
-    projects: Iterable[tuple[str, bool]] | None = None,
+    projects: Iterable[tuple[str, Iterable[str]]] | None = None,
     updated_by: str | None = None,
-    all_projects: bool | None = None,
+    all_projects_permissions: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    """Replace the roles and the projects ((project, read only) pairs, every project with
-    ``all_projects``) an administrator gave to a user; applies to its sessions at once.
+    """Replace the roles, the projects ((project, per-project permissions) pairs) and the
+    per-project permissions on every project an administrator gave to a user; applies to its
+    sessions at once.
 
     ``None`` leaves that part unchanged. Those of its OIDC mappings are kept. The last user that
     holds ``users.manage`` cannot lose it.
@@ -483,15 +487,15 @@ def update_user(
         before = access_control.managers(session)
         if roles is not None:
             access_control.set_user_roles(session, user_id, roles, updated_by)
-        if projects is not None or all_projects is not None:
+        if projects is not None or all_projects_permissions is not None:
             current = access_control.user_access(session, user_id)["projects"]
             access_control.set_user_projects(
                 session,
                 user_id,
                 projects
                 if projects is not None
-                else [(item["project"], item["read_only"]) for item in current],
-                all_projects,
+                else [(item["project"], item["permissions"]) for item in current],
+                all_projects_permissions,
                 updated_by,
             )
         if before and not access_control.managers(session):
@@ -671,7 +675,7 @@ def authenticate(username: str, password: str, address: str | None = None) -> di
 def ensure_bootstrap_admin(username: str = "admin") -> bool:
     """Create the local administrator ``username`` while no web user exists; True if created.
 
-    The user holds the ``admin`` role and every project.
+    The user holds the ``admin`` role and every per-project permission on every project.
     Its random password is never returned nor logged: an operator sets one with
     ``security-review-controller user reset-password``, and the user changes it at its first
     login.
@@ -684,7 +688,13 @@ def ensure_bootstrap_admin(username: str = "admin") -> bool:
         return False
     admin = access_control.ensure_system_roles()[access_control.ADMIN_ROLE]
     try:
-        create_user(name, None, [admin], created_by="bootstrap", all_projects=True)
+        create_user(
+            name,
+            None,
+            [admin],
+            created_by="bootstrap",
+            all_projects_permissions=sorted(access_control.SCOPED_PERMISSIONS),
+        )
     except ValueError:
         # Another instance sharing the database created it first
         return False

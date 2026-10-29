@@ -999,13 +999,8 @@ def test_roles_are_managed_with_users_manage(secured, web_sessions, caplog):
     assert role["created_by"] == "token:admin"
     assert "Role Auditor created by admin" in caplog.text
     listed = secured.get(url, headers=auth("admin")).json()
-    # Built-in roles first, then by name: triager is an ordinary role
-    assert [item["name"] for item in listed] == [
-        "admin",
-        "reader",
-        "Auditor",
-        "triager",
-    ]
+    # The built-in role first, then by name
+    assert [item["name"] for item in listed] == ["admin", "Auditor"]
 
     body["permissions"] = ["audit.read", "rules.manage"]
     updated = secured.put(f"{url}/{role['id']}", json=body, headers=auth("admin"))
@@ -1041,28 +1036,36 @@ def test_project_members_and_oidc_mappings_are_managed_with_users_manage(
     roles = {
         item["name"]: item["id"] for item in secured.get("/api/v1/roles", headers=admin).json()
     }
-    alice = web_users.create_user("alice", USER_PASSWORD, [roles["triager"]])
+    alice = web_users.create_user("alice", USER_PASSWORD)
 
     # Every known project can be searched, also those the caller does not read
     found = secured.get("/api/v1/access/projects?search=BILL", headers=admin).json()
     assert found == [{"name": "billing"}]
     url = "/api/v1/access/projects/billing/members"
-    body = {"members": [{"user_id": alice["id"]}]}
+    body = {
+        "members": [{"user_id": alice["id"], "permissions": ["reports.read", "findings.triage"]}]
+    }
     response = secured.put(url, json=body, headers=admin)
     assert response.status_code == 200
-    assert [(m["username"], m["read_only"]) for m in response.json()] == [("alice", False)]
+    assert [(m["username"], m["permissions"]) for m in response.json()] == [
+        ("alice", ["findings.triage", "reports.read"])
+    ]
     assert web_users.find_user("alice")["permissions"]["findings.triage"] == ["billing"]
     assert secured.get(url, headers=admin).json() == response.json()
     assert "Members of project billing changed by admin" in caplog.text
-    unknown = {"members": [{"user_id": 999, "read_only": True}]}
+    unknown = {"members": [{"user_id": 999}]}
     assert secured.put(url, json=unknown, headers=admin).status_code == 404
     assert secured.get("/api/v1/access/projects/nowhere/members", headers=admin).status_code == 404
 
     url = "/api/v1/oidc/mappings"
     mappings = {
         "mappings": [
-            {"claim": "devs", "role_ids": [roles["reader"]], "projects": ["shop-api"]},
-            {"claim": "sec", "role_ids": [roles["admin"]], "all_projects": True},
+            {"claim": "devs", "projects": [{"project": "shop-api"}]},
+            {
+                "claim": "sec",
+                "role_ids": [roles["admin"]],
+                "all_projects_permissions": ["findings.triage", "reports.read"],
+            },
         ]
     }
     response = secured.put(url, json=mappings, headers=admin)
@@ -1073,9 +1076,12 @@ def test_project_members_and_oidc_mappings_are_managed_with_users_manage(
         "groups",
         [],
     )
-    assert [(m["claim"], m["roles"], m["projects"]) for m in listed["mappings"]] == [
-        ("devs", ["reader"], ["shop-api"]),
-        ("sec", ["admin"], None),
+    assert [
+        (m["claim"], m["roles"], m["all_projects_permissions"], m["projects"])
+        for m in listed["mappings"]
+    ] == [
+        ("devs", [], [], [{"project": "shop-api", "permissions": ["reports.read"]}]),
+        ("sec", ["admin"], ["findings.triage", "reports.read"], []),
     ]
     # A mapping that gives nothing is refused
     nothing = {"mappings": [{"claim": "x"}]}
@@ -1088,8 +1094,7 @@ def test_project_members_and_oidc_mappings_are_managed_with_users_manage(
 def test_a_custom_role_opens_only_its_routes(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     auditor = access_control.create_role("Auditor", ["audit.read"])
-    reader = next(role["id"] for role in access_control.list_roles() if role["name"] == "reader")
-    make_user("ann", USER_PASSWORD, role_ids=[auditor["id"], reader], projects=["billing"])
+    make_user("ann", USER_PASSWORD, "reader", ["billing"], role_ids=[auditor["id"]])
     headers = session_headers(accounts, "ann")
 
     me = accounts.get("/api/v1/me", headers=headers).json()
@@ -1202,10 +1207,7 @@ def test_deleting_a_project_needs_the_permission_and_a_web_session(accounts, sec
 def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     crm_report = services.save_report("crm", "Review", [make_finding(Severity.HIGH)])
-    roles = {role["name"]: role["id"] for role in access_control.list_roles()}
-    make_user(
-        "mia", USER_PASSWORD, role_ids=[roles["triager"]], projects=["crm"], read_only=["shop-api"]
-    )
+    make_user("mia", USER_PASSWORD, "triager", ["crm"], read_only=["shop-api"])
     headers = session_headers(accounts, "mia")
     shop_finding = services.get_report(reports[0]).findings[0].id
     crm_finding = services.get_report(crm_report["report_id"]).findings[0].id
@@ -1263,13 +1265,7 @@ def test_a_manager_without_reports_read_reads_no_project(accounts, reports):
 def test_a_token_never_grants_more_than_its_creator(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     keeper = access_control.create_role("Token keeper", ["tokens.manage"])
-    roles = {role["name"]: role["id"] for role in access_control.list_roles()}
-    make_user(
-        "kim",
-        USER_PASSWORD,
-        role_ids=[keeper["id"], roles["reader"]],
-        projects=["shop-api"],
-    )
+    make_user("kim", USER_PASSWORD, "reader", ["shop-api"], role_ids=[keeper["id"]])
     headers = session_headers(accounts, "kim")
     url = "/api/v1/project-tokens"
 
@@ -1619,12 +1615,7 @@ def test_a_requested_project_waits_for_an_approval_on_the_projects_screen(secure
 
 def test_a_creator_blocks_the_autojoin_of_a_project_it_reads(secured, reports):
     role = access_control.create_role("Creator", [access_control.Permission.PROJECTS_CREATE])
-    make_user(
-        "carol",
-        USER_PASSWORD,
-        role_ids=[role["id"], role_id("reader")],
-        projects=["shop-api"],
-    )
+    make_user("carol", USER_PASSWORD, "reader", ["shop-api"], role_ids=[role["id"]])
     make_user("rita", USER_PASSWORD, "reader", ["shop-api"])
     headers = session_headers(secured, "carol")
 
@@ -2259,7 +2250,7 @@ def test_sessions_follow_the_stored_user(accounts):
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 403
     web_users.update_user(alice["id"], [role_id("admin")])
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 200
-    web_users.update_user(alice["id"], [])
+    web_users.update_user(alice["id"], [], all_projects_permissions=[])
     # Without any permission, the session stops
     assert accounts.get("/api/v1/me", headers=headers).status_code == 401
     web_users.delete_user(alice["id"])
@@ -2274,8 +2265,7 @@ def test_users_are_managed_by_administrators(accounts, caplog):
     known_projects("shop-api")
     body = {
         "username": "bob",
-        "role_ids": [role_id("triager")],
-        "projects": [{"project": "shop-api"}],
+        "projects": [{"project": "shop-api", "permissions": ["reports.read", "findings.triage"]}],
     }
 
     assert accounts.get("/api/v1/users", headers=reader).status_code == 403
@@ -2293,7 +2283,10 @@ def test_users_are_managed_by_administrators(accounts, caplog):
 
     updated = accounts.put(
         f"/api/v1/users/{bob['id']}",
-        json={"role_ids": [role_id("admin")], "all_projects": True},
+        json={
+            "role_ids": [role_id("admin")],
+            "all_projects_permissions": ["findings.triage", "reports.read"],
+        },
         headers=admin,
     )
     assert (updated.status_code, updated.json()["permissions"]) == (200, ADMIN_GRANTS)
@@ -2361,7 +2354,7 @@ def test_sso_users_are_managed_by_administrators(accounts, caplog):
     known_projects("shop-api")
     updated = accounts.put(
         f"/api/v1/users/{carol['id']}",
-        json={"role_ids": [role_id("reader")], "projects": [{"project": "shop-api"}]},
+        json={"projects": [{"project": "shop-api"}]},
         headers=admin,
     )
     assert updated.json()["permissions"] == {"reports.read": ["shop-api"]}
@@ -3105,7 +3098,7 @@ def test_a_personal_api_token_holds_the_current_rights_of_its_user(secured, repo
 
     # The rights of the user are read at each request
     alice = web_users.find_user("alice")
-    web_users.update_user(alice["id"], [role_id("triager")], [("shop-api", False)])
+    web_users.update_user(alice["id"], [], [("shop-api", ["findings.triage", "reports.read"])])
     patched = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token)
     assert patched.status_code == 200
     web_users.update_user(alice["id"], [], [])
@@ -3273,24 +3266,31 @@ def test_a_personal_api_token_is_deleted_with_its_user(secured, web_sessions, re
 
 def test_a_role_api_token_holds_the_permissions_of_its_role(secured, reports):
     _, billing_report_id = reports
-    triager = _role_id("triager")
+    auditor = access_control.create_role("Auditor", ["audit.read"])["id"]
     created = secured.post(
         "/api/v1/project-tokens",
         json={
             "label": "swagger",
             "role": "api",
-            "access_role_id": triager,
+            "access_role_id": auditor,
             "projects": ["shop-api"],
+            "project_permissions": ["findings.triage", "reports.read"],
         },
         headers=auth("admin"),
     )
     assert created.status_code == 201
     body = created.json()
-    assert (body["role"], body["access_role_id"], body["personal"]) == ("api", triager, False)
+    assert (body["role"], body["access_role_id"], body["personal"]) == ("api", auditor, False)
+    assert body["project_permissions"] == ["findings.triage", "reports.read"]
     token = _bearer(body["token"])
 
+    # Its role on the whole controller, its per-project permissions on its projects
     me = secured.get("/api/v1/me", headers=token).json()
-    assert me["permissions"] == {"findings.triage": ["shop-api"], "reports.read": ["shop-api"]}
+    assert me["permissions"] == {
+        "audit.read": None,
+        "findings.triage": ["shop-api"],
+        "reports.read": ["shop-api"],
+    }
     assert secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token).json()[
         "status"
     ] == ("fixed")
@@ -3300,12 +3300,9 @@ def test_a_role_api_token_holds_the_permissions_of_its_role(secured, reports):
     assert gate.status_code == 200
 
     # A change of the role applies at once; a role used by a token cannot be deleted
-    access_control.update_role(triager, ["reports.read"])
-    patched = secured.patch("/api/v1/findings/1", json={"status": "open"}, headers=token)
-    assert patched.status_code == 403
-    assert secured.delete(f"/api/v1/roles/{triager}", headers=auth("admin")).status_code == 409
-    with pytest.raises(ValueError, match="limited to projects"):
-        access_control.update_role(triager, ["reports.read", "audit.read"])
+    access_control.update_role(auditor, ["rules.manage"])
+    assert "rules.manage" in secured.get("/api/v1/me", headers=token).json()["permissions"]
+    assert secured.delete(f"/api/v1/roles/{auditor}", headers=auth("admin")).status_code == 409
 
 
 def test_role_api_token_errors(secured, reports):
@@ -3317,45 +3314,42 @@ def test_role_api_token_errors(secured, reports):
             url, json={"label": "api", "projects": None} | body, headers=auth("admin")
         )
 
-    # A role is required for an api token, refused for the others
+    # A role is required for an api token, refused for the others, as its permissions
     assert create(role="api").status_code == 422
     assert create(role="mcp", access_role_id=admin_role).status_code == 422
+    assert create(role="mcp", project_permissions=["reports.read"]).status_code == 422
     assert create(role="api", access_role_id=999).status_code == 404
-    # A role with a permission on the whole controller reaches every project
-    assert create(role="api", access_role_id=admin_role, projects=["shop-api"]).status_code == 422
-    assert create(role="api", access_role_id=admin_role).status_code == 201
+    # Only per-project permissions are given with the projects
+    bad = create(role="api", access_role_id=admin_role, project_permissions=["audit.read"])
+    assert bad.status_code == 422
+    assert create(role="api", access_role_id=admin_role, projects=["shop-api"]).status_code == 201
     roles = secured.get(f"{url}/roles", headers=auth("admin")).json()
-    assert {"id": admin_role, "name": "admin", "scoped": False} == {
-        key: value for key, value in roles[0].items() if key != "permissions"
-    }
+    assert [(role["id"], role["name"]) for role in roles] == [(admin_role, "admin")]
 
 
 def test_a_role_api_token_never_grants_more_than_its_creator(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     keeper = access_control.create_role("Token keeper", ["tokens.manage"])
-    make_user(
-        "kim",
-        USER_PASSWORD,
-        role_ids=[keeper["id"], _role_id("reader")],
-        projects=["shop-api"],
-    )
+    make_user("kim", USER_PASSWORD, "reader", ["shop-api"], role_ids=[keeper["id"]])
     headers = session_headers(accounts, "kim")
     url = "/api/v1/project-tokens"
 
-    def create(role: str, projects: list[str] | None):
+    def create(role_id: int, projects: list[str] | None, permissions: list[str]):
         body = {
-            "label": role,
+            "label": f"token-{len(permissions)}-{role_id}",
             "role": "api",
-            "access_role_id": _role_id(role),
+            "access_role_id": role_id,
             "projects": projects,
+            "project_permissions": permissions,
         }
         return accounts.post(url, json=body, headers=headers)
 
-    assert create("triager", ["shop-api"]).status_code == 403
-    assert create("admin", None).status_code == 403
-    assert create("reader", ["shop-api"]).status_code == 201
+    triage = ["findings.triage", "reports.read"]
+    assert create(keeper["id"], ["shop-api"], triage).status_code == 403
+    assert create(_role_id("admin"), ["shop-api"], ["reports.read"]).status_code == 403
+    assert create(keeper["id"], ["shop-api"], ["reports.read"]).status_code == 201
     # Rotating a role token hands over its rights: same check
     token = token_store.create_project_token(
-        "billing-api", None, "api", access_role_id=_role_id("triager")
+        "billing-api", None, "api", access_role_id=keeper["id"], project_permissions=triage
     )
     assert accounts.post(f"{url}/{token['id']}/rotate", headers=headers).status_code == 403

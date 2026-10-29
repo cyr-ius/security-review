@@ -1,17 +1,19 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, disabled, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
+import { PERMISSION_META } from '../../core/constants/labels';
 import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/passwords';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
-import { AccessRole, AuthSource, WebUser } from '../../core/models/api.models';
+import { AccessRole, AuthSource, Permission, WebUser } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
+import { ProjectPermissionsComponent } from '../../shared/components/project-permissions/project-permissions.component';
 import {
   ProjectDraft,
   ProjectPickerComponent,
@@ -43,8 +45,9 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
 /**
  * Administrator page for the web users, the only accounts of the web interface: local users
  * (username and password) and OIDC users (OpenID Connect, created here or at their first login),
- * their roles and their projects (with those of their OIDC mappings, the only source of their
- * permissions), password resets and deletion.
+ * their roles (permissions on the whole server) and their projects with their per-project
+ * permissions (with those of their OIDC mappings, the only source of their permissions),
+ * password resets and deletion.
  */
 @Component({
   selector: 'app-user-list',
@@ -53,6 +56,7 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
     DatePipe,
     FormField,
     PasswordPolicyComponent,
+    ProjectPermissionsComponent,
     ProjectPickerComponent,
     RefreshButtonComponent,
     SortHeaderComponent,
@@ -184,14 +188,10 @@ export class UserListComponent {
         : undefined,
     );
   });
-  /** Ids of the roles of the user (those of the OIDC mappings are kept apart): reader for a new
-   * user. */
-  readonly selectedRoles = linkedSignal<number[]>(() => {
-    const reader = (this.roles.value() ?? []).find((role) => role.name === 'reader');
-    return reader ? [reader.id] : [];
-  });
-  /** The roles apply to every project. */
-  readonly allProjects = signal(false);
+  /** Ids of the roles of the user (those of the OIDC mappings are kept apart). */
+  readonly selectedRoles = signal<number[]>([]);
+  /** Per-project permissions of the user on every project. */
+  readonly allProjectsPermissions = signal<Permission[]>([]);
   /** Projects of the user. */
   readonly projects = signal<ProjectDraft[]>([]);
 
@@ -234,6 +234,7 @@ export class UserListComponent {
   readonly canSubmit = computed(
     () =>
       !this.busy() &&
+      this.projects().every((item) => item.permissions.length > 0) &&
       (this.editing() !== null ||
         (this.userForm().valid() && this.userModel().username.trim().length > 0)),
   );
@@ -258,7 +259,7 @@ export class UserListComponent {
     return this.access(user).join(', ');
   }
 
-  /** Roles of a user, with those of its OIDC mappings ("triager ← devs"). */
+  /** Roles of a user, with those of its OIDC mappings ("auditor ← devs"). */
   describeRoles(user: WebUser): string[] {
     return [
       ...user.roles.map((role) => role.name),
@@ -266,27 +267,29 @@ export class UserListComponent {
     ];
   }
 
-  /** Projects of a user: every project, or its projects (read only marked). */
+  /** Projects of a user with their permissions, e.g. "shop-api: Read the reports". */
   describeProjects(user: WebUser): string[] {
     const all = this.i18n.translate('reports.allProjects');
-    const readOnly = this.i18n.translate('access.readOnly');
+    const text = (name: string, permissions: Permission[]) =>
+      `${name}: ${permissions
+        .map((permission) => this.i18n.translate(PERMISSION_META[permission].label))
+        .join(', ')}`;
     return [
-      ...(user.all_projects ? [all] : []),
-      ...user.projects.map((item) =>
-        item.read_only ? `${item.project} (${readOnly})` : item.project,
-      ),
-      ...user.oidc
-        .filter((item) => item.projects === null || item.projects.length)
-        .map((item) => `${item.projects?.join(', ') ?? all} ← ${item.claim}`),
+      ...(user.all_projects_permissions.length ? [text(all, user.all_projects_permissions)] : []),
+      ...user.projects.map((item) => text(item.project, item.permissions)),
+      ...user.oidc.flatMap((item) => [
+        ...(item.all_projects_permissions.length
+          ? [`${text(all, item.all_projects_permissions)} ← ${item.claim}`]
+          : []),
+        ...item.projects.map(
+          (project) => `${text(project.project, project.permissions)} ← ${item.claim}`,
+        ),
+      ]),
     ];
   }
 
   roleLabel(role: AccessRole): string {
     return role.system ? `${role.name} — ${this.i18n.translate('roles.system')}` : role.name;
-  }
-
-  onAllProjects(event: Event): void {
-    this.allProjects.set((event.target as HTMLInputElement).checked);
   }
 
   toggleRole(roleId: number, event: Event): void {
@@ -301,9 +304,9 @@ export class UserListComponent {
     this.editing.set(user);
     this.userForm().reset({ source: user.auth_source, username: user.username, password: '' });
     this.selectedRoles.set(user.roles.map((role) => role.role_id));
-    this.allProjects.set(user.all_projects);
+    this.allProjectsPermissions.set(user.all_projects_permissions);
     this.projects.set(
-      user.projects.map((item) => ({ project: item.project, readOnly: item.read_only })),
+      user.projects.map((item) => ({ project: item.project, permissions: item.permissions })),
     );
     this.message.set(null);
     this.error.set(null);
@@ -312,10 +315,8 @@ export class UserListComponent {
   resetForm(): void {
     this.editing.set(null);
     this.userForm().reset({ ...EMPTY_USER });
-    // A new user is a reader by default
-    const reader = (this.roles.value() ?? []).find((role) => role.name === 'reader');
-    this.selectedRoles.set(reader ? [reader.id] : []);
-    this.allProjects.set(false);
+    this.selectedRoles.set([]);
+    this.allProjectsPermissions.set([]);
     this.projects.set([]);
   }
 
@@ -325,10 +326,10 @@ export class UserListComponent {
       return;
     }
     const roles = this.selectedRoles();
-    const allProjects = this.allProjects();
+    const allProjects = this.allProjectsPermissions();
     const projects = this.projects().map((item) => ({
       project: item.project,
-      read_only: item.readOnly,
+      permissions: item.permissions,
     }));
     const editing = this.editing();
     const { source, username, password: typed } = this.userModel();

@@ -44,8 +44,10 @@ are two kinds:
 
 - **Personal token**: created by a user for themselves (see [personal tokens](#personal-tokens)).
   It holds the current rights of the account: it reaches nothing once the account loses them.
-- **Role token**: created by an administrator on the **Tokens** page, with a **Role**. It
-  holds the permissions of that role on its projects. A role used by a token cannot be deleted.
+- **Role token**: created by an administrator on the **Tokens** page, with a **Role** and
+  **Per-project permissions**. It holds the permissions of that role on the whole Controller
+  server and these per-project permissions on its projects. A role used by a token cannot be
+  deleted.
 
 ## Personal tokens
 

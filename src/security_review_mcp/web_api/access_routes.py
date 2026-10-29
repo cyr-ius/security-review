@@ -153,7 +153,7 @@ async def set_project_members(
         members = await run_in_threadpool(
             access_control.set_project_members,
             project,
-            [(item.user_id, item.read_only) for item in body.members],
+            [(item.user_id, item.permissions) for item in body.members],
             actor_of(identity),
         )
     except ValueError as exc:
@@ -189,7 +189,12 @@ async def set_oidc_mappings(
         await run_in_threadpool(
             access_control.set_oidc_mappings,
             [
-                (item.claim, item.role_ids, None if item.all_projects else item.projects)
+                (
+                    item.claim,
+                    item.role_ids,
+                    item.all_projects_permissions,
+                    [(project.project, project.permissions) for project in item.projects],
+                )
                 for item in body.mappings
             ],
             actor_of(identity),
@@ -279,11 +284,11 @@ async def create_user(
             body.username,
             body.password,
             body.role_ids,
-            [(item.project, item.read_only) for item in body.projects],
+            [(item.project, item.permissions) for item in body.projects],
             identity.client,
             body.auth_source,
             actor_of(identity),
-            body.all_projects,
+            body.all_projects_permissions,
         )
     except ValueError as exc:
         if "already exists" in str(exc):
@@ -321,7 +326,7 @@ async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager)
     projects = (
         None
         if body.projects is None
-        else [(item.project, item.read_only) for item in body.projects]
+        else [(item.project, item.permissions) for item in body.projects]
     )
     try:
         updated = await run_in_threadpool(
@@ -330,7 +335,7 @@ async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager)
             body.role_ids,
             projects,
             actor_of(identity),
-            body.all_projects,
+            body.all_projects_permissions,
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc

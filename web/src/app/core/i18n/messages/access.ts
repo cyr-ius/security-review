@@ -9,18 +9,14 @@ export const access = defineMessages({
       'At least one user must keep the users.manage permission: change refused.',
     'access.notFound': 'This role, user or project no longer exists.',
     'access.failed': 'The management of the access failed.',
-    'roles.subtitle': 'Named sets of permissions, given to users and by the OIDC mappings',
+    'roles.subtitle':
+      'Named sets of permissions on the whole Controller server, given to users and by the OIDC mappings',
     'roles.help':
-      'A role holds permissions. Its permissions marked “per project” apply to the projects of the user (or every project), the others to the whole Controller server. The built-in roles reader and admin can be neither changed nor deleted. A change applies at once to the open sessions.',
+      'A role holds permissions on the whole Controller server (rules, tokens, users, audit...). The per-project permissions (reading, triage) are not in the roles: they are given with each project of a user, or with every project. The built-in role admin can be neither changed nor deleted. A change applies at once to the open sessions.',
     'roles.editTitle': 'Edit the role “{role}”',
     'roles.createTitle': 'Create a role',
     'roles.namePlaceholder': 'e.g. Auditor',
     'roles.permissions': 'Permissions',
-    'roles.scoped': 'per project',
-    'roles.scopedHelp':
-      'Only per-project permissions: they apply to the projects of the user, and a token with this role may be limited to projects.',
-    'roles.globalHelp':
-      'This role also holds permissions on the whole Controller server: they apply whatever the projects of the user.',
     'roles.loadError': 'Could not load the roles.',
     'roles.system': 'built-in',
     'roles.custom': 'Custom',
@@ -77,7 +73,7 @@ export const access = defineMessages({
     'mappings.ssoInactive': 'OIDC login is not active: the mappings apply once it is.',
     'mappings.claimBefore': 'At each login, the values of the claim',
     'mappings.claimAfter':
-      ' of an OIDC user are compared to these mappings (exact match): each mapping of a value gives its roles and its projects, added to those of the user. A change applies at once.',
+      ' of an OIDC user are compared to these mappings (exact match): each mapping of a value gives its roles, its per-project permissions on every project and its projects with their permissions, added to those of the user. A change applies at once.',
     'mappings.adminGroups':
       'Mapped to admin on every project at the first login of a user who holds them: {groups}.',
     'mappings.claim': 'Value of the claim',
@@ -85,7 +81,7 @@ export const access = defineMessages({
     'mappings.claimHelp': 'Exactly as sent by the identity provider.',
     'mappings.projects': 'Projects',
     'mappings.projectsHelp':
-      'Up to 50 projects, separated by commas (none: only roles); a project not created yet is ignored until it is.',
+      'Up to 50 projects, separated by commas, with the permissions chosen below; a project not created yet is ignored until it is.',
     'mappings.addTitle': 'Add a mapping',
     'mappings.deleteOf': 'Delete the mapping of {claim}',
     'mappings.confirmDelete':
@@ -97,7 +93,7 @@ export const access = defineMessages({
     'mappings.loadError': 'Could not load the OIDC mappings.',
     'projectMembers.title': 'Members',
     'projectMembers.help':
-      'Users who have this project: the per-project permissions of their roles apply here; a read-only member only reads it. The users who have every project and those of the OIDC mappings are not listed.',
+      'Users who have this project, with their per-project permissions here (reading, triage). The users who have every project and those of the OIDC mappings are not listed.',
     'projectMembers.searchUsers': 'Search the users',
     'projectMembers.addUsers': 'Add ({count})',
     'projectMembers.removeOf': 'Remove {user} from the project',
@@ -105,10 +101,14 @@ export const access = defineMessages({
     'projectMembers.noUserFound': 'No user found.',
     'projectMembers.saved': 'Members of the project saved.',
     'projectMembers.loadError': 'Could not load the members of the project.',
-    'access.readOnly': 'Read only',
-    'access.readOnlyOn': 'Read only on {project}',
     'access.noProject': 'No project.',
-    'projectMembers.readOnlyOf': '{user} only reads the project',
+    'access.noPermission': 'No permission',
+    'access.permissionRequired': 'Choose at least one permission.',
+    'access.permissionsOn': 'Permissions on {project}',
+    'access.projectPermissions': 'Per-project permissions',
+    'projectMembers.permissionsOf': 'Permissions of {user} on the project',
+    'roles.siteOnlyHelp':
+      'A role only holds permissions on the whole Controller server; the per-project permissions (reading, triage) are given with the projects of each user.',
   },
   fr: {
     'access.name': 'Nom',
@@ -118,18 +118,13 @@ export const access = defineMessages({
     'access.notFound': "Ce rôle, cet utilisateur ou ce projet n'existe plus.",
     'access.failed': 'La gestion des accès a échoué.',
     'roles.subtitle':
-      'Ensembles nommés de permissions, donnés aux utilisateurs et par les correspondances OIDC',
+      'Ensembles nommés de droits sur tout le serveur Controller, donnés aux utilisateurs et par les correspondances OIDC',
     'roles.help':
-      "Un rôle porte des permissions. Ses permissions marquées « par projet » s'appliquent aux projets de l'utilisateur (ou à tous les projets), les autres à tout le serveur Controller. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés. Une modification s'applique aussitôt aux sessions ouvertes.",
+      "Un rôle porte des droits sur tout le serveur Controller (règles, jetons, utilisateurs, audit...). Les droits par projet (lecture, triage) ne sont pas dans les rôles : ils se donnent avec chaque projet d'un utilisateur, ou avec tous les projets. Le rôle intégré admin ne peut être ni modifié ni supprimé. Une modification s'applique aussitôt aux sessions ouvertes.",
     'roles.editTitle': 'Modifier le rôle « {role} »',
     'roles.createTitle': 'Créer un rôle',
     'roles.namePlaceholder': 'ex. Auditeur',
     'roles.permissions': 'Permissions',
-    'roles.scoped': 'par projet',
-    'roles.scopedHelp':
-      "Uniquement des permissions par projet : elles s'appliquent aux projets de l'utilisateur, et un jeton de ce rôle peut être limité à des projets.",
-    'roles.globalHelp':
-      "Ce rôle porte aussi des permissions sur tout le serveur Controller : elles s'appliquent quels que soient les projets de l'utilisateur.",
     'roles.loadError': 'Impossible de charger les rôles.',
     'roles.system': 'intégré',
     'roles.custom': 'Personnalisé',
@@ -187,7 +182,7 @@ export const access = defineMessages({
       "La connexion OIDC n'est pas active : les correspondances s'appliqueront quand elle le sera.",
     'mappings.claimBefore': 'À chaque connexion, les valeurs du claim',
     'mappings.claimAfter':
-      " d'un utilisateur OIDC sont comparées à ces correspondances (valeur identique) : chaque correspondance d'une valeur donne ses rôles et ses projets, en plus de ceux de l'utilisateur. Une modification s'applique aussitôt.",
+      " d'un utilisateur OIDC sont comparées à ces correspondances (valeur identique) : chaque correspondance d'une valeur donne ses rôles, ses droits par projet sur tous les projets et ses projets avec leurs droits, en plus de ceux de l'utilisateur. Une modification s'applique aussitôt.",
     'mappings.adminGroups':
       "Associées au rôle admin sur tous les projets à la première connexion d'un utilisateur qui les porte : {groups}.",
     'mappings.claim': 'Valeur du claim',
@@ -195,7 +190,7 @@ export const access = defineMessages({
     'mappings.claimHelp': "Exactement comme l'envoie le fournisseur d'identité.",
     'mappings.projects': 'Projets',
     'mappings.projectsHelp':
-      "Jusqu'à 50 projets, séparés par des virgules (aucun : seulement des rôles) ; un projet pas encore créé est ignoré jusqu'à sa création.",
+      "Jusqu'à 50 projets, séparés par des virgules, avec les droits choisis ci-dessous ; un projet pas encore créé est ignoré jusqu'à sa création.",
     'mappings.addTitle': 'Ajouter une correspondance',
     'mappings.deleteOf': 'Supprimer la correspondance de {claim}',
     'mappings.confirmDelete':
@@ -207,7 +202,7 @@ export const access = defineMessages({
     'mappings.loadError': 'Impossible de charger les correspondances OIDC.',
     'projectMembers.title': 'Membres',
     'projectMembers.help':
-      "Utilisateurs qui ont ce projet : les permissions par projet de leurs rôles s'y appliquent ; un membre en lecture seule ne fait que le lire. Les utilisateurs qui ont tous les projets et ceux des correspondances OIDC ne sont pas listés.",
+      'Utilisateurs qui ont ce projet, avec leurs droits par projet ici (lecture, triage). Les utilisateurs qui ont tous les projets et ceux des correspondances OIDC ne sont pas listés.',
     'projectMembers.searchUsers': 'Rechercher les utilisateurs',
     'projectMembers.addUsers': 'Ajouter ({count})',
     'projectMembers.removeOf': 'Retirer {user} du projet',
@@ -215,10 +210,14 @@ export const access = defineMessages({
     'projectMembers.noUserFound': 'Aucun utilisateur trouvé.',
     'projectMembers.saved': 'Membres du projet enregistrés.',
     'projectMembers.loadError': 'Impossible de charger les membres du projet.',
-    'access.readOnly': 'Lecture seule',
-    'access.readOnlyOn': 'Lecture seule sur {project}',
     'access.noProject': 'Aucun projet.',
-    'projectMembers.readOnlyOf': '{user} ne fait que lire le projet',
+    'access.noPermission': 'Aucun droit',
+    'access.permissionRequired': 'Choisissez au moins un droit.',
+    'access.permissionsOn': 'Droits sur {project}',
+    'access.projectPermissions': 'Droits par projet',
+    'projectMembers.permissionsOf': 'Droits de {user} sur le projet',
+    'roles.siteOnlyHelp':
+      'Un rôle ne porte que des droits sur tout le serveur Controller ; les droits par projet (lecture, triage) se donnent avec les projets de chaque utilisateur.',
   },
   es: {
     'access.name': 'Nombre',
@@ -228,18 +227,13 @@ export const access = defineMessages({
     'access.notFound': 'Este rol, usuario o proyecto ya no existe.',
     'access.failed': 'La gestión de los accesos falló.',
     'roles.subtitle':
-      'Conjuntos nombrados de permisos, asignados a usuarios y por las correspondencias OIDC',
+      'Conjuntos nombrados de permisos sobre todo el servidor Controller, asignados a usuarios y por las correspondencias OIDC',
     'roles.help':
-      'Un rol contiene permisos. Sus permisos marcados «por proyecto» se aplican a los proyectos del usuario (o a todos los proyectos), los demás a todo el servidor Controller. Los roles integrados reader y admin no pueden modificarse ni eliminarse. Un cambio se aplica de inmediato a las sesiones abiertas.',
+      'Un rol contiene permisos sobre todo el servidor Controller (reglas, tokens, usuarios, auditoría...). Los permisos por proyecto (lectura, clasificación) no están en los roles: se asignan con cada proyecto de un usuario, o con todos los proyectos. El rol integrado admin no puede modificarse ni eliminarse. Un cambio se aplica de inmediato a las sesiones abiertas.',
     'roles.editTitle': 'Editar el rol «{role}»',
     'roles.createTitle': 'Crear un rol',
     'roles.namePlaceholder': 'p. ej. Auditor',
     'roles.permissions': 'Permisos',
-    'roles.scoped': 'por proyecto',
-    'roles.scopedHelp':
-      'Solo permisos por proyecto: se aplican a los proyectos del usuario, y un token con este rol puede limitarse a proyectos.',
-    'roles.globalHelp':
-      'Este rol también contiene permisos sobre todo el servidor Controller: se aplican sean cuales sean los proyectos del usuario.',
     'roles.loadError': 'No se pudieron cargar los roles.',
     'roles.system': 'integrado',
     'roles.custom': 'Personalizado',
@@ -297,7 +291,7 @@ export const access = defineMessages({
       'El inicio de sesión OIDC no está activo: las correspondencias se aplicarán cuando lo esté.',
     'mappings.claimBefore': 'En cada inicio de sesión, los valores del claim',
     'mappings.claimAfter':
-      ' de un usuario OIDC se comparan con estas correspondencias (valor idéntico): cada correspondencia de un valor da sus roles y sus proyectos, además de los del usuario. Un cambio se aplica de inmediato.',
+      ' de un usuario OIDC se comparan con estas correspondencias (valor idéntico): cada correspondencia de un valor da sus roles, sus permisos por proyecto en todos los proyectos y sus proyectos con sus permisos, además de los del usuario. Un cambio se aplica de inmediato.',
     'mappings.adminGroups':
       'Asociados al rol admin en todos los proyectos en el primer inicio de sesión de un usuario que los tiene: {groups}.',
     'mappings.claim': 'Valor del claim',
@@ -305,7 +299,7 @@ export const access = defineMessages({
     'mappings.claimHelp': 'Exactamente como lo envía el proveedor de identidad.',
     'mappings.projects': 'Proyectos',
     'mappings.projectsHelp':
-      'Hasta 50 proyectos, separados por comas (ninguno: solo roles); un proyecto aún no creado se ignora hasta su creación.',
+      'Hasta 50 proyectos, separados por comas, con los permisos elegidos abajo; un proyecto aún no creado se ignora hasta su creación.',
     'mappings.addTitle': 'Añadir una correspondencia',
     'mappings.deleteOf': 'Eliminar la correspondencia de {claim}',
     'mappings.confirmDelete':
@@ -317,7 +311,7 @@ export const access = defineMessages({
     'mappings.loadError': 'No se pudieron cargar las correspondencias OIDC.',
     'projectMembers.title': 'Miembros',
     'projectMembers.help':
-      'Usuarios que tienen este proyecto: los permisos por proyecto de sus roles se aplican aquí; un miembro de solo lectura solo lo lee. No se listan los usuarios que tienen todos los proyectos ni los de las correspondencias OIDC.',
+      'Usuarios que tienen este proyecto, con sus permisos por proyecto aquí (lectura, clasificación). No se listan los usuarios que tienen todos los proyectos ni los de las correspondencias OIDC.',
     'projectMembers.searchUsers': 'Buscar los usuarios',
     'projectMembers.addUsers': 'Añadir ({count})',
     'projectMembers.removeOf': 'Quitar a {user} del proyecto',
@@ -325,9 +319,13 @@ export const access = defineMessages({
     'projectMembers.noUserFound': 'Ningún usuario encontrado.',
     'projectMembers.saved': 'Miembros del proyecto guardados.',
     'projectMembers.loadError': 'No se pudieron cargar los miembros del proyecto.',
-    'access.readOnly': 'Solo lectura',
-    'access.readOnlyOn': 'Solo lectura en {project}',
     'access.noProject': 'Ningún proyecto.',
-    'projectMembers.readOnlyOf': '{user} solo lee el proyecto',
+    'access.noPermission': 'Ningún permiso',
+    'access.permissionRequired': 'Elija al menos un permiso.',
+    'access.permissionsOn': 'Permisos en {project}',
+    'access.projectPermissions': 'Permisos por proyecto',
+    'projectMembers.permissionsOf': 'Permisos de {user} en el proyecto',
+    'roles.siteOnlyHelp':
+      'Un rol solo contiene permisos sobre todo el servidor Controller; los permisos por proyecto (lectura, clasificación) se asignan con los proyectos de cada usuario.',
   },
 });

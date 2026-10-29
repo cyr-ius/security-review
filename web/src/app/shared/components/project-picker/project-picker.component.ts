@@ -1,25 +1,29 @@
 import { Component, computed, inject, input, model, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { Permission } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
+import { ProjectPermissionsComponent } from '../project-permissions/project-permissions.component';
 
-/** A project of a user; readOnly: only read, whatever the roles of the user. */
+/** A project with the per-project permissions given there. */
 export interface ProjectDraft {
   project: string;
-  readOnly: boolean;
+  permissions: Permission[];
 }
 
 /** Projects returned by one search. */
 const SEARCH_LIMIT = 50;
+/** Permissions of a project just added: its reading. */
+const DEFAULT_PERMISSIONS: Permission[] = ['reports.read'];
 
 /**
- * Editor of the projects of a user: a search of the known projects (on the controller), several
- * of them selected at once and added, then each row read-only or not, or removed. The roles of
- * the user apply to its projects; a read-only project is only read.
+ * Editor of a list of projects: a search of the known projects (on the controller), several of
+ * them selected at once and added (with their reading), then the per-project permissions of each
+ * row chosen in a multiple choice, or the row removed.
  */
 @Component({
   selector: 'app-project-picker',
-  imports: [TranslatePipe],
+  imports: [ProjectPermissionsComponent, TranslatePipe],
   templateUrl: './project-picker.component.html',
   host: { class: 'd-block' },
 })
@@ -67,7 +71,7 @@ export class ProjectPickerComponent {
     this.picked.set(choices.every((project) => this.picked().includes(project)) ? [] : choices);
   }
 
-  /** Add the ticked projects. */
+  /** Add the ticked projects, with their reading. */
   add(): void {
     const picked = this.picked().filter((project) => this.choices().includes(project));
     if (!picked.length) {
@@ -75,15 +79,14 @@ export class ProjectPickerComponent {
     }
     this.projects.update((items) => [
       ...items,
-      ...picked.map((project) => ({ project, readOnly: false })),
+      ...picked.map((project) => ({ project, permissions: [...DEFAULT_PERMISSIONS] })),
     ]);
     this.picked.set([]);
   }
 
-  setReadOnly(row: ProjectDraft, event: Event): void {
-    const readOnly = (event.target as HTMLInputElement).checked;
+  setPermissions(row: ProjectDraft, permissions: Permission[]): void {
     this.projects.update((items) =>
-      items.map((item) => (item.project === row.project ? { ...item, readOnly } : item)),
+      items.map((item) => (item.project === row.project ? { ...item, permissions } : item)),
     );
   }
 

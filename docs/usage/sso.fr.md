@@ -51,28 +51,28 @@ changé chez le fournisseur garde le même compte.
 
 ## Correspondances OIDC
 
-En bas de la page **Connexions**, chaque **correspondance OIDC** d'une valeur donne des **rôles**
-et des **projets** (**Tous les projets**, ou une liste) aux utilisateurs OIDC dont le fournisseur
-d'identité envoie **exactement** cette valeur (casse comprise). Ils s'ajoutent aux rôles et
-projets donnés au compte dans **Utilisateurs**. À chaque connexion, les valeurs du claim nommées
-par une correspondance sont conservées ; les autres valeurs sont ignorées. Un changement des
-correspondances s'applique aussitôt aux utilisateurs OIDC, par les valeurs de leur dernière
-connexion.
+En bas de la page **Connexions**, chaque **correspondance OIDC** d'une valeur donne des **rôles**,
+des droits par projet sur **Tous les projets** et des **projets** avec leurs droits aux
+utilisateurs OIDC dont le fournisseur d'identité envoie **exactement** cette valeur (casse
+comprise). Ils s'ajoutent aux rôles et projets donnés au compte dans **Utilisateurs**. À chaque
+connexion, les valeurs du claim nommées par une correspondance sont conservées ; les autres
+valeurs sont ignorées. Un changement des correspondances s'applique aussitôt aux utilisateurs
+OIDC, par les valeurs de leur dernière connexion.
 
 Exemple : le fournisseur envoie `["payments-team", "staff"]` ; une correspondance donne à
-`payments-team` le rôle *Triager* et le projet `billing`, et aucune correspondance ne nomme
-`staff`. L'utilisateur trie alors `billing`, et les projets donnés au compte.
+`payments-team` le projet `billing` avec **Lire les rapports** et **Trier les findings**, et aucune
+correspondance ne nomme `staff`. L'utilisateur lit et trie alors `billing`, et garde les projets
+donnés au compte.
 
-Une correspondance peut ne donner que des rôles (ils s'appliquent aux projets du compte) ou que
-des projets (les rôles du compte s'y appliquent). Un projet pas encore créé est ignoré jusqu'à sa
-création, jamais créé par le fournisseur d'identité. Chaque valeur des **Groupes administration**
-reçoit une correspondance vers `admin` et tous les projets à la première connexion d'un
-utilisateur qui la porte ; une correspondance modifiée ensuite est conservée.
+Un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur
+d'identité. Chaque valeur des **Groupes administration** reçoit une correspondance vers `admin`,
+avec la lecture et le triage de tous les projets, à la première connexion d'un utilisateur qui la
+porte ; une correspondance modifiée ensuite est conservée.
 
 ## Lecture du projet
 
 Pour qu'un développeur lise un projet, donnez ce projet à son compte OIDC dans **Utilisateurs** ou
-dans les [membres](projects.md#membres) du projet (avec un rôle qui lit, comme `reader`), faites
+dans les [membres](projects.md#membres) du projet (lecture par défaut), faites
 correspondre l'un de ses groupes, ou validez la demande d'accès de son agent dans **Projets**.
 Donner un projet à un compte exige qu'il existe : le développeur s'est connecté une fois
 (création automatique), ou un administrateur l'a créé dans **Utilisateurs**.

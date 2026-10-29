@@ -203,18 +203,18 @@ export interface UserRoleRef {
   name: string;
 }
 
-/** A project of a web user; read_only: only read, whatever its roles. */
+/** A project with the per-project permissions given there. */
 export interface UserProjectItem {
   project: string;
-  read_only: boolean;
+  permissions: Permission[];
 }
 
 /** What the mapping of a value of the roles claim of an OIDC user (last login) gives. */
 export interface UserOidcAccess {
   claim: string;
   roles: string[];
-  /** null: every project. */
-  projects: string[] | null;
+  all_projects_permissions: Permission[];
+  projects: UserProjectItem[];
 }
 
 /** A web user, local or OIDC; the password hash is never returned. */
@@ -222,9 +222,10 @@ export interface WebUser {
   id: number;
   username: string;
   auth_source: AuthSource;
-  /** Roles and projects given by an administrator (all_projects: every project). */
+  /** Roles (permissions on the whole server), per-project permissions on every project and
+   * projects with their permissions, given by an administrator. */
   roles: UserRoleRef[];
-  all_projects: boolean;
+  all_projects_permissions: Permission[];
   projects: UserProjectItem[];
   /** Roles and projects of its OIDC mappings (read only, recomputed at each login). */
   oidc: UserOidcAccess[];
@@ -264,6 +265,8 @@ export interface ProjectToken {
   role: ProjectTokenRole;
   /** api token: its role (role token); null for a personal token or another usage. */
   access_role_id: number | null;
+  /** api role token: its per-project permissions on its projects. */
+  project_permissions: Permission[];
   /** api token created by a web user for itself: it holds the current rights of that user. */
   personal: boolean;
   project: string | null;
@@ -481,8 +484,6 @@ export interface TokenRoleChoice {
   id: number;
   name: string;
   permissions: Permission[];
-  /** Only permissions per project: the token may be limited to projects. */
-  scoped: boolean;
 }
 
 /** Origin of a stored rule: shipped default (seeded on the first run) or custom. */
@@ -1088,10 +1089,8 @@ export interface AccessRole {
   name: string;
   description: string;
   permissions: Permission[];
-  /** reader and admin: neither changed nor deleted. */
+  /** admin: neither changed nor deleted. */
   system: boolean;
-  /** Only per-project permissions: a token with this role may be limited to projects. */
-  scoped: boolean;
   /** Users who hold the role, and OIDC mappings that give it. */
   users: number;
   mappings: number;
@@ -1108,26 +1107,25 @@ export interface AccessRoleWrite {
 }
 
 /** A known project given to a web user (body of the users routes). */
-export interface UserProjectBinding {
-  project: string;
-  read_only: boolean;
-}
+export type UserProjectBinding = UserProjectItem;
 
 /** A web user who has a project (GET/PUT /api/v1/access/projects/{project}/members). */
 export interface ProjectMember {
   user_id: number;
   username: string;
   auth_source: AuthSource;
-  read_only: boolean;
+  permissions: Permission[];
 }
 
-/** A value of the OIDC roles claim that gives roles and projects (null: every project). */
+/** A value of the OIDC roles claim that gives roles, per-project permissions on every project
+ * and projects with their permissions. */
 export interface OidcRoleMapping {
   id: number;
   claim: string;
   role_ids: number[];
   roles: string[];
-  projects: string[] | null;
+  all_projects_permissions: Permission[];
+  projects: UserProjectItem[];
   created_at: string;
   created_by: string | null;
 }
@@ -1136,8 +1134,8 @@ export interface OidcRoleMapping {
 export interface OidcRoleMappingWrite {
   claim: string;
   role_ids: number[];
-  all_projects: boolean;
-  projects: string[];
+  all_projects_permissions: Permission[];
+  projects: UserProjectItem[];
 }
 
 /** GET /api/v1/oidc/mappings */

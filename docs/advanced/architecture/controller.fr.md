@@ -111,12 +111,12 @@ chiffres et `. _ @ -`, 64 caractères au plus ; le type d'un compte est son `aut
 (`local` ou `oidc`).
 
 ```bash
-security-review-controller user create alice --role Triager --project shop
-# {"id": 2, "username": "alice", "auth_source": "local", "roles": [{"role_id": 3, "name": "Triager"}], "all_projects": false, "projects": [{"project": "shop", "read_only": false}], "oidc": [], "permissions": {…}, …, "password": "q3V…"}
+security-review-controller user create alice --project shop=reports.read,findings.triage
+# {"id": 2, "username": "alice", "auth_source": "local", "roles": [], "all_projects_permissions": [], "projects": [{"project": "shop", "permissions": ["findings.triage", "reports.read"]}], "oidc": [], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
 security-review-controller user create carol@example.com --sso   # correspondances OIDC uniquement
 security-review-controller user list
-security-review-controller user set-access alice --role Auditor --role Triager --project shop --project crm
+security-review-controller user set-access alice --role Auditor --project shop --project crm=reports.read,findings.triage
 security-review-controller user set-access alice --role admin --all-projects   # restaure un administrateur
 security-review-controller user reset-password alice   # compte local : nouveau mot de passe, sessions fermées
 security-review-controller user delete alice
@@ -124,13 +124,14 @@ security-review-controller role list       # rôles et leurs permissions
 security-review-controller role mappings   # correspondances OIDC
 ```
 
-Par l'API, un compte OIDC se crée avec `"auth_source": "oidc"`, sans `password` ; `role_ids` et
-`projects` listent ses rôles et ses projets :
+Par l'API, un compte OIDC se crée avec `"auth_source": "oidc"`, sans `password` ; `role_ids`,
+`all_projects_permissions` et `projects` donnent ses rôles, ses droits par projet sur tous les
+projets et ses projets avec leurs droits :
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "role_ids": [1], "projects": [{"project": "shop"}]}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "projects": [{"project": "shop"}]}'
 ```
 
 Un compte OIDC est aussi créé à sa première connexion avec
@@ -160,7 +161,7 @@ Les variables de l'interface sont dans la
 ## Premier administrateur
 
 À son premier démarrage, tant qu'aucun compte n'existe, le serveur Controller crée le compte local
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), avec le rôle `admin` et tous les projets,
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), avec le rôle `admin` et la lecture et le triage de tous les projets,
 avec un mot de passe aléatoire que personne ne connaît et qui n'est jamais écrit dans les
 journaux. Le seul moyen d'obtenir un mot de passe est la CLI, qui en définit un nouveau et
 l'affiche une fois :

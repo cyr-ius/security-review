@@ -29,8 +29,8 @@
   Every token has a [role](../usage/tokens.md) (`mcp`, `api`, `admin`, `ci`,
   `metrics`). An `api` token only holds rights of the access control, read at each request: those
   of its user (personal token, deleted with the user, never rotated by someone else, whose new
-  secret would carry the rights of the user) or of its role on its projects (role token, whose
-  creator must hold each permission). A token never creates another personal token. An `mcp`
+  secret would carry the rights of the user) or of its role and its per-project permissions on its
+  projects (role token, whose creator must hold each permission). A token never creates another personal token. An `mcp`
   token without a project reaches every MCP tool and every project; a personal `mcp` token
   reaches the projects its user may read now, none when the user has none (never every project
   by default), and stops when the user is deleted or must change a password set by an
@@ -90,7 +90,7 @@
   client. With a token, `request_project` creates a new project only for a user holding
   `projects.create` (never an existing project); otherwise the request is **pending** until a
   user with `projects.create` approves it on the Controller server, which gives the requesting user
-  (authenticated by the token, never declared) the project in read only, created when new.
+  (authenticated by the token, never declared) the reading of the project, created when new.
   For an existing project, the request is an access request, never granted at once, and only
   approved by a user who also holds `users.manage`, except for a user holding
   `projects.autojoin`, who joins it at once as a reader unless its autojoin is blocked (this

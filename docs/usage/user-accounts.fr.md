@@ -17,10 +17,10 @@ Un compte OIDC porte aussi les rôles et projets des
 [correspondances OIDC](sso.md#correspondances-oidc) des groupes que nomme son fournisseur
 d'identité à chaque connexion.
 
-Sur la page **Utilisateurs**, le formulaire d'un compte donne ses **Rôles** (`reader` coché par
-défaut) et ses **Projets** (**Tous les projets**, ou recherchez les projets, cochez-les et
-ajoutez-les, chacun éventuellement en **Lecture seule**) ; il affiche ceux de ses
-correspondances OIDC, en lecture seule.
+Sur la page **Utilisateurs**, le formulaire d'un compte donne ses **Rôles** (droits sur tout le
+serveur Controller), ses droits par projet sur **Tous les projets** et ses **Projets**
+(recherchez-les, cochez-les et ajoutez-les, puis choisissez les droits de chacun) ; il affiche
+ceux de ses correspondances OIDC, en lecture seule.
 
 ## Mot de passe
 

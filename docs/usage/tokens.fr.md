@@ -45,9 +45,9 @@ deux sortes :
 - **Jeton personnel** : créé par un utilisateur pour lui-même (voir
   [jetons personnels](#jetons-personnels)). Il porte les droits actuels du compte : il n'atteint
   plus rien dès que le compte les perd.
-- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle**. Il
-  porte les permissions de ce rôle sur ses projets. Un rôle utilisé par un jeton ne peut pas être
-  supprimé.
+- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle** et des
+  **Droits par projet**. Il porte les droits de ce rôle sur tout le serveur Controller et ces
+  droits par projet sur ses projets. Un rôle utilisé par un jeton ne peut pas être supprimé.
 
 ## Jetons personnels
 

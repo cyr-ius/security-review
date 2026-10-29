@@ -154,8 +154,8 @@ et écrit dans le [journal d'audit](audit-log.md) (`GET /api/v1/audit`, permissi
 `audit.read`), avec l'acteur `token:ops-script` ou `user:<nom>`.
 
 Un jeton `api` lit le contrôle d'accès à chaque requête : un jeton personnel porte les droits de
-son utilisateur, un jeton de rôle les permissions de son **Rôle** sur ses projets (tous les
-projets, ou une liste quand le rôle ne détient que des permissions par projet).
+son utilisateur, un jeton de rôle les droits de son **Rôle** sur tout le serveur Controller et ses
+droits par projet (`project_permissions`) sur ses projets (tous les projets, ou une liste).
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -170,7 +170,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
 projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du
 jeton, avant et après un changement de ses projets, et, pour un jeton `api` de rôle, chaque
-permission de son rôle sur ces projets. La page **Jetons** ne liste que les jetons des projets
+permission de son rôle et chacun de ses droits par projet sur ces projets. La page **Jetons** ne liste que les jetons des projets
 que l'utilisateur lit. Sa **Validité** va de 30 jours à 1 an, ou le défaut du serveur
 (`SECREVIEW_TOKEN_MAX_DAYS`).
 

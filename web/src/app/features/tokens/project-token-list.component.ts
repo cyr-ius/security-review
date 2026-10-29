@@ -4,12 +4,14 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
+import { PERMISSION_META, TOKEN_ROLE_LABELS } from '../../core/constants/labels';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
+import { ProjectPermissionsComponent } from '../../shared/components/project-permissions/project-permissions.component';
 import {
+  Permission,
   ProjectToken,
   ProjectTokenRole,
   TokenRole,
@@ -37,6 +39,7 @@ type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
 @Component({
   selector: 'app-project-token-list',
   imports: [
+    ProjectPermissionsComponent,
     HelpLinkComponent,
     DatePipe,
     FormField,
@@ -119,21 +122,14 @@ export class ProjectTokenListComponent {
     // The role only applies to an api token, which needs one
     required(path.accessRoleId, { when: ({ valueOf }) => valueOf(path.usage) === 'api' });
   });
-  /** The role chosen for a new api token (undefined: none, or another usage). */
-  readonly selectedRole = computed(() => {
-    const model = this.formModel();
-    return model.usage === 'api'
-      ? (this.tokenRoles.value() ?? []).find((role) => String(role.id) === model.accessRoleId)
-      : undefined;
-  });
-  /** A role with a permission on the whole controller: its token reaches every project. */
-  readonly wholeControllerRole = computed(() => this.selectedRole()?.scoped === false);
+  /** Per-project permissions of a new api token on its projects: their reading by default. */
+  readonly projectPermissions = signal<Permission[]>(['reports.read']);
   /** Every project (not offered for a CI/CD token), or only selectedProjects. */
   readonly allProjects = signal(false);
   readonly selectedProjects = signal<string[]>([]);
   /** A CI/CD token is always restricted to projects. */
   readonly creationAllProjects = computed(
-    () => this.wholeControllerRole() || (this.allProjects() && this.formModel().usage !== 'ci'),
+    () => this.allProjects() && this.formModel().usage !== 'ci',
   );
   /** Token whose projects are being changed in its row (null: none). */
   readonly editing = signal<ProjectToken | null>(null);
@@ -170,7 +166,13 @@ export class ProjectTokenListComponent {
       return `${usage} · ${this.i18n.translate('tokens.personal')}`;
     }
     const role = this.roleOf(token);
-    return role ? `${usage} · ${role.name}` : usage;
+    if (!role) {
+      return usage;
+    }
+    const permissions = token.project_permissions.map((permission) =>
+      this.i18n.translate(PERMISSION_META[permission].label),
+    );
+    return [usage, role.name, ...permissions].join(' · ');
   }
 
   /** Role of an api token, when the caller may list the roles. */
@@ -179,9 +181,9 @@ export class ProjectTokenListComponent {
   }
 
   /** The projects of a token can be changed, except for a personal token (the rights of its
-   * user) and for an api token whose role reaches the whole controller. */
+   * user). */
   canEditProjects(token: ProjectToken): boolean {
-    return !token.personal && !(token.role === 'api' && this.roleOf(token)?.scoped === false);
+    return !token.personal;
   }
 
   toggleProject(project: string, event: Event): void {
@@ -270,13 +272,21 @@ export class ProjectTokenListComponent {
     try {
       const days = model.validity ? Number(model.validity) : null;
       const created = await firstValueFrom(
-        this.api.createProjectToken(label, projects, role, days, accessRoleId),
+        this.api.createProjectToken(
+          label,
+          projects,
+          role,
+          days,
+          accessRoleId,
+          role === 'api' ? this.projectPermissions() : [],
+        ),
       );
       this.createdToken.set(created.token);
       this.formModel.set({ ...EMPTY_TOKEN });
       this.tokenForm().reset();
       this.selectedProjects.set([]);
       this.allProjects.set(false);
+      this.projectPermissions.set(['reports.read']);
       this.message.set(
         msg('tokens.created', {
           label: created.label,

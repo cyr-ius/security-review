@@ -16,9 +16,10 @@ The command line, the REST API and the settings are in
 An OIDC account also holds the roles and projects of the [OIDC mappings](sso.md#oidc-mappings) of
 the groups that its identity provider names at each login.
 
-On the **Users** page, the form of an account gives its **Roles** (`reader` ticked by default)
-and its **Projects** (**All projects**, or search the projects, tick them and add them, each one
-possibly in **Read only**); it shows those of its OIDC mappings, read only.
+On the **Users** page, the form of an account gives its **Roles** (permissions on the whole
+Controller server), its per-project permissions on **All projects** and its **Projects** (search
+them, tick them and add them, then choose the permissions of each); it shows those of its OIDC
+mappings, read only.
 
 ## Password
 

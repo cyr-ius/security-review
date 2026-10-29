@@ -324,7 +324,7 @@ def user_command(argv: list[str]) -> int:
                 _projects(args.project),
                 "cli",
                 web_users.AUTH_OIDC if args.sso else web_users.AUTH_LOCAL,
-                all_projects=args.all_projects,
+                all_projects_permissions=_split_permissions(args.all_projects),
             )
         elif args.action == "list":
             result = web_users.list_users()
@@ -336,7 +336,7 @@ def user_command(argv: list[str]) -> int:
                     _role_ids(args.role),
                     _projects(args.project),
                     "cli",
-                    all_projects=args.all_projects,
+                    all_projects_permissions=_split_permissions(args.all_projects),
                 )
             elif args.action == "reset-password":
                 result = web_users.set_password(user_id, _read_password(args.password_stdin))
@@ -354,17 +354,22 @@ def _access_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--role",
         action="append",
-        help="role of the user (repeatable; none: no role), e.g. admin or reader",
+        help="role of the user, permissions on the whole server (repeatable), e.g. admin",
     )
     parser.add_argument(
         "--project",
         action="append",
-        help="known project of the user (repeatable): its roles apply there",
+        metavar="PROJECT[=PERMISSIONS]",
+        help="known project of the user with its comma-separated per-project permissions "
+        "(repeatable; default: reports.read), e.g. shop=reports.read,findings.triage",
     )
     parser.add_argument(
         "--all-projects",
-        action="store_true",
-        help="the roles of the user apply to every project",
+        nargs="?",
+        const=",".join(sorted(access_control.SCOPED_PERMISSIONS)),
+        metavar="PERMISSIONS",
+        help="per-project permissions on every project (default without a value: "
+        "reports.read,findings.triage)",
     )
 
 
@@ -377,9 +382,19 @@ def _role_ids(names: list[str] | None) -> list[int]:
     return [roles[name] for name in names or []]
 
 
-def _projects(values: list[str] | None) -> list[tuple[str, bool]]:
-    """(project, read only) pairs of the --project options: never read only."""
-    return [(project, False) for project in values or []]
+def _split_permissions(value: str | None) -> list[str]:
+    """Permissions of a comma-separated list (empty or None: none)."""
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
+
+
+def _projects(values: list[str] | None) -> list[tuple[str, list[str]]]:
+    """(project, per-project permissions) pairs of the --project options (``PROJECT`` reads
+    the project, ``PROJECT=PERMISSIONS`` gives these permissions)."""
+    pairs: list[tuple[str, list[str]]] = []
+    for value in values or []:
+        project, _, permissions = value.partition("=")
+        pairs.append((project, _split_permissions(permissions) or ["reports.read"]))
+    return pairs
 
 
 # ── role ─────────────────────────────────────────────────────────────────────
@@ -418,7 +433,7 @@ def project_command(argv: list[str]) -> int:
         prog="security-review-controller project",
         description="List, approve or reject the projects requested by an enrollment: a new "
         "project, or the access to an existing one (existing: true). An approval adds the "
-        "requesting user the project in reading only, created when new; a request "
+        "requesting user the reading of the project, created when new; a request "
         "nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.",
     )
     actions = parser.add_subparsers(dest="action", required=True)

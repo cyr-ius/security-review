@@ -30,7 +30,8 @@ An ``api`` token reaches the REST API (Swagger, scripts) with the rights of the 
 (see access_control), read at each request:
 
 - a **role token** (``access_role_id``), created on the Tokens screen, holds the permissions of
-  one role on its projects (every project, or a list for a role made of scoped permissions);
+  one role and its per-project permissions (``project_permissions``) on its projects (every
+  project, or a list);
 - a **personal token** (``user_id``), created by a web user for itself (label
   ``<username>:<label>``), holds the current rights of that user, and is deleted with it. Its
   projects and its secret cannot be changed; an administrator may revoke it.
@@ -59,6 +60,7 @@ approved its client, on the MCP server only (not the pipeline routes).
 """
 
 import hmac
+import json
 import secrets
 import uuid
 from collections.abc import Iterable
@@ -190,6 +192,7 @@ def _public(row: ApiToken, links: list[ApiTokenProject]) -> dict[str, Any]:
         "rotated_at": _iso(row.rotated_at),
         "grace_until": _iso(grace) if grace is not None and as_utc(grace) > now else None,
         "access_role_id": row.access_role_id,
+        "project_permissions": json.loads(row.project_permissions),
         "personal": row.user_id is not None,
     }
 
@@ -259,7 +262,9 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
             return None
         must_change, owner = user.must_change_password, user.username
     elif row.access_role_id is not None and info.projects != frozenset():
-        grants = access_control.role_token_grants(session, row.access_role_id, info.projects)
+        grants = access_control.role_token_grants(
+            session, row.access_role_id, info.projects, json.loads(row.project_permissions)
+        )
     else:
         return None
     if not grants:
@@ -376,6 +381,7 @@ def _insert(
     event: tuple[AuditAction, str | None] = (AuditAction.TOKEN_CREATED, None),
     user_id: int | None = None,
     access_role_id: int | None = None,
+    project_permissions: list[str] | None = None,
 ) -> tuple[ApiToken, list[ApiTokenProject], str]:
     """Generate a token, store its digest and projects and return (row, project rows, token).
 
@@ -398,6 +404,7 @@ def _insert(
         expires_at=expires_at,
         user_id=user_id,
         access_role_id=access_role_id,
+        project_permissions=json.dumps(project_permissions or []),
     )
     links = [_new_link(row.id, project) for project in projects or []]
     try:
@@ -421,6 +428,7 @@ def _insert(
                     "projects": projects,
                     "expires_at": _iso(expires_at),
                     "access_role_id": access_role_id,
+                    "project_permissions": project_permissions or [],
                     "personal": user_id is not None,
                 },
             )
@@ -675,12 +683,13 @@ def create_project_token(
     expires_in_days: int | None = None,
     actor: str | None = None,
     access_role_id: int | None = None,
+    project_permissions: Iterable[str] = (),
 ) -> dict[str, Any]:
     """Create a token of WEB_TOKEN_ROLES for one or several projects, or for every project
     (``projects`` None; refused for ``ci``, see create_token).
 
-    An ``api`` token needs ``access_role_id``, the role whose permissions it holds: a list of
-    projects is only accepted for a role made of scoped permissions.
+    An ``api`` token needs ``access_role_id``, the role whose permissions it holds, and holds the
+    per-project permissions ``project_permissions`` on its projects.
 
     Raises:
         ValueError: Role refused, ``access_role_id`` missing or given to another role, invalid
@@ -694,15 +703,17 @@ def create_project_token(
     except ValueError:
         raise ValueError(f"A {role} token cannot be created in the web interface") from None
     if kind != Role.API:
-        if access_role_id is not None:
-            raise ValueError("Only an api token has a role of the access control")
+        if access_role_id is not None or list(project_permissions):
+            raise ValueError("Only an api token has a role and per-project permissions")
         return create_token(label, kind, _scope(projects), expires_in_days, actor)
     if access_role_id is None:
         raise ValueError("An api token needs a role")
     # Import here: access_control depends on this module
     from . import access_control
 
-    _, cleaned = access_control.role_token_scope(access_role_id, _scope(projects))
+    _, cleaned, scoped = access_control.role_token_scope(
+        access_role_id, _scope(projects), project_permissions
+    )
     row, links, token = _insert(
         _clean_label(label),
         Role.API,
@@ -710,6 +721,7 @@ def create_project_token(
         expires_in_days,
         (AuditAction.TOKEN_CREATED, actor),
         access_role_id=access_role_id,
+        project_permissions=scoped,
     )
     return _public(row, links) | {"token": token}
 

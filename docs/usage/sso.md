@@ -48,27 +48,25 @@ keeps the same account.
 
 ## OIDC mappings
 
-At the bottom of the **Sign-in** page, each **OIDC mapping** of a value gives **roles** and
-**projects** (**All projects**, or a list) to the OIDC users whose identity provider sends
-**exactly** this value (case included). They add up with the roles and projects given to the
-account in **Users**. At each login, the values of the claim named by a mapping are kept; the
-other values are ignored. A change of the mappings applies at once to the OIDC users, through
-the values of their last login.
+At the bottom of the **Sign-in** page, each **OIDC mapping** of a value gives **roles**,
+per-project permissions on **All projects** and **projects** with their permissions to the OIDC
+users whose identity provider sends **exactly** this value (case included). They add up with
+the roles and projects given to the account in **Users**. At each login, the values of the claim
+named by a mapping are kept; the other values are ignored. A change of the mappings applies at
+once to the OIDC users, through the values of their last login.
 
 Example: the provider sends `["payments-team", "staff"]`; a mapping gives `payments-team` the
-*Triager* role and the project `billing`, and no mapping names `staff`. The user then triages
-`billing`, and the projects given to the account.
+project `billing` with **Read the reports** and **Triage the findings**, and no mapping names
+`staff`. The user then reads and triages `billing`, and keeps the projects given to the account.
 
-A mapping may give only roles (they apply to the projects of the account) or only projects (the
-roles of the account apply there). A project not created yet is ignored until it is, never
-created by the identity provider. Each value of the **Administration groups** gets a mapping to
-`admin` and every project at the first login of a user who holds it; a mapping changed afterwards
-is kept.
+A project not created yet is ignored until it is, never created by the identity provider. Each
+value of the **Administration groups** gets a mapping to `admin`, with the reading and the triage
+of every project, at the first login of a user who holds it; a mapping changed afterwards is kept.
 
 ## Project read access
 
 To let a developer read a project, give it to their OIDC account in **Users** or in the
-[members](projects.md#members) of the project (with a role that reads, such as `reader`), map one
+[members](projects.md#members) of the project (reading by default), map one
 of their groups, or approve the access request of their agent in **Projects**. Giving a project
 to an account needs it to exist first: the developer has logged in once (automatic creation), or
 an administrator has created it in **Users**.

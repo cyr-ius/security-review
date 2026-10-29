@@ -215,9 +215,9 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    the project name (usually the repository name):
     - the token already reaches the project: `accessible`, the review goes on;
     - the project is new and the user holds `projects.create`: it is **created** at once, with
-      the project in read only for the user, and the review goes on;
+      its reading for the user, and the review goes on;
     - the project exists and the user holds `projects.autojoin`: the user **joins** it at once
-      (`joined`, project in read only), unless a user with `projects.create` has
+      (`joined`, reading only), unless a user with `projects.create` has
       [blocked its autojoin](../../usage/projects.md#blocking-the-autojoin), and the review
       goes on. A user reads at most 200 projects this way;
     - otherwise the answer is `requested`, and the agent stops before reviewing, so that no
@@ -239,7 +239,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
     security-review-controller project reject 4
     ```
 
-    The approval adds the project to the **requester** in read only (see
+    The approval gives the **requester** the reading of the project (see
     [members](../../usage/projects.md#members)), created for a new project: their
     personal token reaches the project from the next request, without reconfiguration. A
     request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)

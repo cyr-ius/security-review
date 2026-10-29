@@ -3,14 +3,16 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { Permission } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
+import { ProjectPermissionsComponent } from '../../../shared/components/project-permissions/project-permissions.component';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { describeAccessError } from '../../access/access-errors';
 
-/** A user who has the project, being edited. */
+/** A user who has the project, with its per-project permissions there, being edited. */
 interface MemberDraft {
   userId: number;
-  readOnly: boolean;
+  permissions: Permission[];
 }
 
 /** Users listed by a search. */
@@ -18,12 +20,12 @@ const SEARCH_LIMIT = 50;
 
 /**
  * The users who have one project (``users.manage``): several users found by a search are added
- * at once, then each row is read-only or not, or removed. The roles of a user apply to its
- * projects; the users who have every project and those of the OIDC mappings are not listed.
+ * at once (with its reading), then the per-project permissions of each row are chosen, or the
+ * row removed. The users who have every project and those of the OIDC mappings are not listed.
  */
 @Component({
   selector: 'app-project-members',
-  imports: [HelpLinkComponent, TranslatePipe],
+  imports: [HelpLinkComponent, ProjectPermissionsComponent, TranslatePipe],
   templateUrl: './project-members.component.html',
 })
 export class ProjectMembersComponent {
@@ -41,7 +43,7 @@ export class ProjectMembersComponent {
   readonly drafts = linkedSignal<MemberDraft[]>(() =>
     (this.members.value() ?? []).map((item) => ({
       userId: item.user_id,
-      readOnly: item.read_only,
+      permissions: item.permissions,
     })),
   );
   readonly search = signal('');
@@ -73,12 +75,12 @@ export class ProjectMembersComponent {
   readonly changed = computed(() => {
     const key = (items: MemberDraft[]) =>
       items
-        .map((item) => `${item.userId}:${item.readOnly}`)
+        .map((item) => `${item.userId}:${item.permissions.join('+')}`)
         .sort()
         .join(',');
     const stored = (this.members.value() ?? []).map((item) => ({
       userId: item.user_id,
-      readOnly: item.read_only,
+      permissions: item.permissions,
     }));
     return key(stored) !== key(this.drafts());
   });
@@ -107,17 +109,19 @@ export class ProjectMembersComponent {
     }
     this.drafts.update((items) => [
       ...items,
-      ...picked.map((userId) => ({ userId, readOnly: false })),
+      ...picked.map((userId) => ({ userId, permissions: ['reports.read' as Permission] })),
     ]);
     this.picked.set([]);
   }
 
-  setReadOnly(row: MemberDraft, event: Event): void {
-    const readOnly = (event.target as HTMLInputElement).checked;
+  setPermissions(row: MemberDraft, permissions: Permission[]): void {
     this.drafts.update((items) =>
-      items.map((item) => (item.userId === row.userId ? { ...item, readOnly } : item)),
+      items.map((item) => (item.userId === row.userId ? { ...item, permissions } : item)),
     );
   }
+
+  /** Every row gives at least one permission. */
+  readonly complete = computed(() => this.drafts().every((item) => item.permissions.length));
 
   remove(row: MemberDraft): void {
     this.drafts.update((items) => items.filter((item) => item.userId !== row.userId));
@@ -134,7 +138,7 @@ export class ProjectMembersComponent {
       await firstValueFrom(
         this.api.setProjectMembers(
           this.project(),
-          this.drafts().map((item) => ({ user_id: item.userId, read_only: item.readOnly })),
+          this.drafts().map((item) => ({ user_id: item.userId, permissions: item.permissions })),
         ),
       );
       this.message.set(msg('projectMembers.saved'));

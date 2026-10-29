@@ -26,22 +26,21 @@ A project created without a report shows **No report yet** until its first revie
 
 ## Members
 
-The **members** of a project are the accounts that have it in their projects: the per-project
-permissions of their roles apply there. Its creator, or the developer whose request was
-approved, has it in **read only**.
+The **members** of a project are the accounts that have it in their projects, each with its
+per-project permissions there (reading, triage). Its creator, or the developer whose request was
+approved, gets its reading only.
 
 A person with `users.manage` sees the **Members** section at the bottom of the page of the
-project: search accounts, tick them and add them, put a member in read only or remove it, then
-**Save**. The same projects are given in **Users** ([roles and projects of an
-account](access-control.md#roles-and-projects-of-an-account)), or by approving the **Access
-request** filed by an agent in **Projects**. To let a colleague triage, give them the project and
-a role that holds `findings.triage`. The accounts that have every project and those of the
-[OIDC mappings](sso.md#oidc-mappings) are not listed there.
+project: search accounts, tick them and add them (with the reading), choose the permissions of
+each member or remove it, then **Save**. The same projects are given in **Users** ([roles and
+projects of an account](access-control.md#roles-and-projects-of-an-account)), or by approving the
+**Access request** filed by an agent in **Projects**. The accounts that have every project and
+those of the [OIDC mappings](sso.md#oidc-mappings) are not listed there.
 
 ## Creating a project
 
 With the `projects.create` permission, the **New project** button shows on the **Projects**
-page. Creating a project adds it to your projects in read only: you read it at once, and your
+page. Creating a project adds it to your projects with its reading: you read it at once, and your
 agent can save its reviews there.
 
 ## Deleting a project
@@ -66,7 +65,7 @@ A person with the `projects.create` and `users.manage` permissions may approve t
 person with `users.manage` may also give the project to the user ([members](#members)).
 
 With the `projects.autojoin` permission, the developer **joins the project at once**, without
-any request: their agent's request adds the project to theirs in read only, so that they read
+any request: their agent's request adds the project to theirs with its reading, so that they read
 it (never more: no triage) and the review goes on. This permission does not create a new
 project: that takes `projects.create`.
 

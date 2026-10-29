@@ -108,12 +108,12 @@ The [user accounts](../../usage/user-accounts.md) are managed on the **Users** p
 `oidc`).
 
 ```bash
-security-review-controller user create alice --role Triager --project shop
-# {"id": 2, "username": "alice", "auth_source": "local", "roles": [{"role_id": 3, "name": "Triager"}], "all_projects": false, "projects": [{"project": "shop", "read_only": false}], "oidc": [], "permissions": {…}, …, "password": "q3V…"}
+security-review-controller user create alice --project shop=reports.read,findings.triage
+# {"id": 2, "username": "alice", "auth_source": "local", "roles": [], "all_projects_permissions": [], "projects": [{"project": "shop", "permissions": ["findings.triage", "reports.read"]}], "oidc": [], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
 security-review-controller user create carol@example.com --sso   # OIDC mappings only
 security-review-controller user list
-security-review-controller user set-access alice --role Auditor --role Triager --project shop --project crm
+security-review-controller user set-access alice --role Auditor --project shop --project crm=reports.read,findings.triage
 security-review-controller user set-access alice --role admin --all-projects   # restores an administrator
 security-review-controller user reset-password alice   # local account: new password, sessions closed
 security-review-controller user delete alice
@@ -122,12 +122,13 @@ security-review-controller role mappings   # OIDC mappings
 ```
 
 Through the API, an OIDC account is created with `"auth_source": "oidc"`, without `password`;
-`role_ids` and `projects` list its roles and its projects:
+`role_ids`, `all_projects_permissions` and `projects` give its roles, its per-project permissions
+on every project and its projects with their permissions:
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "role_ids": [1], "projects": [{"project": "shop"}]}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "projects": [{"project": "shop"}]}'
 ```
 
 An OIDC account is also created at its first login with `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`
@@ -156,7 +157,7 @@ The variables of the interface are in the
 ## First administrator
 
 At its first start, while no account exists, the Controller server creates the local account
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), with the `admin` role and every project,
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), with the `admin` role and the reading and the triage of every project,
 with a random password that nobody knows and that is never written to the logs. The only way to
 a password is the CLI, which sets a new one and prints it once:
 
