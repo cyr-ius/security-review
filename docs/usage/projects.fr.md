@@ -24,7 +24,7 @@ leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
 
 Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première revue.
 
-## Groupes de projet
+## Groupe de projet
 
 Chaque projet a son **groupe de projet**, `project:<projet>`, qui donne la lecture de ce seul
 projet (rôle `reader`). Son créateur, ou le développeur dont la demande a été validée, en est le
@@ -37,24 +37,30 @@ dans **Groupes** ou **Utilisateurs**, ou validez la **Demande d'accès** dépos�
 
 ## Création d'un projet
 
-Avec la permission `projects.create`, **Nouveau projet** sur l'écran **Projets** crée le projet
-et vous rend membre de son groupe de projet : vous le lisez aussitôt, et votre agent peut y
-enregistrer ses revues. Seul un **nouveau** nom est accepté : cette permission n'ouvre jamais un
-projet qui existe déjà. Vous n'obtenez que la lecture ; un administrateur donne le triage par les
-groupes.
+Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur l'écran **Projets**.
+Créer un projet vous rend membre de son groupe de projet : vous le lisez aussitôt, et votre agent peut y
+enregistrer ses revues.
 
 ## Suppression d'un projet
 
-Avec la permission `projects.delete` (seul `admin` par défaut), le bouton corbeille d'une ligne de
-l'écran **Projets** supprime le projet après confirmation. La suppression est **irréversible** et
-retire tout ce qui se rapporte au projet :
+Avec la permission `projects.delete`, le bouton corbeille s'active sur la ligne du projet présenté sur
+la page **Projets**. La suppression est **irréversible** et retire tout ce qui se rapporte au projet :
 
 - ses rapports, findings et commentaires ;
 - le projet dans les rôles des groupes ; son groupe de projet est supprimé ;
 - le projet dans les jetons : un jeton qui n'atteignait que ce projet est **révoqué**, et un
   pipeline qui l'utilisait s'arrête.
 
-Le journal d'audit conserve les événements du projet.
+Le journal d'audit conserve les événements du projet. Une confirmation est demandée au moment 
+de l'action.
+
+## Rejoindre un projet
+
+Un agent peut faire la demande de rejoindre un projet existant. Vous verrez sa demande en attente 
+de validation sur la page **Projets**.
+
+Une personne doté de la permission `user.manage` peut valider la demande en attente ou ajouter 
+l'utilisateur dans le groupe de projet.
 
 ## Points d'attention
 
