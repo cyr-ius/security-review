@@ -12,7 +12,7 @@ Un connecteur tiers est un paquet Python que l'opérateur installe à côté du 
 [Connecteurs en détail](../../advanced/connectors.md#connecteurs-tiers) ; l'écriture d'un connecteur
 est décrite dans [Écrire un connecteur](../../contributing/connectors.md).
 
-Une fois autorisé, il apparaît dans l'écran **Connecteurs** sous forme de carte marquée **Tiers**,
+Une fois autorisé, il apparaît dans la page **Connecteurs** sous forme de carte marquée **Tiers**,
 désactivé tant qu'un administrateur ne l'a pas activé.
 
 !!! warning "Attention"

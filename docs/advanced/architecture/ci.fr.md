@@ -154,7 +154,7 @@ SARIF et la tendance que des projets sélectionnés, et n'enregistre des rapport
 eux ; un autre projet répond `404`, comme un projet inexistant. `--project` est
 [normalisé](../../review/prompts-tools.md#nom-du-projet) comme le projet d'une revue : donnez le nom du dépôt.
 
-- Dans l'interface web, écran **Jetons** : **Usage** **Pipeline CI/CD**, puis cochez les
+- Dans l'interface web, page **Jetons** : **Usage** **Pipeline CI/CD**, puis cochez les
   **Projets autorisés**. Le secret n'est affiché qu'une fois.
 - En CLI :
 

@@ -45,13 +45,13 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 L'émetteur doit être en HTTPS (HTTP n'est accepté que sur `localhost`, pour le développement) ;
 son document `/.well-known/openid-configuration` doit annoncer le même `issuer`. Si le
 fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE`. Le serveur Controller joint
-le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou l'écran **Général**).
+le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou la page **Général**).
 
 ## Configurer le OIDC dans l'interface
 
-Les mêmes réglages se modifient dans l'écran **Connexions** (permission `users.manage` : la
+Les mêmes réglages se modifient dans la page **Connexions** (permission `users.manage` : la
 configuration OIDC décide qui rejoint quel groupe), sans redémarrer le serveur Controller. Comme pour
-le proxy de l'écran **Général**, **une variable `SECREVIEW_OIDC_*` définie est toujours
+le proxy de la page **Général**, **une variable `SECREVIEW_OIDC_*` définie est toujours
 prioritaire**, champ par champ ; une valeur enregistrée en base ne s'applique qu'aux champs dont
 la variable n'est pas définie :
 
@@ -75,7 +75,7 @@ déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables 
 `SECREVIEW_OIDC_CAFILE` (un fichier du déploiement) et les réglages de session
 (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
 invalide la combinaison avec les valeurs enregistrées, le serveur Controller démarre quand même : la
-connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran ou dans les
+connexion OIDC est désactivée et l'erreur journalisée, à corriger dans la page ou dans les
 variables.
 
 Par l'API (`/api/v1/oidc/settings`, permission `users.manage`) : `GET` décrit chaque réglage (`value`
@@ -96,7 +96,7 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
 
 ## Comptes OIDC
 
-Chaque utilisateur OIDC est un compte de l'écran **Utilisateurs** (badge **OIDC**), **identifié par
+Chaque utilisateur OIDC est un compte de la page **Utilisateurs** (badge **OIDC**), **identifié par
 l'émetteur et le claim `sub`** liés à sa première connexion, jamais par un nom. Il est nommé à sa
 création par la valeur du claim `SECREVIEW_OIDC_USERNAME_CLAIM` (`preferred_username` par défaut), comparée
 exactement, casse comprise. Il n'y a pas de repli sur `email` ou `sub`, et une valeur qui n'est
@@ -127,14 +127,14 @@ enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'id
 puis recréez le compte.
 
 Ce qu'un compte OIDC peut faire vient de ses [groupes](../usage/access-control.md#groupes) : ceux qu'un
-administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**)
+administrateur lui a donnés (page **Utilisateurs** ou **Groupes**)
 et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
 (voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans
 aucune permission est refusé et ses sessions ouvertes se ferment. Un changement de ses groupes
 donnés s'applique aussitôt ; un changement de ses groupes chez le fournisseur, à la prochaine
 connexion.
 
-**Supprimer un compte OIDC** (écran **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
+**Supprimer un compte OIDC** (page **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
 identifiant et son identité (émetteur et `sub`) : une connexion OIDC ne le recrée plus, sous ce
 nom ni sous un autre (nom changé chez le fournisseur), même avec la création automatique et des
@@ -160,7 +160,7 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 ## Groupes du fournisseur d'identité
 
 Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
-comparées aux **noms des groupes** de l'écran **Groupes** : à chaque connexion, l'utilisateur
+comparées aux **noms des groupes** de la page **Groupes** : à chaque connexion, l'utilisateur
 rejoint chaque groupe **ouvert au OIDC** dont le nom est **exactement** l'une de ces valeurs (casse
 comprise), et quitte les groupes OIDC qu'il n'a plus. Les autres valeurs sont ignorées : créez un
 groupe du même nom pour en utiliser une. Les rôles du groupe, et leurs projets, s'appliquent alors

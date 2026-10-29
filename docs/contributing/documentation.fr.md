@@ -43,6 +43,8 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
   anglais et **serveur Controller** en français : « Controller » garde sa forme anglaise et sa
   majuscule, et n'est jamais employé seul. Les commandes, noms de fichiers et identifiants
   (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`) ne changent pas.
+- Une vue de l'interface web s'appelle une **page** (la page **Jetons**), jamais un « écran »,
+  sauf dans « plein écran ».
 - Les exemples sont copiables tels quels : options, noms de variables et sorties correspondent au
   code actuel.
 - Un changement du code met à jour sa documentation dans le même commit. Le tableau « Si vous

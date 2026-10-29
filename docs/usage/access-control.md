@@ -3,7 +3,7 @@
 What a [user account](user-accounts.md) may do comes only from its **groups**. A group gives
 **roles**, each on every project or on some [projects](projects.md); a role is a set of
 **permissions**. An account never holds a role of its own: to give a person access, add them to
-a group. Administrators manage all this in the **Groups**, **Roles** and **Users** screens.
+a group. Administrators manage all this in the **Groups**, **Roles** and **Users** pages.
 
 The REST API, the limits and the detailed rules are in
 [Access control through the REST API](../advanced/access-control-api.md). The tokens of the
@@ -57,7 +57,7 @@ Members come from two sources:
 The permissions of a user add up across **all its groups**, each with its own projects. For
 example, a user who is `reader` on every project through one group and `triager` on `crm`
 through another reads every project and triages `crm` only. **My account** and the **Users**
-screen show these permissions.
+page show these permissions.
 
 A change of a group or of a role applies at once to the open sessions. An account without any
 permission cannot log in.

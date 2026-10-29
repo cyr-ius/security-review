@@ -3,7 +3,7 @@
 The **development standards** are the conventions of your organization for each technology
 (Python, Angular, FastAPI, Spring…): naming, structure, typing, tests, error handling,
 dependencies, security. Administrators write them in the
-[web interface](../usage/index.md#screens); the MCP server hands them to the developer's AI
+[web interface](../usage/index.md#pages); the MCP server hands them to the developer's AI
 assistant **before it writes code**, so that the code it produces follows them from the start.
 
 They complete the security review: the standards guide the writing, the review prompts check
@@ -57,7 +57,7 @@ client allowed on `/mcp` reads them.
 
 ## Management (web interface and REST API)
 
-The **Standards** screen of the web interface lists the standards with their technologies and
+The **Standards** page of the web interface lists the standards with their technologies and
 file patterns, and lets you search and read each one, rendered as Markdown. Like the rules and
 the checklists, it is reserved for administrators, who create, edit, disable or delete them. The
 content field opens in full screen next to its Markdown preview. The AI assistants get the
@@ -81,7 +81,7 @@ curl -X POST https://secreview.example.com/api/v1/standards \
 
 ### Import and export
 
-The **Export** button of the **Standards** screen downloads every standard, disabled ones
+The **Export** button of the **Standards** page downloads every standard, disabled ones
 included, in a TOML file (`security-review-standards.toml`), without the audit fields (author
 and date of the last change). The **Import** button reads such a file, **all or nothing**: a
 standard is created, or replaced when its identifier (`slug`) exists; the other standards are

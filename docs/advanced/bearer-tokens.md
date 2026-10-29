@@ -67,7 +67,7 @@ default, at most `168`) the previous secret keeps working, the time to update th
 (`grace_until` in `token list`); after that, only the new one authenticates. The previous secret
 of an expired token never comes back. After a leak, rotate without a grace period (or revoke):
 the leaked secret then stops at once. A personal token cannot be rotated: its user creates a
-new one. In the web interface, the **Tokens** screen rotates the project tokens (button
+new one. In the web interface, the **Tokens** page rotates the project tokens (button
 **Rotate**, grace period chosen above the list).
 
 Expired tokens still count as configured tokens: a server whose tokens have all expired stays
@@ -83,7 +83,7 @@ security-review-controller token create --label shop-gate --role ci --project sh
 ```
 
 A token without `--project` reaches every project. In the web interface, the
-[**Tokens**](../usage/index.md#screens) screen creates a token for some projects
+[**Tokens**](../usage/index.md#pages) page creates a token for some projects
 or for **All projects**, and changes the projects of an existing token (except `admin` and
 `metrics`; a `ci` token always keeps at least one project). A restricted token:
 
@@ -165,7 +165,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 A token never grants more than its creator holds: creating a token, changing its projects,
 rotating its secret or revoking it needs `reports.read` on every project of the token, before
 and after a change of its projects, and, for a role `api` token, each permission of its role on
-these projects. The **Tokens** screen only lists the tokens of the projects the user reads. Its
+these projects. The **Tokens** page only lists the tokens of the projects the user reads. Its
 **Validity** goes from 30 days to 1 year, or the default of the server
 (`SECREVIEW_TOKEN_MAX_DAYS`).
 
@@ -178,7 +178,7 @@ rules:
 - label `<user>:<label>`, with a `:` that no other token label may hold, and validity bounded by
   `SECREVIEW_TOKEN_MAX_DAYS`;
 - nobody can rotate it nor change its projects; an administrator can revoke it from the
-  **Tokens** screen.
+  **Tokens** page.
 
 A personal `mcp` token needs `mcp_tokens.create` in the groups of the account (`403` without
 it); a token already created keeps working when the account loses it, and an administrator

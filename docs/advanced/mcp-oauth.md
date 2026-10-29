@@ -18,7 +18,7 @@ The personal MCP tokens keep working, unless an administrator turns them off wit
 ## Enabling it
 
 In the web interface, an administrator with the `settings.manage` permission must enter the public
-URL of the MCP server in the **MCP clients (OAuth login)** section of the **Tokens** screen and
+URL of the MCP server in the **MCP clients (OAuth login)** section of the **Tokens** page and
 turn on the **Enable OAuth login** switch.
 
 The public URL of the Controller server is also needed, through the setting on the **General** page.
@@ -83,7 +83,7 @@ The server is declared with its URL only, without `Authorization` header:
    `WWW-Authenticate: Bearer …, resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"`.
    This document names the Controller server as authorization server.
 2. The host registers itself at `/register` (dynamic registration, RFC 7591).
-3. It opens `/authorize` in the browser, which goes to the **Connect an MCP client** screen of the
+3. It opens `/authorize` in the browser, which goes to the **Connect an MCP client** page of the
    web interface, behind the usual login.
 4. The developer approves (or denies) the client there, the browser goes back to the host with
    a single-use code, valid 60 seconds.
@@ -118,7 +118,7 @@ Deleting a user deletes its clients. A user keeps at most 20 clients; beyond, th
 
 ## Administration
 
-With the `tokens.manage` permission, the **Tokens** screen shows a **MCP clients (OAuth login)** section.
+With the `tokens.manage` permission, the **Tokens** page shows a **MCP clients (OAuth login)** section.
 
  - **Revoke** cuts one user of a client.
 
@@ -134,7 +134,7 @@ At most `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients can exist at once. A client no
 within a day is deleted at the next registration. The OAuth routes are subject to the
 [rate limiting](../reference/configuration.md#rate-limiting) of the login routes.
 
-The consent screen shows the name chosen by the client and the host it goes back to.
+The consent page shows the name chosen by the client and the host it goes back to.
 Only approve a client you started yourself.
 
 ## Enrollment and clients without OAuth

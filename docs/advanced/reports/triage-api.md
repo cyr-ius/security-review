@@ -82,7 +82,7 @@ curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/
 ```
 
 `GET /api/v1/risk-acceptances` takes `limit` (capped by `SECREVIEW_MAX_LIST_LIMIT`) and
-`offset`; without `project`, it lists every project the caller can read. The screen is also
+`offset`; without `project`, it lists every project the caller can read. The page is also
 reached at `/ui/risk-acceptances`.
 
 No route of the API edits or deletes a comment. Anyone who reads the project sees the comments;

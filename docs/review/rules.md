@@ -7,7 +7,7 @@ security teams can add rules, edit the default rules and enable or disable any r
 touching the code**.
 
 Rules are managed with the `security-review-controller rules` command (import and export of
-TOML packs, enabling, disabling, deletion) or from the **Rules** screen of the
+TOML packs, enabling, disabling, deletion) or from the **Rules** page of the
 [web interface](../usage/index.md), which also
 [imports and exports the TOML packs](#import-and-export-in-the-web-interface). The same packs
 carry the [checklists](checklists.md).
@@ -69,14 +69,14 @@ security-review-controller rules list --custom                        # check
 
 ## Import and export in the web interface
 
-The **Rules** and **Checklists** screens have **Export** and **Import** buttons (permission
+The **Rules** and **Checklists** pages have **Export** and **Import** buttons (permission
 `rules.manage`):
 
 - **Export** downloads a TOML pack of what differs from the defaults, like `rules export`:
   `security-review-rules.toml` (custom or edited rules, disabled rules) from the **Rules**
-  screen, `security-review-checklists.toml` (custom or edited checklist items) from the
-  **Checklists** screen.
-- **Import** reads a TOML pack chosen on your computer (256 KiB at most), on either screen: the
+  page, `security-review-checklists.toml` (custom or edited checklist items) from the
+  **Checklists** page.
+- **Import** reads a TOML pack chosen on your computer (256 KiB at most), on either page: the
   rules, checklist items and `disabled_rules` it holds are imported, **all or nothing**, like
   `rules import` without `--replace` (entries added or replaced by identifier, the other entries
   kept). The message gives the number of imported entries, or the errors when nothing was
@@ -124,7 +124,7 @@ A full example is provided in `examples/rules/company.toml`.
 - An `id` equal to a default rule **edits** it (it then shows as `modified` and is no longer
   updated by new versions of the server).
 - A change (CLI, web interface) is picked up by every running server **within a few seconds**,
-  without restart; the `reload_rules` tool and the **Reload** button of the **Rules** screen apply
+  without restart; the `reload_rules` tool and the **Reload** button of the **Rules** page apply
   it immediately.
 - A stored rule that no longer passes the validation is **ignored and reported** (`list_rules`
   tool, `load_errors` field); if the database cannot be reached, the default rules of the

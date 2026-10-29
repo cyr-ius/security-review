@@ -32,7 +32,7 @@ flowchart LR
 Les deux processus ne s'appellent jamais : tout passe par la base. Un jeton créé ou révoqué sur
 le serveur Controller s'applique à la requête suivante du serveur MCP. Une règle modifiée est rechargée
 en quelques secondes. Un projet demandé par un agent (`request_project`) attend sa validation
-dans l'écran **Projets** du serveur Controller.
+dans la page **Projets** du serveur Controller.
 
 Aucun des deux processus n'expose de **route d'écriture sans authentification**, hormis la
 connexion du serveur Controller : un client sans jeton ne fait que lire, sur le serveur MCP, comment

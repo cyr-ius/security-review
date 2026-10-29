@@ -23,19 +23,19 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
 | Dossier | Contenu |
 |---|---|
 | `core/` | Services (appels à l'API, session, triage), guards, intercepteurs, modèles de l'API (`models/api.models.ts`), traductions (`i18n/`) |
-| `features/` | Un dossier par écran (`reports`, `rules`, `tokens`, `access`…), chargé par `app.routes.ts` |
+| `features/` | Un dossier par page (`reports`, `rules`, `tokens`, `access`…), chargé par `app.routes.ts` |
 | `shared/` | Composants et utilitaires réutilisables, sans logique métier |
 | `layout/` | Coque de l'application (menu, en-tête) |
 
 ## Conventions de code
 
 - **Composants** : template et styles dans des fichiers séparés. Une fonctionnalité à plusieurs
-  écrans a un dossier par composant (`features/access/role-list/`) ; ses fichiers partagés
+  pages a un dossier par composant (`features/access/role-list/`) ; ses fichiers partagés
   (styles, classe de base, messages d'erreur) restent à la racine de la fonctionnalité.
 - **Formulaires** : les formulaires de saisie utilisent les Signal Forms (`form()`,
   `[formField]`, validateurs avec un message traduit) ; les filtres de liste et les listes
   dynamiques de cases à cocher restent de simples gestionnaires d'événements.
-- **Appels HTTP** : par `rxResource` pour les données d'un écran, ou `await
+- **Appels HTTP** : par `rxResource` pour les données d'une page, ou `await
   firstValueFrom(...)` pour une action ; pas de `.subscribe()` dans les composants.
 - **État** : `signal()` et `computed()` ; une valeur dérivée d'une autre mais modifiable (un
   formulaire rempli avec les réglages chargés) est un `linkedSignal()`. `effect()` est réservé aux
@@ -58,8 +58,8 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
 ## Traductions de l'interface
 
 L'interface est traduite en anglais, français et espagnol par un service maison
-(`web/src/app/core/i18n/`), sans dépendance supplémentaire. Chaque écran a son catalogue dans
-`core/i18n/messages/<écran>.ts`, déclaré dans `messages/index.ts`, avec ses messages dans les trois
+(`web/src/app/core/i18n/`), sans dépendance supplémentaire. Chaque page a son catalogue dans
+`core/i18n/messages/<page>.ts`, déclaré dans `messages/index.ts`, avec ses messages dans les trois
 langues :
 
 ```ts

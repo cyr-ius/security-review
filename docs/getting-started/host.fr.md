@@ -118,7 +118,7 @@ créer votre jeton, puis demande le projet à la revue suivante (voir
    d'enrôlement, qui porte le même nom `security-review`.
 2. **Lancez une revue**, par exemple le prompt `security-review`. Au lieu de relire le code,
    l'agent vous invite à vous connecter à l'interface web (son adresse est donnée quand
-   l'administrateur l'a définie : `SECREVIEW_PUBLIC_URL` ou écran **Général**) et à créer un jeton MCP personnel. Le serveur
+   l'administrateur l'a définie : `SECREVIEW_PUBLIC_URL` ou page **Général**) et à créer un jeton MCP personnel. Le serveur
    n'enregistre rien à cette étape.
 
 3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web, ouvrez
@@ -150,7 +150,7 @@ créer votre jeton, puis demande le projet à la revue suivante (voir
 5. **Relancez la revue.** L'agent appelle d'abord `request_project` avec le nom du projet (le
    nom du dépôt en général). Si vous pouvez créer des projets, un nouveau projet est créé avec
    vous pour membre et la revue continue. Sinon l'agent s'arrête et vous indique que le projet
-   est demandé : un administrateur le valide dans l'écran **Projets**, ce qui vous en donne
+   est demandé : un administrateur le valide dans la page **Projets**, ce qui vous en donne
    l'accès. Pour un projet qui existe déjà, la demande est une demande d'accès, validée de la
    même façon. L'accès s'applique aussitôt : relancez la revue, sans rien
    reconfigurer.

@@ -105,7 +105,7 @@
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
   **Update now** button of the web interface (`settings.manage` permission) is only accepted if
   `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General**
-  screen) serves the OSV download and the OIDC provider; only the name of the changed settings
+  page) serves the OSV download and the OIDC provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
   the history are scrubbed of them, but prefer `HTTPS_PROXY` (Kubernetes secret) if the
@@ -127,11 +127,11 @@
   most one request per Controller server process every 6 hours (15 minutes after a failure); only the
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. Once a
-  connector is switched on in the **Connectors** screen (every one off by default, all locked
+  connector is switched on on the **Connectors** page (every one off by default, all locked
   off by `SECREVIEW_CONNECTORS_ENABLED=false`), the Controller server sends the findings through it
   (tickets in the configured Jira and ServiceNow, records of a third-party connector): HTTPS
   only, through the outgoing proxy, **no redirect**, answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
-  never read as wiki markup; the secrets entered in the **Connectors** screen are stored in clear
+  never read as wiki markup; the secrets entered on the **Connectors** page are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
   is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
   URL through the client of the Controller server, see [connectors](../advanced/connectors.md#security). With

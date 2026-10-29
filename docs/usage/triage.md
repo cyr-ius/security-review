@@ -57,7 +57,7 @@ the escalation. To close a finding judged less serious, accept the risk.
 
 ## Risk acceptances
 
-The **Risk acceptances** screen lists the accepted risks, expired ones included, nearest
+The **Risk acceptances** page lists the accepted risks, expired ones included, nearest
 expiry first: this is where you renew them, before or after their end.
 
 - **Comments**: the history of the acceptance, oldest first. The reason is the first comment.

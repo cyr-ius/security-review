@@ -18,7 +18,7 @@ leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
 
 | Moyen | Qui | Résultat |
 |---|---|---|
-| Bouton **Nouveau projet** de l'écran **Projets** | Une personne qui a `projects.create` | Créé aussitôt ([création d'un projet](#creation-dun-projet)) |
+| Bouton **Nouveau projet** de la page **Projets** | Une personne qui a `projects.create` | Créé aussitôt ([création d'un projet](#creation-dun-projet)) |
 | L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt si le développeur peut créer des projets ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | Premier rapport enregistré pour lui | Un jeton qui l'atteint (pipeline, jeton pour **Tous les projets**) | Le projet apparaît avec son premier rapport |
 
@@ -37,13 +37,13 @@ dans **Groupes** ou **Utilisateurs**, ou validez la **Demande d'accès** dépos�
 
 ## Création d'un projet
 
-Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur l'écran
+Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur la page
 **Projets**. Créer un projet vous rend membre de son groupe de projet : vous le lisez aussitôt, et
 votre agent peut y enregistrer ses revues.
 
 ## Suppression d'un projet
 
-Avec la permission `projects.delete`, un bouton corbeille apparaît sur chaque ligne de l'écran
+Avec la permission `projects.delete`, un bouton corbeille apparaît sur chaque ligne de la page
 **Projets**. La suppression est **irréversible** et retire tout ce qui se rapporte au projet :
 
 - ses rapports, findings et commentaires ;
@@ -57,7 +57,7 @@ de l'action.
 ## Rejoindre un projet
 
 L'agent d'un développeur peut demander à rejoindre un projet existant. Sa demande apparaît,
-en attente de validation, dans **Projets en attente** sur l'écran **Projets**.
+en attente de validation, dans **Projets en attente** sur la page **Projets**.
 
 Une personne dotée des permissions `projects.create` et `users.manage` peut valider cette
 demande ; une personne dotée de `users.manage` peut aussi ajouter l'utilisateur au groupe de

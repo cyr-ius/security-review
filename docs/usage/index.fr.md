@@ -13,15 +13,15 @@ Ouvrez l'adresse du serveur Controller suivie de `/ui/` (par exemple
 entreprise (OIDC) quand elle est configurée. Un jeton n'ouvre jamais l'interface : les jetons
 sont destinés aux agents et aux pipelines.
 
-Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrateur (voir
+Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrateur (voir
 [permissions](access-control.md#permissions)).
 
 ## Se repérer
 
-- La **barre latérale** regroupe les écrans en quatre sections : **Supervision** (projets et
+- La **barre latérale** regroupe les pages en quatre sections : **Supervision** (projets et
   rapports), **Revue** (findings et acceptations de risque, avec `reports.read`),
   **Référentiel** (règles, checklists, normes) et **Administration**. Vous ne voyez que les
-  écrans permis par vos permissions. **Findings** affiche le nombre de findings ouverts dans les
+  pages permis par vos permissions. **Findings** affiche le nombre de findings ouverts dans les
   projets que vous lisez.
 - En haut à droite, choisissez la langue (anglais, français, espagnol) et le thème
   (automatique, clair, sombre). La langue ne change que l'interface : celle des rapports se règle
@@ -30,15 +30,15 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
   vers **À propos**.
 - Cliquez sur l'en-tête d'une colonne pour trier un tableau ; le navigateur mémorise le tri.
 - Le point d'interrogation cerclé à côté d'un titre ouvre la page de cette documentation qui
-  explique l'écran (en français pour une interface en français, sinon en anglais).
+  explique la page (en français pour une interface en français, sinon en anglais).
 - Si le serveur Controller ne répond plus, la page **Backend indisponible** s'ouvre : **Réessayer** vous
   ramène à votre page dès qu'il répond de nouveau.
 
-## Écrans
+## Pages
 
 **Supervision**
 
-| Écran | À quoi il sert |
+| Page | À quoi elle sert |
 |---|---|
 | **Projets** | Tous les projets avec leurs findings ouverts par sévérité. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
 | **Projet** | Tendance, findings ouverts les plus graves et le plus ancien, export SARIF, **Tous les rapports** du projet |
@@ -46,14 +46,14 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 
 **Revue**, pour les utilisateurs qui ont `reports.read` (sur les projets qu'ils lisent)
 
-| Écran | À quoi il sert |
+| Page | À quoi elle sert |
 |---|---|
 | **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent des fichiers TOML)
 
-| Écran | À quoi il sert |
+| Page | À quoi elle sert |
 |---|---|
 | **Règles** | Les motifs du scan de code ([règles](../review/rules.md)) |
 | **Checklists** | Les points de contrôle suivis par les agents ([checklists](../review/checklists.md)) |
@@ -67,9 +67,9 @@ qui les enregistre ou les annule.
 
 **Administration**
 
-| Écran | À quoi il sert |
+| Page | À quoi elle sert |
 |---|---|
-| **Général** | Langue des rapports, adresse du serveur Controller et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque écran y renvoie |
+| **Général** | Langue des rapports, adresse du serveur Controller et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
 | **Utilisateurs**, **Groupes**, **Rôles** | Les comptes et ce qu'ils peuvent faire ([rôles, groupes et permissions](access-control.md)) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
 | **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |

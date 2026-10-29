@@ -10,7 +10,7 @@ La ligne de commande, l'API REST et les réglages sont dans
 
 | Type | Connexion | Création |
 |---|---|---|
-| **Local** | Identifiant et mot de passe | Par un administrateur, dans l'écran **Utilisateurs** |
+| **Local** | Identifiant et mot de passe | Par un administrateur, dans la page **Utilisateurs** |
 | **OIDC** | Connexion d'entreprise ([fournisseur d'identité](sso.md#comptes-oidc)), sans mot de passe | Par un administrateur, ou à la première connexion quand le serveur le permet |
 
 Un compte OIDC rejoint aussi, à chaque connexion, les groupes que nomme son fournisseur
@@ -23,7 +23,7 @@ administrateur) **se change à la première connexion** : l'interface ouvre **Mo
 toute autre chose.
 
 Un mot de passe choisi respecte la **politique de mot de passe** : au moins 12 caractères, avec
-une minuscule, une majuscule, un chiffre et un caractère spécial. Les écrans cochent chaque règle
+une minuscule, une majuscule, un chiffre et un caractère spécial. Les pages cochent chaque règle
 pendant la saisie. Un mot de passe généré par l'interface n'est affiché **qu'une fois**.
 
 Un compte OIDC n'a pas de mot de passe : il est géré par le fournisseur d'identité.

@@ -23,7 +23,7 @@ Chaque événement donne sa date, son **auteur** (une personne `user:<nom>`, un 
 
 ## Consulter le journal
 
-Les administrateurs le consultent dans l'écran **Journal d'audit** : du plus récent au plus
+Les administrateurs le consultent dans la page **Journal d'audit** : du plus récent au plus
 ancien, avec des filtres par événement et par projet, une recherche dans les détails et
 **Afficher plus** pour les événements plus anciens.
 
@@ -36,7 +36,7 @@ Un administrateur peut changer cette durée ou borner le nombre d'événements c
 ## Envoi vers syslog
 
 Pour garder les événements hors de la base (SIEM, journal central), le serveur Controller peut aussi les
-envoyer un par un à un serveur syslog. Dans l'écran **Journal d'audit**, le bouton **Syslog** (à
+envoyer un par un à un serveur syslog. Dans la page **Journal d'audit**, le bouton **Syslog** (à
 côté de **Actualiser**) ouvre la fenêtre **Envoi vers syslog** : **Aucun envoi**, ou **Défini
 ici** avec l'adresse du serveur et sa facility. Le changement s'applique en quelques secondes.
 

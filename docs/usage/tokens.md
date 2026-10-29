@@ -14,9 +14,9 @@ Every token has a fixed role, which decides what it reaches.
 
 | Role | For | Created |
 |---|---|---|
-| `mcp` | An MCP agent (Claude Code, Copilot, Codex...) | **Tokens** screen, or personal token |
-| `ci` | The pipeline client [`security-review-ci`](../advanced/architecture/ci.md): gate, SARIF, trend, scans | **Tokens** screen, always for some projects |
-| `api` | Scripts and the Swagger documentation ([API tokens](#api-tokens)) | **Tokens** screen, or personal token |
+| `mcp` | An MCP agent (Claude Code, Copilot, Codex...) | **Tokens** page, or personal token |
+| `ci` | The pipeline client [`security-review-ci`](../advanced/architecture/ci.md): gate, SARIF, trend, scans | **Tokens** page, always for some projects |
+| `api` | Scripts and the Swagger documentation ([API tokens](#api-tokens)) | **Tokens** page, or personal token |
 | `admin` | Administration scripts: the whole REST API | Command line only |
 | `metrics` | [Prometheus](../reference/metrics.md) | Command line only |
 
@@ -25,14 +25,14 @@ the interface does it ([triage](triage.md)). The agents only propose a status.
 
 ## Creating a token in the interface
 
-On the **Tokens** screen, an administrator chooses:
+On the **Tokens** page, an administrator chooses:
 
 - the **Usage**: **MCP**, **CI/CD pipeline** or **REST API** (with the **Role** it holds);
 - the **Allowed projects**: **All projects** (including the projects reviewed later, never for
   a CI/CD token) or **Selected projects**;
 - the **Validity**: from 30 days to 1 year.
 
-A token never grants more than its creator holds, and the screen only lists the tokens of the
+A token never grants more than its creator holds, and the page only lists the tokens of the
 projects you read. **Projects** changes the projects of a token without changing its secret;
 **Rotate** replaces its secret.
 
@@ -44,7 +44,7 @@ are two kinds:
 
 - **Personal token**: created by a user for themselves (see [personal tokens](#personal-tokens)).
   It holds the current rights of the account: it reaches nothing once the account loses them.
-- **Role token**: created by an administrator on the **Tokens** screen, with a **Role**. It
+- **Role token**: created by an administrator on the **Tokens** page, with a **Role**. It
   holds the permissions of that role on its projects. A role used by a token cannot be deleted.
 
 ## Personal tokens
@@ -68,7 +68,7 @@ another. It cannot be rotated: revoke it and create a new one.
 With the [OAuth login of MCP clients](../advanced/mcp-oauth.md), the MCP agent needs no personal
 token: the clients you approved are listed in **My account** > **Connected MCP clients**, where
 you revoke them. An administrator sees and revokes every client in the **MCP clients (OAuth
-login)** section of the **Tokens** screen, where the login is also turned on or off and its MCP
+login)** section of the **Tokens** page, where the login is also turned on or off and its MCP
 endpoint set.
 
 ### Personal MCP and CI tokens

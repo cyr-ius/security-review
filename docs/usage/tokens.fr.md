@@ -14,9 +14,9 @@ Chaque jeton porte un rôle fixe, qui détermine ce qu'il atteint.
 
 | Rôle | Pour | Créé |
 |---|---|---|
-| `mcp` | Un agent MCP (Claude Code, Copilot, Codex...) | Écran **Jetons**, ou jeton personnel |
-| `ci` | Le client de pipeline [`security-review-ci`](../advanced/architecture/ci.md) : gate, SARIF, tendance, scans | Écran **Jetons**, toujours pour certains projets |
-| `api` | Les scripts et la documentation Swagger ([jetons API](#jetons-api)) | Écran **Jetons**, ou jeton personnel |
+| `mcp` | Un agent MCP (Claude Code, Copilot, Codex...) | Page **Jetons**, ou jeton personnel |
+| `ci` | Le client de pipeline [`security-review-ci`](../advanced/architecture/ci.md) : gate, SARIF, tendance, scans | Page **Jetons**, toujours pour certains projets |
+| `api` | Les scripts et la documentation Swagger ([jetons API](#jetons-api)) | Page **Jetons**, ou jeton personnel |
 | `admin` | Les scripts d'administration : toute l'API REST | Ligne de commande uniquement |
 | `metrics` | [Prometheus](../reference/metrics.md) | Ligne de commande uniquement |
 
@@ -25,14 +25,14 @@ connectée à l'interface le fait ([triage](triage.md)). Les agents ne font que 
 
 ## Créer un jeton dans l'interface
 
-Dans l'écran **Jetons**, un administrateur choisit :
+Dans la page **Jetons**, un administrateur choisit :
 
 - l'**Usage** : **MCP**, **Pipeline CI/CD** ou **API REST** (avec le **Rôle** qu'il porte) ;
 - les **Projets autorisés** : **Tous les projets** (y compris ceux revus plus tard, jamais pour
   un jeton CI/CD) ou **Projets sélectionnés** ;
 - la **Validité** : de 30 jours à 1 an.
 
-Un jeton ne donne jamais plus que ce que détient son créateur, et l'écran ne liste que les jetons
+Un jeton ne donne jamais plus que ce que détient son créateur, et la page ne liste que les jetons
 des projets que vous lisez. **Projets** change les projets d'un jeton sans changer son secret ;
 **Renouveler** remplace son secret.
 
@@ -45,7 +45,7 @@ deux sortes :
 - **Jeton personnel** : créé par un utilisateur pour lui-même (voir
   [jetons personnels](#jetons-personnels)). Il porte les droits actuels du compte : il n'atteint
   plus rien dès que le compte les perd.
-- **Jeton de rôle** : créé par un administrateur dans l'écran **Jetons**, avec un **Rôle**. Il
+- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle**. Il
   porte les permissions de ce rôle sur ses projets. Un rôle utilisé par un jeton ne peut pas être
   supprimé.
 
@@ -70,7 +70,7 @@ créer un autre. Il ne se renouvelle pas : révoquez-le et créez-en un nouveau.
 Avec la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), l'agent MCP n'a besoin
 d'aucun jeton personnel : les clients que vous avez autorisés sont listés dans **Mon compte** >
 **Clients MCP connectés**, où vous les révoquez. Un administrateur voit et révoque tous les
-clients dans la section **Clients MCP (connexion OAuth)** de l'écran **Jetons**, où il active ou
+clients dans la section **Clients MCP (connexion OAuth)** de la page **Jetons**, où il active ou
 désactive aussi la connexion et saisit son point d'accès MCP.
 
 ### Jetons MCP et CI personnels

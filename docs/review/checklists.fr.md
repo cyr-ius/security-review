@@ -24,7 +24,7 @@ premier démarrage, pour ces domaines :
 | `cicd` | Secrets et injection de script dans les pipelines, isolation des runners, gates de sécurité |
 | `dependencies` | Versions vulnérables connues, intégrité des lockfiles, confusion de dépendances, code exécuté à l'installation |
 
-`get_review_checklist` et l'écran **Checklists** de l'interface web les affichent en entier.
+`get_review_checklist` et la page **Checklists** de l'interface web les affichent en entier.
 
 Vous pouvez créer n'importe quel autre domaine (lettres minuscules, chiffres, `-` et `_`,
 31 caractères au plus). Deux domaines sont particuliers et ajoutés à **chaque** prompt de
@@ -67,7 +67,7 @@ Un item a ces champs :
 
 ### Depuis l'interface web
 
-L'écran **Checklists** (permission `rules.manage`) liste tous les items, avec recherche, tri et
+La page **Checklists** (permission `rules.manage`) liste tous les items, avec recherche, tri et
 filtres par domaine et origine. Les administrateurs créent, modifient ou suppriment les items
 personnalisés. Un item par défaut peut être modifié, mais pas supprimé ; un item par défaut
 modifié n'est plus mis à jour par les nouvelles versions du serveur. Chaque changement
@@ -93,7 +93,7 @@ security-review-controller rules delete ACME-CL-01                    # supprime
 ```
 
 Le pack s'importe avec `security-review-controller rules import` ou avec le bouton **Importer**
-de l'écran **Checklists**, qui exporte aussi les items personnalisés ou modifiés
+de la page **Checklists**, qui exporte aussi les items personnalisés ou modifiés
 (`security-review-checklists.toml`) ; voir
 [import et export](rules.md#import-et-export-dans-linterface-web).
 

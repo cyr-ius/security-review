@@ -31,7 +31,7 @@ flowchart LR
 The two processes never call each other: everything goes through the database. A token created
 or revoked on the Controller server applies to the next request of the MCP server. A changed rule is
 reloaded within a few seconds. A project requested by an agent (`request_project`) waits in the
-**Projects** screen of the Controller server, for an approval.
+**Projects** page of the Controller server, for an approval.
 
 Neither process exposes an **unauthenticated write route**, apart from the login of the
 Controller server: a client without a token only reads, on the MCP server, how to create a personal

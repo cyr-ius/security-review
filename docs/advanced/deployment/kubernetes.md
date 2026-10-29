@@ -130,7 +130,7 @@ to `secreview-mcp`, everything else to `secreview-controller`.
 Then, in the ConfigMap:
 
 - set `SECREVIEW_PUBLIC_URL` to the public root URL of the Controller server (`https://…`), or
-  fill in the **General** screen: the MCP server gives its web interface (`/ui`) to the clients
+  fill on the **General** page: the MCP server gives its web interface (`/ui`) to the clients
   without a valid token, so that the user knows where to create
   a personal MCP token;
 - to let the MCP hosts sign in through the browser instead of a personal MCP token, set

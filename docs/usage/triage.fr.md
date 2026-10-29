@@ -61,7 +61,7 @@ annuler la hausse. Pour clore un finding jugé moins grave, acceptez le risque.
 
 ## Acceptations de risque
 
-L'écran **Acceptations de risque** liste les risques acceptés, y compris expirés, de
+La page **Acceptations de risque** liste les risques acceptés, y compris expirés, de
 l'expiration la plus proche à la plus lointaine : c'est là qu'on les renouvelle, avant ou après
 leur fin.
 

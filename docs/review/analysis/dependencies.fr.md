@@ -100,7 +100,7 @@ HTTPS_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 
 #### Hôtes sans proxy
 
-`NO_PROXY` (ou la liste de l'écran **Général**) donne, séparées par des virgules,
+`NO_PROXY` (ou la liste de la page **Général**) donne, séparées par des virgules,
 les destinations jointes **sans** le proxy :
 
 | Entrée | Exemple | Effet |
@@ -114,7 +114,7 @@ Une adresse ne s'applique qu'à une URL dont l'hôte **est** cette adresse IP
 (`https://10.0.0.5/...`) : un nom d'hôte n'est jamais résolu. Pour contourner le proxy vers un
 serveur interne joint par son nom, indiquez son domaine. Les plages d'adresses (CIDR,
 `10.0.0.0/8`) ne sont pas prises en charge : dans `NO_PROXY`, une telle entrée ne correspond à
-aucun hôte, et l'écran **Général** la refuse. La boucle locale (`localhost`,
+aucun hôte, et la page **Général** la refuse. La boucle locale (`localhost`,
 `127.0.0.0/8`, `::1`) est toujours jointe directement.
 
 ```bash
@@ -122,9 +122,9 @@ NO_PROXY=.corp.example,10.0.0.5
 ```
 
 Le proxy peut aussi être choisi par un administrateur dans la section
-**Proxy sortant du serveur Controller** de l'écran [**Général**](../../usage/index.md#ecrans) de l'interface web, pour les variables
+**Proxy sortant du serveur Controller** de la page [**Général**](../../usage/index.md#pages) de l'interface web, pour les variables
 non définies : `HTTPS_PROXY` (sinon `HTTP_PROXY`) et `NO_PROXY`, quand elles sont définies,
-sont prioritaires sur les valeurs de l'écran. Elles s'appliquent au téléchargement suivant. L'écran **Base OSV** affiche l'état de
+sont prioritaires sur les valeurs de la page. Elles s'appliquent au téléchargement suivant. La page **Base OSV** affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
 maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
 `SECREVIEW_OSV_AUTO_UPDATE=true`.

@@ -79,7 +79,7 @@ la revue, que l'agent suit ensuite. Chaque argument est une chaîne facultative.
   à `save_security_report`. Le contenu fourni par l'utilisateur est encadré, pour être lu comme
   une donnée et non comme des instructions.
 - `report_language` : lettres, espaces, `-`, `_` et parenthèses, 40 caractères au plus ; sans
-  lui, `SECREVIEW_REPORT_LANGUAGE`, sinon l'écran **Général**
+  lui, `SECREVIEW_REPORT_LANGUAGE`, sinon la page **Général**
   ([langue des rapports](../../review/prompts-tools.md#langue-des-rapports)).
 - Un argument invalide renvoie l'erreur MCP `INVALID_PARAMS` avec sa raison : `report_language`
   refusé, `scan_results` ou `task` + `context` au-delà de `SECREVIEW_MAX_CONTENT_CHARS`, rapport
@@ -206,7 +206,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
    outil**, dont les prompts sont nommés comme les revues (`security-review`,
    `codebase-review`…). Ils invitent l'utilisateur à se connecter à l'interface web (son URL
    vient de la base, où le serveur Controller recopie sa
-   [`SECREVIEW_PUBLIC_URL`](../../reference/configuration.md#interface-web-et-sessions), suivie de `/ui`, ou l'écran
+   [`SECREVIEW_PUBLIC_URL`](../../reference/configuration.md#interface-web-et-sessions), suivie de `/ui`, ou la page
    **Général** l'enregistre ; relue au plus toutes les 30 secondes ; aucune :
    pas de lien), à créer un
    **jeton MCP personnel** dans **Mon compte** (voir
@@ -227,7 +227,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
       demande par projet ; rien n'est enregistré pour un jeton sans utilisateur sur un projet
       existant, ni pour un utilisateur qui le lit déjà.
 3. **Validation.** Un utilisateur qui porte `projects.create` (entre autres le rôle `admin`)
-   valide ou refuse la demande dans la section **Projets en attente** de l'écran **Projets**,
+   valide ou refuse la demande dans la section **Projets en attente** de la page **Projets**,
    où chaque demande est marquée **Nouveau projet** ou **Demande d'accès**, ou en CLI
    (`existing` : `true` pour une demande d'accès). Valider une demande d'accès demande aussi
    `users.manage`, comme l'ajout d'un membre à un groupe : `projects.create` seul n'ouvre jamais
@@ -247,7 +247,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
 
 `save_security_report` refuse un projet que le jeton n'atteint pas et renvoie vers
 `request_project`. Quand un utilisateur portant `projects.create`
-[crée le projet](../../usage/projects.md#creation-dun-projet) depuis l'écran **Projets**, sa propre
+[crée le projet](../../usage/projects.md#creation-dun-projet) depuis la page **Projets**, sa propre
 demande en attente est soldée ; celles des autres utilisateurs deviennent des demandes d'accès.
 
 Garde-fous : au plus 20 demandes sont en attente à la fois, un utilisateur (ou un jeton sans

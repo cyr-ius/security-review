@@ -118,7 +118,7 @@ your token, then requests the project at the next review (see
    enrollment server, which has the same `security-review` name.
 2. **Run a review**, for example the `security-review` prompt. Instead of reading the code,
    the agent tells you to sign in to the web interface (its address is given when the
-   administrator set it: `SECREVIEW_PUBLIC_URL` or **General** screen) and to create a personal MCP token. The server
+   administrator set it: `SECREVIEW_PUBLIC_URL` or **General** page) and to create a personal MCP token. The server
    records nothing at this step.
 
 3. **Create your personal MCP token**: sign in to the web interface, open **My
@@ -150,7 +150,7 @@ your token, then requests the project at the next review (see
 5. **Run the review again.** The agent first calls `request_project` with the project name
    (usually the repository name). If you may create projects, a new project is created with you
    as its member and the review goes on. Otherwise the agent stops and tells you that the
-   project is requested: an administrator approves it on the **Projects** screen, which gives you
+   project is requested: an administrator approves it on the **Projects** page, which gives you
    access to it. For a project that already exists, the request is an access request, approved
    the same way. Access applies at once: run the review again, without reconfiguring
    anything.

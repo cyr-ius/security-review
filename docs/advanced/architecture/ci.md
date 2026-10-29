@@ -148,7 +148,7 @@ project answers `404`, like a project that does not exist. `--project` is
 [normalized](../../review/prompts-tools.md#project-name) like the project of a review: give the repository
 name.
 
-- In the web interface, **Tokens** screen: **Usage** **CI/CD pipeline**, then tick the
+- In the web interface, **Tokens** page: **Usage** **CI/CD pipeline**, then tick the
   **Allowed projects**. The secret is shown once.
 - From the CLI:
 

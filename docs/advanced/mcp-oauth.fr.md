@@ -17,7 +17,7 @@ Les jetons MCP personnels restent acceptés, sauf si un administrateur les désa
 ## Activation
 
 Dans l'interface web, un administrateur qui a la permission `settings.manage` doit saisir l'URL
-publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de l'écran
+publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de la page
 **Jetons** et activer l'interrupteur **Connexion OAuth**.
 
 L'URL publique du serveur Controller est aussi nécessaire via le réglage sur la page **Général**.
@@ -83,7 +83,7 @@ Le serveur est déclaré avec sa seule URL, sans en-tête `Authorization` :
    `WWW-Authenticate: Bearer …, resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"`.
    Ce document désigne le serveur Controller comme serveur d'autorisation.
 2. L'hôte s'enregistre sur `/register` (enregistrement dynamique, RFC 7591).
-3. Il ouvre `/authorize` dans le navigateur, qui arrive sur l'écran **Connecter un client MCP**
+3. Il ouvre `/authorize` dans le navigateur, qui arrive sur la page **Connecter un client MCP**
    de l'interface web, derrière la connexion habituelle.
 4. Le développeur y autorise (ou refuse) le client, le navigateur revient vers l'hôte avec un
    code à usage unique, valable 60 secondes.
@@ -120,7 +120,7 @@ Supprimer un utilisateur supprime ses clients. Un utilisateur garde au plus 20 c
 
 ## Administration
 
-Avec la permission `tokens.manage`, l'écran **Jetons** affiche une section **Clients MCP (connexion OAuth)**.
+Avec la permission `tokens.manage`, la page **Jetons** affiche une section **Clients MCP (connexion OAuth)**.
 
  - **Révoquer** coupe un utilisateur d'un client.
 
@@ -136,7 +136,7 @@ Il ne peut exister plus de `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` clients à la fois.
 autorisé dans la journée est supprimé au prochain enregistrement. Les routes OAuth sont soumises à la
 [limitation des requêtes](../reference/configuration.md#limitation-des-requetes) des routes de connexion.
 
-L'écran de consentement affiche le nom choisi par le client et l'hôte vers lequel il revient.
+La page de consentement affiche le nom choisi par le client et l'hôte vers lequel il revient.
 N'autorisez qu'un client que vous venez de lancer vous-même.
 
 ## Enrôlement et clients sans OAuth

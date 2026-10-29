@@ -111,7 +111,7 @@
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
   journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
   accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
-  l'écran **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
+  la page **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
@@ -134,12 +134,12 @@
   10 secondes, au plus une requête par processus du serveur Controller toutes les 6 heures (15 minutes
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Une fois
-  un connecteur activé dans l'écran **Connecteurs** (tous désactivés par défaut, tous verrouillés
+  un connecteur activé dans la page **Connecteurs** (tous désactivés par défaut, tous verrouillés
   par `SECREVIEW_CONNECTORS_ENABLED=false`), le serveur Controller envoie les findings par ce connecteur
   (tickets dans les Jira et ServiceNow configurés, enregistrements d'un connecteur tiers) :
   HTTPS uniquement, par le proxy sortant, **aucune redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
   nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki ; les secrets saisis
-  dans l'écran **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
+  dans la page **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
   leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme et
   ne joint que son URL configurée par le client du serveur Controller, voir
   [connecteurs](../advanced/connectors.md#securite). Avec

@@ -57,7 +57,7 @@ Le serveur Controller est le seul processus qui peut se connecter à l'extérieu
 **désactivée par défaut** : le téléchargement OSV, le fournisseur [OIDC](../oidc.md), la recherche
 d'une nouvelle version sur la page **À propos** (`SECREVIEW_UPDATE_CHECK_ENABLED`), le serveur
 syslog et les connecteurs. Elles passent en HTTPS (syslog : UDP, TCP ou TLS), par le proxy
-sortant (`HTTPS_PROXY`, `NO_PROXY`, ou l'écran **Paramètres**). Voir
+sortant (`HTTPS_PROXY`, `NO_PROXY`, ou la page **Paramètres**). Voir
 [Sécurité et limites](../../reference/security.md).
 
 ## Exposition
@@ -69,7 +69,7 @@ Ingress :
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur l'adresse du proxy, sinon tous les clients
   partagent son adresse pour la limitation des connexions et la limite de débit ;
 - réglez `SECREVIEW_PUBLIC_URL` sur l'URL publique racine du serveur Controller, sans `/ui` (ou
-  renseignez l'écran
+  renseignez la page
   **Général**) : le serveur Controller la recopie en base au démarrage et le serveur
   MCP l'y lit, pour qu'un agent sans jeton valide sache où en créer un. Tant qu'elle est
   inconnue, un bandeau en haut de l'interface web le signale aux administrateurs (permission
@@ -104,7 +104,7 @@ variables du serveur Controller : [Configuration](../../reference/configuration.
 
 ## Gérer les comptes
 
-Les [comptes utilisateurs](../../usage/user-accounts.md) se gèrent dans l'écran **Utilisateurs**,
+Les [comptes utilisateurs](../../usage/user-accounts.md) se gèrent dans la page **Utilisateurs**,
 par l'API REST `/api/v1/users` (permission `users.manage`) ou par la
 [CLI](../../reference/cli.md#security-review-controller). Un identifiant contient des lettres, des
 chiffres et `. _ @ -`, 64 caractères au plus ; le type d'un compte est son `auth_source`
@@ -179,8 +179,8 @@ toutes les autres routes (`403`) tant que le mot de passe n'est pas changé. S'i
 voir [mot de passe perdu](#mot-de-passe-perdu).
 
 Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
-réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
-L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
+réinitialisé par un administrateur (page ou CLI) change son mot de passe à sa première connexion.
+La page **Utilisateurs** affiche **mot de passe à changer** jusque-là.
 
 ### Mot de passe perdu
 
@@ -271,7 +271,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Réglages enregistrés en base
 
-Les écrans **Général** (langue des rapports, adresse du serveur Controller, proxy sortant) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
+Les pages **Général** (langue des rapports, adresse du serveur Controller, proxy sortant) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
 enregistrent des réglages en base, partagés par le serveur MCP et le serveur Controller (permission
 `settings.manage` ; les anciennes adresses `/ui/settings`, `/ui/settings/language` et
 `/ui/settings/proxy` ouvrent **Général**). **Une variable d'environnement définie (environnement ou fichier `.env`, non vide)

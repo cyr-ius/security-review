@@ -32,12 +32,12 @@ the other available checklists, internal domains included, for the agent to fetc
 stored report (summary, scope, titles, descriptions, recommendations), for example `French`,
 `fr` or `pt-BR`. Without this argument, the prompt uses
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#mcp-server) when it is set, else the language
-chosen by an administrator in the [**General**](../usage/index.md#screens) screen of the
+chosen by an administrator on the [**General**](../usage/index.md#pages) page of the
 web interface; if none is set, the agent chooses (usually the language of the conversation).
 
 An agent that reviews **without a prompt**, with the tools only (a common case: an MCP prompt is
 a command started by the user, the agent cannot call it itself), gets the same configured
-language (variable, else **General** screen) in the results of `get_review_checklist`
+language (variable, else **General** page) in the results of `get_review_checklist`
 ("Report language" section) and of `scan_code` (`report_language` field, `null` if the agent
 chooses).
 
@@ -89,7 +89,7 @@ revoked or expired gets a `401` instead, see
 The instructions it sends at connection, shown by the host, give the same steps and the
 address of the web interface, from the URL stored by the Controller server (its
 `SECREVIEW_PUBLIC_URL`, or the
-[General](../usage/index.md#screens) screen); without it, no link is given.
+[General](../usage/index.md#pages) page); without it, no link is given.
 
 See [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 

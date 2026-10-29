@@ -8,7 +8,7 @@ modifier les règles par défaut et activer ou désactiver n'importe quelle règ
 au code**.
 
 Les règles se gèrent avec la commande `security-review-controller rules` (import et export de packs
-TOML, activation, désactivation, suppression) ou depuis l'écran **Règles** de
+TOML, activation, désactivation, suppression) ou depuis la page **Règles** de
 l'[interface web](../usage/index.md), qui
 [importe et exporte aussi les packs TOML](#import-et-export-dans-linterface-web). Les mêmes packs
 portent les [checklists](checklists.md).
@@ -73,15 +73,15 @@ security-review-controller rules list --custom                        # vérifie
 
 ## Import et export dans l'interface web
 
-Les écrans **Règles** et **Checklists** ont des boutons **Exporter** et **Importer** (permission
+Les pages **Règles** et **Checklists** ont des boutons **Exporter** et **Importer** (permission
 `rules.manage`) :
 
 - **Exporter** télécharge un pack TOML de ce qui diffère des valeurs par défaut, comme
   `rules export` : `security-review-rules.toml` (règles personnalisées ou modifiées, règles
-  désactivées) depuis l'écran **Règles**, `security-review-checklists.toml` (items de checklist
-  personnalisés ou modifiés) depuis l'écran **Checklists**.
+  désactivées) depuis la page **Règles**, `security-review-checklists.toml` (items de checklist
+  personnalisés ou modifiés) depuis la page **Checklists**.
 - **Importer** lit un pack TOML choisi sur votre poste (256 Kio au plus), depuis l'un ou l'autre
-  écran : les règles, items de checklist et `disabled_rules` qu'il contient sont importés,
+  page : les règles, items de checklist et `disabled_rules` qu'il contient sont importés,
   **tout ou rien**, comme `rules import` sans `--replace` (entrées ajoutées ou remplacées par
   identifiant, les autres entrées conservées). Le message donne le nombre d'entrées importées,
   ou les erreurs quand rien n'a été importé. Pour revenir aux valeurs par défaut, utilisez
@@ -130,7 +130,7 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
   `modified` et n'est plus mise à jour par les nouvelles versions du serveur).
 - Une modification (CLI, interface web) est prise en compte par chaque serveur en cours
   d'exécution **en quelques secondes**, sans redémarrage ; l'outil `reload_rules` et le bouton
-  **Recharger** de l'écran Règles l'appliquent immédiatement.
+  **Recharger** de la page Règles l'appliquent immédiatement.
 - Une règle stockée qui ne passe plus la validation est **ignorée et signalée** (outil
   `list_rules`, champ `load_errors`) ; si la base est inaccessible, les règles par défaut du
   fichier `default_rules.toml` s'appliquent.

@@ -6,7 +6,7 @@ Cette page explique ce que cela change, et comment y renvoyer un agent depuis `A
 ## Ce que le serveur conserve
 
 - Les normes sont stockées **en base**, comme les règles. Elles ne sont pas dans votre dépôt.
-- Un administrateur les écrit dans l'écran **Normes** de l'interface web. Il peut aussi les
+- Un administrateur les écrit dans la page **Normes** de l'interface web. Il peut aussi les
   importer depuis un fichier TOML.
 - Chaque norme indique ses technologies et ses motifs de fichiers (`*.py`, `angular.json`).
 - Tous les projets reçoivent les mêmes normes. Une mise à jour s'applique tout de suite à tous
@@ -27,7 +27,7 @@ Les normes centralisées évitent cela pour les conventions :
 | Skills ou fichiers d'instructions | Normes centralisées |
 |---|---|
 | Un format par agent | Tout agent MCP (Claude Code, GitHub Copilot, Codex, Cursor...) les lit par le serveur `security-review` |
-| Copiés dans chaque dépôt ou sur chaque poste | Écrites une fois, dans l'écran **Normes** |
+| Copiés dans chaque dépôt ou sur chaque poste | Écrites une fois, dans la page **Normes** |
 | Mis à jour à la main partout | Une mise à jour s'applique tout de suite à tous les agents |
 | Tous chargés, ou choisis par l'agent | Sélectionnées par technologie ou par fichier (`*.py`, `angular.json`) |
 

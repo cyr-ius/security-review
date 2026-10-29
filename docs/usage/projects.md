@@ -18,7 +18,7 @@ project `mobile-app`, so that the members of a team reach the same project whate
 
 | Way | Who | Result |
 |---|---|---|
-| **New project** button of the **Projects** screen | A person with `projects.create` | Created at once ([creating a project](#creating-a-project)) |
+| **New project** button of the **Projects** page | A person with `projects.create` | Created at once ([creating a project](#creating-a-project)) |
 | The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once if the developer may create projects; otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | First report saved for it | A token that reaches it (pipeline, token for **All projects**) | The project shows with its first report |
 
@@ -38,13 +38,13 @@ group in **Groups** or **Users**, or approve the **Access request** filed by the
 ## Creating a project
 
 With the `projects.create` permission, the **New project** button shows on the **Projects**
-screen. Creating a project makes you a member of its project group: you read it at once, and
+page. Creating a project makes you a member of its project group: you read it at once, and
 your agent can save its reviews there.
 
 ## Deleting a project
 
 With the `projects.delete` permission, a trash button shows on each row of the **Projects**
-screen. The deletion **cannot be undone** and removes everything that refers to the project:
+page. The deletion **cannot be undone** and removes everything that refers to the project:
 
 - its reports, findings and comments;
 - the project in the roles of the groups; its project group is deleted;
@@ -56,7 +56,7 @@ The audit log keeps the events of the project. A confirmation is asked before th
 ## Joining a project
 
 The agent of a developer may ask to join an existing project. Its request shows, waiting for
-approval, in **Pending projects** on the **Projects** screen.
+approval, in **Pending projects** on the **Projects** page.
 
 A person with the `projects.create` and `users.manage` permissions may approve this request; a
 person with `users.manage` may also add the user to the project group.

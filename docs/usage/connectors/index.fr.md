@@ -15,7 +15,7 @@ Les variables, les garanties et l'API REST sont dans
 
 ## Activation
 
-L'écran **Connecteurs** (Administration) affiche une carte par connecteur, avec son état
+La page **Connecteurs** (Administration) affiche une carte par connecteur, avec son état
 (**Inactif**, **À configurer**, **Actif**), son nombre de projets, un **interrupteur** et une
 **roue crantée** pour ses paramètres :
 

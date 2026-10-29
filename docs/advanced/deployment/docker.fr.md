@@ -79,7 +79,7 @@ Bon à savoir :
   Ajoutez à `.env` l'URL publique racine du serveur Controller (`SECREVIEW_PUBLIC_URL=https://…`) :
   le serveur Controller la recopie en base au démarrage, pour que le serveur MCP donne le lien de
   l'interface web (`/ui`) à un agent sans jeton et que les connecteurs relient leurs tickets aux rapports. Sans elle, renseignez
-  l'écran **Général**.
+  la page **Général**.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
   dépendances répond qu'aucune base n'est chargée. Pour que le serveur Controller la télécharge au
   démarrage puis toutes les 24 h, décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et

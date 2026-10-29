@@ -135,7 +135,7 @@ d'aucune règle propre. Avec un seul hôte pour les deux, routez `/mcp` et
 Ensuite, dans la ConfigMap :
 
 - réglez `SECREVIEW_PUBLIC_URL` sur l'URL publique racine du serveur Controller (`https://…`), ou
-  renseignez l'écran **Général** : le serveur MCP donne son interface web (`/ui`) aux clients
+  renseignez la page **Général** : le serveur MCP donne son interface web (`/ui`) aux clients
   sans jeton valide, pour que l'utilisateur sache où créer un
   jeton MCP personnel ;
 - pour que les hôtes MCP se connectent par le navigateur plutôt qu'avec un jeton MCP personnel,

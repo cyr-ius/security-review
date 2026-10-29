@@ -78,7 +78,7 @@ review, which the agent then follows. Every argument is an optional string.
   `save_security_report`. The content given by the user is fenced, so that it is read as data,
   not as instructions.
 - `report_language`: letters, spaces, `-`, `_` and parentheses, 40 characters at most;
-  without it, `SECREVIEW_REPORT_LANGUAGE`, else the **General** screen
+  without it, `SECREVIEW_REPORT_LANGUAGE`, else the **General** page
   ([report language](../../review/prompts-tools.md#report-language)).
 - An invalid argument returns the MCP error `INVALID_PARAMS` with its reason: refused
   `report_language`, `scan_results` or `task` + `context` beyond
@@ -205,7 +205,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    They tell the user to sign in to the web interface (its URL comes from
    the database, where the Controller server copies its
    [`SECREVIEW_PUBLIC_URL`](../../reference/configuration.md#web-interface-and-sessions), followed by `/ui`, or the
-   **General** screen stores it; read again at most every 30 seconds; none: no
+   **General** page stores it; read again at most every 30 seconds; none: no
    link), to create a
    **personal MCP token** in **My account** (see
    [personal MCP tokens](../../usage/tokens.md#personal-mcp-and-ci-tokens)) and to put it in the
@@ -224,7 +224,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
       is recorded for a token without a user on an existing project, or for a user who already
       reads it.
 3. **Approval.** A user holding `projects.create` (the `admin` role among others) approves or
-   rejects the request in the **Pending projects** section of the **Projects** screen, where
+   rejects the request in the **Pending projects** section of the **Projects** page, where
    each request is marked **New project** or **Access request**, or from the CLI (`existing`:
    `true` for an access request). Approving an access request also takes `users.manage`, as
    adding a member to a group does: `projects.create` alone never opens an existing project.
@@ -243,7 +243,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
 
 `save_security_report` refuses a project the token does not reach and points to
 `request_project`. When a user with `projects.create`
-[creates the project](../../usage/projects.md#creating-a-project) on the **Projects** screen, its
+[creates the project](../../usage/projects.md#creating-a-project) on the **Projects** page, its
 own pending request is settled; those of other users become access requests.
 
 Safeguards: at most 20 requests are pending at a time, a user (or a token without a user)

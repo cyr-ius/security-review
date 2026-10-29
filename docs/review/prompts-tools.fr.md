@@ -32,13 +32,13 @@ récupère avec `get_review_checklist` quand elles s'appliquent
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
 `fr` ou `pt-BR`. Sans cet argument, le prompt reprend
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#serveur-mcp) quand elle est définie, sinon la
-langue choisie par un administrateur dans l'écran [**Général**](../usage/index.md#ecrans)
+langue choisie par un administrateur dans la page [**Général**](../usage/index.md#pages)
 de l'interface web ; si aucune n'est définie, l'agent choisit (en général la langue de la
 conversation).
 
 Un agent qui fait la revue **sans prompt**, avec les seuls outils (cas courant : un prompt MCP
 est une commande lancée par l'utilisateur, l'agent ne peut pas l'appeler lui-même), reçoit la
-même langue configurée (variable, sinon écran **Général**) dans les résultats de
+même langue configurée (variable, sinon page **Général**) dans les résultats de
 `get_review_checklist` (section « Report language ») et de `scan_code` (champ
 `report_language`, `null` si l'agent choisit).
 
@@ -88,8 +88,8 @@ plutôt un `401`, voir [jeton refusé](../advanced/architecture/mcp-server.md#je
 
 Les instructions qu'il envoie à la connexion, affichées par l'hôte, donnent les mêmes étapes et
 l'adresse de l'interface web, tirée de l'URL enregistrée par le serveur Controller (sa
-`SECREVIEW_PUBLIC_URL`, ou l'écran
-[Général](../usage/index.md#ecrans)) ; sans elle, aucun lien n'est donné.
+`SECREVIEW_PUBLIC_URL`, ou la page
+[Général](../usage/index.md#pages)) ; sans elle, aucun lien n'est donné.
 
 Voir [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 

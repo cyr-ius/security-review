@@ -68,7 +68,7 @@ Pendant `--grace-hours` (`0` par défaut, `168` au plus), l'ancien secret reste 
 de mettre à jour les clients (`grace_until` dans `token list`) ; ensuite, seul le nouveau
 authentifie. L'ancien secret d'un jeton expiré ne revient jamais. Après une fuite, renouvelez sans délai de
 grâce (ou révoquez) : le secret divulgué cesse alors immédiatement de fonctionner. Un jeton personnel ne peut pas
-être renouvelé : son utilisateur en crée un nouveau. Dans l'interface web, l'écran **Jetons**
+être renouvelé : son utilisateur en crée un nouveau. Dans l'interface web, la page **Jetons**
 renouvelle les jetons de projet (bouton **Renouveler**, délai de grâce choisi au-dessus de la
 liste).
 
@@ -85,8 +85,8 @@ security-review-controller token create --label shop-ci --project shop-api      
 security-review-controller token create --label shop-gate --role ci --project shop-api
 ```
 
-Un jeton sans `--project` accède à tous les projets. Dans l'interface web, l'écran
-[**Jetons**](../usage/index.md#ecrans) crée un jeton pour certains projets ou pour
+Un jeton sans `--project` accède à tous les projets. Dans l'interface web, la page
+[**Jetons**](../usage/index.md#pages) crée un jeton pour certains projets ou pour
 **Tous les projets**, et change les projets d'un jeton existant (sauf `admin` et `metrics` ; un
 jeton `ci` garde toujours au moins un projet). Un jeton restreint :
 
@@ -170,7 +170,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
 projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du
 jeton, avant et après un changement de ses projets, et, pour un jeton `api` de rôle, chaque
-permission de son rôle sur ces projets. L'écran **Jetons** ne liste que les jetons des projets
+permission de son rôle sur ces projets. La page **Jetons** ne liste que les jetons des projets
 que l'utilisateur lit. Sa **Validité** va de 30 jours à 1 an, ou le défaut du serveur
 (`SECREVIEW_TOKEN_MAX_DAYS`).
 
@@ -183,7 +183,7 @@ règles :
 - label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, et
   validité bornée par `SECREVIEW_TOKEN_MAX_DAYS` ;
 - personne ne peut le renouveler ni changer ses projets ; un administrateur peut le révoquer
-  depuis l'écran **Jetons**.
+  depuis la page **Jetons**.
 
 Un jeton `mcp` personnel exige `mcp_tokens.create` dans les groupes du compte (`403` sans elle) ;
 un jeton déjà créé continue de fonctionner quand le compte la perd, et un administrateur le

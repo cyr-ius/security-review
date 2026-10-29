@@ -4,7 +4,7 @@ Ce qu'un [compte utilisateur](user-accounts.md) peut faire vient uniquement de s
 Un groupe donne des **rôles**, chacun sur tous les projets ou sur certains
 [projets](projects.md) ; un rôle est un ensemble de **permissions**. Un compte n'a jamais de rôle
 propre : pour donner un accès à une personne, ajoutez-la à un groupe. Les administrateurs gèrent
-tout cela dans les écrans **Groupes**, **Rôles** et **Utilisateurs**.
+tout cela dans les pages **Groupes**, **Rôles** et **Utilisateurs**.
 
 L'API REST, les limites et les règles détaillées sont dans
 [Contrôle d'accès par l'API REST](../advanced/access-control-api.md). Les jetons des machines
@@ -58,7 +58,7 @@ Les membres ont deux origines :
 Les permissions d'un utilisateur s'additionnent sur **tous ses groupes**, chacune avec ses
 propres projets. Par exemple, un utilisateur `reader` sur tous les projets par un groupe et
 `triager` sur `crm` par un autre lit tous les projets et ne trie que `crm`. **Mon compte** et
-l'écran **Utilisateurs** affichent ces permissions.
+la page **Utilisateurs** affichent ces permissions.
 
 Un changement de groupe ou de rôle s'applique aussitôt aux sessions ouvertes. Un compte sans
 aucune permission ne peut pas se connecter.

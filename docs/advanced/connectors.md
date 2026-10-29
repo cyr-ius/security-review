@@ -6,7 +6,7 @@ REST API.
 
 ## Enabling
 
-The **Connectors** screen (Administration, `settings.manage` permission) shows every available
+The **Connectors** page (Administration, `settings.manage` permission) shows every available
 connector as a card: its state, the number of projects that use it, a **switch** and a **gear**
 that opens its settings (**Connection** and **Projects** tabs).
 
@@ -19,7 +19,7 @@ the audit log (`connector.changed`, `{"enabled": true}`).
 
 | Value | Effect |
 |---|---|
-| `true` (default) | The switches of the screen decide; every connector is off until switched on |
+| `true` (default) | The switches of the page decide; every connector is off until switched on |
 | `false` | Every connector is locked off: nothing is sent, the switches cannot be turned on, **Test the connection** is refused |
 
 ```bash
@@ -60,7 +60,7 @@ lands in the system is described on the page of the connector.
   the [outgoing proxy](../reference/configuration.md#outgoing-proxy).
 - **Redirects are refused**: they would carry the credentials elsewhere. Timeout 15 seconds,
   answer bounded to 1 MiB.
-- Secrets entered in the screen are stored in the database **in clear**, like the OIDC client
+- Secrets entered on the page are stored in the database **in clear**, like the OIDC client
   secret: the API never returns them (`***`), the logs only name the changed settings, the audit
   event masks them. Prefer the variables (Kubernetes secret) if the database is not protected
   like a secret.
@@ -141,6 +141,6 @@ SECREVIEW_ACME_API_KEY=...
 
 The Controller server loads the allowed connectors at start and refuses to start if one is missing,
 written for another version of the API, or declares a variable of the server itself
-(`SECREVIEW_<KIND>_<FIELD>` must not be an existing setting). The **Connectors** screen shows it
+(`SECREVIEW_<KIND>_<FIELD>` must not be an existing setting). The **Connectors** page shows it
 as a card marked **Third-party**, off until switched on. A connector runs in the Controller server with
 its rights: only install and allow code you trust, like any dependency.

@@ -21,7 +21,7 @@ Le fournisseur doit être joignable en HTTPS par le serveur Controller, par le p
 
 ## Configurer le OIDC dans l'interface
 
-Un administrateur remplit l'écran **Connexions**, sans redémarrer le serveur Controller :
+Un administrateur remplit la page **Connexions**, sans redémarrer le serveur Controller :
 
 1. **Émetteur (issuer)**, **Identifiant client**, **Secret client** (vide pour un client public)
    et **URL de retour** ;
@@ -37,7 +37,7 @@ réaffiché : laissé vide, il est conservé.
 
 ## Comptes OIDC
 
-Chaque utilisateur OIDC est un compte de l'écran **Utilisateurs**, avec le badge **OIDC** et sans
+Chaque utilisateur OIDC est un compte de la page **Utilisateurs**, avec le badge **OIDC** et sans
 mot de passe. Il est lié à sa première connexion à son identité chez le fournisseur : un nom
 changé chez le fournisseur garde le même compte.
 

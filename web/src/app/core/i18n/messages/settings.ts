@@ -21,7 +21,7 @@ export const settings = defineMessages({
     'settings.storedDeleted': 'Value set here deleted.',
     'settings.storedIgnored': 'Value set here, ignored: {value}.',
     'settings.variableLocked':
-      'Set by {variable} ({value}), which takes precedence over this screen: change the variable to change it.',
+      'Set by {variable} ({value}), which takes precedence over this page: change the variable to change it.',
     'settings.controllerUrlTitle': 'Controller server address',
     'settings.controllerUrlHelp':
       'Enter the public address of your Controller server (without /ui). The MCP server uses it to tell the user where to sign in. The connectors also use it to link their records to the reports. A change reaches the MCP server within a minute, without restart.',
@@ -44,7 +44,7 @@ export const settings = defineMessages({
     'settings.proxyDeleteStored': 'Delete the value set here for {variable}',
     'settings.proxyTitle': 'Outgoing proxy',
     'settings.proxyHelp':
-      'Used for OSV downloads and for authentication with the identity provider. The variables HTTPS_PROXY (else HTTP_PROXY) and NO_PROXY, when set, take precedence over this screen. A change takes effect at the next download or authentication, without restart.',
+      'Used for OSV downloads and for authentication with the identity provider. The variables HTTPS_PROXY (else HTTP_PROXY) and NO_PROXY, when set, take precedence over this page. A change takes effect at the next download or authentication, without restart.',
     'settings.proxyApplied': 'Proxy applied:',
     'settings.none': 'none',
     'settings.noProxyApplied': 'Without proxy:',
@@ -137,7 +137,7 @@ export const settings = defineMessages({
     'settings.storedDeleted': 'Valeur définie ici supprimée.',
     'settings.storedIgnored': 'Valeur définie ici, ignorée : {value}.',
     'settings.variableLocked':
-      'Défini par {variable} ({value}), prioritaire sur cet écran : modifiez la variable pour le changer.',
+      'Défini par {variable} ({value}), prioritaire sur cette page : modifiez la variable pour le changer.',
     'settings.controllerUrlTitle': 'Adresse du serveur Controller',
     'settings.controllerUrlHelp':
       "Saisissez l'adresse publique de votre serveur Controller (sans le /ui). Cela permet au serveur MCP d'informer l'utilisateur pour se connecter au site. Les connecteurs l'utilisent aussi pour relier leurs fiches aux rapports. Une modification atteint le serveur MCP en moins d'une minute, sans redémarrage.",
@@ -161,7 +161,7 @@ export const settings = defineMessages({
     'settings.proxyDeleteStored': 'Supprimer la valeur définie ici pour {variable}',
     'settings.proxyTitle': 'Proxy sortant',
     'settings.proxyHelp':
-      "Utilisé pour les téléchargements OSV et l'authentification auprès du fournisseur d'identité. Les variables HTTPS_PROXY (sinon HTTP_PROXY) et NO_PROXY, lorsqu'elles sont définies, sont prioritaires sur cet écran. Une modification s'applique au prochain téléchargement ou à la prochaine authentification, sans redémarrage.",
+      "Utilisé pour les téléchargements OSV et l'authentification auprès du fournisseur d'identité. Les variables HTTPS_PROXY (sinon HTTP_PROXY) et NO_PROXY, lorsqu'elles sont définies, sont prioritaires sur cette page. Une modification s'applique au prochain téléchargement ou à la prochaine authentification, sans redémarrage.",
     'settings.proxyApplied': 'Proxy appliqué :',
     'settings.none': 'aucun',
     'settings.noProxyApplied': 'Sans proxy :',
@@ -261,7 +261,7 @@ export const settings = defineMessages({
     'settings.storedDeleted': 'Valor definido aquí eliminado.',
     'settings.storedIgnored': 'Valor definido aquí, ignorado: {value}.',
     'settings.variableLocked':
-      'Definido por {variable} ({value}), que tiene prioridad sobre esta pantalla: cambie la variable para modificarlo.',
+      'Definido por {variable} ({value}), que tiene prioridad sobre esta página: cambie la variable para modificarlo.',
     'settings.controllerUrlTitle': 'Dirección del servidor Controller',
     'settings.controllerUrlHelp':
       'Introduzca la dirección pública de su servidor Controller (sin /ui). El servidor MCP la usa para indicar al usuario dónde iniciar sesión. Los conectores también la usan para enlazar sus registros con los informes. Un cambio llega al servidor MCP en menos de un minuto, sin reinicio.',
@@ -285,7 +285,7 @@ export const settings = defineMessages({
     'settings.proxyDeleteStored': 'Eliminar el valor definido aquí para {variable}',
     'settings.proxyTitle': 'Proxy saliente',
     'settings.proxyHelp':
-      'Se usa para las descargas OSV y para la autenticación con el proveedor de identidad. Las variables HTTPS_PROXY (si no, HTTP_PROXY) y NO_PROXY, cuando están definidas, tienen prioridad sobre esta pantalla. Un cambio se aplica en la próxima descarga o autenticación, sin reiniciar.',
+      'Se usa para las descargas OSV y para la autenticación con el proveedor de identidad. Las variables HTTPS_PROXY (si no, HTTP_PROXY) y NO_PROXY, cuando están definidas, tienen prioridad sobre esta página. Un cambio se aplica en la próxima descarga o autenticación, sin reiniciar.',
     'settings.proxyApplied': 'Proxy aplicado:',
     'settings.none': 'ninguno',
     'settings.noProxyApplied': 'Sin proxy:',
