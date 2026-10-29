@@ -84,7 +84,7 @@ Le choix est **automatique**. Il dépend du langage du code scanné.
   l'agent juge si l'exception est justifiée.
 
 En CI, `security-review-ci scan-code` déduit le langage de chaque fichier à partir de son
-nom (`.py`, `Dockerfile`, `Jenkinsfile`...). Voir [Scan du code complet](analysis/code-scan.md).
+nom (`.py`, `Dockerfile`, `Jenkinsfile`...). Voir [Analyse du code complet](analysis/code-scan.md).
 
 ## Comment le système choisit les checklists
 

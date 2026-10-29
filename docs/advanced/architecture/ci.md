@@ -52,7 +52,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 | `gate` | [Gate](../../review/gate.md) of the project |
 | `sarif` | SARIF 2.1.0 log of the project ([SARIF export](../reports/sarif.md)) |
 | `trend` | Trend report of the project ([Trend report](#trend-report)) |
-| `scan-code` | Sends the files of the repository to the Controller server, which scans them with its rules ([Whole codebase scan](../../review/analysis/code-scan.md)) |
+| `scan-code` | Sends the files of the repository to the Controller server, which scans them with its rules ([Whole codebase analysis](../../review/analysis/code-scan.md)) |
 | `scan-deps` | Sends manifests and lockfiles to the Controller server, which checks them against its advisories ([Dependencies](../../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)) |
 | `agent-review` | Has the coding agent of the developer review the last commit with the MCP server, in the background (post-commit hook, [Agent review of each commit](#agent-review-of-each-commit)) |
 | `guard` | Checks the files that the coding agent is about to read for hidden text and text addressed to an assistant, offline (hook of the agent, [Read guard](../../review/analysis/read-guard.md)) |
@@ -180,7 +180,7 @@ security-review-ci gate --project portal --fail-on high
 
 1. `scan-code` and `scan-deps` send the files to the Controller server, which scans them and, with
    `--save`, stores a `code-scan` and a `dependency-scan` report of the project
-   ([Whole codebase scan](../../review/analysis/code-scan.md), [Dependency analysis](../../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)).
+   ([Whole codebase analysis](../../review/analysis/code-scan.md), [Dependency analysis](../../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)).
 2. `sarif` downloads the open findings of the project, for the code scanning of the platform
    ([SARIF export](../reports/sarif.md)).
 3. `gate` decides: it fails (code `1`) while open findings reach `--fail-on`.

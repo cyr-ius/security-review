@@ -46,7 +46,7 @@ and a report database (SQLite or PostgreSQL) usable in pipelines.
 
 Details: [how a review works](https://cyr-ius.github.io/security-review/review/) (rules, checklists, standards, `AGENTS.md`),
 [prompts and tools](https://cyr-ius.github.io/security-review/review/prompts-tools/),
-[whole codebase scan](https://cyr-ius.github.io/security-review/review/analysis/code-scan/),
+[whole codebase analysis](https://cyr-ius.github.io/security-review/review/analysis/code-scan/),
 [dependencies](https://cyr-ius.github.io/security-review/review/analysis/dependencies/),
 [gate](https://cyr-ius.github.io/security-review/review/gate/),
 [SARIF](https://cyr-ius.github.io/security-review/advanced/reports/sarif/),

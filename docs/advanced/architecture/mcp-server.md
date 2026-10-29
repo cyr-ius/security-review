@@ -48,6 +48,117 @@ In stdio, `security-review-mcp local` migrates its local database itself.
 Tokens and rules are read in the database: a token created or revoked on the Controller server applies
 to the next request, a changed rule within 5 seconds.
 
+## Prompts, tools and resources
+
+This section is the technical reference of what the MCP server exposes to a client with a valid
+token (in stdio, to the local host). When to use them in a review:
+[Prompts and tools](../../review/prompts-tools.md).
+
+At connection, the server sends **instructions** that the host shows the model: which prompt
+starts a review, `request_project` before reviewing, `save_security_report` once at the end,
+and `propose_finding_status` that never changes a status.
+
+### Prompts
+
+A prompt is a command started by the user in the host: the server returns the text of the
+review, which the agent then follows. Every argument is an optional string.
+
+| Prompt | Arguments | Returns |
+|---|---|---|
+| `security-review` | `language` (one or more, comma separated: `python, angular`; aliases `py`, `ts` accepted), `code`, `context`, `focus`, `report_language` | Review of the code with the checklists of the languages |
+| `api-security-review` | `framework` (`FastAPI`, `Spring Boot`, `Express`…), `code`, `context`, `focus`, `report_language` | Review of a REST API against the OWASP API Security Top 10 |
+| `configuration-review` | `config_type` (`Dockerfile`, `GitLab CI`, `Jenkinsfile`…), `content`, `context`, `focus`, `report_language` | Review of Docker, CI/CD, Spring, YAML or properties files |
+| `codebase-review` | `languages`, `scan_results` (JSON output of `security-review-ci scan-code . --project <name> --format json`), `context`, `focus`, `report_language` | Review of the whole repository, from the scan results ([files read, rules, checklists, token consumption](../../review/analysis/code-scan.md#what-codebase-review-does)) |
+| `dependency-review` | `ecosystem` (`PyPI`, `npm`, `Maven`, `Go`, `crates.io`, `NuGet`; empty: all), `files`, `context`, `report_language` | Review of manifests and lockfiles |
+| `triage-report` | `report_id` (required, integer), `context`, `report_language` | Re-assessment of the findings of a stored report, embedded in Markdown without its author |
+| `development-standards` | `technologies`, `files` (comma or newline separated), `task`, `context` | The [development standards](../../review/standards.md) of the stack (the catalog when both lists are empty); saves nothing |
+
+- An empty `code`, `content` or `files` asks the agent to read the files of its workspace.
+- The five review prompts start with `request_project` and end with a single call to
+  `save_security_report`. The content given by the user is fenced, so that it is read as data,
+  not as instructions.
+- `report_language`: letters, spaces, `-`, `_` and parentheses, 40 characters at most;
+  without it, `SECREVIEW_REPORT_LANGUAGE`, else the **General** screen
+  ([report language](../../review/prompts-tools.md#report-language)).
+- An invalid argument returns the MCP error `INVALID_PARAMS` with its reason: refused
+  `report_language`, `scan_results` or `task` + `context` beyond
+  `SECREVIEW_MAX_CONTENT_CHARS`, report outside the projects of the token, unknown standard.
+
+### Tools
+
+Each tool is marked **read-only** (`readOnlyHint`) or **write** (never destructive: no tool
+deletes data). An expected error (invalid input, unknown object, project the token does not
+reach) is returned to the model as a tool error with its reason; the message of any other
+error is hidden from it.
+
+**Checklists, scan and rules**
+
+| Tool | Type | Parameters | Returns |
+|---|---|---|---|
+| `list_checklists` | read-only | none | Domains (built-in and internal) with their number of items |
+| `get_review_checklist` | read-only | `domain` | The checklist in Markdown, followed by the report language when one is configured |
+| `scan_code` | read-only | `content` (at most `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (rule, line, masked excerpt), `suppressed` (lines marked `secreview:ignore`), counts, `report_language`; leads to check, not a full SAST |
+| `list_rules` | read-only | `language` (optional) | Active rules, `disabled_rules`, `load_errors` of the internal rules |
+| `reload_rules` | write | none | Reads the rules of the database again at once (otherwise within 5 seconds); refused to a token restricted to projects |
+
+**Development standards**
+
+| Tool | Type | Parameters | Returns |
+|---|---|---|---|
+| `list_development_standards` | read-only | none | Slug, title, description, technologies and file patterns of each standard, without its content |
+| `get_development_standards` | read-only | `technologies` (at most 50, 50 characters each), `files` (at most 500 names, 500 characters each), `format` (`markdown` or `json`) | The standards selected by technology or file name, and the technologies no standard covers; at least one technology or file is required |
+
+**Projects and reports**
+
+| Tool | Type | Parameters | Returns |
+|---|---|---|---|
+| `request_project` | write | `project` | `status`: `accessible`, `created` or `requested` with `next_steps` ([enrollment](#enrollment-personal-token-and-project-requests)); never a token |
+| `save_security_report` | write | `project`, `summary`, `findings` (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`); optional `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (can only raise the computed risk), `review_type`, `author`, `checklist_results` (at most 500), `scan_rules` (at most 500) | Report id, risk level, counts by severity and review coverage ([stored report](../../review/prompts-tools.md#stored-report)) |
+| `get_security_report` | read-only | `report_id`, `format` (`markdown` by default, or `json`) | The report and its findings, without its author |
+| `list_security_reports` | read-only | `project`, `risk_level`, `review_type`, `limit` (1 to 100, `20` by default), `offset` | Reports, newest first, without their author (`author`: deprecated, ignored) |
+| `propose_finding_status` | write | `finding_id`, `status` (`fixed`, `accepted` or `false_positive`), `reason` (10 to 1,000 characters) | The finding with its proposal; its status does not change until a person decides ([status of a finding](../../review/prompts-tools.md#status-of-a-finding)) |
+
+**Posture, gate, exports and trends**
+
+| Tool | Type | Parameters | Returns |
+|---|---|---|---|
+| `get_project_security_posture` | read-only | `project` | Open findings by severity, worst open severity |
+| `check_project_gate` | read-only | `project`, `fail_on` (`high` by default), `report_id` (optional) | `passed` false while an open finding reaches `fail_on` ([gate](../../review/gate.md)) |
+| `export_sarif` | read-only | `report_id` **or** `project`, `include_resolved` (`false` by default) | A SARIF 2.1.0 log; for a project, each finding once (latest report) |
+| `get_trend_report` | read-only | `project`, `days` (1 to 1,095, `90` by default), `granularity` (`day`, `week` by default, `month`), `format` | New and fixed findings, open backlog, risk score, MTTR |
+
+**Dependencies**
+
+| Tool | Type | Parameters | Returns |
+|---|---|---|---|
+| `scan_dependencies` | read-only | `content` (at most `SECREVIEW_MAX_DEPENDENCY_CHARS`; beyond, use `security-review-ci scan-deps`), `filename` (selects the parser: `uv.lock`, `package-lock.json`, `pom.xml`, `bom.json`…) | Vulnerable versions and hygiene findings; check `vulnerability_check` first: when it is not `performed`, an empty list does not mean safe ([dependencies](../../review/analysis/dependencies.md)) |
+| `get_advisory_status` | read-only | none | Size, ecosystems and age of the last import of the vulnerability database |
+
+**Scope of a token.** With a token restricted to projects (personal token included), every tool
+that names a project, a report or a finding checks that the token reaches it, and
+`list_security_reports` only returns the reports of its projects. `save_security_report`
+refuses another project and points to `request_project`. The tools that take no project
+(checklists, scan, standards, dependencies) answer every token. In stdio, there is no
+restriction.
+
+### Resources
+
+The resources are read-only, in Markdown (`text/markdown`), and follow the same scope as the
+tools.
+
+| URI | Name | Content |
+|---|---|---|
+| `report://{report_id}` | `security-report` | A stored report and its findings, without its author (`report_id`: a number, in the projects of the token) |
+| `checklist://{domain}` | `review-checklist` | The checklist of a domain, as `get_review_checklist` without the report language |
+| `standards://catalog` | `development-standards` | The catalog of the development standards |
+| `standard://{slug}` | `development-standard` | One development standard, with its content |
+
+An unknown object returns a "resource not found" error, an invalid identifier a resource error.
+
+The [enrollment server](../../review/prompts-tools.md#enrollment-server), served to a client
+without a token, exposes none of these tools nor resources: only the five review prompts,
+without argument, which explain how to get a token.
+
 ## What it never does
 
 - It makes **no outgoing connection** (the OSV database is imported by the Controller server), and loads

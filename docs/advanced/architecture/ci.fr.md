@@ -56,7 +56,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 | `gate` | [Gate](../../review/gate.md) du projet |
 | `sarif` | Journal SARIF 2.1.0 du projet ([Export SARIF](../reports/sarif.md)) |
 | `trend` | Rapport de tendance du projet ([Rapport de tendance](#rapport-de-tendance)) |
-| `scan-code` | Envoie les fichiers du dépôt au serveur Controller, qui les scanne avec ses règles ([Scan du code complet](../../review/analysis/code-scan.md)) |
+| `scan-code` | Envoie les fichiers du dépôt au serveur Controller, qui les scanne avec ses règles ([Analyse du code complet](../../review/analysis/code-scan.md)) |
 | `scan-deps` | Envoie manifestes et lockfiles au serveur Controller, qui les compare à ses avis ([Dépendances](../../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)) |
 | `agent-review` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP, en arrière-plan (hook post-commit, [Revue de chaque commit par un agent](#revue-de-chaque-commit-par-un-agent)) |
 | `guard` | Vérifie, hors ligne, que les fichiers que l'agent de code va lire ne cachent pas de texte et ne s'adressent pas à un assistant (hook de l'agent, [Garde de lecture](../../review/analysis/read-guard.md)) |

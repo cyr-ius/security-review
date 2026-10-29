@@ -47,7 +47,7 @@ en pipeline.
 
 Détail : [fonctionnement d'une revue](https://cyr-ius.github.io/security-review/fr/review/) (règles, checklists, normes, `AGENTS.md`),
 [prompts et outils](https://cyr-ius.github.io/security-review/fr/review/prompts-tools/),
-[scan du code complet](https://cyr-ius.github.io/security-review/fr/review/analysis/code-scan/),
+[analyse du code complet](https://cyr-ius.github.io/security-review/fr/review/analysis/code-scan/),
 [dépendances](https://cyr-ius.github.io/security-review/fr/review/analysis/dependencies/),
 [gate](https://cyr-ius.github.io/security-review/fr/review/gate/),
 [SARIF](https://cyr-ius.github.io/security-review/fr/advanced/reports/sarif/),
