@@ -1,5 +1,40 @@
 # Changelog
 
+## [9.0.0](https://github.com/cyr-ius/security-review/compare/v8.1.2...v9.0.0) (2026-10-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* the mcp_tokens.create permission and the mcp-user role are removed; use SECREVIEW_PERSONAL_TOKENS_ENABLED instead.
+
+### Features
+
+* add --version to security-review-mcp, security-review-controller and security-review-ci ([294d4f3](https://github.com/cyr-ius/security-review/commit/294d4f3455204023f633279e12136df4c18c57bd))
+* add the projects.autojoin permission and block it per project ([5436ce5](https://github.com/cyr-ius/security-review/commit/5436ce50a79524a17478645bae180ec5d25fde27))
+* **config:** read the public URL of the Controller server from SECREVIEW_PUBLIC_URL ([a321da8](https://github.com/cyr-ius/security-review/commit/a321da8a4b9d9c05b8d123909a108b19d11da87d))
+* filter findings, risk acceptances and reports on several values ([46f3294](https://github.com/cyr-ius/security-review/commit/46f3294ed49ba5eae315f7eee7457b7dccef3e4b))
+* log the version when the MCP and Controller servers start ([d96fea7](https://github.com/cyr-ius/security-review/commit/d96fea7eea52aeedff227db9bbc423daefcc337e))
+* replace the mcp_tokens.create permission with SECREVIEW_PERSONAL_TOKENS_ENABLED ([dde2cac](https://github.com/cyr-ius/security-review/commit/dde2cacb37db9c7df27b581594247539ba8d9da1))
+* **ui:** add a Review section to the sidebar with findings and risk acceptances ([ab4bce1](https://github.com/cyr-ius/security-review/commit/ab4bce13c9d12c99a3dcebc3105cf1ed41a4c59c))
+* **ui:** retry automatically on the Backend unavailable page ([316c6ed](https://github.com/cyr-ius/security-review/commit/316c6ed999aadbc1efaa6fa2a4eb2349e7e534ae))
+* **ui:** show the MCP endpoint field in the OAuth settings list ([92ab5ba](https://github.com/cyr-ius/security-review/commit/92ab5ba2b9c1238e3f8f9189a2f80699036b4e18))
+
+
+### Bug Fixes
+
+* create the project group when a token reaching every project requests a project ([07523ea](https://github.com/cyr-ius/security-review/commit/07523ea4541e90bf78db406b4cdc9599debd1d57))
+
+
+### Documentation
+
+* align the English usage pages and fix the French ones ([98e7e32](https://github.com/cyr-ius/security-review/commit/98e7e3223b7cf919c873d151ec8e24284b8d798a))
+* call the views of the web interface pages instead of screens ([ec2c12c](https://github.com/cyr-ius/security-review/commit/ec2c12c436c58e2f5b993e85cb349fcf31fb694d))
+* document the MCP prompts, tools and resources and split the two codebase analysis modes ([9399b04](https://github.com/cyr-ius/security-review/commit/9399b040c4da9868135bd35851ddcde40829c4f5))
+* show the project logo in the documentation header ([316348e](https://github.com/cyr-ius/security-review/commit/316348e4b475e89782962d2e128adb0899e44e61))
+* Update index.fr.md ([2f0fb4a](https://github.com/cyr-ius/security-review/commit/2f0fb4abe858b6c44df54b145d4b05b35e2b5426))
+* Update projects.fr.md ([99da6ff](https://github.com/cyr-ius/security-review/commit/99da6ff9c6d89f7f73e4e6797430b1076bce131d))
+* Update triage.fr.md ([5076551](https://github.com/cyr-ius/security-review/commit/5076551ae99c3a339370400edd95c1707680e9d1))
+
 ## [8.1.2](https://github.com/cyr-ius/security-review/compare/v8.1.1...v8.1.2) (2026-10-28)
 
 
