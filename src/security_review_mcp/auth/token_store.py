@@ -76,6 +76,7 @@ from ..observability.audit import AuditAction
 from ..storage.database import session_scope
 from ..storage.models import ApiToken, ApiTokenProject, OAuthGrant, WebUser, as_utc, utcnow
 from ..storage.project_names import normalize_project
+from ..storage.projects import ensure_project
 
 MAX_TOKENS = 500
 MAX_LABEL_CHARS = 64
@@ -403,6 +404,8 @@ def _insert(
         with session_scope() as session:
             session.add(row)
             session.flush()
+            for project in projects or []:
+                ensure_project(session, project, event[1])
             session.add_all(links)
             action, actor = event
             audit.record(
@@ -752,7 +755,10 @@ def set_token_projects(
             if link.project not in wanted:
                 session.delete(link)
         known = {link.project for link in links}
-        session.add_all(_new_link(row.id, name) for name in cleaned or [] if name not in known)
+        for name in cleaned or []:
+            if name not in known:
+                ensure_project(session, name, actor)
+                session.add(_new_link(row.id, name))
         row.project = cleaned[0] if cleaned else None
         session.add(row)
         session.flush()

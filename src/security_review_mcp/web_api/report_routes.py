@@ -13,6 +13,7 @@ from pydantic import StringConstraints
 from ..auth import access_control
 from ..reports import services, trends
 from ..reports.sarif import build_sarif
+from ..storage import projects as project_store
 from ..storage.database import session_scope
 from ..storage.models import (
     DISMISSED_STATUSES,
@@ -91,14 +92,14 @@ async def project_trend(project: str, days: int, granularity: Granularity) -> di
 
 
 def _known_projects() -> list[dict]:
-    """Projects with reports, then those without any report that a role of a group names,
-    with whether their autojoin is blocked."""
+    """Projects with reports, then the known projects without any report, with whether their
+    autojoin is blocked."""
     with session_scope() as session:
-        bound = access_control.bound_projects(session)
+        known = project_store.known_projects(session)
         blocked = access_control.autojoin_blocked_projects(session)
     return [
         item | {"autojoin_blocked": item["project"] in blocked}
-        for item in services.list_projects(bound)
+        for item in services.list_projects(known)
     ]
 
 

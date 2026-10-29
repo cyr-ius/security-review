@@ -72,18 +72,18 @@ from ..config import Settings, get_settings
 from ..http_server import Role
 from ..observability import audit
 from ..reports.services import NotFoundError
+from ..storage import projects as project_store
 from ..storage.database import session_scope
 from ..storage.models import (
     AccessRole,
     ApiToken,
-    ApiTokenProject,
     ConnectorTarget,
     Finding,
     FindingComment,
     FindingExport,
     GroupMember,
     GroupRole,
-    ProjectAutojoinBlock,
+    Project,
     ProjectEnrollment,
     SecurityReport,
     UserGroup,
@@ -771,6 +771,8 @@ def set_group_roles(
             session.delete(binding)
         session.flush()
         for role_id, projects in cleaned.items():
+            for project in projects:
+                project_store.ensure_project(session, project, actor)
             session.add(
                 GroupRole(group_id=group_id, role_id=role_id, projects=json.dumps(projects))
             )
@@ -987,6 +989,7 @@ def ensure_project_group(session: Session, project: str, actor: str | None = Non
             the same time by another approval.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    project_store.ensure_project(session, cleaned, actor)
     row = find_project_group(session, cleaned)
     if row is not None:
         return row
@@ -1015,23 +1018,9 @@ def ensure_project_group(session: Session, project: str, actor: str | None = Non
     return row
 
 
-def bound_projects(session: Session) -> set[str]:
-    """Projects named by the roles of the groups (a role on every project names none)."""
-    rows = session.exec(select(GroupRole.projects).where(GroupRole.projects != "[]")).all()
-    return {name for projects in rows for name in json.loads(projects)}
-
-
 def project_exists(session: Session, project: str) -> bool:
-    """True when ``project`` is known: it has a report, a role of a group names it, or a token
-    reaches it."""
-    checks = (
-        select(SecurityReport.id).where(SecurityReport.project == project),
-        select(ApiTokenProject.id).where(ApiTokenProject.project == project),
-        select(ApiToken.id).where(ApiToken.project == project),
-    )
-    if any(session.exec(query.limit(1)).first() is not None for query in checks):
-        return True
-    return project in bound_projects(session)
+    """True when ``project`` is known (see storage.projects)."""
+    return project_store.project_exists(session, project)
 
 
 def create_project(user_id: int, project: str, actor: str | None = None) -> dict[str, Any]:
@@ -1227,7 +1216,7 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
         # Its connector destinations (its exports went with its findings), deleted here rather
         # than by connectors: the MCP server imports this module, never the connectors
         session.exec(delete(ConnectorTarget).where(ConnectorTarget.project == cleaned))
-        session.exec(delete(ProjectAutojoinBlock).where(ProjectAutojoinBlock.project == cleaned))
+        session.exec(delete(Project).where(Project.name == cleaned))
         audit.record(
             session,
             audit.AuditAction.PROJECT_DELETED,
@@ -1245,7 +1234,7 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
 
 def autojoin_blocked_projects(session: Session) -> set[str]:
     """Projects whose autojoin is blocked (see set_autojoin_blocked)."""
-    return set(session.exec(select(ProjectAutojoinBlock.project)).all())
+    return set(session.exec(select(Project.name).where(col(Project.autojoin_blocked))).all())
 
 
 def set_autojoin_blocked(project: str, blocked: bool, actor: str | None = None) -> dict[str, Any]:
@@ -1259,26 +1248,13 @@ def set_autojoin_blocked(project: str, blocked: bool, actor: str | None = None) 
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
     with session_scope() as session:
-        if not project_exists(session, cleaned):
+        row = session.exec(select(Project).where(Project.name == cleaned)).first()
+        if row is None:
             raise NotFoundError(f"Project '{cleaned}' not found")
-        row = session.exec(
-            select(ProjectAutojoinBlock).where(ProjectAutojoinBlock.project == cleaned)
-        ).first()
-        if blocked == (row is not None):
+        if blocked == row.autojoin_blocked:
             return {"project": cleaned, "autojoin_blocked": blocked}
-        if blocked:
-            session.add(
-                ProjectAutojoinBlock(
-                    project=cleaned, blocked_by=(actor or audit.ANONYMOUS_ACTOR)[:200]
-                )
-            )
-        else:
-            session.delete(row)
-        try:
-            session.flush()
-        except IntegrityError:
-            # Blocked at the same time by another user: the first stands
-            raise ValueError(f"Project '{cleaned}' was changed concurrently; retry") from None
+        row.autojoin_blocked = blocked
+        session.add(row)
         audit.record(
             session,
             audit.AuditAction.PROJECT_AUTOJOIN_CHANGED,

@@ -907,3 +907,58 @@ def test_the_tickets_and_their_settings_move_to_the_connector_names(empty_engine
         "connector:jira:enabled": "true",
         "proxy": "http://proxy:3128",
     }
+
+
+def test_every_referred_project_becomes_a_known_project(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        config = database.alembic_config(connection)
+        command.upgrade(config, "0037")
+        connection.execute(
+            text(
+                "INSERT INTO securityreport (project, summary, risk_level, created_at) "
+                "VALUES ('shop', 'Summary', 'LOW', '2026-10-01 10:00:00')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "
+                "VALUES ('t1', 'ci-billing', 'ci', 'billing', :hash, '2026-10-01')"
+            ),
+            {"hash": "a" * 64},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO apitokenproject (id, token_id, project, created_at) "
+                "VALUES ('l1', 't1', 'billing', '2026-10-01')"
+            )
+        )
+        role = connection.execute(text("SELECT id FROM accessrole WHERE name = 'reader'"))
+        group = connection.execute(
+            text(
+                "INSERT INTO usergroup (name, description, sso, created_at, updated_at) "
+                "VALUES ('devs', '', 0, '2026-10-01', '2026-10-01') RETURNING id"
+            )
+        ).scalar_one()
+        connection.execute(
+            text("INSERT INTO grouprole (group_id, role_id, projects) VALUES (:g, :r, :p)"),
+            {"g": group, "r": role.scalar_one(), "p": '["crm"]'},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO projectautojoinblock (project, blocked_by, created_at) "
+                "VALUES ('vault', 'admin', '2026-10-01')"
+            )
+        )
+        command.upgrade(config, "0038")
+        projects = dict(
+            connection.execute(text("SELECT name, autojoin_blocked FROM project")).all()
+        )
+        # Downgrading gives the blocked project back
+        command.downgrade(config, "0037")
+        blocks = connection.execute(text("SELECT project FROM projectautojoinblock")).all()
+
+    assert projects == {"billing": 0, "crm": 0, "shop": 0, "vault": 1}
+    assert [tuple(row) for row in blocks] == [("vault",)]

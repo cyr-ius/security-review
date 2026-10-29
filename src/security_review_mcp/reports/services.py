@@ -44,6 +44,7 @@ from ..storage.models import (
     utcnow,
 )
 from ..storage.project_names import normalize_project
+from ..storage.projects import ensure_project
 from . import coverage
 from .sarif import issue_fingerprint
 
@@ -346,6 +347,7 @@ def save_report(
     now = utcnow()
 
     with session_scope() as session:
+        ensure_project(session, project, submitted_by)
         pairs, recurring, carried = _match_occurrences(session, project, rows, now)
         risk = compute_risk_level([row.severity for row in rows], risk_level)
         report = SecurityReport(
@@ -835,7 +837,7 @@ def finding_status_counts() -> dict[str, int]:
 
 def list_projects(known: Iterable[str] = ()) -> list[dict]:
     """List the projects that have reports, with their open findings by severity, and the
-    ``known`` projects without any report yet (created, or named by a role of a group).
+    ``known`` projects without any report yet.
 
     Sorted by the date of the latest report, most recent first; projects without a report last.
     """
