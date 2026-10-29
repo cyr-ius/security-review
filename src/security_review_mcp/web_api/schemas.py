@@ -191,8 +191,9 @@ class ProjectDeleted(BaseModel):
     project: str
     reports: int
     findings: int
-    groups_deleted: list[str]
-    groups_changed: list[str]
+    # Users who lost their roles on the project, and the claims of the OIDC mappings changed
+    members_removed: int
+    mappings_changed: list[str]
     tokens_revoked: int
     tokens_changed: int
 
@@ -214,11 +215,10 @@ class PendingProject(BaseModel):
 
 
 class PendingProjectApproved(PendingProject):
-    """An approved project: its project group (created for a new project), which the
-    requesting user joined."""
+    """An approved project (created when new): the requesting user, if any, got the ``reader``
+    role on it."""
 
-    group_id: int
-    group: str
+    granted_to: str | None
 
 
 class ProjectPosture(BaseModel):
@@ -937,16 +937,32 @@ class ProjectTokenSecret(ProjectToken):
     token: str
 
 
-# ── Web users, roles and groups ──────────────────────────────────────────────
+# ── Web users, roles and OIDC mappings ───────────────────────────────────────
 
 
-class UserGroupMembership(BaseModel):
-    """Membership of a web user in a group."""
+class UserRoleRef(BaseModel):
+    """A role of a web user on every project."""
 
-    group_id: int
+    role_id: int
     name: str
-    # local: given by an administrator; oidc: named by the groups claim at the last login
-    source: AuthSource
+
+
+class UserProjectRole(BaseModel):
+    """A role of a web user on one project (only its scoped permissions apply there)."""
+
+    project: str
+    role_id: int
+    role: str
+
+
+class UserOidcRole(BaseModel):
+    """A role given to an OIDC user by the mapping of a value of its roles claim (last login),
+    on every project (``projects`` None) or on projects."""
+
+    claim: str
+    role_id: int
+    role: str
+    projects: list[str] | None
 
 
 class WebUser(BaseModel):
@@ -955,7 +971,11 @@ class WebUser(BaseModel):
     id: int
     username: str
     auth_source: AuthSource
-    groups: list[UserGroupMembership]
+    # Roles given by an administrator: on every project, and on projects
+    roles: list[UserRoleRef]
+    projects: list[UserProjectRole]
+    # Roles of its OIDC mappings (read only, recomputed at each login)
+    oidc_roles: list[UserOidcRole]
     # Each permission with its projects (None: every project); empty: no access
     permissions: dict[str, list[str] | None]
     # True once an OIDC user logged in (bound to its identity provider account)
@@ -984,12 +1004,24 @@ class RevokedUser(BaseModel):
     revoked_by: str | None
 
 
-class WebUserCreate(BaseModel):
-    """A web user and its groups, the only source of its permissions. A local one without
-    ``password`` gets a random one, returned once; an OIDC one (``auth_source="oidc"``) has no
-    password and also joins its OIDC groups at each login."""
+class UserProjectBinding(BaseModel):
+    """A role given to a web user on a known project."""
 
-    # A user has no role of its own: an unknown field (such as "roles") is refused, not ignored
+    project: _ProjectName
+    role_id: int = Field(ge=1)
+
+
+_RoleIds = list[Annotated[int, Field(ge=1)]]
+_ProjectBindings = list[UserProjectBinding]
+
+
+class WebUserCreate(BaseModel):
+    """A web user and its roles, the only source of its permissions: on every project
+    (``role_ids``) and on projects (``projects``). A local one without ``password`` gets a
+    random one, returned once; an OIDC one (``auth_source="oidc"``) has no password and also
+    gets the roles of its OIDC mappings at each login."""
+
+    # An unknown field (such as the former "group_ids") is refused, not ignored
     model_config = ConfigDict(extra="forbid")
 
     username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
@@ -999,20 +1031,22 @@ class WebUserCreate(BaseModel):
         min_length=web_users.MIN_PASSWORD_CHARS,
         max_length=web_users.MAX_PASSWORD_CHARS,
     )
-    group_ids: list[Annotated[int, Field(ge=1)]] = Field(
-        default_factory=list, max_length=access_control.MAX_GROUPS
+    role_ids: _RoleIds = Field(default_factory=list, max_length=access_control.MAX_ROLES)
+    projects: _ProjectBindings = Field(
+        default_factory=list, max_length=access_control.MAX_PROJECT_MEMBERS
     )
 
 
 class WebUserUpdate(BaseModel):
-    """Groups an administrator gives to a web user (its OIDC groups are kept); a missing field
-    is left unchanged."""
+    """Roles an administrator gives to a web user (the roles of its OIDC mappings are kept); a
+    missing field is left unchanged."""
 
-    # A user has no role of its own: an unknown field (such as "roles") is refused, not ignored
+    # An unknown field (such as the former "group_ids") is refused, not ignored
     model_config = ConfigDict(extra="forbid")
 
-    group_ids: list[Annotated[int, Field(ge=1)]] | None = Field(
-        default=None, max_length=access_control.MAX_GROUPS
+    role_ids: _RoleIds | None = Field(default=None, max_length=access_control.MAX_ROLES)
+    projects: _ProjectBindings | None = Field(
+        default=None, max_length=access_control.MAX_PROJECT_MEMBERS
     )
 
 
@@ -1044,7 +1078,7 @@ class RoleWrite(BaseModel):
 
 
 class AccessRole(BaseModel):
-    """A role: a named set of permissions, given to groups."""
+    """A role: a named set of permissions, given to users and by OIDC mappings."""
 
     id: int
     name: str
@@ -1052,88 +1086,84 @@ class AccessRole(BaseModel):
     permissions: list[access_control.Permission]
     # Built-in role (reader, admin): neither changed nor deleted
     system: bool
-    # Only scoped permissions: the role may be limited to projects in a group
+    # Only scoped permissions: a token with this role may be limited to projects
     scoped: bool
-    # Number of groups that have the role
-    groups: int
+    # Users who hold the role on every project, users who hold it on projects, OIDC mappings
+    users: int
+    project_users: int
+    mappings: int
     created_at: str
     updated_at: str
     created_by: str | None
 
 
-class GroupWrite(BaseModel):
-    """A group of web users. With ``sso``, the OIDC users whose groups claim holds ``name`` are
-    members too."""
-
-    name: str = Field(min_length=1, max_length=access_control.MAX_GROUP_NAME_CHARS)
-    description: str = Field(default="", max_length=access_control.MAX_DESCRIPTION_CHARS)
-    sso: bool = False
-
-
-class GroupRoleBinding(BaseModel):
-    """A role given to a group, on every project (empty ``projects``) or on some projects."""
-
-    role_id: int = Field(ge=1)
-    projects: list[_ProjectName] = Field(
-        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
-    )
-
-
-class GroupRolesUpdate(BaseModel):
-    """Body of PUT /groups/{id}/roles: every role of the group."""
-
-    roles: list[GroupRoleBinding] = Field(max_length=access_control.MAX_ROLES_PER_GROUP)
-
-
-class GroupMembersUpdate(BaseModel):
-    """Body of PUT /groups/{id}/members: the members added by an administrator."""
-
-    user_ids: list[Annotated[int, Field(ge=1)]] = Field(
-        max_length=access_control.MAX_MEMBERS_PER_CHANGE
-    )
-
-
-class GroupRole(BaseModel):
-    """A role of a group, on every project (None) or on some projects."""
-
-    role_id: int
-    name: str
-    projects: list[str] | None
-
-
-class GroupMember(BaseModel):
-    """A member of a group."""
+class ProjectMember(BaseModel):
+    """A role of a web user on a project."""
 
     user_id: int
     username: str
-    source: AuthSource
+    auth_source: AuthSource
+    role_id: int
+    role: str
 
 
-class UserGroup(BaseModel):
-    """A group of web users with its roles and members."""
+class ProjectMemberBinding(BaseModel):
+    """A role given to a web user on the project."""
+
+    user_id: int = Field(ge=1)
+    role_id: int = Field(ge=1)
+
+
+class ProjectMembersUpdate(BaseModel):
+    """Body of PUT /access/projects/{project}/members: every role of the users on the project."""
+
+    members: list[ProjectMemberBinding] = Field(max_length=access_control.MAX_PROJECT_MEMBERS)
+
+
+class OidcRoleMapping(BaseModel):
+    """A value of the OIDC roles claim that gives a role, on every project (``projects``
+    None) or on projects (a project not known yet is ignored until it is created)."""
 
     id: int
-    name: str
-    description: str
-    # The OIDC users whose groups claim holds the name are members too
-    sso: bool
-    roles: list[GroupRole]
-    members: list[GroupMember]
+    claim: str
+    role_id: int
+    role: str
+    projects: list[str] | None
     created_at: str
-    updated_at: str
     created_by: str | None
 
 
-class GroupCatalog(BaseModel):
-    """The groups and the OIDC settings that use them."""
+class OidcRoleMappingWrite(BaseModel):
+    """An OIDC mapping: a value of the roles claim, a role and its projects (None: every
+    project)."""
+
+    claim: str = Field(min_length=1, max_length=access_control.MAX_CLAIM_CHARS)
+    role_id: int = Field(ge=1)
+    projects: list[_ProjectName] | None = Field(
+        default=None, min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class OidcMappingsUpdate(BaseModel):
+    """Body of PUT /oidc/mappings: every OIDC mapping."""
+
+    mappings: list[OidcRoleMappingWrite] = Field(max_length=access_control.MAX_OIDC_MAPPINGS)
+
+
+class OidcMappingCatalog(BaseModel):
+    """The OIDC mappings and the OIDC settings that use them."""
 
     oidc_enabled: bool
     roles_claim: str
-    # OIDC groups created with the admin role at the login of a member
+    # Values of the claim mapped to admin on every project at the login of a user who holds one
     admin_groups: list[str]
-    # Group every OIDC user joins at each login
-    default_group: str | None
-    groups: list[UserGroup]
+    mappings: list[OidcRoleMapping]
+
+
+class KnownProject(BaseModel):
+    """A known project (GET /access/projects), to give roles on it."""
+
+    name: str
 
 
 # ── Audit log ────────────────────────────────────────────────────────────────
@@ -1366,7 +1396,6 @@ class OidcSettingsUpdate(BaseModel):
     roles_claim: _OidcText | None = None
     username_claim: _OidcText | None = None
     admin_groups: _OidcText | None = None
-    default_group: _OidcText | None = None
     auto_create_users: bool | None = None
     display_name: _OidcText | None = None
 

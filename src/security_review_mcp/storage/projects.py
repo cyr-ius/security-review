@@ -8,7 +8,7 @@ server uses it.
 """
 
 from sqlalchemy.dialects import postgresql, sqlite
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from .models import Project, utcnow
 
@@ -45,3 +45,12 @@ def ensure_project(session: Session, name: str, created_by: str | None = None) -
         session.add(Project(name=name, created_by=actor))
         session.flush()
     return session.exec(select(Project).where(Project.name == name)).one()
+
+
+def search_projects(session: Session, text: str | None, limit: int) -> list[str]:
+    """Names of the known projects that contain ``text`` (every project without it), by name,
+    at most ``limit``."""
+    query = select(Project.name).order_by(Project.name).limit(limit)
+    if text:
+        query = query.where(col(Project.name).contains(text, autoescape=True))
+    return list(session.exec(query).all())

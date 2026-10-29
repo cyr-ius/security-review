@@ -1,31 +1,34 @@
-"""Routes of the access control (``users.manage``): permissions, roles, groups, web users and
-the OIDC settings, which decide who joins which group."""
+"""Routes of the access control (``users.manage``): permissions, roles, web users and their
+roles, the members of the projects, the OIDC mappings and the OIDC settings."""
 
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
 from .. import app_settings
 from ..auth import access_control, oidc, web_users
+from ..storage import projects as project_store
+from ..storage.database import session_scope
+from ..storage.project_names import ProjectName
 from .auth_routes import LOGIN_HEADERS, OidcLogins, current_oidc
 from .deps import UsersManager, actor_of, unprocessable
 from .schemas import (
     AccessRole,
-    GroupCatalog,
-    GroupMembersUpdate,
-    GroupRolesUpdate,
-    GroupWrite,
+    KnownProject,
+    OidcMappingCatalog,
+    OidcMappingsUpdate,
     OidcSettings,
     OidcSettingsUpdate,
     OidcTestResult,
     PasswordReset,
     PermissionInfo,
+    ProjectMember,
+    ProjectMembersUpdate,
     RevokedUser,
     RoleWrite,
-    UserGroup,
     WebUser,
     WebUserCreate,
     WebUserUpdate,
@@ -40,7 +43,7 @@ UsernamePath = Annotated[str, APIPath(min_length=1, max_length=web_users.MAX_USE
 
 
 def _conflict(exc: ValueError) -> HTTPException:
-    """409 answer for a deletion refused by a service (a role or group in use, last admin)."""
+    """409 answer for a deletion refused by a service (a role in use, last admin)."""
     return HTTPException(status.HTTP_409_CONFLICT, str(exc))
 
 
@@ -96,7 +99,7 @@ async def update_role(role_id: int, body: RoleWrite, identity: UsersManager) -> 
 
 @router.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_role(role_id: int, identity: UsersManager) -> Response:
-    """Delete a custom role: the groups that have it lose it at once."""
+    """Delete a custom role: the users and OIDC mappings that give it lose it at once."""
     try:
         deleted = await run_in_threadpool(access_control.delete_role, role_id, actor_of(identity))
     except ValueError as exc:
@@ -105,101 +108,93 @@ async def delete_role(role_id: int, identity: UsersManager) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# ── Groups ───────────────────────────────────────────────────────────────────
+# ── Projects and their members ───────────────────────────────────────────────
+
+# Names returned by one search of the known projects
+MAX_PROJECT_SEARCH = 200
 
 
-@router.get("/groups")
-async def groups(request: Request, identity: UsersManager) -> GroupCatalog:
-    """List the groups with their roles and members, and the OIDC settings that use them."""
+def _search_projects(text: str | None, limit: int) -> list[dict[str, str]]:
+    """The known projects whose name contains ``text``."""
+    with session_scope() as session:
+        return [{"name": name} for name in project_store.search_projects(session, text, limit)]
+
+
+@router.get("/access/projects")
+async def known_projects(
+    identity: UsersManager,
+    search: Annotated[str | None, Query(max_length=200)] = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_PROJECT_SEARCH)] = 50,
+) -> list[KnownProject]:
+    """Search the known projects by name, to give roles on them (every project, also those the
+    caller does not read)."""
+    return await run_in_threadpool(_search_projects, (search or "").strip().lower(), limit)
+
+
+@router.get("/access/projects/{project}/members")
+async def project_members(
+    project: Annotated[ProjectName, APIPath()], identity: UsersManager
+) -> list[ProjectMember]:
+    """List the roles of the users on a project (not their roles on every project)."""
+    try:
+        return await run_in_threadpool(access_control.list_project_members, project)
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+
+
+@router.put("/access/projects/{project}/members")
+async def set_project_members(
+    project: Annotated[ProjectName, APIPath()],
+    body: ProjectMembersUpdate,
+    identity: UsersManager,
+) -> list[ProjectMember]:
+    """Replace the roles of the users on a project (applies to their sessions at once)."""
+    try:
+        members = await run_in_threadpool(
+            access_control.set_project_members,
+            project,
+            [(item.user_id, item.role_id) for item in body.members],
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Members of project %s changed by %s", project, identity.client)
+    return members
+
+
+# ── OIDC mappings ────────────────────────────────────────────────────────────
+
+
+@router.get("/oidc/mappings", tags=["sso"])
+async def oidc_mappings(request: Request, identity: UsersManager) -> OidcMappingCatalog:
+    """List the OIDC mappings, and the OIDC settings that use them."""
     settings = await run_in_threadpool(app_settings.effective_settings)
-    return GroupCatalog.model_validate(
+    return OidcMappingCatalog.model_validate(
         {
             "oidc_enabled": await current_oidc(request) is not None,
             "roles_claim": settings.oidc_roles_claim,
             "admin_groups": sorted(access_control.parse_groups(settings.oidc_admin_groups)),
-            "default_group": settings.oidc_default_group.strip() or None,
-            "groups": await run_in_threadpool(access_control.list_groups),
+            "mappings": await run_in_threadpool(access_control.list_oidc_mappings),
         }
     )
 
 
-@router.post("/groups", status_code=status.HTTP_201_CREATED)
-async def create_group(body: GroupWrite, identity: UsersManager) -> UserGroup:
-    """Create a group, without role nor member."""
+@router.put("/oidc/mappings", tags=["sso"])
+async def set_oidc_mappings(
+    request: Request, body: OidcMappingsUpdate, identity: UsersManager
+) -> OidcMappingCatalog:
+    """Replace the OIDC mappings (applies at once to the OIDC users, by their claims of the last
+    login); a change that removes the last holder of users.manage is refused."""
     try:
-        created = await run_in_threadpool(
-            access_control.create_group,
-            body.name,
-            body.description,
-            body.sso,
+        await run_in_threadpool(
+            access_control.set_oidc_mappings,
+            [(item.claim, item.role_id, item.projects) for item in body.mappings],
             actor_of(identity),
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc
-    logger.info("Group %s created by %s", created["name"], identity.client)
-    return created
-
-
-@router.put("/groups/{group_id}")
-async def update_group(group_id: int, body: GroupWrite, identity: UsersManager) -> UserGroup:
-    """Rename a group, change its description or whether the OIDC groups claim names it."""
-    try:
-        updated = await run_in_threadpool(
-            access_control.update_group,
-            group_id,
-            body.name,
-            body.description,
-            body.sso,
-            actor_of(identity),
-        )
-    except ValueError as exc:
-        raise unprocessable(exc) from exc
-    logger.info("Group %s updated by %s", updated["name"], identity.client)
-    return updated
-
-
-@router.put("/groups/{group_id}/roles")
-async def set_group_roles(
-    group_id: int, body: GroupRolesUpdate, identity: UsersManager
-) -> UserGroup:
-    """Replace the roles of a group (applies to its members at once)."""
-    try:
-        updated = await run_in_threadpool(
-            access_control.set_group_roles,
-            group_id,
-            [(item.role_id, item.projects) for item in body.roles],
-            actor_of(identity),
-        )
-    except ValueError as exc:
-        raise unprocessable(exc) from exc
-    logger.info("Roles of group %s changed by %s", updated["name"], identity.client)
-    return updated
-
-
-@router.put("/groups/{group_id}/members")
-async def set_group_members(
-    group_id: int, body: GroupMembersUpdate, identity: UsersManager
-) -> UserGroup:
-    """Replace the members added by an administrator (the OIDC members are kept)."""
-    try:
-        updated = await run_in_threadpool(
-            access_control.set_group_members, group_id, body.user_ids, actor_of(identity)
-        )
-    except ValueError as exc:
-        raise unprocessable(exc) from exc
-    logger.info("Members of group %s changed by %s", updated["name"], identity.client)
-    return updated
-
-
-@router.delete("/groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_group(group_id: int, identity: UsersManager) -> Response:
-    """Delete a group: its members lose its roles at once."""
-    try:
-        deleted = await run_in_threadpool(access_control.delete_group, group_id, actor_of(identity))
-    except ValueError as exc:
-        raise _conflict(exc) from exc
-    logger.info("Group %s deleted by %s", deleted["name"], identity.client)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    logger.info("OIDC mappings changed by %s", identity.client)
+    return await oidc_mappings(request, identity)
 
 
 # ── OIDC settings ─────────────────────────────────────────────────────────────
@@ -211,8 +206,8 @@ async def _describe_oidc(request: Request) -> dict[str, Any]:
     return described | {"active": await current_oidc(request) is not None}
 
 
-# The OIDC settings decide who joins which group (groups claim, admin and default groups,
-# identity provider): they need users.manage, not only settings.manage
+# The OIDC settings decide who gets which role (roles claim, admin groups, identity provider):
+# they need users.manage, not only settings.manage
 @router.get("/oidc/settings", tags=["sso"])
 async def get_oidc_settings(request: Request, identity: UsersManager) -> OidcSettings:
     """Return the OIDC settings: stored value, variable and effective value of each one.
@@ -280,7 +275,8 @@ async def create_user(
             web_users.create_user,
             body.username,
             body.password,
-            body.group_ids,
+            body.role_ids,
+            [(item.project, item.role_id) for item in body.projects],
             identity.client,
             body.auth_source,
             actor_of(identity),
@@ -316,11 +312,14 @@ async def lift_user_revocation(username: UsernamePath, identity: UsersManager) -
 
 @router.put("/users/{user_id}")
 async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager) -> WebUser:
-    """Replace the groups an administrator gave to a web user (applies to its sessions at once);
-    a missing field is left unchanged."""
+    """Replace the roles an administrator gave to a web user, on every project and on projects
+    (applies to its sessions at once); a missing field is left unchanged."""
+    projects = (
+        None if body.projects is None else [(item.project, item.role_id) for item in body.projects]
+    )
     try:
         updated = await run_in_threadpool(
-            web_users.update_user, user_id, body.group_ids, actor_of(identity)
+            web_users.update_user, user_id, body.role_ids, projects, actor_of(identity)
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc

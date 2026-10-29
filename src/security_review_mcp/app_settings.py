@@ -493,7 +493,6 @@ OIDC_FIELDS: dict[str, type] = {
     "roles_claim": str,
     "username_claim": str,
     "admin_groups": str,
-    "default_group": str,
     "auto_create_users": bool,
     "display_name": str,
 }

@@ -4,7 +4,7 @@ and administration.
 The controller runs apart from the MCP server (``security-review-mcp``), in its own process,
 container or pod; both share the database. ``serve`` serves the REST API (``/api/v1``) and the
 Angular application (``/ui``); the other commands are the operator commands of
-cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``group``, ``rules``...). The pipeline
+cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``role``, ``rules``...). The pipeline
 commands (``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_client).
 """
 
@@ -32,8 +32,8 @@ commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
   db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
   token        manage the bearer tokens
-  user         manage the web users (local and OIDC) and the groups they belong to
-  group        list the groups of web users and the roles (with their permissions)
+  user         manage the web users (local and OIDC) and their roles
+  role         list the roles (with their permissions) and the OIDC mappings
   project      list, approve or reject the projects requested by an enrollment
   audit        read or purge the audit log (triage decisions, tokens, enrollments, access)
   rules        manage the internal rules and checklists

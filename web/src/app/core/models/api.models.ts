@@ -290,6 +290,8 @@ export type AuditAction =
   | 'project.joined'
   | 'project.autojoin_changed'
   | 'user.roles_changed'
+  | 'user.projects_changed'
+  | 'oidc.mappings_changed'
   | 'user.login'
   | 'user.login_failed'
   | 'user.logout'
@@ -332,6 +334,8 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'project.joined',
   'project.autojoin_changed',
   'user.roles_changed',
+  'user.projects_changed',
+  'oidc.mappings_changed',
   'user.login',
   'user.login_failed',
   'user.logout',

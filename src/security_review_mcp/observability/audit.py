@@ -57,6 +57,7 @@ class AuditAction(StrEnum):
     ROLE_CREATED = "role.created"
     ROLE_UPDATED = "role.updated"
     ROLE_DELETED = "role.deleted"
+    # Groups of web users, removed by revision 0039: kept for the history
     GROUP_CREATED = "group.created"
     GROUP_UPDATED = "group.updated"
     GROUP_DELETED = "group.deleted"
@@ -69,8 +70,11 @@ class AuditAction(StrEnum):
     PROJECT_JOINED = "project.joined"
     # The autojoin of a project blocked or allowed again (see access_control.set_autojoin_blocked)
     PROJECT_AUTOJOIN_CHANGED = "project.autojoin_changed"
-    # Recorded by the direct roles of a user, removed since revision 0018: kept for the history
+    # Roles of a user on every project, and on projects (see access_control)
     USER_ROLES_CHANGED = "user.roles_changed"
+    USER_PROJECTS_CHANGED = "user.projects_changed"
+    # The OIDC mappings of the roles claim (see access_control.set_oidc_mappings)
+    OIDC_MAPPINGS_CHANGED = "oidc.mappings_changed"
     USER_LOGIN = "user.login"
     USER_LOGIN_FAILED = "user.login_failed"
     USER_LOGOUT = "user.logout"

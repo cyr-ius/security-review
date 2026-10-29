@@ -139,7 +139,7 @@ def test_serve_creates_the_admin_once_without_logging_any_password(
     assert not any("administrator" in record.message for record in caplog.records)
     (admin,) = web_users.list_users()
     assert (admin["username"], admin["must_change_password"]) == ("admin", True)
-    assert [group["name"] for group in admin["groups"]] == ["administrators"]
+    assert [role["name"] for role in admin["roles"]] == ["admin"]
     # The only way to a password: the CLI, which prints it once
     capsys.readouterr()
     assert cli.run(["user", "reset-password", "admin"]) == cli.EXIT_PASSED
@@ -241,7 +241,9 @@ def test_serve_refuses_invalid_oidc_settings(settings, captured_run, capsys):
     assert "SECREVIEW_OIDC_REDIRECT_URI" in capsys.readouterr().err
 
 
-def test_serve_only_checks_the_schema_without_auto_upgrade(settings, captured_run, capsys):
+def test_serve_only_checks_the_schema_without_auto_upgrade(
+    outdated_schema, settings, captured_run, capsys
+):
     settings(db_auto_upgrade=False)
 
     with pytest.raises(SystemExit) as exc:
@@ -251,11 +253,11 @@ def test_serve_only_checks_the_schema_without_auto_upgrade(settings, captured_ru
     assert "security-review-controller db upgrade" in capsys.readouterr().err
 
 
-def test_db_status_then_upgrade(settings, capsys):
+def test_db_status_then_upgrade(outdated_schema, settings, capsys):
     with pytest.raises(SystemExit) as exc:
         controller.main(["db", "status"])
     assert exc.value.code == cli.EXIT_BLOCKED
-    assert json.loads(capsys.readouterr().out)["current"] is None
+    assert json.loads(capsys.readouterr().out)["current"] == "0038"
 
     with pytest.raises(SystemExit) as exc:
         controller.main(["db", "upgrade"])
@@ -268,7 +270,7 @@ def test_db_status_then_upgrade(settings, capsys):
     }
 
 
-def test_commands_report_an_outdated_schema_without_auto_upgrade(settings, capsys):
+def test_commands_report_an_outdated_schema_without_auto_upgrade(outdated_schema, settings, capsys):
     settings(db_auto_upgrade=False)
 
     with pytest.raises(SystemExit) as exc:
@@ -294,7 +296,9 @@ def test_project_cli_approves_and_rejects_the_pending_projects(capsys):
     shop, spam = json.loads(capsys.readouterr().out)
     assert (shop["project"], shop["requested_by"]) == ("shop-api", "alice")
     assert cli.run(["project", "approve", str(shop["id"])]) == cli.EXIT_PASSED
-    assert json.loads(capsys.readouterr().out)["group"] == "project:shop-api"
+    approved = json.loads(capsys.readouterr().out)
+    # alice is no web user: the project is created, nobody is given access
+    assert (approved["project"], approved["granted_to"]) == ("shop-api", None)
     assert cli.run(["project", "reject", str(spam["id"])]) == cli.EXIT_PASSED
     capsys.readouterr()
 

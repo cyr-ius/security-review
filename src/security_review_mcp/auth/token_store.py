@@ -19,7 +19,7 @@ during a grace period, so that its clients are updated without an interruption.
 
 A token has one of the roles of http_server.TOKEN_ROLES: tokens are for machines (MCP agent,
 pipeline, Prometheus, administration). A person reaches the web API through a session, whose
-rights come from its groups (see access_control). A stored token of another role (``reader`` or
+rights come from its roles (see access_control). A stored token of another role (``reader`` or
 ``triager``, from an older version) authenticates nothing.
 
 The web interface manages the ``mcp``, ``ci`` and ``api`` tokens (WEB_TOKEN_ROLES): an
@@ -37,7 +37,7 @@ An ``api`` token reaches the REST API (Swagger, scripts) with the rights of the 
 
 A web user may also create a **personal** ``mcp`` token for its MCP agent, or a **personal**
 ``ci`` token for ``security-review-ci`` on its workstation (code and dependency scans, gate):
-it reaches the projects the user may read (``reports.read`` of its groups), read at each
+it reaches the projects the user may read (``reports.read`` of its roles), read at each
 request, so that a project granted to or removed from the user applies at once. It has no
 project rows and no change of projects: an administrator grants the project to the user
 instead. Each personal token has one usage: an ``mcp`` token only reaches the MCP server, a
@@ -503,7 +503,7 @@ def create_token(
     if role not in TOKEN_ROLES:
         raise ValueError(
             f"A token cannot have the role '{role.value}' (allowed: {allowed}): give a person "
-            "web access through a group"
+            "web access through a web user and its roles"
         )
     if role == Role.API:
         raise ValueError(

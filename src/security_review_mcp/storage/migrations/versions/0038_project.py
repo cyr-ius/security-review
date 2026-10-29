@@ -53,10 +53,11 @@ def _names(connection: sa.Connection) -> set[str]:
         "SELECT DISTINCT project FROM apitoken WHERE project IS NOT NULL",
     ):
         names.update(row[0] for row in connection.execute(sa.text(query)))
-    for (projects,) in connection.execute(
-        sa.text("SELECT projects FROM grouprole WHERE projects != '[]'")
-    ):
-        names.update(json.loads(projects))
+    if sa.inspect(connection).has_table("grouprole"):
+        for (projects,) in connection.execute(
+            sa.text("SELECT projects FROM grouprole WHERE projects != '[]'")
+        ):
+            names.update(json.loads(projects))
     return {name for name in names if name}
 
 

@@ -506,7 +506,9 @@ def test_main_closes_an_exposed_server_without_token(
     assert response.status_code == status
 
 
-def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, capsys):
+def test_http_mcp_server_refuses_a_database_that_was_not_migrated(
+    outdated_schema, monkeypatch, capsys
+):
     monkeypatch.setattr(server, "get_settings", lambda: make_settings())
     started = []
     monkeypatch.setattr(http_server.uvicorn, "run", lambda app, **kwargs: started.append(app))
@@ -515,7 +517,7 @@ def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, c
         server.main(["serve", "--transport", "streamable-http"])
 
     assert exc.value.code == 2 and not started
-    assert database.current_revision() is None  # the MCP server never migrates
+    assert database.current_revision() == "0038"  # the MCP server never migrates
 
 
 def test_http_mcp_server_creates_no_bootstrap_admin(monkeypatch, captured_run):

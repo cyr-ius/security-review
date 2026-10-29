@@ -1,54 +1,50 @@
-"""Access control of the web interface: permissions, roles, groups and their members.
+"""Access control of the web interface: permissions, roles and the roles of the users.
 
 - A **permission** (Permission) allows one kind of action. ``reports.read`` and
-  ``findings.triage`` are *scoped*: a role made only of scoped permissions may be given to a
-  group on a list of projects. The other permissions concern the whole controller.
+  ``findings.triage`` are *scoped*: they may be limited to projects. The other permissions
+  concern the whole controller.
 - A **role** (AccessRole) is a named set of permissions. The two built-in roles ``reader`` and
   ``admin`` can be neither changed nor deleted, because the code relies on them: ``admin`` is
-  given to the first administrator and to SECREVIEW_OIDC_ADMIN_GROUPS, ``reader`` to the project
-  groups. Their permissions are those of SYSTEM_ROLES, so that a new permission reaches
-  ``admin`` without a migration. Every other role, ``triager`` included
-  (created with the database), is an ordinary role that an administrator changes or deletes.
-- A **group** (UserGroup) has roles (GroupRole, each on every project or on a list of projects)
-  and members (GroupMember). An administrator adds members (``local``); for a group with
-  ``sso``, the OIDC users whose groups claim holds the name of the group are members too
-  (``oidc``, replaced at each login, see sync_sso_groups). A value of the claim that names no
-  group is ignored.
-- ``SECREVIEW_OIDC_ADMIN_GROUPS`` names OIDC groups that hold the ``admin`` role: at a login, a
-  listed group of the claim that does not exist yet is created (with ``sso`` and the ``admin``
-  role), so that a deployment that only uses OIDC gets its first administrator.
-  ``SECREVIEW_OIDC_DEFAULT_GROUP`` names a group every OIDC user joins at each login.
-- A user never holds a role of its own: every permission comes from a group. An administrator
-  gives a developer the reading of a project by adding it to the **project group** of the
-  project (see ensure_project_group): a group without OIDC whose only role is ``reader`` on
-  that project.
+  given to the first administrator and by SECREVIEW_OIDC_ADMIN_GROUPS, ``reader`` to the
+  creator of a project and to the users who join one. Their permissions are those of
+  SYSTEM_ROLES, so that a new permission reaches ``admin`` without a migration. Every other role
+  is an ordinary role that an administrator changes or deletes.
+- A user holds roles **on every project** (UserRole: all the permissions of the role apply
+  everywhere, "every project" in the web interface) and roles **on one project** (UserProject:
+  only the scoped permissions of the role apply, on that project). An administrator gives them
+  (see set_user_roles, set_user_projects and set_project_members).
+- An OIDC user also holds the roles of the **mappings** (OidcRoleMapping) that name a value of
+  its roles claim: each one gives a role on every project or on a list of projects (a project not
+  known yet is ignored until it is created). The values of the claim named by a mapping are kept
+  at each login (UserOidcClaim, see sync_oidc_claims); a change of the mappings applies at once.
+  ``SECREVIEW_OIDC_ADMIN_GROUPS`` names values of the claim that hold the ``admin`` role: at a
+  login, a listed value of the claim without a mapping gets one (``admin`` on every project), so
+  that a deployment that only uses OIDC gets its first administrator.
 - The MCP agent of a user **requests** a project its token does not reach (see
   request_project): a new project is created at once for a user with ``projects.create``;
   otherwise, and always for a project that already exists, the request waits
-  (``ProjectEnrollment``) until a user with ``projects.create`` approves it, which adds the
-  requesting user to the project group (created for a new project), or rejects it; a request
-  nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.
+  (``ProjectEnrollment``) until a user with ``projects.create`` approves it, which gives the
+  requesting user the ``reader`` role on the project (created for a new project), or rejects
+  it; a request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.
 - A user with ``projects.create`` may create a **new** project (see create_project): the
-  controller creates its project group and adds the user to it, so that the user reads the
-  project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
-  a group or tokens) is refused: the permission never grants the reading of an existing
-  project.
+  controller creates it and gives the user the ``reader`` role on it, so that the user reads the
+  project and its personal ``mcp`` token reaches it. A project already known (see
+  storage.projects) is refused: the permission never grants the reading of an existing project.
 - A user with ``projects.autojoin`` whose MCP agent requests a project that already exists
-  joins it at once (see request_project): it is added to the project group, so that it reads
-  the project and nothing more. A user with ``projects.create`` who reads a project may block
-  this autojoin on it (see set_autojoin_blocked): the requests then wait for an approval as the
-  others do.
+  joins it at once (see request_project), with the ``reader`` role, so that it reads the project
+  and nothing more. A user with ``projects.create`` who reads a project may block this autojoin
+  on it (see set_autojoin_blocked): the requests then wait for an approval as the others do.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
-  delete_project): its reports, findings and comments, its project group, the project in the
-  roles of the other groups and in the tokens (a token left without project is revoked). The
-  audit log keeps its events.
+  delete_project): its reports, findings and comments, the roles of the users on it, the project
+  in the mappings and in the tokens (a token left without project is revoked). The audit log
+  keeps its events.
 - No permission gives the personal ``mcp`` and ``ci`` tokens: every web user may create them
   while SECREVIEW_PERSONAL_TOKENS_ENABLED is true (see token_store).
 
-The grants of a user (see user_grants) are the union of the permissions of the roles of all its
-groups. A scoped permission reaches every project when one of its
-bindings does, otherwise the union of their projects. At least one user keeps ``users.manage``:
-a change that would remove the last one is refused (see _guard_managers).
+The grants of a user (see user_grants) are the union of the permissions of all its roles. A
+scoped permission reaches every project when one of its roles does, otherwise the union of their
+projects. At least one user keeps ``users.manage``: a change that would remove the last one is
+refused (see _guard_managers), and an OIDC login never removes it (see sync_oidc_claims).
 
 The bearer tokens are for machines and keep their fixed roles (see http_server.TOKEN_ROLES):
 token_grants gives every permission to an ``admin`` token, none to the others. An ``api`` token
@@ -58,6 +54,7 @@ request. A role used by a token cannot be deleted.
 """
 
 import json
+import logging
 from collections.abc import Iterable, Mapping
 from datetime import timedelta
 from enum import StrEnum
@@ -81,18 +78,21 @@ from ..storage.models import (
     Finding,
     FindingComment,
     FindingExport,
-    GroupMember,
-    GroupRole,
+    OidcRoleMapping,
     Project,
     ProjectEnrollment,
     SecurityReport,
-    UserGroup,
+    UserOidcClaim,
+    UserProject,
+    UserRole,
     WebUser,
     as_utc,
     utcnow,
 )
 from .rate_limit import RateLimit
 from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project, forget_project
+
+logger = logging.getLogger("security_review_mcp.web")
 
 
 class Permission(StrEnum):
@@ -123,31 +123,31 @@ class Permission(StrEnum):
 
 
 # Permissions limited to the projects of a binding (the others concern the whole controller)
+
+
+# Permissions limited to the projects of a role (the others concern the whole controller)
 SCOPED_PERMISSIONS = frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE})
 ALL_PERMISSIONS = frozenset(Permission)
-# Built-in roles, which the code relies on (``triager`` is an ordinary one)
+# Built-in roles, which the code relies on
 READER_ROLE = "reader"
 ADMIN_ROLE = "admin"
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {
     READER_ROLE: frozenset({Permission.REPORTS_READ}),
     ADMIN_ROLE: ALL_PERMISSIONS,
 }
-# Group of the first administrator (not matched against the OIDC groups claim)
-ADMIN_GROUP = "administrators"
-# Name of the group created to give the reading of one project (see ensure_project_group)
-PROJECT_GROUP_PREFIX = "project:"
-SOURCE_LOCAL = "local"
-SOURCE_OIDC = "oidc"
 
 MAX_ROLES = 100
-MAX_GROUPS = 500
-MAX_ROLES_PER_GROUP = 20
-MAX_MEMBERS_PER_CHANGE = 500
 MAX_ROLE_NAME_CHARS = 64
-MAX_GROUP_NAME_CHARS = 200
 MAX_DESCRIPTION_CHARS = 500
-# Projects one session may reach (union of several bindings): keeps the grants small
+# Projects one session may reach (union of several roles): keeps the grants small
 MAX_SESSION_PROJECTS = 200
+# Members set at once on a project (see set_project_members)
+MAX_PROJECT_MEMBERS = 500
+# OIDC mappings, and length of a value of the roles claim (an identity provider group)
+MAX_OIDC_MAPPINGS = 500
+MAX_CLAIM_CHARS = 200
+# Actor of the OIDC mappings created by a login (SECREVIEW_OIDC_ADMIN_GROUPS)
+OIDC_ACTOR = "oidc"
 
 # Project requests (see request_project): any token may make one, so they are bounded. At most
 # MAX_PENDING_PROJECTS projects wait for an approval, the requests of one user (or of one token
@@ -168,6 +168,10 @@ class AccessGrantDenied(PermissionError):
 
 class EnrollmentThrottled(ValueError):
     """Too many project requests from one user or token."""
+
+
+# What a user may do: each permission, with its projects (None: every project)
+Grants = Mapping[str, frozenset[str] | None]
 
 
 # What a user may do: each permission, with its projects (None: every project)
@@ -223,19 +227,58 @@ def scope(grants: Grants, permission: Permission) -> frozenset[str] | None:
     return grants[permission]
 
 
+def _project_names(session: Session, names: Iterable[str]) -> list[str]:
+    """The known projects among ``names``, in their order."""
+    wanted = list(dict.fromkeys(names))
+    if not wanted:
+        return []
+    known = set(session.exec(select(Project.name).where(col(Project.name).in_(wanted))).all())
+    return [name for name in wanted if name in known]
+
+
 def _bindings(session: Session, user_id: int) -> list[tuple[frozenset[str], list[str] | None]]:
-    """Permissions and projects of every role of every group of a user."""
-    rows = session.exec(
-        select(AccessRole, GroupRole.projects)
-        .join(GroupRole, col(GroupRole.role_id) == col(AccessRole.id))
-        .join(GroupMember, col(GroupMember.group_id) == col(GroupRole.group_id))
-        .where(GroupMember.user_id == user_id)
-    ).all()
-    return [(_permissions(role), json.loads(projects) or None) for role, projects in rows]
+    """Permissions and projects of every role of a user: its roles on every project, its roles
+    on one project (scoped permissions only) and the mappings of its OIDC claims."""
+    bindings: list[tuple[frozenset[str], list[str] | None]] = [
+        (_permissions(role), None)
+        for role in session.exec(
+            select(AccessRole)
+            .join(UserRole, col(UserRole.role_id) == col(AccessRole.id))
+            .where(UserRole.user_id == user_id)
+        ).all()
+    ]
+    bindings += [
+        (_permissions(role) & SCOPED_PERMISSIONS, [name])
+        for role, name in session.exec(
+            select(AccessRole, Project.name)
+            .join(UserProject, col(UserProject.role_id) == col(AccessRole.id))
+            .join(Project, col(Project.id) == col(UserProject.project_id))
+            .where(UserProject.user_id == user_id)
+        ).all()
+    ]
+    for mapping, role in _claim_mappings(session, user_id):
+        if mapping.all_projects:
+            bindings.append((_permissions(role), None))
+        elif projects := _project_names(session, json.loads(mapping.projects)):
+            bindings.append((_permissions(role) & SCOPED_PERMISSIONS, projects))
+    return bindings
+
+
+def _claim_mappings(session: Session, user_id: int) -> list[tuple[OidcRoleMapping, AccessRole]]:
+    """The OIDC mappings that name a claim of the user at its last login, with their role."""
+    return list(
+        session.exec(
+            select(OidcRoleMapping, AccessRole)
+            .join(AccessRole, col(OidcRoleMapping.role_id) == col(AccessRole.id))
+            .join(UserOidcClaim, col(UserOidcClaim.claim) == col(OidcRoleMapping.claim))
+            .where(UserOidcClaim.user_id == user_id)
+            .order_by(col(OidcRoleMapping.claim), col(AccessRole.name))
+        ).all()
+    )
 
 
 def user_grants(session: Session, user_id: int) -> dict[str, Any]:
-    """Grants of a web user through its groups (empty without any).
+    """Grants of a web user through its roles (empty without any).
 
     Raises:
         ValueError: If a permission reaches more than MAX_SESSION_PROJECTS projects.
@@ -243,17 +286,27 @@ def user_grants(session: Session, user_id: int) -> dict[str, Any]:
     return combine(_bindings(session, user_id))
 
 
+def _manager_roles(session: Session) -> list[int]:
+    """Ids of the roles that hold ``users.manage``."""
+    return [
+        role.id  # type: ignore[misc]
+        for role in session.exec(select(AccessRole)).all()
+        if Permission.USERS_MANAGE in _permissions(role)
+    ]
+
+
 def managers(session: Session) -> set[int]:
-    """Ids of the users that hold ``users.manage`` (through one of their groups)."""
-    roles = session.exec(select(AccessRole)).all()
-    role_ids = [role.id for role in roles if Permission.USERS_MANAGE in _permissions(role)]
+    """Ids of the users that hold ``users.manage`` (a role on every project, given to the user
+    or by the mapping of one of its OIDC claims)."""
+    role_ids = _manager_roles(session)
     if not role_ids:
         return set()
-    group_ids = select(GroupRole.group_id).where(col(GroupRole.role_id).in_(role_ids))
-    members = session.exec(
-        select(GroupMember.user_id).where(col(GroupMember.group_id).in_(group_ids))
-    ).all()
-    return set(members)
+    direct = session.exec(select(UserRole.user_id).where(col(UserRole.role_id).in_(role_ids)))
+    claims = select(OidcRoleMapping.claim).where(
+        col(OidcRoleMapping.role_id).in_(role_ids), col(OidcRoleMapping.all_projects)
+    )
+    mapped = session.exec(select(UserOidcClaim.user_id).where(col(UserOidcClaim.claim).in_(claims)))
+    return set(direct.all()) | set(mapped.all())
 
 
 def _guard_managers(session: Session, before: set[int]) -> None:
@@ -279,11 +332,6 @@ def _clean_text(value: str, label: str, limit: int) -> str:
 def clean_role_name(name: str) -> str:
     """Validate the name of a role."""
     return _clean_text(name, "Role name", MAX_ROLE_NAME_CHARS)
-
-
-def clean_group_name(name: str) -> str:
-    """Validate the name of a group (for an OIDC group, a value of the groups claim)."""
-    return _clean_text(name, "Group name", MAX_GROUP_NAME_CHARS)
 
 
 def clean_description(description: str | None) -> str:
@@ -324,6 +372,11 @@ def clean_projects(permissions: Iterable[str], projects: Iterable[str] | None) -
     return cleaned
 
 
+def clean_claim(value: str) -> str:
+    """Validate a value of the OIDC roles claim named by a mapping."""
+    return _clean_text(value, "Claim value", MAX_CLAIM_CHARS)
+
+
 def parse_groups(value: str) -> set[str]:
     """Group names of a comma-separated setting (``SECREVIEW_OIDC_ADMIN_GROUPS``)."""
     return {item.strip() for item in value.split(",") if item.strip()}
@@ -348,9 +401,15 @@ def list_permissions() -> list[dict[str, Any]]:
 
 
 def _role_public(session: Session, row: AccessRole) -> dict[str, Any]:
-    """API view of a role, with the number of groups that have it."""
-    groups = session.exec(
-        select(func.count()).select_from(GroupRole).where(GroupRole.role_id == row.id)
+    """API view of a role, with the number of users and OIDC mappings that give it."""
+    users = session.exec(
+        select(func.count(func.distinct(UserRole.user_id))).where(UserRole.role_id == row.id)
+    ).one()
+    project_users = session.exec(
+        select(func.count(func.distinct(UserProject.user_id))).where(UserProject.role_id == row.id)
+    ).one()
+    mappings = session.exec(
+        select(func.count()).select_from(OidcRoleMapping).where(OidcRoleMapping.role_id == row.id)
     ).one()
     return {
         "id": row.id,
@@ -359,48 +418,43 @@ def _role_public(session: Session, row: AccessRole) -> dict[str, Any]:
         "permissions": sorted(_permissions(row)),
         "system": row.system,
         "scoped": _permissions(row) <= SCOPED_PERMISSIONS,
-        "groups": groups,
+        "users": users,
+        "project_users": project_users,
+        "mappings": mappings,
         "created_at": row.created_at.isoformat(),
         "updated_at": row.updated_at.isoformat(),
         "created_by": row.created_by,
     }
 
 
-def _group_public(session: Session, row: UserGroup) -> dict[str, Any]:
-    """API view of a group, with its roles and its members."""
-    roles = session.exec(
-        select(GroupRole, AccessRole)
-        .join(AccessRole, col(GroupRole.role_id) == col(AccessRole.id))
-        .where(GroupRole.group_id == row.id)
-        .order_by(col(AccessRole.name))
-    ).all()
-    members = session.exec(
-        select(GroupMember, WebUser)
-        .join(WebUser, col(GroupMember.user_id) == col(WebUser.id))
-        .where(GroupMember.group_id == row.id)
-        .order_by(col(WebUser.username), col(GroupMember.source))
-    ).all()
-    return {
-        "id": row.id,
-        "name": row.name,
-        "description": row.description,
-        "sso": row.sso,
-        "roles": [
-            {
-                "role_id": role.id,
-                "name": role.name,
-                "projects": json.loads(binding.projects) or None,
-            }
-            for binding, role in roles
-        ],
-        "members": [
-            {"user_id": user.id, "username": user.username, "source": member.source}
-            for member, user in members
-        ],
-        "created_at": row.created_at.isoformat(),
-        "updated_at": row.updated_at.isoformat(),
-        "created_by": row.created_by,
-    }
+def _project_role(session: Session, role_id: int) -> AccessRole:
+    """A role that may be given on a project: it holds a scoped permission.
+
+    Raises:
+        NotFoundError: Unknown role.
+        ValueError: A role without any scoped permission (it would give nothing on a project).
+    """
+    role = _get_role(session, role_id)
+    if not _permissions(role) & SCOPED_PERMISSIONS:
+        raise ValueError(
+            f"The role {role.name} gives nothing on a project: only reports.read and "
+            "findings.triage apply there"
+        )
+    return role
+
+
+def _get_project(session: Session, project: str) -> Project:
+    """The known project ``project`` (normalized here).
+
+    Raises:
+        ValueError: Invalid name.
+        NotFoundError: Unknown project.
+    """
+    cleaned = _clean_project(project)
+    row = session.exec(select(Project).where(Project.name == cleaned)).first()
+    if row is None:
+        raise NotFoundError(f"Project '{cleaned}' not found")
+    return row
 
 
 def _get_role(session: Session, role_id: int) -> AccessRole:
@@ -408,14 +462,6 @@ def _get_role(session: Session, role_id: int) -> AccessRole:
     row = session.get(AccessRole, role_id)
     if row is None:
         raise NotFoundError(f"Role {role_id} not found")
-    return row
-
-
-def _get_group(session: Session, group_id: int) -> UserGroup:
-    """Return a group by id or raise NotFoundError."""
-    row = session.get(UserGroup, group_id)
-    if row is None:
-        raise NotFoundError(f"Group {group_id} not found")
     return row
 
 
@@ -436,20 +482,6 @@ def ensure_system_roles(session: Session | None = None) -> dict[str, int]:
             session.flush()
             ids[name] = row.id  # type: ignore[assignment]
     return ids
-
-
-def ensure_admin_group(session: Session, name: str = ADMIN_GROUP, sso: bool = False) -> UserGroup:
-    """Return the group ``name``, created with the ``admin`` role when it does not exist."""
-    row = session.exec(select(UserGroup).where(UserGroup.name == name)).first()
-    if row is not None:
-        return row
-    role_id = ensure_system_roles(session)[ADMIN_ROLE]
-    row = UserGroup(name=name, sso=sso, created_by="bootstrap")
-    session.add(row)
-    session.flush()
-    session.add(GroupRole(group_id=row.id, role_id=role_id, projects="[]"))
-    session.flush()
-    return row
 
 
 def list_roles() -> list[dict[str, Any]]:
@@ -506,8 +538,9 @@ def update_role(
 ) -> dict[str, Any]:
     """Replace the name, description and permissions of a custom role (not a built-in role).
 
-    The groups that have the role keep it: a role that gains a permission on the whole
-    controller cannot stay limited to projects in a group (ValueError).
+    The users and mappings that give the role keep it. A role given on projects (to a user or by
+    a mapping) keeps a scoped permission, and a role of a token limited to projects keeps only
+    scoped permissions (ValueError).
     """
     cleaned = clean_permissions(permissions)
     text = clean_description(description)
@@ -518,22 +551,32 @@ def update_role(
                 raise ValueError(f"The built-in role {row.name} cannot be changed")
             before = managers(session)
             if not set(cleaned) <= SCOPED_PERMISSIONS:
-                limited = (
+                limited = session.exec(
+                    select(ApiToken).where(
+                        ApiToken.access_role_id == role_id, col(ApiToken.project).is_not(None)
+                    )
+                ).first()
+                if limited is not None:
+                    raise ValueError(
+                        "A token limited to projects has this role: it cannot hold permissions "
+                        "on the whole controller"
+                    )
+            if not set(cleaned) & SCOPED_PERMISSIONS:
+                on_projects = (
                     session.exec(
-                        select(GroupRole).where(
-                            GroupRole.role_id == role_id, GroupRole.projects != "[]"
-                        )
+                        select(UserProject.id).where(UserProject.role_id == role_id)
                     ).first()
                     or session.exec(
-                        select(ApiToken).where(
-                            ApiToken.access_role_id == role_id, col(ApiToken.project).is_not(None)
+                        select(OidcRoleMapping.id).where(
+                            OidcRoleMapping.role_id == role_id,
+                            col(OidcRoleMapping.all_projects).is_(False),
                         )
                     ).first()
                 )
-                if limited is not None:
+                if on_projects is not None:
                     raise ValueError(
-                        "This role is limited to projects in a group: it cannot hold permissions "
-                        "on the whole controller"
+                        "This role is given on projects: it must keep reports.read or "
+                        "findings.triage"
                     )
             previous = sorted(_permissions(row))
             if name is not None:
@@ -557,7 +600,8 @@ def update_role(
 
 
 def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
-    """Delete a custom role (the groups that have it lose it); raise NotFoundError, ValueError."""
+    """Delete a custom role (the users and mappings that give it lose it); raise NotFoundError,
+    ValueError."""
     with session_scope() as session:
         row = _get_role(session, role_id)
         if row.system:
@@ -571,8 +615,8 @@ def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
             )
         before = managers(session)
         deleted = _role_public(session, row)
-        for binding in session.exec(select(GroupRole).where(GroupRole.role_id == role_id)).all():
-            session.delete(binding)
+        for model in (UserRole, UserProject, OidcRoleMapping):
+            session.exec(delete(model).where(model.role_id == role_id))  # type: ignore[attr-defined]
         session.delete(row)
         _guard_managers(session, before)
         audit.record(
@@ -637,277 +681,78 @@ def role_token_grants(
     return combine([(_permissions(row), None if projects is None else list(projects))])
 
 
-# ── Groups ───────────────────────────────────────────────────────────────────
+# ── Roles of a user ──────────────────────────────────────────────────────────
 
 
-def list_groups() -> list[dict[str, Any]]:
-    """Return every group with its roles and members, by name."""
-    with session_scope() as session:
-        rows = session.exec(select(UserGroup).order_by(col(UserGroup.name))).all()
-        return [_group_public(session, row) for row in rows]
-
-
-def get_group(group_id: int) -> dict[str, Any]:
-    """Return a group with its roles and members; raise NotFoundError."""
-    with session_scope() as session:
-        return _group_public(session, _get_group(session, group_id))
-
-
-def create_group(
-    name: str,
-    description: str | None = None,
-    sso: bool = False,
-    actor: str | None = None,
-) -> dict[str, Any]:
-    """Create a group (no role, no member); raise ValueError when invalid or duplicated."""
-    cleaned_name = clean_group_name(name)
-    text = clean_description(description)
-    try:
-        with session_scope() as session:
-            count = session.exec(select(func.count()).select_from(UserGroup)).one()
-            if count >= MAX_GROUPS:
-                raise ValueError(f"At most {MAX_GROUPS} groups can be stored")
-            row = UserGroup(name=cleaned_name, description=text, sso=sso, created_by=actor)
-            session.add(row)
-            session.flush()
-            audit.record(
-                session,
-                audit.AuditAction.GROUP_CREATED,
-                actor,
-                "group",
-                row.id,
-                details={"name": cleaned_name, "sso": sso},
-            )
-            return _group_public(session, row)
-    except IntegrityError:
-        raise ValueError(f"A group named '{cleaned_name}' already exists") from None
-
-
-def update_group(
-    group_id: int,
-    name: str,
-    description: str | None = None,
-    sso: bool = False,
-    actor: str | None = None,
-) -> dict[str, Any]:
-    """Rename a group, replace its description or its OIDC matching.
-
-    The OIDC members it loses (renamed group, or ``sso`` turned off) leave it at once.
-    """
-    cleaned_name = clean_group_name(name)
-    text = clean_description(description)
-    try:
-        with session_scope() as session:
-            row = _get_group(session, group_id)
-            before = managers(session)
-            if row.name != cleaned_name or not sso:
-                for member in session.exec(
-                    select(GroupMember).where(
-                        GroupMember.group_id == group_id, GroupMember.source == SOURCE_OIDC
-                    )
-                ).all():
-                    session.delete(member)
-            previous = {"name": row.name, "sso": row.sso}
-            row.name, row.description, row.sso = cleaned_name, text, sso
-            row.updated_at = utcnow()
-            session.add(row)
-            _guard_managers(session, before)
-            audit.record(
-                session,
-                audit.AuditAction.GROUP_UPDATED,
-                actor,
-                "group",
-                row.id,
-                details={"name": cleaned_name, "sso": sso, "previous": previous},
-            )
-            return _group_public(session, row)
-    except IntegrityError:
-        raise ValueError(f"A group named '{cleaned_name}' already exists") from None
-
-
-def delete_group(group_id: int, actor: str | None = None) -> dict[str, Any]:
-    """Delete a group, its roles and its memberships; raise NotFoundError or ValueError."""
-    with session_scope() as session:
-        row = _get_group(session, group_id)
-        before = managers(session)
-        deleted = _group_public(session, row)
-        for model in (GroupRole, GroupMember):
-            for item in session.exec(select(model).where(model.group_id == group_id)).all():
-                session.delete(item)
-        session.delete(row)
-        _guard_managers(session, before)
-        audit.record(
-            session,
-            audit.AuditAction.GROUP_DELETED,
-            actor,
-            "group",
-            group_id,
-            details={"name": deleted["name"]},
-        )
-        return deleted
-
-
-def set_group_roles(
-    group_id: int,
-    bindings: Iterable[tuple[int, Iterable[str] | None]],
-    actor: str | None = None,
-) -> dict[str, Any]:
-    """Replace the roles of a group: ``bindings`` holds (role id, projects or None)."""
-    items = list(bindings)
-    if len(items) > MAX_ROLES_PER_GROUP:
-        raise ValueError(f"A group may have at most {MAX_ROLES_PER_GROUP} roles")
-    with session_scope() as session:
-        row = _get_group(session, group_id)
-        before = managers(session)
-        cleaned: dict[int, list[str]] = {}
-        names: dict[str, list[str] | None] = {}
-        for role_id, projects in items:
-            if role_id in cleaned:
-                raise ValueError(f"Role {role_id} is given twice to the group")
-            role = _get_role(session, role_id)
-            cleaned[role_id] = clean_projects(_permissions(role), projects)
-            names[role.name] = cleaned[role_id] or None
-        for binding in session.exec(select(GroupRole).where(GroupRole.group_id == group_id)).all():
-            session.delete(binding)
-        session.flush()
-        for role_id, projects in cleaned.items():
-            for project in projects:
-                project_store.ensure_project(session, project, actor)
-            session.add(
-                GroupRole(group_id=group_id, role_id=role_id, projects=json.dumps(projects))
-            )
-        row.updated_at = utcnow()
-        session.add(row)
-        _guard_managers(session, before)
-        audit.record(
-            session,
-            audit.AuditAction.GROUP_ROLES_CHANGED,
-            actor,
-            "group",
-            group_id,
-            details={"name": row.name, "roles": names},
-        )
-        return _group_public(session, row)
-
-
-def _check_users(session: Session, user_ids: Iterable[int]) -> list[int]:
-    """Validate a list of user ids (all must exist); duplicates are dropped."""
-    ids = list(dict.fromkeys(user_ids))
-    if len(ids) > MAX_MEMBERS_PER_CHANGE:
-        raise ValueError(f"At most {MAX_MEMBERS_PER_CHANGE} members can be set at once")
-    if ids:
-        found = set(session.exec(select(WebUser.id).where(col(WebUser.id).in_(ids))).all())
-        missing = [user_id for user_id in ids if user_id not in found]
-        if missing:
-            raise NotFoundError(f"Web user {missing[0]} not found")
-    return ids
-
-
-def set_group_members(
-    group_id: int, user_ids: Iterable[int], actor: str | None = None
-) -> dict[str, Any]:
-    """Replace the members an administrator added to a group (its OIDC members are kept)."""
-    with session_scope() as session:
-        row = _get_group(session, group_id)
-        ids = _check_users(session, user_ids)
-        before = managers(session)
-        current = session.exec(
-            select(GroupMember).where(
-                GroupMember.group_id == group_id, GroupMember.source == SOURCE_LOCAL
-            )
-        ).all()
-        kept = {member.user_id for member in current}
-        for member in current:
-            if member.user_id not in ids:
-                session.delete(member)
-        for user_id in ids:
-            if user_id not in kept:
-                session.add(GroupMember(group_id=group_id, user_id=user_id, source=SOURCE_LOCAL))
-        row.updated_at = utcnow()
-        session.add(row)
-        _guard_managers(session, before)
-        audit.record(
-            session,
-            audit.AuditAction.GROUP_MEMBERS_CHANGED,
-            actor,
-            "group",
-            group_id,
-            details={
-                "name": row.name,
-                "added": sorted(set(ids) - kept),
-                "removed": sorted(kept - set(ids)),
-            },
-        )
-        return _group_public(session, row)
-
-
-# ── Groups of a user ─────────────────────────────────────────────────────────
-
-
-def user_groups(session: Session, user_id: int) -> list[dict[str, Any]]:
-    """Groups of a user: id, name and source of each membership, by name."""
-    rows = session.exec(
-        select(GroupMember, UserGroup)
-        .join(UserGroup, col(GroupMember.group_id) == col(UserGroup.id))
-        .where(GroupMember.user_id == user_id)
-        .order_by(col(UserGroup.name), col(GroupMember.source))
+def user_access(session: Session, user_id: int) -> dict[str, Any]:
+    """Roles of a user: on every project (``roles``), on one project (``projects``) and by the
+    mappings of its OIDC claims (``oidc_roles``, read only)."""
+    roles = session.exec(
+        select(AccessRole)
+        .join(UserRole, col(UserRole.role_id) == col(AccessRole.id))
+        .where(UserRole.user_id == user_id)
+        .order_by(col(AccessRole.name))
     ).all()
-    return [
-        {"group_id": group.id, "name": group.name, "source": member.source}
-        for member, group in rows
-    ]
+    projects = session.exec(
+        select(Project.name, AccessRole)
+        .join(UserProject, col(UserProject.project_id) == col(Project.id))
+        .join(AccessRole, col(UserProject.role_id) == col(AccessRole.id))
+        .where(UserProject.user_id == user_id)
+        .order_by(col(Project.name), col(AccessRole.name))
+    ).all()
+    return {
+        "roles": [{"role_id": role.id, "name": role.name} for role in roles],
+        "projects": [
+            {"project": name, "role_id": role.id, "role": role.name} for name, role in projects
+        ],
+        "oidc_roles": [
+            {
+                "claim": mapping.claim,
+                "role_id": role.id,
+                "role": role.name,
+                "projects": None if mapping.all_projects else json.loads(mapping.projects),
+            }
+            for mapping, role in _claim_mappings(session, user_id)
+        ],
+    }
 
 
-def _check_groups(session: Session, group_ids: Iterable[int]) -> list[int]:
-    """Validate a list of group ids (all must exist); duplicates are dropped."""
-    ids = list(dict.fromkeys(group_ids))
-    if len(ids) > MAX_GROUPS:
-        raise ValueError(f"A user may belong to at most {MAX_GROUPS} groups")
-    if ids:
-        found = set(session.exec(select(UserGroup.id).where(col(UserGroup.id).in_(ids))).all())
-        missing = [group_id for group_id in ids if group_id not in found]
-        if missing:
-            raise NotFoundError(f"Group {missing[0]} not found")
+def _check_roles(session: Session, role_ids: Iterable[int]) -> list[int]:
+    """Validate a list of role ids (all must exist); duplicates are dropped."""
+    ids = list(dict.fromkeys(role_ids))
+    if len(ids) > MAX_ROLES:
+        raise ValueError(f"A user may hold at most {MAX_ROLES} roles")
+    for role_id in ids:
+        _get_role(session, role_id)
     return ids
 
 
-def find_groups(session: Session, names: Iterable[str]) -> list[int]:
-    """Ids of the groups with these names (CLI); raise NotFoundError for an unknown name."""
-    ids: list[int] = []
-    for name in dict.fromkeys(names):
-        row = session.exec(select(UserGroup).where(UserGroup.name == name.strip())).first()
-        if row is None:
-            raise NotFoundError(f"Group '{name}' not found")
-        ids.append(row.id)  # type: ignore[arg-type]
-    return ids
-
-
-def set_user_groups(
-    session: Session, user_id: int, group_ids: Iterable[int], actor: str | None = None
+def set_user_roles(
+    session: Session, user_id: int, role_ids: Iterable[int], actor: str | None = None
 ) -> None:
-    """Replace the groups an administrator gave to a user (its OIDC groups are kept).
+    """Replace the roles a user holds on every project.
 
     Runs in the session of the caller (web_users), which checks the last manager.
+
+    Raises:
+        NotFoundError: Unknown role.
+        ValueError: More than MAX_ROLES roles.
     """
-    ids = _check_groups(session, group_ids)
-    current = session.exec(
-        select(GroupMember).where(
-            GroupMember.user_id == user_id, GroupMember.source == SOURCE_LOCAL
-        )
-    ).all()
-    kept = {member.group_id for member in current}
+    ids = _check_roles(session, role_ids)
+    current = session.exec(select(UserRole).where(UserRole.user_id == user_id)).all()
+    kept = {row.role_id for row in current}
     if kept == set(ids):
         return
-    for member in current:
-        if member.group_id not in ids:
-            session.delete(member)
-    for group_id in ids:
-        if group_id not in kept:
-            session.add(GroupMember(group_id=group_id, user_id=user_id, source=SOURCE_LOCAL))
+    for row in current:
+        if row.role_id not in ids:
+            session.delete(row)
+    for role_id in ids:
+        if role_id not in kept:
+            session.add(UserRole(user_id=user_id, role_id=role_id, created_by=actor))
     session.flush()
     audit.record(
         session,
-        audit.AuditAction.USER_GROUPS_CHANGED,
+        audit.AuditAction.USER_ROLES_CHANGED,
         actor,
         "user",
         user_id,
@@ -915,107 +760,219 @@ def set_user_groups(
     )
 
 
-def add_user_to_group(
-    session: Session, user_id: int, group_id: int, actor: str | None = None
+def _check_reach(session: Session, user_id: int) -> None:
+    """Refuse the roles of a user that reach more than MAX_SESSION_PROJECTS projects."""
+    session.flush()
+    reached = session.exec(
+        select(func.count(func.distinct(UserProject.project_id))).where(
+            UserProject.user_id == user_id
+        )
+    ).one()
+    if reached > MAX_SESSION_PROJECTS:
+        raise ValueError(f"A user may hold roles on at most {MAX_SESSION_PROJECTS} projects")
+
+
+def set_user_projects(
+    session: Session,
+    user_id: int,
+    bindings: Iterable[tuple[str, int]],
+    actor: str | None = None,
 ) -> None:
-    """Add a user to a group as a local member (no change when it already is one); the change
-    is audited as ``user.groups_changed``."""
+    """Replace the roles a user holds on projects: ``bindings`` holds (project, role id).
+
+    Runs in the session of the caller (web_users). Only known projects, and roles that hold a
+    scoped permission, may be given.
+
+    Raises:
+        NotFoundError: Unknown project or role.
+        ValueError: Invalid project, a role that gives nothing on a project, or more than
+            MAX_SESSION_PROJECTS projects.
+    """
+    wanted: set[tuple[int, int]] = set()
+    names: dict[int, str] = {}
+    for project, role_id in bindings:
+        row = _get_project(session, project)
+        _project_role(session, role_id)
+        wanted.add((row.id, role_id))  # type: ignore[arg-type]
+        names[row.id] = row.name  # type: ignore[index]
+        if len({project_id for project_id, _ in wanted}) > MAX_SESSION_PROJECTS:
+            raise ValueError(f"A user may hold roles on at most {MAX_SESSION_PROJECTS} projects")
+    current = session.exec(select(UserProject).where(UserProject.user_id == user_id)).all()
+    kept = {(row.project_id, row.role_id): row for row in current}
+    if set(kept) == wanted:
+        return
+    for key, row in kept.items():
+        if key not in wanted:
+            session.delete(row)
+    for project_id, role_id in sorted(wanted - set(kept)):
+        session.add(
+            UserProject(user_id=user_id, project_id=project_id, role_id=role_id, created_by=actor)
+        )
+    _check_reach(session, user_id)
+    project_names = {
+        row.id: row.name
+        for row in session.exec(
+            select(Project).where(col(Project.id).in_({key[0] for key in set(kept) | wanted}))
+        ).all()
+    }
+
+    def described(keys: set[tuple[int, int]]) -> list[list[Any]]:
+        return sorted([project_names.get(project_id, ""), role_id] for project_id, role_id in keys)
+
+    audit.record(
+        session,
+        audit.AuditAction.USER_PROJECTS_CHANGED,
+        actor,
+        "user",
+        user_id,
+        details={
+            "added": described(wanted - set(kept)),
+            "removed": described(set(kept) - wanted),
+        },
+    )
+
+
+def add_user_project(
+    session: Session, user_id: int, project: str, actor: str | None = None
+) -> None:
+    """Give the ``reader`` role on the known ``project`` (cleaned) to a user (no change when it
+    already holds it); the change is audited as ``user.projects_changed``.
+
+    Raises:
+        ValueError: The user would hold roles on more than MAX_SESSION_PROJECTS projects.
+    """
+    reader = ensure_system_roles(session)[READER_ROLE]
+    row = project_store.ensure_project(session, project, actor)
     exists = session.exec(
-        select(GroupMember.id).where(
-            GroupMember.group_id == group_id,
-            GroupMember.user_id == user_id,
-            GroupMember.source == SOURCE_LOCAL,
+        select(UserProject.id).where(
+            UserProject.user_id == user_id,
+            UserProject.project_id == row.id,
+            UserProject.role_id == reader,
         )
     ).first()
     if exists is not None:
         return
-    session.add(GroupMember(group_id=group_id, user_id=user_id, source=SOURCE_LOCAL))
-    session.flush()
+    session.add(
+        UserProject(user_id=user_id, project_id=row.id, role_id=reader, created_by=actor)  # type: ignore[arg-type]
+    )
+    _check_reach(session, user_id)
     audit.record(
         session,
-        audit.AuditAction.USER_GROUPS_CHANGED,
+        audit.AuditAction.USER_PROJECTS_CHANGED,
         actor,
         "user",
         user_id,
-        details={"added": [group_id], "removed": []},
+        project,
+        {"added": [[project, reader]], "removed": []},
     )
 
 
-# ── Project groups ───────────────────────────────────────────────────────────
+# ── Members of a project ─────────────────────────────────────────────────────
 
 
-def find_project_group(session: Session, project: str) -> UserGroup | None:
-    """The project group of ``project``: a group without OIDC whose only role is ``reader`` on
-    this project alone (the oldest one when there are several), or None."""
-    reader = ensure_system_roles(session)[READER_ROLE]
-    candidates = session.exec(
-        select(UserGroup)
-        .join(GroupRole, col(GroupRole.group_id) == col(UserGroup.id))
-        .where(
-            GroupRole.role_id == reader,
-            GroupRole.projects == json.dumps([project]),
-            col(UserGroup.sso).is_(False),
-        )
-        .order_by(col(UserGroup.id))
-    ).all()
-    for group in candidates:
-        roles = session.exec(
-            select(func.count()).select_from(GroupRole).where(GroupRole.group_id == group.id)
-        ).one()
-        if roles == 1:
-            return group
-    return None
-
-
-def _project_group_name(session: Session, project: str) -> str:
-    """A free name for a new project group: ``project:<project>``, cut to the length of a group
-    name, followed by a number when another group already has it."""
-    base = f"{PROJECT_GROUP_PREFIX}{project}"
-    # There are at most MAX_GROUPS groups: one of these names is free
-    for number in range(1, MAX_GROUPS + 2):
-        suffix = "" if number == 1 else f" ({number})"
-        name = base[: MAX_GROUP_NAME_CHARS - len(suffix)] + suffix
-        if session.exec(select(UserGroup.id).where(UserGroup.name == name)).first() is None:
-            return name
-    raise ValueError(f"At most {MAX_GROUPS} groups can be stored")
-
-
-def ensure_project_group(session: Session, project: str, actor: str | None = None) -> UserGroup:
-    """Return the project group of ``project`` (see find_project_group), created when missing:
-    ``project:<project>``, without OIDC, with the ``reader`` role on this project only.
+def list_project_members(project: str) -> list[dict[str, Any]]:
+    """The users who hold a role on ``project``, by username (their roles on every project and
+    their OIDC mappings are not listed).
 
     Raises:
-        ValueError: Invalid project, MAX_GROUPS groups already stored, or the group created at
-            the same time by another approval.
+        ValueError: Invalid name.
+        NotFoundError: Unknown project.
     """
-    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
-    project_store.ensure_project(session, cleaned, actor)
-    row = find_project_group(session, cleaned)
-    if row is not None:
-        return row
-    if session.exec(select(func.count()).select_from(UserGroup)).one() >= MAX_GROUPS:
-        raise ValueError(f"At most {MAX_GROUPS} groups can be stored")
-    reader = ensure_system_roles(session)[READER_ROLE]
-    row = UserGroup(name=_project_group_name(session, cleaned), sso=False, created_by=actor)
-    session.add(row)
-    try:
+    with session_scope() as session:
+        row = _get_project(session, project)
+        return _members_public(session, row)
+
+
+def _members_public(session: Session, project: Project) -> list[dict[str, Any]]:
+    """The roles of the users on ``project``."""
+    rows = session.exec(
+        select(WebUser, AccessRole)
+        .join(UserProject, col(UserProject.user_id) == col(WebUser.id))
+        .join(AccessRole, col(UserProject.role_id) == col(AccessRole.id))
+        .where(UserProject.project_id == project.id)
+        .order_by(col(WebUser.username), col(AccessRole.name))
+    ).all()
+    return [
+        {
+            "user_id": user.id,
+            "username": user.username,
+            "auth_source": user.auth_source,
+            "role_id": role.id,
+            "role": role.name,
+        }
+        for user, role in rows
+    ]
+
+
+def set_project_members(
+    project: str, members: Iterable[tuple[int, int]], actor: str | None = None
+) -> list[dict[str, Any]]:
+    """Replace the roles of the users on ``project``: ``members`` holds (user id, role id).
+
+    Raises:
+        NotFoundError: Unknown project, user or role.
+        ValueError: Invalid project, a role that gives nothing on a project, more than
+            MAX_PROJECT_MEMBERS members, or a user who would hold roles on more than
+            MAX_SESSION_PROJECTS projects.
+    """
+    wanted = set(members)
+    if len(wanted) > MAX_PROJECT_MEMBERS:
+        raise ValueError(f"At most {MAX_PROJECT_MEMBERS} members can be set at once")
+    with session_scope() as session:
+        row = _get_project(session, project)
+        for user_id, role_id in wanted:
+            if session.get(WebUser, user_id) is None:
+                raise NotFoundError(f"Web user {user_id} not found")
+            _project_role(session, role_id)
+        current = session.exec(select(UserProject).where(UserProject.project_id == row.id)).all()
+        kept = {(item.user_id, item.role_id): item for item in current}
+        changed: dict[int, dict[str, list[int]]] = {}
+        for key, item in kept.items():
+            if key not in wanted:
+                session.delete(item)
+                changed.setdefault(key[0], {"added": [], "removed": []})["removed"].append(key[1])
+        for user_id, role_id in sorted(wanted - set(kept)):
+            session.add(
+                UserProject(
+                    user_id=user_id,
+                    project_id=row.id,
+                    role_id=role_id,
+                    created_by=actor,  # type: ignore[arg-type]
+                )
+            )
+            changed.setdefault(user_id, {"added": [], "removed": []})["added"].append(role_id)
         session.flush()
-    except IntegrityError:
-        # Same group created at the same time by another approval: the caller's session ends
-        raise ValueError(
-            f"The group of project '{cleaned}' was created concurrently; retry"
-        ) from None
-    session.add(GroupRole(group_id=row.id, role_id=reader, projects=json.dumps([cleaned])))
+        for user_id, change in sorted(changed.items()):
+            _check_reach(session, user_id)
+            audit.record(
+                session,
+                audit.AuditAction.USER_PROJECTS_CHANGED,
+                actor,
+                "user",
+                user_id,
+                row.name,
+                {
+                    "added": [[row.name, role_id] for role_id in sorted(change["added"])],
+                    "removed": [[row.name, role_id] for role_id in sorted(change["removed"])],
+                },
+            )
+        return _members_public(session, row)
+
+
+def forget_user(session: Session, user_id: int) -> None:
+    """Delete every role and OIDC claim of a user and forget it in the pending projects (before
+    the user itself)."""
+    for model in (UserRole, UserProject, UserOidcClaim):
+        session.exec(delete(model).where(model.user_id == user_id))  # type: ignore[attr-defined]
+    for row in session.exec(
+        select(ProjectEnrollment).where(ProjectEnrollment.requested_by_user_id == user_id)
+    ).all():
+        row.requested_by_user_id = None
+        session.add(row)
     session.flush()
-    audit.record(
-        session,
-        audit.AuditAction.GROUP_CREATED,
-        actor,
-        "group",
-        row.id,
-        details={"name": row.name, "sso": False, "project": cleaned},
-    )
-    return row
+
+
+# ── Projects ─────────────────────────────────────────────────────────────────
 
 
 def project_exists(session: Session, project: str) -> bool:
@@ -1024,13 +981,13 @@ def project_exists(session: Session, project: str) -> bool:
 
 
 def create_project(user_id: int, project: str, actor: str | None = None) -> dict[str, Any]:
-    """Create a new project for the web user ``user_id`` (``projects.create``): its project
-    group (see ensure_project_group) is created and the user added to it, so that the user
-    reads the project and its personal ``mcp`` token reaches it.
+    """Create a new project for the web user ``user_id`` (``projects.create``): the user gets
+    the ``reader`` role on it, so that it reads the project and its personal ``mcp`` token
+    reaches it.
 
     Raises:
         ValueError: Invalid name, project already known (see project_exists: the permission
-            never opens an existing project), or MAX_GROUPS groups already stored.
+            never opens an existing project).
         NotFoundError: If the user does not exist.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
@@ -1045,15 +1002,15 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
 def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[str, Any]:
     """Settle ``project`` for the web user ``owner`` whose token already reaches every project:
     an unknown project is created as by request_project when the user holds
-    ``projects.create`` (its project group, with the user as first member), so that it does not
-    appear later through a report without any group.
+    ``projects.create``, with the ``reader`` role for the user, so that the user keeps reading
+    it without its role on every project.
 
     Returns:
         ``project`` and ``status`` (``created`` or ``accessible``), with ``next_steps`` when
         created.
 
     Raises:
-        ValueError: Invalid project name, or MAX_GROUPS groups already stored.
+        ValueError: Invalid project name.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
     with session_scope() as session:
@@ -1067,8 +1024,8 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
             return {
                 "project": cleaned,
                 "status": "created",
-                "next_steps": f"Project '{cleaned}' was created and the user is a member of "
-                "it: the review can go on.",
+                "next_steps": f"Project '{cleaned}' was created and the user reads it: the "
+                "review can go on.",
             }
     return {"project": cleaned, "status": "accessible"}
 
@@ -1076,9 +1033,9 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
 def _create_project(
     session: Session, user_id: int, project: str, actor: str | None
 ) -> dict[str, Any]:
-    """Create the unknown ``project`` (cleaned) with ``user_id`` as its first member."""
-    group = ensure_project_group(session, project, actor)
-    add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
+    """Create the unknown ``project`` (cleaned) with the ``reader`` role for ``user_id``."""
+    project_store.ensure_project(session, project, actor)
+    add_user_project(session, user_id, project, actor)
     # The request of this user, or without a user, is settled; the others now ask for an access
     for pending in session.exec(
         select(ProjectEnrollment).where(
@@ -1097,9 +1054,9 @@ def _create_project(
         "project",
         project,
         project,
-        {"group": group.name, "user_id": user_id},
+        {"user_id": user_id, "role": READER_ROLE},
     )
-    return {"project": project, "group_id": group.id, "group": group.name}
+    return {"project": project}
 
 
 def _delete_reports(session: Session, project: str) -> dict[str, int]:
@@ -1124,82 +1081,52 @@ def _delete_reports(session: Session, project: str) -> dict[str, int]:
     return counts
 
 
-def _forget_project_roles(
-    session: Session, project: str, actor: str | None
-) -> dict[str, list[str]]:
-    """Remove ``project`` from the roles of the groups and return the names of the groups.
+def _forget_project_access(session: Session, project: Project, actor: str | None) -> dict[str, Any]:
+    """Remove the roles of the users on ``project`` and the project from the OIDC mappings.
 
-    A role left without project is removed (an empty list would reach every project). A
-    project group (``project:`` name, without OIDC) left without role is deleted with its
-    members; the other groups are kept. Each change is audited.
+    A mapping left without project is deleted (it would give nothing). Each mapping changed is
+    audited with ``oidc.mappings_changed``.
     """
-    changed: set[int] = set()
-    for binding in session.exec(select(GroupRole).where(GroupRole.projects != "[]")).all():
-        projects = json.loads(binding.projects)
-        if project not in projects:
+    members = session.exec(
+        select(func.count(func.distinct(UserProject.user_id))).where(
+            UserProject.project_id == project.id
+        )
+    ).one()
+    session.exec(delete(UserProject).where(UserProject.project_id == project.id))  # type: ignore[arg-type]
+    changed: list[str] = []
+    for mapping in session.exec(
+        select(OidcRoleMapping).where(col(OidcRoleMapping.all_projects).is_(False))
+    ).all():
+        projects = json.loads(mapping.projects)
+        if project.name not in projects:
             continue
-        remaining = [name for name in projects if name != project]
+        remaining = [name for name in projects if name != project.name]
         if remaining:
-            binding.projects = json.dumps(remaining)
-            session.add(binding)
+            mapping.projects = json.dumps(remaining)
+            session.add(mapping)
         else:
-            session.delete(binding)
-        changed.add(binding.group_id)
+            session.delete(mapping)
+        changed.append(mapping.claim)
     session.flush()
-    result: dict[str, list[str]] = {"groups_deleted": [], "groups_changed": []}
-    for group_id in sorted(changed):
-        row = session.get(UserGroup, group_id)
-        if row is None:
-            continue
-        roles = session.exec(
-            select(GroupRole, AccessRole)
-            .join(AccessRole, col(GroupRole.role_id) == col(AccessRole.id))
-            .where(GroupRole.group_id == group_id)
-        ).all()
-        if not roles and not row.sso and row.name.startswith(PROJECT_GROUP_PREFIX):
-            for member in session.exec(
-                select(GroupMember).where(GroupMember.group_id == group_id)
-            ).all():
-                session.delete(member)
-            session.delete(row)
-            result["groups_deleted"].append(row.name)
-            audit.record(
-                session,
-                audit.AuditAction.GROUP_DELETED,
-                actor,
-                "group",
-                group_id,
-                project,
-                {"name": row.name},
-            )
-            continue
-        row.updated_at = utcnow()
-        session.add(row)
-        result["groups_changed"].append(row.name)
+    if changed:
         audit.record(
             session,
-            audit.AuditAction.GROUP_ROLES_CHANGED,
+            audit.AuditAction.OIDC_MAPPINGS_CHANGED,
             actor,
-            "group",
-            group_id,
-            project,
-            {
-                "name": row.name,
-                "roles": {
-                    role.name: json.loads(binding.projects) or None for binding, role in roles
-                },
-            },
+            "project",
+            project.name,
+            project.name,
+            {"claims": sorted(set(changed)), "reason": "project deleted"},
         )
-    session.flush()
-    return result
+    return {"members_removed": members, "mappings_changed": sorted(set(changed))}
 
 
 def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
     """Delete ``project`` and everything that refers to it (``projects.delete``), in one
-    transaction: its reports, findings and comments, the project in the roles of the groups
-    (see _forget_project_roles), in the tokens (see token_store.forget_project) and its connector
-    destinations. The audit log keeps the events of the project and records
-    ``project.deleted``.
+    transaction: its reports, findings and comments, the roles of the users on it and the
+    project in the OIDC mappings (see _forget_project_access), in the tokens (see
+    token_store.forget_project) and its connector destinations. The audit log keeps the events
+    of the project and records ``project.deleted``.
 
     Raises:
         ValueError: Invalid name.
@@ -1207,16 +1134,17 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
     with session_scope() as session:
-        if not project_exists(session, cleaned):
+        row = session.exec(select(Project).where(Project.name == cleaned)).first()
+        if row is None:
             raise NotFoundError(f"Project '{cleaned}' not found")
         deleted: dict[str, Any] = {"project": cleaned}
         deleted |= _delete_reports(session, cleaned)
-        deleted |= _forget_project_roles(session, cleaned, actor)
+        deleted |= _forget_project_access(session, row, actor)
         deleted |= forget_project(session, cleaned, actor)
         # Its connector destinations (its exports went with its findings), deleted here rather
         # than by connectors: the MCP server imports this module, never the connectors
         session.exec(delete(ConnectorTarget).where(ConnectorTarget.project == cleaned))
-        session.exec(delete(Project).where(Project.name == cleaned))
+        session.delete(row)
         audit.record(
             session,
             audit.AuditAction.PROJECT_DELETED,
@@ -1268,12 +1196,11 @@ def set_autojoin_blocked(project: str, blocked: bool, actor: str | None = None) 
 
 
 def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -> None:
-    """Add ``user_id`` to the project group of the known ``project`` (cleaned), as a reader,
-    and settle its request of that project.
+    """Give ``user_id`` the ``reader`` role on the known ``project`` (cleaned) and settle its
+    request of that project.
 
     Raises:
-        ValueError: The user already reads MAX_SESSION_PROJECTS projects, or MAX_GROUPS groups
-            are already stored.
+        ValueError: The user already reads MAX_SESSION_PROJECTS projects.
     """
     reached = scope(user_grants(session, user_id), Permission.REPORTS_READ)
     if reached is not None and len(reached) >= MAX_SESSION_PROJECTS:
@@ -1281,8 +1208,7 @@ def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -
             f"The user already reads {MAX_SESSION_PROJECTS} projects; ask an administrator "
             "for access"
         )
-    group = ensure_project_group(session, project, actor)
-    add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
+    add_user_project(session, user_id, project, actor)
     for pending in session.exec(
         select(ProjectEnrollment).where(
             ProjectEnrollment.project == project, ProjectEnrollment.requested_by_user_id == user_id
@@ -1296,7 +1222,7 @@ def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -
         "project",
         project,
         project,
-        {"group": group.name, "user_id": user_id},
+        {"user_id": user_id, "role": READER_ROLE},
     )
 
 
@@ -1410,8 +1336,8 @@ def request_project(
             return {
                 "project": cleaned,
                 "status": "created",
-                "next_steps": f"Project '{cleaned}' was created and the user is a member of "
-                "it: the review can go on.",
+                "next_steps": f"Project '{cleaned}' was created and the user reads it: the "
+                "review can go on.",
             }
         user_id = user.id if user is not None else None
         if (
@@ -1531,15 +1457,15 @@ def approve_enrollment(
     enrollment_id: int, actor: str | None = None, *, may_grant_access: bool = False
 ) -> dict[str, Any]:
     """Approve a pending project: the user who requested it (none for a token without a user,
-    or a user deleted since) is added to its project group, created when missing. For a new
-    project, the group is created with that user as its only member; for a known project, the
-    user joins it, which only an approver who manages the users may do (``may_grant_access``):
-    ``projects.create`` alone never opens an existing project, not even to its holder.
+    or a user deleted since) gets the ``reader`` role on the project, created when missing. For
+    a known project, only an approver who manages the users may give that access
+    (``may_grant_access``): ``projects.create`` alone never opens an existing project, not even
+    to its holder.
 
     Raises:
         NotFoundError: Unknown or expired request.
         AccessGrantDenied: The project exists and ``may_grant_access`` is false.
-        ValueError: MAX_GROUPS groups already stored.
+        ValueError: The requesting user already holds roles on MAX_SESSION_PROJECTS projects.
     """
     with session_scope() as session:
         row = _pending(session, enrollment_id)
@@ -1549,14 +1475,21 @@ def approve_enrollment(
                 f"Project '{row.project}' already exists: only a user who manages the users "
                 "may give access to it"
             )
-        group = ensure_project_group(session, row.project, actor)
-        if row.requested_by_user_id is not None and session.get(WebUser, row.requested_by_user_id):
-            add_user_to_group(session, row.requested_by_user_id, group.id, actor)  # type: ignore[arg-type]
+        project_store.ensure_project(session, row.project, actor)
+        granted: str | None = None
+        user = (
+            session.get(WebUser, row.requested_by_user_id)
+            if row.requested_by_user_id is not None
+            else None
+        )
+        if user is not None:
+            add_user_project(session, user.id, row.project, actor)  # type: ignore[arg-type]
+            granted = user.username
         session.delete(row)
         _audit_enrollment(
-            session, audit.AuditAction.ENROLLMENT_APPROVED, actor, row, group=group.name
+            session, audit.AuditAction.ENROLLMENT_APPROVED, actor, row, granted_to=granted
         )
-        return approved | {"group_id": group.id, "group": group.name}
+        return approved | {"granted_to": granted}
 
 
 def reject_enrollment(enrollment_id: int, actor: str | None = None) -> dict[str, Any]:
@@ -1573,49 +1506,190 @@ def reject_enrollment(enrollment_id: int, actor: str | None = None) -> dict[str,
         return rejected
 
 
-def forget_user(session: Session, user_id: int) -> None:
-    """Delete every membership of a user and forget it in the pending projects (before the user
-    itself)."""
-    for item in session.exec(select(GroupMember).where(GroupMember.user_id == user_id)).all():
-        session.delete(item)
-    for row in session.exec(
-        select(ProjectEnrollment).where(ProjectEnrollment.requested_by_user_id == user_id)
-    ).all():
-        row.requested_by_user_id = None
-        session.add(row)
+# ── OIDC mappings ────────────────────────────────────────────────────────────
+
+
+def _mapping_public(mapping: OidcRoleMapping, role: AccessRole) -> dict[str, Any]:
+    """API view of an OIDC mapping."""
+    return {
+        "id": mapping.id,
+        "claim": mapping.claim,
+        "role_id": role.id,
+        "role": role.name,
+        "projects": None if mapping.all_projects else json.loads(mapping.projects),
+        "created_at": mapping.created_at.isoformat(),
+        "created_by": mapping.created_by,
+    }
+
+
+def _list_mappings(session: Session) -> list[dict[str, Any]]:
+    """Every OIDC mapping, by claim then role."""
+    rows = session.exec(
+        select(OidcRoleMapping, AccessRole)
+        .join(AccessRole, col(OidcRoleMapping.role_id) == col(AccessRole.id))
+        .order_by(col(OidcRoleMapping.claim), col(AccessRole.name))
+    ).all()
+    return [_mapping_public(mapping, role) for mapping, role in rows]
+
+
+def list_oidc_mappings() -> list[dict[str, Any]]:
+    """Every OIDC mapping (value of the roles claim, role, projects or None for every project)."""
+    with session_scope() as session:
+        return _list_mappings(session)
+
+
+def set_oidc_mappings(
+    mappings: Iterable[tuple[str, int, Iterable[str] | None]], actor: str | None = None
+) -> list[dict[str, Any]]:
+    """Replace the OIDC mappings: ``mappings`` holds (claim value, role id, projects or None
+    for every project). A project not known yet is kept and ignored until it is created. The
+    change applies at once to the OIDC users (their claims of the last login); a change that
+    removes the last holder of ``users.manage`` is refused.
+
+    Raises:
+        NotFoundError: Unknown role.
+        ValueError: Invalid claim or project, a role given twice to a claim, an empty list of
+            projects, a role that gives nothing on a project, or more than MAX_OIDC_MAPPINGS
+            mappings.
+    """
+    items = list(mappings)
+    if len(items) > MAX_OIDC_MAPPINGS:
+        raise ValueError(f"At most {MAX_OIDC_MAPPINGS} OIDC mappings can be stored")
+    with session_scope() as session:
+        cleaned: dict[tuple[str, int], list[str] | None] = {}
+        for claim, role_id, projects in items:
+            value = clean_claim(claim)
+            if (value, role_id) in cleaned:
+                raise ValueError(f"The claim '{value}' gives role {role_id} twice")
+            if projects is None:
+                _get_role(session, role_id)
+                cleaned[(value, role_id)] = None
+                continue
+            _project_role(session, role_id)
+            names = list(dict.fromkeys(_clean_project(name) for name in projects))
+            if not names:
+                raise ValueError(
+                    f"The mapping of '{value}' needs at least one project (None: every project)"
+                )
+            if len(names) > MAX_PROJECTS_PER_TOKEN:
+                raise ValueError(f"A mapping may name at most {MAX_PROJECTS_PER_TOKEN} projects")
+            cleaned[(value, role_id)] = names
+        before = managers(session)
+        previous = {(row["claim"], row["role_id"]) for row in _list_mappings(session)}
+        session.exec(delete(OidcRoleMapping))  # type: ignore[arg-type]
+        session.flush()
+        for (claim, role_id), projects in cleaned.items():
+            session.add(
+                OidcRoleMapping(
+                    claim=claim,
+                    role_id=role_id,
+                    all_projects=projects is None,
+                    projects=json.dumps(projects or []),
+                    created_by=actor,
+                )
+            )
+        session.flush()
+        # The claims no mapping names any more give nothing: forget them
+        session.exec(
+            delete(UserOidcClaim).where(  # type: ignore[arg-type]
+                col(UserOidcClaim.claim).not_in({claim for claim, _ in cleaned})
+            )
+        )
+        _guard_managers(session, before)
+        audit.record(
+            session,
+            audit.AuditAction.OIDC_MAPPINGS_CHANGED,
+            actor,
+            "oidc",
+            None,
+            details={
+                "added": sorted([claim, role_id] for claim, role_id in set(cleaned) - previous),
+                "removed": sorted([claim, role_id] for claim, role_id in previous - set(cleaned)),
+                "count": len(cleaned),
+            },
+        )
+        return _list_mappings(session)
+
+
+def _ensure_admin_mapping(session: Session, claim: str) -> None:
+    """Map ``claim`` (a value of SECREVIEW_OIDC_ADMIN_GROUPS) to ``admin`` on every project,
+    when no mapping names it yet: a mapping an administrator changed is left as it is."""
+    admin = ensure_system_roles(session)[ADMIN_ROLE]
+    if session.exec(select(OidcRoleMapping.id).where(OidcRoleMapping.claim == claim)).first():
+        return
+    if session.exec(select(func.count()).select_from(OidcRoleMapping)).one() >= MAX_OIDC_MAPPINGS:
+        logger.warning("OIDC admin group %s not mapped: too many OIDC mappings", claim)
+        return
+    session.add(
+        OidcRoleMapping(
+            claim=claim, role_id=admin, all_projects=True, projects="[]", created_by=OIDC_ACTOR
+        )
+    )
     session.flush()
+    audit.record(
+        session,
+        audit.AuditAction.OIDC_MAPPINGS_CHANGED,
+        OIDC_ACTOR,
+        "oidc",
+        None,
+        details={"added": [[claim, admin]], "removed": [], "reason": "SECREVIEW_OIDC_ADMIN_GROUPS"},
+    )
 
 
-def sync_sso_groups(
+def sync_oidc_claims(
     session: Session, user_id: int, claim_values: Iterable[str], settings: Settings
 ) -> list[str]:
-    """Replace the OIDC memberships of a user with the groups its claim names; return them.
+    """Replace the claims kept for an OIDC user with the values of its roles claim that a
+    mapping names; return them.
 
-    Only the groups with ``sso`` count. A group of SECREVIEW_OIDC_ADMIN_GROUPS found in the
-    claim is first created with the ``admin`` role when missing; the group
-    SECREVIEW_OIDC_DEFAULT_GROUP is always joined when it exists.
+    A value of SECREVIEW_OIDC_ADMIN_GROUPS found in the claim is first mapped to ``admin``
+    when it is not yet. A login never removes the last holder of ``users.manage``: the claims
+    that gave it to this user are then kept (and the change is logged and audited).
     """
-    values = set(claim_values)
+    values = {value for value in claim_values if 0 < len(value) <= MAX_CLAIM_CHARS}
     for name in sorted(parse_groups(settings.oidc_admin_groups) & values):
-        ensure_admin_group(session, name, sso=True)
-    default = settings.oidc_default_group.strip()
-    # At most MAX_GROUPS rows: intersect here rather than send the claim (there may be
+        _ensure_admin_mapping(session, name)
+    # At most MAX_OIDC_MAPPINGS claims: intersect here rather than send the claim (there may be
     # thousands of values) in the query
-    groups = session.exec(select(UserGroup).where(col(UserGroup.sso).is_(True))).all()
-    wanted = {group.id: group.name for group in groups if group.name in values}
-    if default:
-        fallback = session.exec(select(UserGroup).where(UserGroup.name == default)).first()
-        if fallback is not None:
-            wanted[fallback.id] = fallback.name
-    current = session.exec(
-        select(GroupMember).where(GroupMember.user_id == user_id, GroupMember.source == SOURCE_OIDC)
-    ).all()
-    kept = {member.group_id for member in current}
-    for member in current:
-        if member.group_id not in wanted:
-            session.delete(member)
-    for group_id in wanted:
-        if group_id not in kept:
-            session.add(GroupMember(group_id=group_id, user_id=user_id, source=SOURCE_OIDC))
+    mapped = set(session.exec(select(OidcRoleMapping.claim).distinct()).all())
+    wanted = values & mapped
+    before = managers(session)
+    current = session.exec(select(UserOidcClaim).where(UserOidcClaim.user_id == user_id)).all()
+    kept = {row.claim for row in current}
+    removed = [row.claim for row in current if row.claim not in wanted]
+    for row in current:
+        if row.claim not in wanted:
+            session.delete(row)
     session.flush()
-    return sorted(wanted.values())
+    for claim in sorted(wanted - kept):
+        session.add(UserOidcClaim(user_id=user_id, claim=claim))
+    session.flush()
+    if before and not managers(session):
+        manager_roles = _manager_roles(session)
+        restored = sorted(
+            set(
+                session.exec(
+                    select(OidcRoleMapping.claim).where(
+                        col(OidcRoleMapping.claim).in_(removed),
+                        col(OidcRoleMapping.role_id).in_(manager_roles),
+                        col(OidcRoleMapping.all_projects),
+                    )
+                ).all()
+            )
+        )
+        for claim in restored:
+            session.add(UserOidcClaim(user_id=user_id, claim=claim))
+        session.flush()
+        wanted |= set(restored)
+        logger.warning(
+            "OIDC login of web user %s kept %s: it holds the last users.manage", user_id, restored
+        )
+        audit.record(
+            session,
+            audit.AuditAction.USER_ROLES_CHANGED,
+            OIDC_ACTOR,
+            "user",
+            user_id,
+            details={"kept_claims": restored, "reason": "last holder of users.manage"},
+        )
+    return sorted(wanted)

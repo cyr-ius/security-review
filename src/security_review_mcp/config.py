@@ -186,7 +186,7 @@ class Settings(BaseSettings):
     # Bearer authentication of the HTTP MCP server and of the controller. Tokens are stored in
     # the database (SHA-256 digests only) and managed with `security-review-controller token`.
     # Controller only: on its first start, while no web user exists, the controller creates the
-    # local administrator admin_username (member of the group "administrators") with a random
+    # local administrator admin_username (admin role on every project) with a random
     # password that nobody knows: an operator sets one with `security-review-controller user
     # reset-password <admin_username>`, which prints it once, and the user changes it at its
     # first login.
@@ -295,12 +295,12 @@ class Settings(BaseSettings):
     # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,
     # registered at the provider. oidc_client_secret is empty for a public client. The values of
     # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
-    # names of the groups of the web interface (see access_control): the user joins each group
-    # of that name, and oidc_default_group (if set) in any case. oidc_admin_groups lists
-    # comma-separated OIDC groups that hold the admin role: such a group is created at the first
-    # login of one of its members when it does not exist yet. A login opens the OIDC web user
+    # OIDC mappings of the web interface (see access_control): each mapping of a value gives
+    # the user a role, on every project or on projects. oidc_admin_groups lists comma-separated
+    # values of the claim that hold the admin role: such a value gets a mapping (admin on every
+    # project) at the first login of a user who holds it. A login opens the OIDC web user
     # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
-    # (when its groups give it a permission), otherwise an administrator creates it first.
+    # (when its roles give it a permission), otherwise an administrator creates it first.
     # Sessions use secret_key and session_hours. oidc_cafile replaces the system CA bundle
     # for the provider. Every oidc_* setting but oidc_cafile can also be set in the web
     # interface; a variable that is set takes precedence (see app_settings).
@@ -312,7 +312,6 @@ class Settings(BaseSettings):
     oidc_scope: str = "openid profile email"
     oidc_roles_claim: str = "groups"
     oidc_admin_groups: str = ""
-    oidc_default_group: str = ""
     oidc_username_claim: str = "preferred_username"
     oidc_auto_create_users: bool = False
     oidc_display_name: str = "OIDC"

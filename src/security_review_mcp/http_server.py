@@ -63,7 +63,7 @@ class Role(StrEnum):
     the controller.
 
     ``user`` is never the role of a token: it marks a web session, whose rights are the
-    permissions of its groups (see access_control.user_grants), checked by each route.
+    permissions of its roles (see access_control.user_grants), checked by each route.
     """
 
     MCP = "mcp"
