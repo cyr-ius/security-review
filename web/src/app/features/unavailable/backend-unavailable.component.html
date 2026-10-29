@@ -7,6 +7,13 @@
       @if (stillDown()) {
         <p class="text-danger small" role="status">{{ 'unavailable.stillDown' | t }}</p>
       }
+      <p class="text-body-secondary small">
+        @if (checking()) {
+          {{ 'unavailable.checking' | t }}
+        } @else {
+          {{ 'unavailable.nextRetry' | t: { seconds: secondsLeft() } }}
+        }
+      </p>
       <app-refresh-button
         [loading]="checking()"
         [label]="'unavailable.retry' | t"

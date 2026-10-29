@@ -31,8 +31,10 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 - Cliquez sur l'en-tête d'une colonne pour trier un tableau ; le navigateur mémorise le tri.
 - Le point d'interrogation cerclé à côté d'un titre ouvre la page de cette documentation qui
   explique la page (en français pour une interface en français, sinon en anglais).
-- Si le serveur Controller ne répond plus, la page **Backend indisponible** s'ouvre : **Réessayer** vous
-  ramène à votre page dès qu'il répond de nouveau.
+- Si le serveur Controller ne répond plus, la page **Backend indisponible** s'ouvre : elle vérifie
+  de nouveau d'elle-même (après 5 s, puis avec un délai doublé à chaque échec, jusqu'à 60 s, en pause
+  tant que l'onglet est masqué) ou quand vous cliquez sur **Réessayer**, et vous ramène à votre page
+  dès qu'il répond de nouveau.
 
 ## Pages
 

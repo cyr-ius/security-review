@@ -29,8 +29,9 @@ A page is missing? You do not hold its permission: ask an administrator (see
 - Click a column header to sort a table; the browser remembers the sort.
 - The circled question mark next to a title opens the page of this documentation that explains
   the page (in French for a French interface, else in English).
-- If the Controller server stops answering, the **Backend unavailable** page opens: **Retry** brings
-  you back to your page once it answers again.
+- If the Controller server stops answering, the **Backend unavailable** page opens: it checks again
+  on its own (after 5 s, then with a delay doubled after each failure, up to 60 s, paused while the
+  tab is hidden) or when you click **Retry**, and brings you back to your page once it answers again.
 
 ## Pages
 
