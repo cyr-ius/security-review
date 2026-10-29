@@ -18,7 +18,7 @@ Les jetons MCP personnels restent acceptés, sauf si un administrateur les désa
 
 Dans l'interface web, un administrateur qui a la permission `settings.manage` doit saisir l'URL
 publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de l'écran
-**Jetons** et activer l'interrupteur **Connexion OAuth activée**.
+**Jetons** et activer l'interrupteur **Connexion OAuth**.
 
 L'URL publique du serveur Controller est aussi nécessaire via le réglage sur la page **Général**.
 

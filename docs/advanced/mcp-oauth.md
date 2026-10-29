@@ -19,7 +19,7 @@ The personal MCP tokens keep working, unless an administrator turns them off wit
 
 In the web interface, an administrator with the `settings.manage` permission must enter the public
 URL of the MCP server in the **MCP clients (OAuth login)** section of the **Tokens** screen and
-turn on the **OAuth login enabled** switch.
+turn on the **Enable OAuth login** switch.
 
 The public URL of the Controller server is also needed, through the setting on the **General** page.
 

@@ -38,7 +38,7 @@ export const oauth = defineMessages({
     'oauth.adminHelp':
       'Clients that log in through the browser instead of a personal token. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The other settings are variables of the Controller server.',
     'oauth.mcpUrl': 'MCP endpoint',
-    'oauth.enabled': 'OAuth login enabled',
+    'oauth.enabled': 'Enable OAuth login',
     'oauth.mcpUrlHelp':
       'Enter the public address of your MCP server (e.g. https://mcp.example.com/mcp).',
     'oauth.off':
@@ -103,7 +103,7 @@ export const oauth = defineMessages({
     'oauth.adminHelp':
       'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les autres réglages sont des variables du serveur Controller.',
     'oauth.mcpUrl': 'Point d’accès MCP',
-    'oauth.enabled': 'Connexion OAuth activée',
+    'oauth.enabled': 'Connexion OAuth',
     'oauth.mcpUrlHelp':
       'Saisissez l’adresse publique de votre serveur MCP (ex. https://mcp.example.com/mcp).',
     'oauth.off':
@@ -169,7 +169,7 @@ export const oauth = defineMessages({
     'oauth.adminHelp':
       'Los clientes que inician sesión con el navegador en lugar de un token personal. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los demás ajustes son variables del servidor Controller.',
     'oauth.mcpUrl': 'Punto de acceso MCP',
-    'oauth.enabled': 'Inicio de sesión OAuth activado',
+    'oauth.enabled': 'Activar el inicio de sesión OAuth',
     'oauth.mcpUrlHelp':
       'Introduzca la dirección pública de su servidor MCP (p. ej. https://mcp.example.com/mcp).',
     'oauth.off':
