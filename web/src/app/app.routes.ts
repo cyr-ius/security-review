@@ -54,6 +54,7 @@ export const routes: Routes = [
       },
       {
         path: 'findings',
+        canActivate: [permissionGuard('reports.read')],
         title: 'projectFindings.title',
         loadComponent: () =>
           import('./features/projects/project-findings/project-findings.component').then(
@@ -70,6 +71,7 @@ export const routes: Routes = [
       },
       {
         path: 'risk-acceptances',
+        canActivate: [permissionGuard('reports.read')],
         title: 'acceptances.title',
         loadComponent: () =>
           import('./features/acceptances/risk-acceptance-list/risk-acceptance-list.component').then(

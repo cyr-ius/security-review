@@ -18,9 +18,11 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 
 ## Se repérer
 
-- La **barre latérale** regroupe les écrans en trois sections : **Supervision** (projets et
-  rapports), **Référentiel** (règles, checklists, normes) et **Administration**. Vous ne voyez
-  que les écrans permis par vos permissions.
+- La **barre latérale** regroupe les écrans en quatre sections : **Supervision** (projets et
+  rapports), **Revue** (findings et acceptations de risque, avec `reports.read`),
+  **Référentiel** (règles, checklists, normes) et **Administration**. Vous ne voyez que les
+  écrans permis par vos permissions. **Findings** affiche le nombre de findings ouverts dans les
+  projets que vous lisez.
 - En haut à droite, choisissez la langue (anglais, français, espagnol) et le thème
   (automatique, clair, sombre). La langue ne change que l'interface : celle des rapports se règle
   dans **Général**.
@@ -40,9 +42,14 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 |---|---|
 | **Projets** | Tous les projets avec leurs findings ouverts par sévérité. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
 | **Projet** | Tendance, findings ouverts les plus graves et le plus ancien, export SARIF, **Tous les rapports** du projet |
-| **Findings à revoir** | Tous les findings ouverts du projet, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
-| **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
 | **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings, téléchargement Markdown et SARIF |
+
+**Revue**, pour les utilisateurs qui ont `reports.read` (sur les projets qu'ils lisent)
+
+| Écran | À quoi il sert |
+|---|---|
+| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
+| **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent des fichiers TOML)
 

@@ -17,9 +17,10 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 
 ## Finding your way
 
-- The **sidebar** groups the screens in three sections: **Supervision** (projects and reports),
-  **Reference** (rules, checklists, standards) and **Administration**. You only see the screens
-  your permissions allow.
+- The **sidebar** groups the screens in four sections: **Supervision** (projects and reports),
+  **Review** (findings and risk acceptances, with `reports.read`), **Reference** (rules,
+  checklists, standards) and **Administration**. You only see the screens your permissions
+  allow. **Findings** shows the number of open findings in the projects you read.
 - At the top right, choose the language (English, French, Spanish) and the theme (automatic,
   light, dark). The language only changes the interface: the language of the reports is set in
   **General**.
@@ -39,9 +40,14 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 |---|---|
 | **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
 | **Project** | Trend, worst and oldest open findings, SARIF export, **All reports** of the project |
-| **Findings to review** | Every open finding of the project, once each, worst first: this is where you triage. The status, severity and review type filters accept several values |
-| **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 | **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings, Markdown and SARIF download |
+
+**Review**, for the users holding `reports.read` (on the projects they read)
+
+| Screen | What for |
+|---|---|
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The status, severity and review type filters accept several values |
+| **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange TOML files)
 
