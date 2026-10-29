@@ -108,13 +108,13 @@ The [user accounts](../../usage/user-accounts.md) are managed on the **Users** p
 `oidc`).
 
 ```bash
-security-review-controller user create alice --project shop=Triager
-# {"id": 2, "username": "alice", "auth_source": "local", "roles": [], "projects": [{"project": "shop", "role_id": 3, "role": "Triager"}], "oidc_roles": [], "permissions": {…}, …, "password": "q3V…"}
+security-review-controller user create alice --role Triager --project shop
+# {"id": 2, "username": "alice", "auth_source": "local", "roles": [{"role_id": 3, "name": "Triager"}], "all_projects": false, "projects": [{"project": "shop", "read_only": false}], "oidc": [], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
 security-review-controller user create carol@example.com --sso   # OIDC mappings only
 security-review-controller user list
-security-review-controller user set-access alice --role Auditor --project shop --project crm=Triager
-security-review-controller user set-access alice --role admin   # restores an administrator
+security-review-controller user set-access alice --role Auditor --role Triager --project shop --project crm
+security-review-controller user set-access alice --role admin --all-projects   # restores an administrator
 security-review-controller user reset-password alice   # local account: new password, sessions closed
 security-review-controller user delete alice
 security-review-controller role list       # roles and their permissions
@@ -122,12 +122,12 @@ security-review-controller role mappings   # OIDC mappings
 ```
 
 Through the API, an OIDC account is created with `"auth_source": "oidc"`, without `password`;
-`role_ids` and `projects` list its roles on every project and on projects:
+`role_ids` and `projects` list its roles and its projects:
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "projects": [{"project": "shop", "role_id": 1}]}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "role_ids": [1], "projects": [{"project": "shop"}]}'
 ```
 
 An OIDC account is also created at its first login with `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`
@@ -156,7 +156,7 @@ The variables of the interface are in the
 ## First administrator
 
 At its first start, while no account exists, the Controller server creates the local account
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), with the `admin` role on every project,
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), with the `admin` role and every project,
 with a random password that nobody knows and that is never written to the logs. The only way to
 a password is the CLI, which sets a new one and prints it once:
 
@@ -207,7 +207,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ```
 
 An OIDC account has no password (exit code `2`). If no administrator is left, create one with
-`security-review-controller user create NAME --role admin` (generated password, printed
+`security-review-controller user create NAME --role admin --all-projects` (generated password, printed
 the same way): the `admin` account is only created at start-up while no account exists.
 
 ## Login and sessions
@@ -231,7 +231,7 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 Every session names an account (local or OIDC); at every request, the Controller server reads it again
 from the database:
 
-- a change of its **roles**, of a role or of the OIDC mappings applies immediately to the open
+- a change of its **roles** or **projects**, of a role or of the OIDC mappings applies immediately to the open
   sessions;
 - a **deletion** or a **new password** (changed by the user or reset by an administrator)
   closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab

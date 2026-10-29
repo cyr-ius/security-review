@@ -174,19 +174,15 @@ def test_duplicate_roles_and_the_role_limit_are_refused(monkeypatch):
         access_control.create_role("Other", ["audit.read"])
 
 
-def test_a_role_given_on_projects_keeps_a_scoped_permission():
-    role = access_control.create_role("Shop readers", ["reports.read"])
-    alice = web_users.create_user("alice", PASSWORD)
-    known_projects("shop")
-    with session_scope() as session:
-        access_control.set_user_projects(session, alice["id"], [("shop", role["id"])])
+def test_the_permissions_on_projects_apply_to_the_projects_of_the_user_and_the_others_everywhere():
+    role = access_control.create_role("RR", ["audit.read", "reports.read"])
+    known_projects("shop", "crm")
+    alice = web_users.create_user("alice", PASSWORD, [role["id"]], [("shop", False)])
 
-    # On a project only the scoped permissions apply: a permission on the whole controller
-    # may be added, it gives nothing there
-    access_control.update_role(role["id"], ["reports.read", "audit.read"])
-    assert grants_of(alice["id"]) == {"reports.read": frozenset({"shop"})}
-    with pytest.raises(ValueError, match="given on projects"):
-        access_control.update_role(role["id"], ["audit.read"])
+    assert grants_of(alice["id"]) == {
+        "audit.read": None,
+        "reports.read": frozenset({"shop"}),
+    }
 
 
 def test_a_role_change_applies_to_its_users_at_once():
@@ -206,69 +202,67 @@ def test_a_role_change_applies_to_its_users_at_once():
 # ── Roles of the users ───────────────────────────────────────────────────────
 
 
-def test_roles_on_every_project_and_on_projects_add_up():
-    known_projects("shop", "crm")
+def test_the_roles_apply_to_every_project_of_the_user():
+    known_projects("shop", "crm", "billing")
     alice = web_users.create_user(
         "alice",
         PASSWORD,
-        [role_id("reader")],
-        [("crm", role_id("triager")), ("shop", role_id("admin")), ("shop", role_id("reader"))],
+        [role_id("triager")],
+        [("crm", False), ("shop", False), ("billing", True)],
     )
 
-    # A role on every project reaches every project; on a project, only the scoped
-    # permissions of a role apply (admin gives reading and triage on shop, nothing more)
+    # The triage role applies to all its projects; a read-only project is only read
     assert grants_of(alice["id"]) == {
-        "reports.read": None,
         "findings.triage": frozenset({"crm", "shop"}),
+        "reports.read": frozenset({"billing", "crm", "shop"}),
     }
-    assert [(item["project"], item["role"]) for item in alice["projects"]] == [
-        ("crm", "triager"),
-        ("shop", "admin"),
-        ("shop", "reader"),
+    assert [(item["project"], item["read_only"]) for item in alice["projects"]] == [
+        ("billing", True),
+        ("crm", False),
+        ("shop", False),
     ]
-    # A user without any role reads nothing ("every project" is a role, never the default)
-    bob = web_users.create_user("bob", PASSWORD)
-    assert grants_of(bob["id"]) == {}
+    # Every project: the roles reach every project
+    web_users.update_user(alice["id"], None, all_projects=True)
+    assert grants_of(alice["id"]) == {"findings.triage": None, "reports.read": None}
+    # Projects without any role, or roles without any project, give nothing
+    bob = web_users.create_user("bob", PASSWORD, [], [("shop", False)])
+    carl = web_users.create_user("carl", PASSWORD, [role_id("reader")])
+    assert grants_of(bob["id"]) == grants_of(carl["id"]) == {}
 
 
-def test_roles_on_projects_are_replaced_bounded_and_checked(monkeypatch):
+def test_the_projects_of_a_user_are_replaced_bounded_and_checked(monkeypatch):
     known_projects("shop", "crm")
-    alice = web_users.create_user("alice", PASSWORD)
-    reader = role_id("reader")
+    alice = web_users.create_user("alice", PASSWORD, [role_id("reader")])
 
-    def set_projects(*bindings):
+    def set_projects(*projects):
         with session_scope() as session:
-            access_control.set_user_projects(session, alice["id"], bindings, "user:root")
+            access_control.set_user_projects(session, alice["id"], projects, None, "user:root")
 
-    set_projects(("shop", reader), (" Shop ", reader), ("crm", reader))
-    set_projects(("crm", reader))
+    set_projects(("shop", False), (" Shop ", True), ("crm", False))
+    set_projects(("crm", False))
     assert grants_of(alice["id"]) == {"reports.read": frozenset({"crm"})}
     with pytest.raises(NotFoundError, match="Project 'billing'"):
-        set_projects(("billing", reader))
-    with pytest.raises(NotFoundError, match="Role 999"):
-        set_projects(("shop", 999))
+        set_projects(("billing", False))
     monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
     with pytest.raises(ValueError, match="at most 1 projects"):
-        set_projects(("shop", reader), ("crm", reader))
+        set_projects(("shop", False), ("crm", False))
     (event,) = audit.list_events(action="user.projects_changed")["events"][:1]
-    assert event["details"] == {"added": [], "removed": [["shop", reader]]}
+    assert (event["details"]["added"], event["details"]["removed"]) == ([], ["shop"])
 
 
 def test_the_members_of_a_project_are_listed_and_replaced():
     known_projects("shop")
     alice = make_user("alice", PASSWORD, "reader", ["shop"])
-    bob = web_users.create_user("bob", PASSWORD)
+    bob = web_users.create_user("bob", PASSWORD, [role_id("triager")])
 
-    members = access_control.set_project_members(
-        "shop", [(bob["id"], role_id("triager"))], "user:root"
-    )
+    members = access_control.set_project_members("shop", [(bob["id"], False)], "user:root")
 
-    assert [(m["username"], m["role"]) for m in members] == [("bob", "triager")]
+    assert [(m["username"], m["read_only"]) for m in members] == [("bob", False)]
     assert grants_of(alice["id"]) == {}
     assert grants_of(bob["id"])["findings.triage"] == frozenset({"shop"})
     assert access_control.list_project_members("shop") == members
     with pytest.raises(NotFoundError, match="Web user 999"):
-        access_control.set_project_members("shop", [(999, role_id("reader"))])
+        access_control.set_project_members("shop", [(999, False)])
     with pytest.raises(NotFoundError):
         access_control.list_project_members("unknown")
     events = audit.list_events(action="user.projects_changed")["events"]
@@ -278,7 +272,7 @@ def test_the_members_of_a_project_are_listed_and_replaced():
 # ── OIDC mappings ────────────────────────────────────────────────────────────
 
 
-def test_oidc_mappings_give_their_roles_to_the_claims_of_the_last_login():
+def test_oidc_mappings_give_their_roles_and_projects_to_the_claims_of_the_last_login():
     known_projects("shop")
     alice = web_users.create_user("alice", None, auth_source="oidc")
     map_claim("devs", "reader", ["shop", "not-yet"])
@@ -294,7 +288,7 @@ def test_oidc_mappings_give_their_roles_to_the_claims_of_the_last_login():
     known_projects("not-yet")
     assert grants_of(alice["id"]) == {"reports.read": frozenset({"not-yet", "shop"})}
     # A change of the mappings applies at once
-    access_control.set_oidc_mappings([("devs", role_id("triager"), None)], "user:root")
+    access_control.set_oidc_mappings([("devs", [role_id("triager")], None)], "user:root")
     assert grants_of(alice["id"]) == {"findings.triage": None, "reports.read": None}
     (event,) = audit.list_events(action="oidc.mappings_changed")["events"][:1]
     assert event["details"]["count"] == 1
@@ -303,25 +297,32 @@ def test_oidc_mappings_give_their_roles_to_the_claims_of_the_last_login():
 @pytest.mark.parametrize(
     ("mappings", "message"),
     [
-        ([("devs", "reader", None), ("devs", "reader", ["shop"])], "twice"),
-        ([("devs", "reader", [])], "at least one project"),
-        ([("devs", "reader", [f"p{i}" for i in range(51)])], "at most 50 projects"),
-        ([("", "reader", None)], "between 1 and 200"),
-        ([("de\nvs", "reader", None)], "control characters"),
+        ([("devs", ["reader"], None), ("devs", ["triager"], ["shop"])], "twice"),
+        ([("devs", [], [])], "neither a role nor a project"),
+        ([("devs", ["reader"], [f"p{i}" for i in range(51)])], "at most 50 projects"),
+        ([("", ["reader"], None)], "between 1 and 200"),
+        ([("de\nvs", ["reader"], None)], "control characters"),
     ],
 )
 def test_invalid_oidc_mappings_are_refused(mappings, message):
     with pytest.raises(ValueError, match=message):
         access_control.set_oidc_mappings(
-            [(claim, role_id(role), projects) for claim, role, projects in mappings]
+            [
+                (claim, [role_id(role) for role in roles], projects)
+                for claim, roles, projects in mappings
+            ]
         )
 
 
-def test_an_oidc_mapping_on_projects_needs_a_role_that_gives_something_there():
+def test_an_oidc_mapping_may_give_roles_or_projects_only():
     auditor = access_control.create_role("Auditor", ["audit.read"])
-    with pytest.raises(ValueError, match="gives nothing on a project"):
-        access_control.set_oidc_mappings([("devs", auditor["id"], ["shop"])])
-    access_control.set_oidc_mappings([("devs", auditor["id"], None)])
+    mappings = access_control.set_oidc_mappings(
+        [("auditors", [auditor["id"]], []), ("shop-team", [], ["shop"])]
+    )
+    assert [(m["claim"], m["roles"], m["projects"]) for m in mappings] == [
+        ("auditors", ["Auditor"], []),
+        ("shop-team", [], ["shop"]),
+    ]
 
 
 # ── Project creation ─────────────────────────────────────────────────────────
@@ -347,11 +348,11 @@ def test_project_permissions_are_on_the_whole_controller(permission):
     assert permission not in access_control.SCOPED_PERMISSIONS
     assert permission in access_control.SYSTEM_ROLES["admin"]
     assert {"name": permission.value, "scoped": False} in access_control.list_permissions()
+    # Given with projects, it still applies to the whole Controller server
     role = access_control.create_role(f"Role {permission.value}", [permission])
     known_projects("shop")
-    alice = web_users.create_user("alice", PASSWORD)
-    with pytest.raises(ValueError, match="gives nothing on a project"), session_scope() as session:
-        access_control.set_user_projects(session, alice["id"], [("shop", role["id"])])
+    alice = web_users.create_user("alice", PASSWORD, [role["id"]], [("shop", False)])
+    assert grants_of(alice["id"]) == {permission.value: None}
 
 
 def test_a_created_project_is_read_by_its_creator_only():
@@ -372,7 +373,7 @@ def test_a_created_project_is_read_by_its_creator_only():
         "mobile-app",
         "mobile-app",
     )
-    assert event["details"] == {"role": "reader", "user_id": carol["id"]}
+    assert event["details"] == {"read_only": True, "user_id": carol["id"]}
 
 
 def test_creating_a_project_never_opens_an_existing_one():
@@ -684,7 +685,7 @@ def test_creating_a_project_settles_its_pending_request():
     assert grants_of(carol["id"])["reports.read"] == frozenset({"mobile-app"})
 
 
-def test_giving_the_reader_role_on_a_project_is_audited_once():
+def test_giving_a_project_in_reading_only_is_audited_once():
     alice = web_users.create_user("alice", PASSWORD)
     known_projects("shop")
     for _ in range(2):
@@ -694,7 +695,7 @@ def test_giving_the_reader_role_on_a_project_is_audited_once():
     assert grants_of(alice["id"]) == {"reports.read": frozenset({"shop"})}
     (event,) = audit.list_events(action="user.projects_changed")["events"]
     assert (event["actor"], event["target_id"]) == ("user:root", str(alice["id"]))
-    assert event["details"] == {"added": [["shop", role_id("reader")]], "removed": []}
+    assert (event["details"]["added"], event["details"]["read_only"]) == (["shop"], ["shop"])
 
 
 # ── The last holder of users.manage ──────────────────────────────────────────
@@ -728,8 +729,8 @@ def test_access_changes_are_audited():
     known_projects("shop")
     role = access_control.create_role("Auditor", ["audit.read"], actor="user:root")
     alice = web_users.create_user("alice", PASSWORD)
-    web_users.update_user(alice["id"], [role["id"]], [("shop", role_id("reader"))], "user:root")
-    access_control.set_oidc_mappings([("devs", role["id"], None)], "user:root")
+    web_users.update_user(alice["id"], [role["id"]], [("shop", False)], "user:root")
+    access_control.set_oidc_mappings([("devs", [role["id"]], None)], "user:root")
     access_control.delete_role(role["id"], actor="user:root")
 
     events = audit.list_events(actor="user:root")["events"]
@@ -742,6 +743,9 @@ def test_access_changes_are_audited():
     ]
     roles = next(e for e in events if e["action"] == "user.roles_changed")
     assert roles["details"] == {"added": [role["id"]], "removed": []}
+    # The mapping loses the role; it still gives every project
+    mappings = access_control.list_oidc_mappings()
+    assert [(m["claim"], m["roles"], m["projects"]) for m in mappings] == [("devs", [], None)]
 
 
 def _settings(**values):

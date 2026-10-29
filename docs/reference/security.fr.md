@@ -96,7 +96,7 @@
   utilisateur portant `projects.create` (jamais un projet existant) ; sinon la demande reste
   **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` la valide sur le
   serveur Controller, ce qui donne à l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
-  le rôle `reader` sur le projet, créé s'il est nouveau. Pour un projet existant, la demande est une
+  le projet en lecture seule, créé s'il est nouveau. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
   porte aussi `users.manage`, sauf pour un utilisateur portant `projects.autojoin`, qui le
   rejoint aussitôt en lecture si son adhésion automatique n'est pas bloquée (cet utilisateur
@@ -249,8 +249,9 @@
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
   viennent des [rôles](../usage/access-control.md#roles) du compte : ceux donnés par un
   administrateur et ceux des correspondances OIDC dont la valeur est exactement une valeur du claim
-  des rôles (les autres valeurs sont ignorées ; une correspondance sur des projets ne donne que des
-  permissions par projet sur des projets existants, sans jamais en créer) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
+  des rôles (les autres valeurs sont ignorées ; les permissions par projet des rôles ne
+  s'appliquent qu'aux projets du compte, un projet d'une correspondance doit exister et n'est jamais
+  créé) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
   sa première connexion (uniques en base), jamais par un nom : un nom changé chez le fournisseur
   garde le compte. Il est nommé à sa création par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas

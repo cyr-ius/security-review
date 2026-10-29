@@ -127,12 +127,13 @@ pourrait réutiliser le même `sub`) est refusée. Un compte lié quand seul le 
 enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'identifiant, supprimez
 puis recréez le compte.
 
-Ce qu'un compte OIDC peut faire vient de ses [rôles](../usage/access-control.md) : ceux qu'un
-administrateur lui a donnés (page **Utilisateurs** ou membres d'un projet) et ceux des
+Ce qu'un compte OIDC peut faire vient de ses [rôles et projets](../usage/access-control.md) : ceux
+qu'un administrateur lui a donnés (page **Utilisateurs** ou membres d'un projet) et ceux des
 correspondances OIDC des valeurs de son claim des rôles, enregistrées à chaque connexion (voir
 [correspondances OIDC](#correspondances-oidc)). Un compte sans aucune permission est refusé et ses
-sessions ouvertes se ferment. Un changement de ses rôles ou des correspondances s'applique
-aussitôt ; un changement de ses groupes chez le fournisseur, à la prochaine connexion.
+sessions ouvertes se ferment. Un changement de ses rôles, de ses projets ou des correspondances
+s'applique aussitôt ; un changement de ses groupes chez le fournisseur, à la prochaine
+connexion.
 
 **Supprimer un compte OIDC** (page **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
@@ -160,34 +161,34 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 ## Correspondances OIDC
 
 Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
-comparées aux **correspondances OIDC** de la page **Connexions**. Une correspondance donne un rôle
-aux utilisateurs dont le claim contient **exactement** sa valeur (casse comprise), sur tous les
-projets ou sur une liste de projets ; une valeur peut avoir plusieurs correspondances, une par
-rôle. À chaque connexion, les valeurs du claim nommées par une correspondance sont gardées pour le
-compte ; les autres valeurs sont ignorées. Les rôles des correspondances de ces valeurs
-s'appliquent alors, en plus des rôles donnés au compte (voir
+comparées aux **correspondances OIDC** de la page **Connexions**. Une correspondance, une par
+valeur, donne des **rôles** et des **projets** (tous les projets, ou une liste) aux utilisateurs
+dont le claim contient **exactement** sa valeur (casse comprise). À chaque connexion, les valeurs
+du claim nommées par une correspondance sont gardées pour le compte ; les autres valeurs sont
+ignorées. Les rôles et projets de ces correspondances s'ajoutent à ceux donnés au compte : les
+permissions par projet de tous ses rôles s'appliquent à tous ses projets (voir
 [Rôles et permissions](../usage/access-control.md)).
 
 - Un changement des correspondances s'applique aussitôt, à chaque compte OIDC, par les valeurs de
   sa dernière connexion ; une valeur qu'aucune correspondance ne nomme plus est oubliée.
-- Une correspondance sur des projets ne donne que ses permissions par projet, et seulement sur les
-  projets qui existent : un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par
-  le fournisseur d'identité. Une correspondance qui n'a plus de projet quand ses projets sont
-  supprimés est supprimée.
+- Une correspondance peut ne donner que des rôles, ou que des projets. Un projet pas encore créé
+  est ignoré jusqu'à sa création, jamais créé par le fournisseur d'identité. Une correspondance
+  qui n'a plus de projet quand son dernier projet est supprimé est supprimée, pour que ses rôles
+  n'atteignent jamais les autres projets de ses utilisateurs.
 - Une connexion ne retire jamais le dernier détenteur de `users.manage` : les valeurs du claim qui
   la lui donnaient sont gardées, avec un avertissement dans les journaux et un événement
   `user.roles_changed`. Supprimer une telle correspondance dans l'interface est refusé.
 
 | Réglage | Effet |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Valeurs du claim, séparées par des virgules, qui ont le rôle `admin` : une telle valeur, sans aucune correspondance à la connexion d'un utilisateur qui la porte, reçoit une correspondance vers `admin` sur tous les projets. Une correspondance qui la nomme déjà reste telle que les administrateurs l'ont modifiée. Sert à nommer le premier administrateur |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Valeurs du claim, séparées par des virgules, qui ont le rôle `admin` : une telle valeur, sans aucune correspondance à la connexion d'un utilisateur qui la porte, reçoit une correspondance vers `admin` et tous les projets. Une correspondance qui la nomme déjà reste telle que les administrateurs l'ont modifiée. Sert à nommer le premier administrateur |
 
 ```bash
-# Toutes les correspondances OIDC, remplacées d'un bloc (projects null : tous les projets)
+# Toutes les correspondances OIDC, remplacées d'un bloc
 curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"mappings": [{"claim": "secreview-admins", "role_id": 2, "projects": null},
-                    {"claim": "payments-team", "role_id": 3, "projects": ["billing"]}]}'
+  -d '{"mappings": [{"claim": "secreview-admins", "role_ids": [2], "all_projects": true},
+                    {"claim": "payments-team", "role_ids": [3], "projects": ["billing"]}]}'
 ```
 
 Une session restreinte se comporte comme un
@@ -195,8 +196,8 @@ Une session restreinte se comporte comme un
 projets, leurs rapports et leurs findings sont traités comme inexistants.
 
 Exemple : avec le claim `["payments-team", "staff"]`, une correspondance de `payments-team` vers
-un rôle *Triager* sur `billing`, et aucune correspondance de `staff`, l'utilisateur ne trie que
-`billing`.
+un rôle *Triager* et le projet `billing`, et aucune correspondance de `staff`, l'utilisateur trie
+`billing` (et les projets donnés à son compte).
 
 Le label d'une session OIDC est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.

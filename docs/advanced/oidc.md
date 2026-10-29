@@ -123,12 +123,12 @@ from another issuer (another identity provider, which could reuse the same `sub`
 An account bound when only the `sub` was recorded gets the issuer of its next login. To give
 the user name to someone else, delete then create the account again.
 
-What an OIDC account may do comes from its [roles](../usage/access-control.md): those an
-administrator gave it (**Users** page or members of a project) and those of the OIDC mappings
-of the values of its roles claim, recorded at every login (see [OIDC mappings](#oidc-mappings)).
-An account without any permission is refused and its open sessions are closed. A change of its
-roles or of the mappings applies at once; a change of its groups at the provider, at the next
-login.
+What an OIDC account may do comes from its [roles and projects](../usage/access-control.md):
+those an administrator gave it (**Users** page or members of a project) and those of the OIDC
+mappings of the values of its roles claim, recorded at every login (see
+[OIDC mappings](#oidc-mappings)). An account without any permission is refused and its open
+sessions are closed. A change of its roles, its projects or the mappings applies at once; a
+change of its groups at the provider, at the next login.
 
 **Deleting an OIDC account** (**Utilisateurs** page, `DELETE /api/v1/users/{id}` or
 `security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
@@ -155,32 +155,32 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 ## OIDC mappings
 
 The values of the `SECREVIEW_OIDC_ROLES_CLAIM` claim (list or string, dotted path accepted) are
-compared with the **OIDC mappings** of the **Sign-in** page. A mapping gives a role to the users
-whose claim holds **exactly** its value (case included), on every project or on a list of
-projects; a value may have several mappings, one per role. At each login, the values of the claim
-named by a mapping are kept for the account; the other values are ignored. The roles of the
-mappings of these values then apply, with the roles given to the account (see
-[Roles and permissions](../usage/access-control.md)).
+compared with the **OIDC mappings** of the **Sign-in** page. A mapping, one per value, gives
+**roles** and **projects** (every project, or a list) to the users whose claim holds **exactly**
+its value (case included). At each login, the values of the claim named by a mapping are kept for
+the account; the other values are ignored. The roles and projects of these mappings add up with
+those given to the account: the per-project permissions of all its roles apply to all its
+projects (see [Roles and permissions](../usage/access-control.md)).
 
 - A change of the mappings applies at once, to every OIDC account, through the values of its last
   login; a value that no mapping names any more is forgotten.
-- A mapping on projects only gives its per-project permissions, and only on the projects that
-  exist: a project not created yet is ignored until it is, never created by the identity
-  provider. A mapping left without project when its projects are deleted is deleted.
+- A mapping may give only roles, or only projects. A project not created yet is ignored until it
+  is, never created by the identity provider. A mapping left without project when its last
+  project is deleted is deleted, so that its roles never reach the other projects of its users.
 - A login never removes the last holder of `users.manage`: the values of the claim that gave it
   are kept, with a warning in the logs and a `user.roles_changed` event. Removing such a mapping
   in the interface is refused.
 
 | Setting | Effect |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated values of the claim that hold the `admin` role: such a value, without any mapping at the login of a user who holds it, gets a mapping to `admin` on every project. A mapping that already names it is left as administrators changed it. Used to name the first administrator |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated values of the claim that hold the `admin` role: such a value, without any mapping at the login of a user who holds it, gets a mapping to `admin` and every project. A mapping that already names it is left as administrators changed it. Used to name the first administrator |
 
 ```bash
-# Every OIDC mapping, replaced at once (projects null: every project)
+# Every OIDC mapping, replaced at once
 curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"mappings": [{"claim": "secreview-admins", "role_id": 2, "projects": null},
-                    {"claim": "payments-team", "role_id": 3, "projects": ["billing"]}]}'
+  -d '{"mappings": [{"claim": "secreview-admins", "role_ids": [2], "all_projects": true},
+                    {"claim": "payments-team", "role_ids": [3], "projects": ["billing"]}]}'
 ```
 
 A restricted session behaves like a
@@ -188,7 +188,8 @@ A restricted session behaves like a
 projects, their reports and their findings are handled as missing.
 
 Example: with the claim `["payments-team", "staff"]`, a mapping of `payments-team` to a
-*Triager* role on `billing`, and no mapping of `staff`, the user triages `billing` only.
+*Triager* role and the project `billing`, and no mapping of `staff`, the user triages `billing`
+(and the projects given to its account).
 
 The label of an OIDC session is `oidc:<username>`: it is the one that appears in the logs and
 in the triage history.

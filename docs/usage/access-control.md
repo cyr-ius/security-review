@@ -1,9 +1,10 @@
 # Roles and permissions
 
-What a [user account](user-accounts.md) may do comes only from its **roles**. A role is a set of
-**permissions**; an administrator gives it to an account **on every project** or **on a
-project**. An OIDC account also holds the roles of the [OIDC mappings](sso.md#oidc-mappings)
-of its identity provider groups. Administrators manage all this in the **Users**, **Roles** and
+What a [user account](user-accounts.md) may do comes only from its **roles** and its
+**projects**. A role is a set of **permissions**: those marked *per project* apply to the
+projects of the account (or every project), the others to the whole Controller server. An OIDC
+account also holds the roles and projects of the [OIDC mappings](sso.md#oidc-mappings) of its
+identity provider groups. Administrators manage all this in the **Users**, **Roles** and
 **Sign-in** pages, and on the page of each project ([members](projects.md#members)).
 
 The REST API, the limits and the detailed rules are in
@@ -26,8 +27,8 @@ machines keep a fixed role ([tokens](tokens.md)).
 | `projects.delete` | [Delete a project](projects.md#deleting-a-project) | |
 | `projects.autojoin` | [Join an existing project](projects.md#joining-a-project) at once, as a reader, when the agent requests it, unless [its autojoin is blocked](projects.md#blocking-the-autojoin) | |
 
-A permission marked **per project** applies to the projects of the role; the others apply to the
-whole Controller server. No permission is needed for the
+A permission marked **per project** applies to the projects of the account; the others apply to
+the whole Controller server. No permission is needed for the
 [personal MCP and CI tokens](tokens.md#personal-mcp-and-ci-tokens): every account may create
 them, unless `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
 
@@ -35,35 +36,34 @@ them, unless `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
 
 | Role | Permissions | Note |
 |---|---|---|
-| `reader` | `reports.read` | Built in, cannot be changed: given on a project to its creator and to the users who join it |
-| `admin` | Every permission, including those of later versions | Built in, cannot be changed: the role of the first administrator |
+| `reader` | `reports.read` | Built in, cannot be changed: ticked by default for a new account |
+| `admin` | Every permission, including those of later versions | Built in, cannot be changed: the role of the first administrator, with every project |
 
 Administrators create other roles, for example a *Triager* role with `reports.read` and
 `findings.triage`, or an *Auditor* role with `audit.read` and `reports.read`.
 
-## Every project or one project
+## Roles and projects of an account
 
-A role is given to an account in two ways, in **Users**:
+In **Users**, the form of an account gives:
 
-- **on every project** (**Roles on every project**): all its permissions apply everywhere, also to the
-  projects created later, the sensitive ones included;
-- **on a project**: only its **per-project** permissions apply, on that project. An `admin` role
-  given on a project gives reading and triage there, nothing more. The interface warns about
-  the permissions of a role that do not apply on a project: to give one of them (`audit.read`
-  for instance), give a role that holds it on every project.
+- its **Roles**: `reader` is ticked by default;
+- its **Projects**: **All projects**, or a list of projects. Several projects are added at once:
+  search them, tick them and add them. A project in **Read only** is only read, whatever the
+  roles.
 
-Several projects are added at once: search them, tick them, choose the role (`reader` by
-default) and add them. An account may hold several roles on the same project.
+The per-project permissions of all its roles apply to all its projects. For example, an account
+with the roles `reader` and *Triager* and the projects `shop` and `crm` reads and triages both. To
+read `shop` and triage only `crm`, put `shop` in read only. An account with roles but no project
+(and without **All projects**) reads no project, and an account without any role sees nothing
+and cannot log in.
 
-## What a user may do
+A project that an account creates, joins or obtains by the approval of a request of its agent
+is added **in read only**: the account reads it, never more.
 
-The permissions of a user add up across **all its roles**, each with its projects. For example,
-a user who is `reader` on every project and *Triager* on `crm` reads every project and triages
-`crm` only. An account without any role sees nothing, and cannot log in. **My account** and the
-**Users** page show these permissions.
-
-A change of the roles of a user, of a role or of an OIDC mapping applies at once to the open
-sessions.
+The permissions on the whole Controller server (`audit.read`, `users.manage`...) apply whatever
+the projects. **My account** and the **Users** page show the permissions of each account. A
+change of the roles or projects of an account, of a role or of an OIDC mapping applies at once
+to the open sessions.
 
 ## The last administrator
 
@@ -78,6 +78,6 @@ keeps it (the event is logged and audited). Keep a local administrator preferabl
   it only to administrators.
 - **Accepting a risk or marking a false positive** needs a person signed in, never a token,
   even with `findings.triage`.
-- **A role on every project** reaches every project, the sensitive ones included: prefer roles on
-  projects for the developers.
+- **All projects** reaches every project, the sensitive ones included: prefer a list of projects
+  for the developers.
 - **Deleting a role** removes it from the accounts and from the OIDC mappings that give it.

@@ -1,8 +1,8 @@
 # User accounts
 
 A user account lets a **person** open the web interface. What it may do comes only from its
-**roles**, on every project or on projects: they give its
-[permissions](access-control.md#what-a-user-may-do).
+**roles** and its **projects**: they give its
+[permissions](access-control.md#roles-and-projects-of-an-account).
 The machines use [tokens](tokens.md) instead.
 
 The command line, the REST API and the settings are in
@@ -13,12 +13,12 @@ The command line, the REST API and the settings are in
 | **Local** | User name and password | By an administrator, on the **Users** page |
 | **OIDC** | Company login ([identity provider](sso.md#oidc-accounts)), no password | By an administrator, or at the first login when the server allows it |
 
-An OIDC account also holds the roles of the [OIDC mappings](sso.md#oidc-mappings) of the groups
-that its identity provider names at each login.
+An OIDC account also holds the roles and projects of the [OIDC mappings](sso.md#oidc-mappings) of
+the groups that its identity provider names at each login.
 
-On the **Users** page, the form of an account gives its **Roles on every project** (ticked) and
-its **Roles on projects** (search the projects, tick them, choose the role, `reader` by default,
-then **Add**); it shows the roles of its OIDC mappings, read only.
+On the **Users** page, the form of an account gives its **Roles** (`reader` ticked by default)
+and its **Projects** (**All projects**, or search the projects, tick them and add them, each one
+possibly in **Read only**); it shows those of its OIDC mappings, read only.
 
 ## Password
 
@@ -37,7 +37,7 @@ An OIDC account has no password: it is managed by the identity provider.
   **Log in again** brings you back to the same page.
 - **Logging out** closes the sessions of the account in every tab and browser; so does a new
   password or the deletion of the account.
-- A change of roles applies at once, without logging in again.
+- A change of roles or projects applies at once, without logging in again.
 
 ## Points to watch
 

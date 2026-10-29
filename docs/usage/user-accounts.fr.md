@@ -1,8 +1,8 @@
 # Comptes utilisateurs
 
 Un compte utilisateur permet à une **personne** d'ouvrir l'interface web. Ce qu'il peut faire
-vient uniquement de ses **rôles**, sur tous les projets ou sur des projets : ils donnent ses
-[permissions](access-control.md#ce-quun-utilisateur-peut-faire). Les machines
+vient uniquement de ses **rôles** et de ses **projets** : ils donnent ses
+[permissions](access-control.md#roles-et-projets-dun-compte). Les machines
 utilisent des [jetons](tokens.md).
 
 La ligne de commande, l'API REST et les réglages sont dans
@@ -13,13 +13,14 @@ La ligne de commande, l'API REST et les réglages sont dans
 | **Local** | Identifiant et mot de passe | Par un administrateur, dans la page **Utilisateurs** |
 | **OIDC** | Connexion d'entreprise ([fournisseur d'identité](sso.md#comptes-oidc)), sans mot de passe | Par un administrateur, ou à la première connexion quand le serveur le permet |
 
-Un compte OIDC porte aussi les rôles des [correspondances OIDC](sso.md#correspondances-oidc) des
-groupes que nomme son fournisseur d'identité à chaque connexion.
+Un compte OIDC porte aussi les rôles et projets des
+[correspondances OIDC](sso.md#correspondances-oidc) des groupes que nomme son fournisseur
+d'identité à chaque connexion.
 
-Sur la page **Utilisateurs**, le formulaire d'un compte donne ses **Rôles sur tous les projets**
-(cochés) et ses **Rôles sur des projets** (recherchez les projets, cochez-les, choisissez le rôle,
-`reader` par défaut, puis **Ajouter**) ; il affiche les rôles de ses correspondances OIDC, en
-lecture seule.
+Sur la page **Utilisateurs**, le formulaire d'un compte donne ses **Rôles** (`reader` coché par
+défaut) et ses **Projets** (**Tous les projets**, ou recherchez les projets, cochez-les et
+ajoutez-les, chacun éventuellement en **Lecture seule**) ; il affiche ceux de ses
+correspondances OIDC, en lecture seule.
 
 ## Mot de passe
 
@@ -39,7 +40,7 @@ Un compte OIDC n'a pas de mot de passe : il est géré par le fournisseur d'iden
   **Se reconnecter** vous ramène à la même page.
 - **Se déconnecter** ferme les sessions du compte dans tous les onglets et navigateurs ; un
   nouveau mot de passe ou la suppression du compte aussi.
-- Un changement de rôles s'applique aussitôt, sans se reconnecter.
+- Un changement de rôles ou de projets s'applique aussitôt, sans se reconnecter.
 
 ## Points d'attention
 

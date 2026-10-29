@@ -294,8 +294,8 @@ def user_command(argv: list[str]) -> int:
     actions.add_parser("list", help="list the web users (never their password hash)")
     updater = actions.add_parser(
         "set-access",
-        help="replace the roles given to a user on every project and on projects (the roles "
-        "of its OIDC mappings are kept)",
+        help="replace the roles and the projects given to a user (those of its OIDC mappings "
+        "are kept)",
     )
     updater.add_argument("username", help="username or id")
     _access_arguments(updater)
@@ -321,9 +321,10 @@ def user_command(argv: list[str]) -> int:
                 args.username,
                 None if args.sso else _read_password(args.password_stdin),
                 _role_ids(args.role),
-                _project_roles(args.project),
+                _projects(args.project),
                 "cli",
                 web_users.AUTH_OIDC if args.sso else web_users.AUTH_LOCAL,
+                all_projects=args.all_projects,
             )
         elif args.action == "list":
             result = web_users.list_users()
@@ -331,7 +332,11 @@ def user_command(argv: list[str]) -> int:
             user_id = web_users.find_user(args.username)["id"]
             if args.action == "set-access":
                 result = web_users.update_user(
-                    user_id, _role_ids(args.role), _project_roles(args.project), "cli"
+                    user_id,
+                    _role_ids(args.role),
+                    _projects(args.project),
+                    "cli",
+                    all_projects=args.all_projects,
                 )
             elif args.action == "reset-password":
                 result = web_users.set_password(user_id, _read_password(args.password_stdin))
@@ -344,17 +349,22 @@ def user_command(argv: list[str]) -> int:
 
 
 def _access_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the --role and --project options of ``user create`` and ``user set-access``."""
+    """Add the --role, --project and --all-projects options of ``user create`` and
+    ``user set-access``."""
     parser.add_argument(
         "--role",
         action="append",
-        help="role on every project (repeatable; none: no role on every project), e.g. admin",
+        help="role of the user (repeatable; none: no role), e.g. admin or reader",
     )
     parser.add_argument(
         "--project",
         action="append",
-        metavar="PROJECT[=ROLE]",
-        help="role on a known project (repeatable; default role: reader)",
+        help="known project of the user (repeatable): its roles apply there",
+    )
+    parser.add_argument(
+        "--all-projects",
+        action="store_true",
+        help="the roles of the user apply to every project",
     )
 
 
@@ -367,13 +377,9 @@ def _role_ids(names: list[str] | None) -> list[int]:
     return [roles[name] for name in names or []]
 
 
-def _project_roles(values: list[str] | None) -> list[tuple[str, int]]:
-    """(project, role id) pairs of the --project options (``PROJECT`` or ``PROJECT=ROLE``)."""
-    pairs: list[tuple[str, int]] = []
-    for value in values or []:
-        project, _, role = value.partition("=")
-        pairs.append((project, _role_ids([role.strip() or access_control.READER_ROLE])[0]))
-    return pairs
+def _projects(values: list[str] | None) -> list[tuple[str, bool]]:
+    """(project, read only) pairs of the --project options: never read only."""
+    return [(project, False) for project in values or []]
 
 
 # ── role ─────────────────────────────────────────────────────────────────────
@@ -384,8 +390,8 @@ def role_command(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="security-review-controller role",
         description="List the roles (with their permissions) or the OIDC mappings of the roles "
-        "claim. Roles, the roles of the users and the mappings are managed in the web interface; "
-        "`user set-access` gives roles to a user.",
+        "claim. Roles, the roles and projects of the users and the mappings are managed in the web "
+        "interface; `user set-access` gives roles and projects to a user.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("list", help="list the roles and their permissions")
@@ -412,7 +418,7 @@ def project_command(argv: list[str]) -> int:
         prog="security-review-controller project",
         description="List, approve or reject the projects requested by an enrollment: a new "
         "project, or the access to an existing one (existing: true). An approval adds the "
-        "requesting user the reader role on the project, created when new; a request "
+        "requesting user the project in reading only, created when new; a request "
         "nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.",
     )
     actions = parser.add_subparsers(dest="action", required=True)

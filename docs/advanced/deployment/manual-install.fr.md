@@ -42,7 +42,7 @@ export SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
 
 ```bash
 security-review-controller db upgrade                       # crée ou migre le schéma
-security-review-controller user create admin --role admin   # mot de passe affiché une fois
+security-review-controller user create admin --role admin --all-projects   # mot de passe affiché une fois
 ```
 
 Conservez le mot de passe : il ouvre l'interface web. Changez-le ensuite depuis **Mon compte**.

@@ -2,34 +2,31 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { SCOPED_PERMISSIONS } from '../../../core/constants/labels';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { OidcRoleMapping, OidcRoleMappingWrite } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { describeAccessError } from '../../access/access-errors';
-import { ignoredOnProject } from '../../../shared/utils/permission-utils';
 
-/** The mapping being added: a value of the claim, a role and its projects. */
+/** The mapping being added: a value of the claim and the projects it gives. */
 interface MappingFormModel {
   claim: string;
-  /** Id of the role, as the value of the select. */
-  roleId: string;
   allProjects: boolean;
-  /** Comma-separated project names (when not every project). */
+  /** Comma-separated project names (when not every project; may be empty). */
   projects: string;
 }
 
-const EMPTY_MAPPING: MappingFormModel = { claim: '', roleId: '', allProjects: true, projects: '' };
+const EMPTY_MAPPING: MappingFormModel = { claim: '', allProjects: false, projects: '' };
 
 /** Projects a mapping may name (as the API). */
 const MAX_PROJECTS = 50;
 
 /**
- * The OIDC mappings: each value of the roles claim gives a role, on every project or on a list
- * of projects (a project not created yet is ignored until it is). They apply at once to the OIDC
- * users, through the values of their claim at their last login.
+ * The OIDC mappings: each value of the roles claim gives roles, and every project or a list of
+ * projects (a project not created yet is ignored until it is); they add up with those given to
+ * the user. They apply at once to the OIDC users, through the values of their claim at their last
+ * login.
  */
 @Component({
   selector: 'app-oidc-mappings',
@@ -47,73 +44,63 @@ export class OidcMappingsComponent {
   readonly mappingForm = form(this.mappingModel, (path) => {
     required(path.claim);
     maxLength(path.claim, 200);
-    required(path.roleId);
-    validate(path.projects, ({ value, valueOf }) => {
-      if (valueOf(path.allProjects)) {
-        return undefined;
-      }
-      const count = splitProjects(value()).length;
-      return count === 0 || count > MAX_PROJECTS
+    validate(path.projects, ({ value, valueOf }) =>
+      !valueOf(path.allProjects) && splitProjects(value()).length > MAX_PROJECTS
         ? { kind: 'projects', message: this.i18n.translate('mappings.projectsHelp') }
-        : undefined;
-    });
+        : undefined,
+    );
   });
 
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
-  /** Roles offered for a mapping on projects: those that give something there. */
-  readonly projectRoles = computed(() =>
-    (this.roles.value() ?? []).filter((role) =>
-      role.permissions.some((permission) => SCOPED_PERMISSIONS.has(permission)),
-    ),
+  /** Ids of the roles the new mapping gives. */
+  readonly pickedRoles = signal<number[]>([]);
+
+  /** A mapping gives a role, every project or a project. */
+  readonly canSubmit = computed(
+    () =>
+      !this.busy() &&
+      this.mappingForm().valid() &&
+      (this.pickedRoles().length > 0 ||
+        this.mappingModel().allProjects ||
+        splitProjects(this.mappingModel().projects).length > 0),
   );
 
-  /** Roles offered by the form, given its scope. */
-  readonly roleChoices = computed(() =>
-    this.mappingModel().allProjects ? (this.roles.value() ?? []) : this.projectRoles(),
-  );
-
-  /** Permissions of a role that give nothing on a project (empty: none). */
-  ignored(roleId: number | string): string {
-    return ignoredOnProject(
-      (this.roles.value() ?? []).find((role) => role.id === Number(roleId)),
-      this.i18n,
+  toggleRole(roleId: number, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.pickedRoles.update((ids) =>
+      checked ? [...ids, roleId] : ids.filter((item) => item !== roleId),
     );
   }
-
-  readonly canSubmit = computed(() => !this.busy() && this.mappingForm().valid());
 
   async add(event: Event): Promise<void> {
     event.preventDefault();
     if (!this.canSubmit()) {
       return;
     }
-    const { claim, roleId, allProjects, projects } = this.mappingModel();
+    const { claim, allProjects, projects } = this.mappingModel();
     const added: OidcRoleMappingWrite = {
       claim: claim.trim(),
-      role_id: Number(roleId),
-      projects: allProjects ? null : splitProjects(projects),
+      role_ids: this.pickedRoles(),
+      all_projects: allProjects,
+      projects: allProjects ? [] : splitProjects(projects),
     };
     const ok = await this.save([...this.current(), added], msg('mappings.saved'));
     if (ok) {
       this.mappingForm().reset({ ...EMPTY_MAPPING });
+      this.pickedRoles.set([]);
     }
   }
 
   async remove(mapping: OidcRoleMapping): Promise<void> {
-    const question = this.i18n.translate('mappings.confirmDelete', {
-      claim: mapping.claim,
-      role: mapping.role,
-    });
+    const question = this.i18n.translate('mappings.confirmDelete', { claim: mapping.claim });
     if (this.busy() || !window.confirm(question)) {
       return;
     }
     await this.save(
-      this.current().filter(
-        (item) => item.claim !== mapping.claim || item.role_id !== mapping.role_id,
-      ),
+      this.current().filter((item) => item.claim !== mapping.claim),
       msg('mappings.deleted', { claim: mapping.claim }),
     );
   }
@@ -122,8 +109,9 @@ export class OidcMappingsComponent {
   private current(): OidcRoleMappingWrite[] {
     return (this.catalog.value()?.mappings ?? []).map((item) => ({
       claim: item.claim,
-      role_id: item.role_id,
-      projects: item.projects,
+      role_ids: item.role_ids,
+      all_projects: item.projects === null,
+      projects: item.projects ?? [],
     }));
   }
 

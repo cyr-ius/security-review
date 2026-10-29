@@ -689,14 +689,13 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     assert json.loads(text) == {"project": "mobile-app", "status": "accessible"}
     assert carol.call("save_security_report", {"project": "mobile-app", **review})[0] is False
 
-    # A token that reaches every project still creates the project, with the reader role for
-    # its user
+    # A token that reaches every project still creates the project, read by its user
     dave = McpOverHttp(http_app, personal_token("dave", ["projects.create", "reports.read"]))
     assert json.loads(dave.call("request_project", {"project": "intranet"})[1])["status"] == (
         "created"
     )
     members = access_control.list_project_members("intranet")
-    assert [(member["username"], member["role"]) for member in members] == [("dave", "reader")]
+    assert [(member["username"], member["read_only"]) for member in members] == [("dave", True)]
     _, text = dave.call("request_project", {"project": "intranet"})
     assert json.loads(text) == {"project": "intranet", "status": "accessible"}
 

@@ -197,24 +197,22 @@ export interface LoginSession {
 /** Source of a web user: local account (password) or OIDC account (OpenID Connect). */
 export type AuthSource = 'local' | 'oidc';
 
-/** A role of a web user on every project. */
+/** A role of a web user. */
 export interface UserRoleRef {
   role_id: number;
   name: string;
 }
 
-/** A role of a web user on one project (only its per-project permissions apply there). */
-export interface UserProjectRole {
+/** A project of a web user; read_only: only read, whatever its roles. */
+export interface UserProjectItem {
   project: string;
-  role_id: number;
-  role: string;
+  read_only: boolean;
 }
 
-/** A role given to an OIDC user by the mapping of a value of its roles claim (last login). */
-export interface UserOidcRole {
+/** What the mapping of a value of the roles claim of an OIDC user (last login) gives. */
+export interface UserOidcAccess {
   claim: string;
-  role_id: number;
-  role: string;
+  roles: string[];
   /** null: every project. */
   projects: string[] | null;
 }
@@ -224,11 +222,12 @@ export interface WebUser {
   id: number;
   username: string;
   auth_source: AuthSource;
-  /** Roles given by an administrator, on every project and on projects. */
+  /** Roles and projects given by an administrator (all_projects: every project). */
   roles: UserRoleRef[];
-  projects: UserProjectRole[];
-  /** Roles of its OIDC mappings (read only, recomputed at each login). */
-  oidc_roles: UserOidcRole[];
+  all_projects: boolean;
+  projects: UserProjectItem[];
+  /** Roles and projects of its OIDC mappings (read only, recomputed at each login). */
+  oidc: UserOidcAccess[];
   /** Permissions given by its roles; empty: no access. */
   permissions: Grants;
   /** True once an OIDC user logged in (bound to its identity provider account). */
@@ -1093,9 +1092,8 @@ export interface AccessRole {
   system: boolean;
   /** Only per-project permissions: a token with this role may be limited to projects. */
   scoped: boolean;
-  /** Users who hold the role on every project, on projects, and OIDC mappings that give it. */
+  /** Users who hold the role, and OIDC mappings that give it. */
   users: number;
-  project_users: number;
   mappings: number;
   created_at: string;
   updated_at: string;
@@ -1109,37 +1107,37 @@ export interface AccessRoleWrite {
   permissions: Permission[];
 }
 
-/** A role given to a web user on a known project (body of the users routes). */
+/** A known project given to a web user (body of the users routes). */
 export interface UserProjectBinding {
   project: string;
-  role_id: number;
+  read_only: boolean;
 }
 
-/** A role of a web user on a project (GET/PUT /api/v1/access/projects/{project}/members). */
+/** A web user who has a project (GET/PUT /api/v1/access/projects/{project}/members). */
 export interface ProjectMember {
   user_id: number;
   username: string;
   auth_source: AuthSource;
-  role_id: number;
-  role: string;
+  read_only: boolean;
 }
 
-/** A value of the OIDC roles claim that gives a role, on every project (null) or on projects. */
+/** A value of the OIDC roles claim that gives roles and projects (null: every project). */
 export interface OidcRoleMapping {
   id: number;
   claim: string;
-  role_id: number;
-  role: string;
+  role_ids: number[];
+  roles: string[];
   projects: string[] | null;
   created_at: string;
   created_by: string | null;
 }
 
-/** An OIDC mapping as sent to PUT /api/v1/oidc/mappings (projects null: every project). */
+/** An OIDC mapping as sent to PUT /api/v1/oidc/mappings. */
 export interface OidcRoleMappingWrite {
   claim: string;
-  role_id: number;
-  projects: string[] | null;
+  role_ids: number[];
+  all_projects: boolean;
+  projects: string[];
 }
 
 /** GET /api/v1/oidc/mappings */

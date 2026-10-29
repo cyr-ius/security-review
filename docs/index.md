@@ -27,7 +27,7 @@ recorded in one place, where your security team reads it, triages it and follows
   open; the results are exported in [SARIF](advanced/reports/sarif.md) (GitHub code scanning, Jenkins); the [dependencies](review/analysis/dependencies.md) are
   checked against an OSV vulnerability database, even without Internet access.
 - **Connected to your company tools.** [Single sign-on (OIDC)](usage/sso.md) with your identity provider,
-  [roles on every project or per project](usage/access-control.md), findings sent to
+  [roles and projects of each account](usage/access-control.md), findings sent to
   [Jira or ServiceNow](usage/connectors/index.md),
   [audit log forwarded to syslog, Prometheus metrics](usage/audit-metrics.md).
 - **Your code stays with you.** The product is self-hosted: the MCP server makes no outgoing

@@ -222,12 +222,12 @@ def test_user_grants_become_sso_web_users(empty_engine):
     alice = users["alice"]
     assert (alice["auth_source"], alice["created_by"]) == ("oidc", "admin")
     # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role,
-    # 0018 into the groups of its projects and 0039 into roles on these projects
+    # 0018 into the groups of its projects and 0039 into a role and these projects
     assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
-    # Revision 0039 gave it the reader role on each of these projects
-    assert [(item["project"], item["role"]) for item in alice["projects"]] == [
-        ("billing", "reader"),
-        ("shop-api", "reader"),
+    assert [role["name"] for role in alice["roles"]] == ["reader"]
+    assert [(item["project"], item["read_only"]) for item in alice["projects"]] == [
+        ("billing", False),
+        ("shop-api", False),
     ]
     assert (users["bob"]["auth_source"], users["bob"]["permissions"]) == ("local", ADMIN_GRANTS)
 
@@ -1014,6 +1014,7 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
             (1, "root", "local"),
             (2, "dev", "local"),
             (3, "carol", "oidc"),
+            (4, "lea", "local"),
         ):
             connection.execute(
                 text(
@@ -1030,12 +1031,25 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
             ),
             {"now": now},
         )
+        connection.execute(
+            text(
+                "INSERT INTO accessrole (name, description, permissions, system, created_at, "
+                "updated_at) VALUES ('lead', '', :permissions, 0, :now, :now)"
+            ),
+            {"now": now, "permissions": '["findings.triage", "reports.read"]'},
+        )
         roles = dict(connection.execute(text("SELECT name, id FROM accessrole")).all())
         administrators = connection.execute(
             text("SELECT id FROM usergroup WHERE name = 'administrators'")
         ).scalar_one()
         groups = {"administrators": administrators}
-        for name, sso in (("project:shop", 0), ("devs", 1), ("triagers", 0), ("auditors", 0)):
+        for name, sso in (
+            ("project:shop", 0),
+            ("devs", 1),
+            ("triagers", 0),
+            ("auditors", 0),
+            ("crm-leads", 0),
+        ):
             groups[name] = connection.execute(
                 text(
                     "INSERT INTO usergroup (name, description, sso, created_at, updated_at) "
@@ -1048,6 +1062,7 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
             ("devs", "reader", '["shop", "crm"]'),
             ("triagers", "triager", "[]"),
             ("auditors", "auditor", "[]"),
+            ("crm-leads", "lead", '["crm"]'),
         ):
             connection.execute(
                 text("INSERT INTO grouprole (group_id, role_id, projects) VALUES (:g, :r, :p)"),
@@ -1060,6 +1075,8 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
             ("devs", 3, "oidc"),
             ("triagers", 2, "local"),
             ("auditors", 2, "local"),
+            ("project:shop", 4, "local"),
+            ("crm-leads", 4, "local"),
         ):
             connection.execute(
                 text(
@@ -1087,14 +1104,18 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
 
     users = {user["username"]: user for user in web_users.list_users()}
     assert users["root"]["permissions"] == ADMIN_GRANTS
-    # The roles of its groups, on every project or on projects; triager is removed
+    # The roles of its groups and their projects; triager is removed
     assert users["dev"]["permissions"] == {"audit.read": None, "reports.read": ["crm", "shop"]}
-    assert [role["name"] for role in users["dev"]["roles"]] == ["auditor"]
+    assert [role["name"] for role in users["dev"]["roles"]] == ["auditor", "reader"]
+    assert [item["project"] for item in users["dev"]["projects"]] == ["crm", "shop"]
+    # Roles on different projects: never widened, the projects are only read
+    assert users["lea"]["permissions"] == {"reports.read": ["crm", "shop"]}
+    assert all(item["read_only"] for item in users["lea"]["projects"])
     # The OIDC user keeps the rights of its OIDC group until its next login
     assert users["carol"]["permissions"] == {"reports.read": ["crm", "shop"]}
     assert [
-        (m["claim"], m["role"], m["projects"]) for m in access_control.list_oidc_mappings()
-    ] == [("devs", "reader", ["shop", "crm"])]
+        (m["claim"], m["roles"], m["projects"]) for m in access_control.list_oidc_mappings()
+    ] == [("devs", ["reader"], ["crm", "shop"])]
     assert "triager" not in {role["name"] for role in access_control.list_roles()}
     revoked = audit.list_events(action="token.revoked")["events"]
     assert [(event["actor"], event["target_id"]) for event in revoked] == [("migration", "t1")]

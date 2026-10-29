@@ -34,7 +34,7 @@
         <thead>
           <tr>
             <th scope="col">{{ 'mappings.claim' | t }}</th>
-            <th scope="col">{{ 'access.role' | t }}</th>
+            <th scope="col">{{ 'layout.roles' | t }}</th>
             <th scope="col">{{ 'mappings.projects' | t }}</th>
             <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
           </tr>
@@ -43,15 +43,12 @@
           @for (mapping of catalog.value()?.mappings ?? []; track mapping.id) {
             <tr>
               <td class="font-monospace access-name">{{ mapping.claim }}</td>
-              <td>{{ mapping.role }}</td>
+              <td>{{ mapping.roles.join(', ') || '—' }}</td>
               <td class="small">
-                {{ mapping.projects?.join(', ') ?? ('reports.allProjects' | t) }}
-                @if (mapping.projects && ignored(mapping.role_id); as permissions) {
-                  <div class="form-text text-warning-emphasis">
-                    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                    {{ 'access.ignoredOnProject' | t: { permissions } }}
-                  </div>
-                }
+                {{
+                  mapping.projects?.join(', ') ||
+                    (mapping.projects ? '—' : ('reports.allProjects' | t))
+                }}
               </td>
               <td class="text-end">
                 <button
@@ -87,16 +84,26 @@
       />
       <div class="form-text">{{ 'mappings.claimHelp' | t }}</div>
     </div>
-    <div class="col-md-2">
-      <label for="mapping-role" class="form-label">{{ 'access.role' | t }}</label>
-      <select id="mapping-role" class="form-select" [formField]="mappingForm.roleId">
-        <option value="">—</option>
-        @for (role of roleChoices(); track role.id) {
-          <option [value]="'' + role.id">{{ role.name }}</option>
+    <fieldset class="col-md-4">
+      <legend class="form-label">{{ 'layout.roles' | t }}</legend>
+      <div class="d-flex flex-wrap gap-3">
+        @for (role of roles.value() ?? []; track role.id) {
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              [id]="'mapping-role-' + role.id"
+              [checked]="pickedRoles().includes(role.id)"
+              (change)="toggleRole(role.id, $event)"
+            />
+            <label class="form-check-label" [for]="'mapping-role-' + role.id">{{
+              role.name
+            }}</label>
+          </div>
         }
-      </select>
-    </div>
-    <div class="col-md-5">
+      </div>
+    </fieldset>
+    <div class="col-md-3">
       <div class="form-check form-switch mt-md-4">
         <input
           id="mapping-all"
@@ -120,12 +127,6 @@
           [formField]="mappingForm.projects"
         />
         <div class="form-text">{{ 'mappings.projectsHelp' | t }}</div>
-        @if (ignored(mappingModel().roleId); as permissions) {
-          <div class="form-text text-warning-emphasis">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-            {{ 'access.ignoredOnProject' | t: { permissions } }}
-          </div>
-        }
       }
     </div>
     <div class="col-md-2 pt-md-4">

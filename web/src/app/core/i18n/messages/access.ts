@@ -11,16 +11,16 @@ export const access = defineMessages({
     'access.failed': 'The management of the access failed.',
     'roles.subtitle': 'Named sets of permissions, given to users and by the OIDC mappings',
     'roles.help':
-      'A role holds permissions. Given on every project, all its permissions apply everywhere; given on a project, only its permissions marked “per project” apply there. The built-in roles reader and admin can be neither changed nor deleted. A change applies at once to the open sessions.',
+      'A role holds permissions. Its permissions marked “per project” apply to the projects of the user (or every project), the others to the whole Controller server. The built-in roles reader and admin can be neither changed nor deleted. A change applies at once to the open sessions.',
     'roles.editTitle': 'Edit the role “{role}”',
     'roles.createTitle': 'Create a role',
     'roles.namePlaceholder': 'e.g. Auditor',
     'roles.permissions': 'Permissions',
     'roles.scoped': 'per project',
     'roles.scopedHelp':
-      'Only per-project permissions: the role may be given on projects, and a token with this role may be limited to projects.',
+      'Only per-project permissions: they apply to the projects of the user, and a token with this role may be limited to projects.',
     'roles.globalHelp':
-      'This role also holds permissions on the whole Controller server: given on a project, only its per-project permissions apply there.',
+      'This role also holds permissions on the whole Controller server: they apply whatever the projects of the user.',
     'roles.loadError': 'Could not load the roles.',
     'roles.system': 'built-in',
     'roles.custom': 'Custom',
@@ -32,7 +32,7 @@ export const access = defineMessages({
     'roles.created': 'Role “{role}” created.',
     'roles.updated': 'Role “{role}” updated.',
     'roles.confirmDelete':
-      'Delete the role “{role}”? The {count} user role(s) and OIDC mapping(s) that give it are removed at once.',
+      'Delete the role “{role}”? The {count} user(s) and OIDC mapping(s) that give it lose it at once.',
     'roles.deleted': 'Role “{role}” deleted.',
     'permission.reportsRead': 'Read the reports',
     'permission.reportsReadHelp': 'Projects, reports, findings, posture, trend and SARIF.',
@@ -49,7 +49,7 @@ export const access = defineMessages({
     'permission.settingsManageHelp': 'Report language, outgoing proxy and advisory database.',
     'permission.usersManage': 'Manage the users',
     'permission.usersManageHelp':
-      'Users and their roles, roles, OIDC mappings and settings: gives every other permission.',
+      'Users with their roles and projects, roles, OIDC mappings and settings: gives every other permission.',
     'permission.auditRead': 'Read the audit log',
     'permission.auditReadHelp': 'Who changed what, and when.',
     'permission.projectsCreate': 'Create projects',
@@ -57,17 +57,14 @@ export const access = defineMessages({
       'A new project, which its creator then reads (never an existing project), also when its MCP agent requests it, and the approval of the projects requested by other users.',
     'permission.projectsDelete': 'Delete projects',
     'permission.projectsDeleteHelp':
-      'A project with its reports, findings, the roles of the users on it and its place in the OIDC mappings and tokens.',
+      'A project with its reports, findings, and its place in the users, OIDC mappings and tokens.',
     'permission.projectsAutojoin': 'Join projects',
     'permission.projectsAutojoinHelp':
       'An existing project, as a reader, when its MCP agent requests it, unless the autojoin of the project is blocked.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (all projects)',
     'access.project': 'Project',
-    'access.role': 'Role',
-    'access.roleOn': 'Role on {project}',
     'access.removeProject': 'Remove the role on {project}',
-    'access.noProjectRole': 'No role on a project.',
     'access.searchProjects': 'Search the projects',
     'access.addProjects': 'Add ({count})',
     'access.add': 'Add',
@@ -75,12 +72,12 @@ export const access = defineMessages({
     'access.refineSearch': 'Only the first 50 projects are listed: refine the search.',
     'access.noProjectFound': 'No project found.',
     'roles.givenTo': 'Given to',
-    'roles.usage': '{users} on every project · {projects} on projects · {mappings} mapping(s)',
+    'roles.usage': '{users} user(s) · {mappings} mapping(s)',
     'mappings.title': 'OIDC mappings',
     'mappings.ssoInactive': 'OIDC login is not active: the mappings apply once it is.',
     'mappings.claimBefore': 'At each login, the values of the claim',
     'mappings.claimAfter':
-      ' of an OIDC user are compared to these mappings (exact match): each mapping of a value gives its role. A change applies at once.',
+      ' of an OIDC user are compared to these mappings (exact match): each mapping of a value gives its roles and its projects, added to those of the user. A change applies at once.',
     'mappings.adminGroups':
       'Mapped to admin on every project at the first login of a user who holds them: {groups}.',
     'mappings.claim': 'Value of the claim',
@@ -88,29 +85,30 @@ export const access = defineMessages({
     'mappings.claimHelp': 'Exactly as sent by the identity provider.',
     'mappings.projects': 'Projects',
     'mappings.projectsHelp':
-      '1 to 50 projects, separated by commas; a project not created yet is ignored until it is.',
+      'Up to 50 projects, separated by commas (none: only roles); a project not created yet is ignored until it is.',
     'mappings.addTitle': 'Add a mapping',
     'mappings.deleteOf': 'Delete the mapping of {claim}',
     'mappings.confirmDelete':
-      'Delete the mapping of “{claim}” to {role}? The OIDC users lose this role at once.',
+      'Delete the mapping of “{claim}”? The OIDC users lose its roles and projects at once.',
     'mappings.empty':
-      'No OIDC mapping: an OIDC user only holds the roles given to it on the Users page.',
+      'No OIDC mapping: an OIDC user only holds the roles and projects given to it on the Users page.',
     'mappings.saved': 'OIDC mappings saved.',
     'mappings.deleted': 'Mapping of {claim} deleted.',
     'mappings.loadError': 'Could not load the OIDC mappings.',
     'projectMembers.title': 'Members',
     'projectMembers.help':
-      'Roles of the users on this project: only their per-project permissions apply here. The roles on every project and those of the OIDC mappings are not listed.',
+      'Users who have this project: the per-project permissions of their roles apply here; a read-only member only reads it. The users who have every project and those of the OIDC mappings are not listed.',
     'projectMembers.searchUsers': 'Search the users',
     'projectMembers.addUsers': 'Add ({count})',
-    'projectMembers.roleOf': 'Role of {user}',
     'projectMembers.removeOf': 'Remove {user} from the project',
     'projectMembers.empty': 'No user holds a role on this project.',
     'projectMembers.noUserFound': 'No user found.',
     'projectMembers.saved': 'Members of the project saved.',
     'projectMembers.loadError': 'Could not load the members of the project.',
-    'access.ignoredOnProject':
-      'Not applied on a project (give the role on every project for that): {permissions}.',
+    'access.readOnly': 'Read only',
+    'access.readOnlyOn': 'Read only on {project}',
+    'access.noProject': 'No project.',
+    'projectMembers.readOnlyOf': '{user} only reads the project',
   },
   fr: {
     'access.name': 'Nom',
@@ -122,16 +120,16 @@ export const access = defineMessages({
     'roles.subtitle':
       'Ensembles nommés de permissions, donnés aux utilisateurs et par les correspondances OIDC',
     'roles.help':
-      'Un rôle porte des permissions. Donné sur tous les projets, toutes ses permissions s’appliquent partout ; donné sur un projet, seules ses permissions marquées « par projet » s’y appliquent. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés. Une modification s’applique aussitôt aux sessions ouvertes.',
+      "Un rôle porte des permissions. Ses permissions marquées « par projet » s'appliquent aux projets de l'utilisateur (ou à tous les projets), les autres à tout le serveur Controller. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés. Une modification s'applique aussitôt aux sessions ouvertes.",
     'roles.editTitle': 'Modifier le rôle « {role} »',
     'roles.createTitle': 'Créer un rôle',
     'roles.namePlaceholder': 'ex. Auditeur',
     'roles.permissions': 'Permissions',
     'roles.scoped': 'par projet',
     'roles.scopedHelp':
-      'Uniquement des permissions par projet : le rôle peut être donné sur des projets, et un jeton de ce rôle peut être limité à des projets.',
+      "Uniquement des permissions par projet : elles s'appliquent aux projets de l'utilisateur, et un jeton de ce rôle peut être limité à des projets.",
     'roles.globalHelp':
-      'Ce rôle porte aussi des permissions sur tout le serveur Controller : donné sur un projet, seules ses permissions par projet s’y appliquent.',
+      "Ce rôle porte aussi des permissions sur tout le serveur Controller : elles s'appliquent quels que soient les projets de l'utilisateur.",
     'roles.loadError': 'Impossible de charger les rôles.',
     'roles.system': 'intégré',
     'roles.custom': 'Personnalisé',
@@ -143,7 +141,7 @@ export const access = defineMessages({
     'roles.created': 'Rôle « {role} » créé.',
     'roles.updated': 'Rôle « {role} » modifié.',
     'roles.confirmDelete':
-      'Supprimer le rôle « {role} » ? Les {count} attribution(s) et correspondance(s) OIDC qui le donnent sont retirées aussitôt.',
+      'Supprimer le rôle « {role} » ? Les {count} utilisateur(s) et correspondance(s) OIDC qui le donnent le perdent aussitôt.',
     'roles.deleted': 'Rôle « {role} » supprimé.',
     'permission.reportsRead': 'Lire les rapports',
     'permission.reportsReadHelp': 'Projets, rapports, findings, posture, tendance et SARIF.',
@@ -160,7 +158,7 @@ export const access = defineMessages({
     'permission.settingsManageHelp': "Langue des rapports, proxy sortant et base d'avis.",
     'permission.usersManage': 'Gérer les utilisateurs',
     'permission.usersManageHelp':
-      'Utilisateurs et leurs rôles, rôles, correspondances et réglages OIDC : donne toutes les autres permissions.',
+      'Utilisateurs avec leurs rôles et projets, rôles, correspondances et réglages OIDC : donne toutes les autres permissions.',
     'permission.auditRead': "Lire le journal d'audit",
     'permission.auditReadHelp': 'Qui a changé quoi, et quand.',
     'permission.projectsCreate': 'Créer des projets',
@@ -168,17 +166,14 @@ export const access = defineMessages({
       "Un nouveau projet, que son créateur lit ensuite (jamais un projet existant), y compris quand son agent MCP le demande, et la validation des projets demandés par d'autres utilisateurs.",
     'permission.projectsDelete': 'Supprimer des projets',
     'permission.projectsDeleteHelp':
-      'Un projet avec ses rapports, findings, les rôles des utilisateurs sur ce projet et sa place dans les correspondances OIDC et les jetons.',
+      'Un projet avec ses rapports, findings, et sa place chez les utilisateurs, dans les correspondances OIDC et les jetons.',
     'permission.projectsAutojoin': 'Rejoindre des projets',
     'permission.projectsAutojoinHelp':
       "Un projet existant, en lecture, quand son agent MCP le demande, sauf si l'adhésion automatique du projet est bloquée.",
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (tous les projets)',
     'access.project': 'Projet',
-    'access.role': 'Rôle',
-    'access.roleOn': 'Rôle sur {project}',
     'access.removeProject': 'Retirer le rôle sur {project}',
-    'access.noProjectRole': 'Aucun rôle sur un projet.',
     'access.searchProjects': 'Rechercher les projets',
     'access.addProjects': 'Ajouter ({count})',
     'access.add': 'Ajouter',
@@ -186,14 +181,13 @@ export const access = defineMessages({
     'access.refineSearch': 'Seuls les 50 premiers projets sont listés : affinez la recherche.',
     'access.noProjectFound': 'Aucun projet trouvé.',
     'roles.givenTo': 'Attribué à',
-    'roles.usage':
-      '{users} sur tous les projets · {projects} sur des projets · {mappings} correspondance(s)',
+    'roles.usage': '{users} utilisateur(s) · {mappings} correspondance(s)',
     'mappings.title': 'Correspondances OIDC',
     'mappings.ssoInactive':
       "La connexion OIDC n'est pas active : les correspondances s'appliqueront quand elle le sera.",
     'mappings.claimBefore': 'À chaque connexion, les valeurs du claim',
     'mappings.claimAfter':
-      " d'un utilisateur OIDC sont comparées à ces correspondances (valeur identique) : chaque correspondance d'une valeur donne son rôle. Une modification s'applique aussitôt.",
+      " d'un utilisateur OIDC sont comparées à ces correspondances (valeur identique) : chaque correspondance d'une valeur donne ses rôles et ses projets, en plus de ceux de l'utilisateur. Une modification s'applique aussitôt.",
     'mappings.adminGroups':
       "Associées au rôle admin sur tous les projets à la première connexion d'un utilisateur qui les porte : {groups}.",
     'mappings.claim': 'Valeur du claim',
@@ -201,29 +195,30 @@ export const access = defineMessages({
     'mappings.claimHelp': "Exactement comme l'envoie le fournisseur d'identité.",
     'mappings.projects': 'Projets',
     'mappings.projectsHelp':
-      "1 à 50 projets, séparés par des virgules ; un projet pas encore créé est ignoré jusqu'à sa création.",
+      "Jusqu'à 50 projets, séparés par des virgules (aucun : seulement des rôles) ; un projet pas encore créé est ignoré jusqu'à sa création.",
     'mappings.addTitle': 'Ajouter une correspondance',
     'mappings.deleteOf': 'Supprimer la correspondance de {claim}',
     'mappings.confirmDelete':
-      'Supprimer la correspondance de « {claim} » vers {role} ? Les utilisateurs OIDC perdent ce rôle aussitôt.',
+      'Supprimer la correspondance de « {claim} » ? Les utilisateurs OIDC perdent aussitôt ses rôles et ses projets.',
     'mappings.empty':
-      'Aucune correspondance OIDC : un utilisateur OIDC ne porte que les rôles donnés sur la page Utilisateurs.',
+      'Aucune correspondance OIDC : un utilisateur OIDC ne porte que les rôles et projets donnés sur la page Utilisateurs.',
     'mappings.saved': 'Correspondances OIDC enregistrées.',
     'mappings.deleted': 'Correspondance de {claim} supprimée.',
     'mappings.loadError': 'Impossible de charger les correspondances OIDC.',
     'projectMembers.title': 'Membres',
     'projectMembers.help':
-      "Rôles des utilisateurs sur ce projet : seules leurs permissions par projet s'y appliquent. Les rôles sur tous les projets et ceux des correspondances OIDC ne sont pas listés.",
+      "Utilisateurs qui ont ce projet : les permissions par projet de leurs rôles s'y appliquent ; un membre en lecture seule ne fait que le lire. Les utilisateurs qui ont tous les projets et ceux des correspondances OIDC ne sont pas listés.",
     'projectMembers.searchUsers': 'Rechercher les utilisateurs',
     'projectMembers.addUsers': 'Ajouter ({count})',
-    'projectMembers.roleOf': 'Rôle de {user}',
     'projectMembers.removeOf': 'Retirer {user} du projet',
     'projectMembers.empty': 'Aucun utilisateur ne porte de rôle sur ce projet.',
     'projectMembers.noUserFound': 'Aucun utilisateur trouvé.',
     'projectMembers.saved': 'Membres du projet enregistrés.',
     'projectMembers.loadError': 'Impossible de charger les membres du projet.',
-    'access.ignoredOnProject':
-      'Non appliqué sur un projet (donnez le rôle sur tous les projets pour cela) : {permissions}.',
+    'access.readOnly': 'Lecture seule',
+    'access.readOnlyOn': 'Lecture seule sur {project}',
+    'access.noProject': 'Aucun projet.',
+    'projectMembers.readOnlyOf': '{user} ne fait que lire le projet',
   },
   es: {
     'access.name': 'Nombre',
@@ -235,16 +230,16 @@ export const access = defineMessages({
     'roles.subtitle':
       'Conjuntos nombrados de permisos, asignados a usuarios y por las correspondencias OIDC',
     'roles.help':
-      'Un rol contiene permisos. Asignado en todos los proyectos, todos sus permisos se aplican en todas partes; asignado en un proyecto, solo se aplican allí sus permisos marcados «por proyecto». Los roles integrados reader y admin no pueden modificarse ni eliminarse. Un cambio se aplica de inmediato a las sesiones abiertas.',
+      'Un rol contiene permisos. Sus permisos marcados «por proyecto» se aplican a los proyectos del usuario (o a todos los proyectos), los demás a todo el servidor Controller. Los roles integrados reader y admin no pueden modificarse ni eliminarse. Un cambio se aplica de inmediato a las sesiones abiertas.',
     'roles.editTitle': 'Editar el rol «{role}»',
     'roles.createTitle': 'Crear un rol',
     'roles.namePlaceholder': 'p. ej. Auditor',
     'roles.permissions': 'Permisos',
     'roles.scoped': 'por proyecto',
     'roles.scopedHelp':
-      'Solo permisos por proyecto: el rol puede asignarse en proyectos, y un token con este rol puede limitarse a proyectos.',
+      'Solo permisos por proyecto: se aplican a los proyectos del usuario, y un token con este rol puede limitarse a proyectos.',
     'roles.globalHelp':
-      'Este rol también contiene permisos sobre todo el servidor Controller: asignado en un proyecto, solo se aplican allí sus permisos por proyecto.',
+      'Este rol también contiene permisos sobre todo el servidor Controller: se aplican sean cuales sean los proyectos del usuario.',
     'roles.loadError': 'No se pudieron cargar los roles.',
     'roles.system': 'integrado',
     'roles.custom': 'Personalizado',
@@ -256,7 +251,7 @@ export const access = defineMessages({
     'roles.created': 'Rol «{role}» creado.',
     'roles.updated': 'Rol «{role}» actualizado.',
     'roles.confirmDelete':
-      '¿Eliminar el rol «{role}»? Las {count} asignaciones y correspondencias OIDC que lo dan se retiran de inmediato.',
+      '¿Eliminar el rol «{role}»? Los {count} usuarios y correspondencias OIDC que lo dan lo pierden de inmediato.',
     'roles.deleted': 'Rol «{role}» eliminado.',
     'permission.reportsRead': 'Leer los informes',
     'permission.reportsReadHelp': 'Proyectos, informes, hallazgos, postura, tendencia y SARIF.',
@@ -273,7 +268,7 @@ export const access = defineMessages({
     'permission.settingsManageHelp': 'Idioma de los informes, proxy saliente y base de avisos.',
     'permission.usersManage': 'Gestionar los usuarios',
     'permission.usersManageHelp':
-      'Usuarios y sus roles, roles, correspondencias y ajustes OIDC: da todos los demás permisos.',
+      'Usuarios con sus roles y proyectos, roles, correspondencias y ajustes OIDC: da todos los demás permisos.',
     'permission.auditRead': 'Leer el registro de auditoría',
     'permission.auditReadHelp': 'Quién cambió qué, y cuándo.',
     'permission.projectsCreate': 'Crear proyectos',
@@ -281,17 +276,14 @@ export const access = defineMessages({
       'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente), también cuando su agente MCP lo solicita, y la aprobación de los proyectos solicitados por otros usuarios.',
     'permission.projectsDelete': 'Eliminar proyectos',
     'permission.projectsDeleteHelp':
-      'Un proyecto con sus informes, hallazgos, los roles de los usuarios en él y su lugar en las correspondencias OIDC y los tokens.',
+      'Un proyecto con sus informes, hallazgos, y su lugar en los usuarios, las correspondencias OIDC y los tokens.',
     'permission.projectsAutojoin': 'Unirse a proyectos',
     'permission.projectsAutojoinHelp':
       'Un proyecto existente, en lectura, cuando su agente MCP lo solicita, salvo si la adhesión automática del proyecto está bloqueada.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (todos los proyectos)',
     'access.project': 'Proyecto',
-    'access.role': 'Rol',
-    'access.roleOn': 'Rol en {project}',
     'access.removeProject': 'Quitar el rol en {project}',
-    'access.noProjectRole': 'Ningún rol en un proyecto.',
     'access.searchProjects': 'Buscar los proyectos',
     'access.addProjects': 'Añadir ({count})',
     'access.add': 'Añadir',
@@ -299,14 +291,13 @@ export const access = defineMessages({
     'access.refineSearch': 'Solo se listan los 50 primeros proyectos: afine la búsqueda.',
     'access.noProjectFound': 'Ningún proyecto encontrado.',
     'roles.givenTo': 'Asignado a',
-    'roles.usage':
-      '{users} en todos los proyectos · {projects} en proyectos · {mappings} correspondencia(s)',
+    'roles.usage': '{users} usuario(s) · {mappings} correspondencia(s)',
     'mappings.title': 'Correspondencias OIDC',
     'mappings.ssoInactive':
       'El inicio de sesión OIDC no está activo: las correspondencias se aplicarán cuando lo esté.',
     'mappings.claimBefore': 'En cada inicio de sesión, los valores del claim',
     'mappings.claimAfter':
-      ' de un usuario OIDC se comparan con estas correspondencias (valor idéntico): cada correspondencia de un valor da su rol. Un cambio se aplica de inmediato.',
+      ' de un usuario OIDC se comparan con estas correspondencias (valor idéntico): cada correspondencia de un valor da sus roles y sus proyectos, además de los del usuario. Un cambio se aplica de inmediato.',
     'mappings.adminGroups':
       'Asociados al rol admin en todos los proyectos en el primer inicio de sesión de un usuario que los tiene: {groups}.',
     'mappings.claim': 'Valor del claim',
@@ -314,28 +305,29 @@ export const access = defineMessages({
     'mappings.claimHelp': 'Exactamente como lo envía el proveedor de identidad.',
     'mappings.projects': 'Proyectos',
     'mappings.projectsHelp':
-      'De 1 a 50 proyectos, separados por comas; un proyecto aún no creado se ignora hasta su creación.',
+      'Hasta 50 proyectos, separados por comas (ninguno: solo roles); un proyecto aún no creado se ignora hasta su creación.',
     'mappings.addTitle': 'Añadir una correspondencia',
     'mappings.deleteOf': 'Eliminar la correspondencia de {claim}',
     'mappings.confirmDelete':
-      '¿Eliminar la correspondencia de «{claim}» a {role}? Los usuarios OIDC pierden este rol de inmediato.',
+      '¿Eliminar la correspondencia de «{claim}»? Los usuarios OIDC pierden de inmediato sus roles y proyectos.',
     'mappings.empty':
-      'Ninguna correspondencia OIDC: un usuario OIDC solo tiene los roles asignados en la página Usuarios.',
+      'Ninguna correspondencia OIDC: un usuario OIDC solo tiene los roles y proyectos asignados en la página Usuarios.',
     'mappings.saved': 'Correspondencias OIDC guardadas.',
     'mappings.deleted': 'Correspondencia de {claim} eliminada.',
     'mappings.loadError': 'No se pudieron cargar las correspondencias OIDC.',
     'projectMembers.title': 'Miembros',
     'projectMembers.help':
-      'Roles de los usuarios en este proyecto: solo se aplican aquí sus permisos por proyecto. No se listan los roles en todos los proyectos ni los de las correspondencias OIDC.',
+      'Usuarios que tienen este proyecto: los permisos por proyecto de sus roles se aplican aquí; un miembro de solo lectura solo lo lee. No se listan los usuarios que tienen todos los proyectos ni los de las correspondencias OIDC.',
     'projectMembers.searchUsers': 'Buscar los usuarios',
     'projectMembers.addUsers': 'Añadir ({count})',
-    'projectMembers.roleOf': 'Rol de {user}',
     'projectMembers.removeOf': 'Quitar a {user} del proyecto',
     'projectMembers.empty': 'Ningún usuario tiene un rol en este proyecto.',
     'projectMembers.noUserFound': 'Ningún usuario encontrado.',
     'projectMembers.saved': 'Miembros del proyecto guardados.',
     'projectMembers.loadError': 'No se pudieron cargar los miembros del proyecto.',
-    'access.ignoredOnProject':
-      'No se aplica en un proyecto (asigne el rol en todos los proyectos para ello): {permissions}.',
+    'access.readOnly': 'Solo lectura',
+    'access.readOnlyOn': 'Solo lectura en {project}',
+    'access.noProject': 'Ningún proyecto.',
+    'projectMembers.readOnlyOf': '{user} solo lee el proyecto',
   },
 });

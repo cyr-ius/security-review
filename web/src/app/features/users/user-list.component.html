@@ -126,8 +126,8 @@
         }
       </div>
     }
-    <fieldset class="col-12">
-      <legend class="form-label">{{ 'users.allProjectsRoles' | t }}</legend>
+    <fieldset class="col-md-5">
+      <legend class="form-label">{{ 'layout.roles' | t }}</legend>
       @if ((roles.value() ?? []).length) {
         <div class="d-flex flex-wrap gap-3">
           @for (role of roles.value() ?? []; track role.id) {
@@ -146,23 +146,34 @@
           }
         </div>
       }
-      <div class="form-text">{{ 'users.allProjectsHelp' | t }}</div>
+      <div class="form-text">{{ 'users.rolesHelp' | t }}</div>
     </fieldset>
-    <fieldset class="col-12">
-      <legend class="form-label">{{ 'users.projectRoles' | t }}</legend>
-      <app-project-roles
-        idPrefix="user-project"
-        [roles]="roles.value() ?? []"
-        [(bindings)]="projectRoles"
-      />
-      <div class="form-text">{{ 'users.projectRolesHelp' | t }}</div>
-      @if (oidcRoles().length) {
+    <fieldset class="col-md-7">
+      <legend class="form-label">{{ 'users.projects' | t }}</legend>
+      <div class="form-check form-switch mb-2">
+        <input
+          id="user-all-projects"
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          [checked]="allProjects()"
+          (change)="onAllProjects($event)"
+        />
+        <label class="form-check-label" for="user-all-projects">{{
+          'reports.allProjects' | t
+        }}</label>
+      </div>
+      @if (!allProjects()) {
+        <app-project-picker idPrefix="user-projects" [(projects)]="projects" />
+      }
+      <div class="form-text">{{ 'users.projectsHelp' | t }}</div>
+      @if (oidcAccess().length) {
         <div class="form-text">
-          {{ 'users.oidcRoles' | t }}
-          @for (item of oidcRoles(); track item.claim + item.role_id) {
+          {{ 'users.oidcAccess' | t }}
+          @for (item of oidcAccess(); track item.claim) {
             <span class="badge text-bg-primary bg-opacity-75 ms-1">
               <i class="bi bi-shield-lock" aria-hidden="true"></i>
-              {{ item.claim }} → {{ item.role }} ({{
+              {{ item.claim }} → {{ item.roles.join(', ') || '—' }} ({{
                 item.projects?.join(', ') ?? ('reports.allProjects' | t)
               }})
             </span>
@@ -208,6 +219,7 @@
               </th>
               <th scope="col">{{ 'users.type' | t }}</th>
               <th scope="col">{{ 'layout.roles' | t }}</th>
+              <th scope="col">{{ 'users.projects' | t }}</th>
               <th scope="col" [appSortHeader]="tableSort" sortKey="access">
                 {{ 'users.access' | t }}
               </th>
@@ -257,6 +269,13 @@
                 <td class="small">
                   @for (role of describeRoles(user); track role) {
                     <div class="text-nowrap">{{ role }}</div>
+                  } @empty {
+                    —
+                  }
+                </td>
+                <td class="small">
+                  @for (project of describeProjects(user); track project) {
+                    <div class="text-nowrap">{{ project }}</div>
                   } @empty {
                     —
                   }

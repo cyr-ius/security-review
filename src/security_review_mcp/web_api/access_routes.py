@@ -135,7 +135,7 @@ async def known_projects(
 async def project_members(
     project: Annotated[ProjectName, APIPath()], identity: UsersManager
 ) -> list[ProjectMember]:
-    """List the roles of the users on a project (not their roles on every project)."""
+    """List the users who have a project (not those who have every project)."""
     try:
         return await run_in_threadpool(access_control.list_project_members, project)
     except ValueError as exc:
@@ -148,12 +148,12 @@ async def set_project_members(
     body: ProjectMembersUpdate,
     identity: UsersManager,
 ) -> list[ProjectMember]:
-    """Replace the roles of the users on a project (applies to their sessions at once)."""
+    """Replace the users who have a project (applies to their sessions at once)."""
     try:
         members = await run_in_threadpool(
             access_control.set_project_members,
             project,
-            [(item.user_id, item.role_id) for item in body.members],
+            [(item.user_id, item.read_only) for item in body.members],
             actor_of(identity),
         )
     except ValueError as exc:
@@ -188,7 +188,10 @@ async def set_oidc_mappings(
     try:
         await run_in_threadpool(
             access_control.set_oidc_mappings,
-            [(item.claim, item.role_id, item.projects) for item in body.mappings],
+            [
+                (item.claim, item.role_ids, None if item.all_projects else item.projects)
+                for item in body.mappings
+            ],
             actor_of(identity),
         )
     except ValueError as exc:
@@ -276,10 +279,11 @@ async def create_user(
             body.username,
             body.password,
             body.role_ids,
-            [(item.project, item.role_id) for item in body.projects],
+            [(item.project, item.read_only) for item in body.projects],
             identity.client,
             body.auth_source,
             actor_of(identity),
+            body.all_projects,
         )
     except ValueError as exc:
         if "already exists" in str(exc):
@@ -312,14 +316,21 @@ async def lift_user_revocation(username: UsernamePath, identity: UsersManager) -
 
 @router.put("/users/{user_id}")
 async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager) -> WebUser:
-    """Replace the roles an administrator gave to a web user, on every project and on projects
-    (applies to its sessions at once); a missing field is left unchanged."""
+    """Replace the roles and projects an administrator gave to a web user (applies to its sessions
+    at once); a missing field is left unchanged."""
     projects = (
-        None if body.projects is None else [(item.project, item.role_id) for item in body.projects]
+        None
+        if body.projects is None
+        else [(item.project, item.read_only) for item in body.projects]
     )
     try:
         updated = await run_in_threadpool(
-            web_users.update_user, user_id, body.role_ids, projects, actor_of(identity)
+            web_users.update_user,
+            user_id,
+            body.role_ids,
+            projects,
+            actor_of(identity),
+            body.all_projects,
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc

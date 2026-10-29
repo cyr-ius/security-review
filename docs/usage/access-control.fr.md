@@ -1,10 +1,12 @@
 # Rôles et permissions
 
-Ce qu'un [compte utilisateur](user-accounts.md) peut faire vient uniquement de ses **rôles**. Un
-rôle est un ensemble de **permissions** ; un administrateur le donne à un compte **sur tous les
-projets** ou **sur un projet**. Un compte OIDC porte aussi les rôles des
+Ce qu'un [compte utilisateur](user-accounts.md) peut faire vient uniquement de ses **rôles** et
+de ses **projets**. Un rôle est un ensemble de **permissions** : celles marquées *par projet*
+s'appliquent aux projets du compte (ou à tous les projets), les autres à tout le serveur
+Controller. Un compte OIDC porte aussi les rôles et projets des
 [correspondances OIDC](sso.md#correspondances-oidc) des groupes de son fournisseur d'identité. Les
-administrateurs gèrent tout cela dans les pages **Utilisateurs**, **Rôles** et **Connexions**, et sur la page de chaque projet ([membres](projects.md#membres)).
+administrateurs gèrent tout cela dans les pages **Utilisateurs**, **Rôles** et **Connexions**, et
+sur la page de chaque projet ([membres](projects.md#membres)).
 
 L'API REST, les limites et les règles détaillées sont dans
 [Contrôle d'accès par l'API REST](../advanced/access-control-api.md). Les jetons des machines
@@ -26,8 +28,8 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `projects.delete` | [Supprimer un projet](projects.md#suppression-dun-projet) | |
 | `projects.autojoin` | [Rejoindre un projet existant](projects.md#rejoindre-un-projet) aussitôt, en lecteur, quand l'agent le demande, sauf si [son adhésion automatique est bloquée](projects.md#blocage-de-ladhesion-automatique) | |
 
-Une permission marquée **par projet** s'applique aux projets du rôle ; les autres s'appliquent à
-tout le serveur Controller. Aucune permission n'est nécessaire pour les
+Une permission marquée **par projet** s'applique aux projets du compte ; les autres s'appliquent
+à tout le serveur Controller. Aucune permission n'est nécessaire pour les
 [jetons personnels MCP et CI](tokens.md#jetons-mcp-et-ci-personnels) : tout compte peut les créer,
 sauf si `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
 
@@ -35,35 +37,34 @@ sauf si `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
 
 | Rôle | Permissions | Remarque |
 |---|---|---|
-| `reader` | `reports.read` | Intégré, non modifiable : donné sur un projet à son créateur et aux utilisateurs qui le rejoignent |
-| `admin` | Toutes les permissions, y compris celles des versions suivantes | Intégré, non modifiable : le rôle du premier administrateur |
+| `reader` | `reports.read` | Intégré, non modifiable : coché par défaut pour un nouveau compte |
+| `admin` | Toutes les permissions, y compris celles des versions suivantes | Intégré, non modifiable : le rôle du premier administrateur, avec tous les projets |
 
 Les administrateurs créent d'autres rôles, par exemple un rôle *Triager* avec `reports.read` et
 `findings.triage`, ou un rôle *Auditeur* avec `audit.read` et `reports.read`.
 
-## Tous les projets ou un projet
+## Rôles et projets d'un compte
 
-Un rôle est donné à un compte de deux façons, dans **Utilisateurs** :
+Dans **Utilisateurs**, le formulaire d'un compte donne :
 
-- **sur tous les projets** (**Rôles sur tous les projets**) : toutes ses permissions s'appliquent partout, y
-  compris aux projets créés plus tard et aux projets sensibles ;
-- **sur un projet** : seules ses permissions **par projet** s'appliquent, sur ce projet. Un rôle
-  `admin` donné sur un projet y donne la lecture et le triage, rien de plus. L'interface signale
-  les permissions d'un rôle qui ne s'appliquent pas sur un projet : pour en donner une
-  (`audit.read` par exemple), donnez un rôle qui la porte sur tous les projets.
+- ses **Rôles** : `reader` est coché par défaut ;
+- ses **Projets** : **Tous les projets**, ou une liste de projets. Plusieurs projets s'ajoutent
+  d'un coup : recherchez-les, cochez-les et ajoutez-les. Un projet en **Lecture seule** n'est que
+  lu, quels que soient les rôles.
 
-Plusieurs projets s'ajoutent d'un coup : recherchez-les, cochez-les, choisissez le rôle
-(`reader` par défaut) et ajoutez-les. Un compte peut porter plusieurs rôles sur un même projet.
+Les permissions par projet de tous ses rôles s'appliquent à tous ses projets. Par exemple, un
+compte avec les rôles `reader` et *Triager* et les projets `shop` et `crm` lit et trie les deux.
+Pour lire `shop` et ne trier que `crm`, mettez `shop` en lecture seule. Un compte avec des rôles
+mais sans projet (et sans **Tous les projets**) ne lit aucun projet, et un compte sans aucun rôle
+ne voit rien et ne peut pas se connecter.
 
-## Ce qu'un utilisateur peut faire
+Un projet qu'un compte crée, rejoint ou obtient par la validation d'une demande de son agent est
+ajouté **en lecture seule** : le compte le lit, jamais plus.
 
-Les permissions d'un utilisateur s'additionnent sur **tous ses rôles**, chacun avec ses projets.
-Par exemple, un utilisateur `reader` sur tous les projets et *Triager* sur `crm` lit tous les
-projets et ne trie que `crm`. Un compte sans aucun rôle ne voit rien et ne peut pas se connecter.
-**Mon compte** et la page **Utilisateurs** affichent ces permissions.
-
-Un changement des rôles d'un utilisateur, d'un rôle ou d'une correspondance OIDC s'applique
-aussitôt aux sessions ouvertes.
+Les permissions sur tout le serveur Controller (`audit.read`, `users.manage`...) s'appliquent
+quels que soient les projets. **Mon compte** et la page **Utilisateurs** affichent les permissions
+de chaque compte. Un changement des rôles ou des projets d'un compte, d'un rôle ou d'une
+correspondance OIDC s'applique aussitôt aux sessions ouvertes.
 
 ## Le dernier administrateur
 
@@ -79,6 +80,6 @@ administrateur local.
   Réservez-la aux administrateurs.
 - **Accepter un risque ou marquer un faux positif** exige une personne connectée, jamais un
   jeton, même avec `findings.triage`.
-- **Un rôle sur tous les projets** atteint tous les projets, y compris les sensibles : préférez
-  des rôles sur des projets pour les développeurs.
+- **Tous les projets** atteint tous les projets, y compris les sensibles : préférez une liste de
+  projets pour les développeurs.
 - **Supprimer un rôle** le retire des comptes et des correspondances OIDC qui le donnent.

@@ -699,11 +699,11 @@ class WebUser(SQLModel, table=True):
 
     ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes only from its
-    roles (``UserRole``, ``UserProject``) and, for an OIDC user, from the mappings of its roles
-    claim (``UserOidcClaim``, see access_control). ``oidc_subject`` and
-    ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first OIDC login: an
-    account is identified by both, so that another identity provider cannot reuse a subject, and
-    no two users share them (unique index).
+    roles (``UserRole``) and its projects (``UserProject`` or ``all_projects``) and, for an OIDC
+    user, from the mappings of its roles claim (``UserOidcClaim``, see access_control).
+    ``oidc_subject`` and ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first
+    OIDC login: an account is identified by both, so that another identity provider cannot reuse
+    a subject, and no two users share them (unique index).
     ``session_version`` is drawn at random at creation and at each password change: the sessions
     issued with another version are refused.
     """
@@ -729,6 +729,8 @@ class WebUser(SQLModel, table=True):
     created_by: str | None = Field(default=None, max_length=64)
     # Theme of the web interface chosen by the user: light, dark or auto (system preference)
     theme: str = Field(default="auto", max_length=10)
+    # The per-project permissions of its roles reach every project (see access_control)
+    all_projects: bool = Field(default=False)
 
 
 # ── Rate limiting (see rate_limit) ───────────────────────────────────────────
@@ -768,12 +770,14 @@ class AccessRole(SQLModel, table=True):
 
 
 class UserRole(SQLModel, table=True):
-    """Role given to a web user on every project: all its permissions apply everywhere.
+    """Role of a web user: its permissions limited to projects (access_control.SCOPED_PERMISSIONS)
+    apply to the projects of the user (UserProject, or every project with
+    ``WebUser.all_projects``), the others to the whole controller.
 
-    Its table is ``userglobalrole``: ``userrole`` was the name of an older table (revision 0014).
+    Its table is ``webuserrole``: ``userrole`` was the name of an older table (revision 0014).
     """
 
-    __tablename__ = "userglobalrole"
+    __tablename__ = "webuserrole"
     __table_args__ = (UniqueConstraint("user_id", "role_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
@@ -784,34 +788,33 @@ class UserRole(SQLModel, table=True):
 
 
 class UserProject(SQLModel, table=True):
-    """Role given to a web user on one project: only its permissions limited to projects
-    (access_control.SCOPED_PERMISSIONS) apply there."""
+    """A project of a web user. With ``read_only`` (a project joined, approved or created through
+    a request), the user only reads it, whatever its roles."""
 
-    __table_args__ = (UniqueConstraint("user_id", "project_id", "role_id"),)
+    __table_args__ = (UniqueConstraint("user_id", "project_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="webuser.id", index=True)
     project_id: int = Field(foreign_key="project.id", index=True)
-    role_id: int = Field(foreign_key="accessrole.id", index=True)
+    read_only: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utcnow)
     created_by: str | None = Field(default=None, max_length=200)
 
 
 class OidcRoleMapping(SQLModel, table=True):
-    """A value of the OIDC roles claim that gives a role, on every project (``all_projects``)
-    or on the projects listed in ``projects`` (JSON list of names; a project not known yet is
-    ignored until it is created).
+    """A value of the OIDC roles claim that gives roles (``role_ids``, JSON list) and projects:
+    every project (``all_projects``) or those of ``projects`` (JSON list of names; a project not
+    known yet is ignored until it is created). They add up with those given to the user.
 
     Its table is ``oidcclaimmapping``: ``oidcrolemapping`` was the name of an older table
     (dropped by revision 0013).
     """
 
     __tablename__ = "oidcclaimmapping"
-    __table_args__ = (UniqueConstraint("claim", "role_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
-    claim: str = Field(index=True, max_length=200)
-    role_id: int = Field(foreign_key="accessrole.id", index=True)
+    claim: str = Field(unique=True, index=True, max_length=200)
+    role_ids: str = Field(default="[]")
     all_projects: bool = Field(default=False)
     projects: str = Field(default="[]")
     created_at: datetime = Field(default_factory=utcnow)

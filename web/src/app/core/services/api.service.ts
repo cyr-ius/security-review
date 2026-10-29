@@ -140,14 +140,15 @@ export class ApiService {
   }
 
   /**
-   * Create a web user with its roles on every project and on projects (the only source of its
-   * permissions). A local one without password gets a generated one, returned once; an OIDC one
-   * has no password and also gets the roles of its OIDC mappings at each login.
+   * Create a web user with its roles and its projects (every project with allProjects), the
+   * only source of its permissions. A local one without password gets a generated one, returned
+   * once; an OIDC one has no password and also gets those of its OIDC mappings at each login.
    */
   createUser(
     username: string,
     authSource: AuthSource,
     roleIds: number[],
+    allProjects: boolean,
     projects: UserProjectBinding[],
     password: string | null,
   ): Observable<WebUserWithPassword> {
@@ -155,14 +156,24 @@ export class ApiService {
       username,
       auth_source: authSource,
       role_ids: roleIds,
+      all_projects: allProjects,
       projects,
       password,
     });
   }
 
-  /** Replace the roles given to a web user (the roles of its OIDC mappings are kept). */
-  updateUser(id: number, roleIds: number[], projects: UserProjectBinding[]): Observable<WebUser> {
-    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { role_ids: roleIds, projects });
+  /** Replace the roles and projects given to a web user (those of its OIDC mappings are kept). */
+  updateUser(
+    id: number,
+    roleIds: number[],
+    allProjects: boolean,
+    projects: UserProjectBinding[],
+  ): Observable<WebUser> {
+    return this.http.put<WebUser>(`${API_URL}/users/${id}`, {
+      role_ids: roleIds,
+      all_projects: allProjects,
+      projects,
+    });
   }
 
   /** Known projects whose name contains ``search`` (users.manage), to give roles on them. */
@@ -171,17 +182,17 @@ export class ApiService {
     return this.http.get<KnownProject[]>(`${API_URL}/access/projects`, { params });
   }
 
-  /** Roles of the users on a project (users.manage). */
+  /** Users who have a project (users.manage). */
   projectMembers(project: string): Observable<ProjectMember[]> {
     return this.http.get<ProjectMember[]>(
       `${API_URL}/access/projects/${encodeURIComponent(project)}/members`,
     );
   }
 
-  /** Replace the roles of the users on a project (users.manage). */
+  /** Replace the users who have a project (users.manage). */
   setProjectMembers(
     project: string,
-    members: { user_id: number; role_id: number }[],
+    members: { user_id: number; read_only: boolean }[],
   ): Observable<ProjectMember[]> {
     return this.http.put<ProjectMember[]>(
       `${API_URL}/access/projects/${encodeURIComponent(project)}/members`,

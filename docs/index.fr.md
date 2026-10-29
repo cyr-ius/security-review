@@ -31,7 +31,7 @@ trie et en assure le suivi.
   graves restent ouverts ; les résultats s'exportent en [SARIF](advanced/reports/sarif.md) (GitHub code scanning, Jenkins) ;
   les [dépendances](review/analysis/dependencies.md) sont vérifiées avec une base de vulnérabilités OSV, même sans accès Internet.
 - **Relié aux outils de l'entreprise.** [Authentification unique (OIDC)](usage/sso.md) avec votre fournisseur
-  d'identité, [rôles sur tous les projets ou par projet](usage/access-control.md), envoi des findings vers
+  d'identité, [rôles et projets de chaque compte](usage/access-control.md), envoi des findings vers
   [Jira ou ServiceNow](usage/connectors/index.md),
   [journal d'audit transmis à syslog, métriques Prometheus](usage/audit-metrics.md).
 - **Votre code reste chez vous.** Le produit est auto-hébergé : le serveur MCP n'établit aucune

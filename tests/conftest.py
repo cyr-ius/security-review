@@ -218,16 +218,23 @@ def known_projects(*names: str) -> None:
             ensure_project(session, name)
 
 
-def map_claim(claim: str, role: str, projects: list[str] | None = None) -> None:
-    """Add an OIDC mapping: the value ``claim`` of the roles claim gives ``role`` on every
-    project, or on ``projects`` (a project not known yet is ignored until it is created)."""
+def map_claim(
+    claim: str,
+    role: str | None = None,
+    projects: list[str] | None = None,
+    roles: list[str] | None = None,
+) -> None:
+    """Add an OIDC mapping: the value ``claim`` of the roles claim gives ``role`` (or ``roles``)
+    and every project, or ``projects`` (a project not known yet is ignored until it is
+    created)."""
     from security_review_mcp.auth import access_control
 
     current = [
-        (item["claim"], item["role_id"], item["projects"])
+        (item["claim"], item["role_ids"], item["projects"])
         for item in access_control.list_oidc_mappings()
     ]
-    access_control.set_oidc_mappings([*current, (claim, role_id(role), projects)])
+    role_ids = [role_id(name) for name in ([role] if role else []) + (roles or [])]
+    access_control.set_oidc_mappings([*current, (claim, role_ids, projects)])
 
 
 def make_user(
@@ -239,11 +246,12 @@ def make_user(
     auth_source: str = "local",
     must_change: bool = False,
     role_ids: list[int] | None = None,
-    project_roles: list[tuple[str, int]] | None = None,
+    read_only: list[str] | None = None,
+    all_projects: bool | None = None,
 ) -> dict:
-    """Create a web user that holds the role ``role`` on every project, or on ``projects``
-    (made known first), and also ``role_ids`` on every project and ``project_roles`` ((project,
-    role id) pairs, projects made known first).
+    """Create a web user with the role ``role`` (and ``role_ids``) and the projects
+    ``projects`` (``read_only``: only read), made known first. Without any project, ``role``
+    reaches every project unless ``all_projects`` says otherwise.
 
     A local user created by an administrator must change its password at its first login; it
     is created as if it had already done it, unless ``must_change``.
@@ -252,18 +260,15 @@ def make_user(
     from security_review_mcp.storage.database import session_scope
     from security_review_mcp.storage.models import WebUser
 
-    roles: list[int] = []
-    bindings: list[tuple[str, int]] = []
-    if role and projects:
-        known_projects(*projects)
-        bindings = [(project, role_id(role)) for project in projects]
-    elif role:
-        roles = [role_id(role)]
-    roles += role_ids or []
-    if project_roles:
-        known_projects(*(project for project, _ in project_roles))
-        bindings += project_roles
-    created = web_users.create_user(username, password, roles, bindings, created_by, auth_source)
+    roles = ([role_id(role)] if role else []) + (role_ids or [])
+    known_projects(*(projects or []), *(read_only or []))
+    bindings = [(name, False) for name in projects or []]
+    bindings += [(name, True) for name in read_only or []]
+    if all_projects is None:
+        all_projects = bool(role) and not bindings
+    created = web_users.create_user(
+        username, password, roles, bindings, created_by, auth_source, all_projects=all_projects
+    )
     if not must_change and created["must_change_password"]:
         with session_scope() as session:
             row = session.get(WebUser, created["id"])

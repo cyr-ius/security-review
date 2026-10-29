@@ -1,6 +1,6 @@
 import { PERMISSION_META, SCOPED_PERMISSIONS } from '../../core/constants/labels';
 import { I18nService } from '../../core/i18n/i18n.service';
-import { AccessRole, Grants, Permission } from '../../core/models/api.models';
+import { Grants, Permission } from '../../core/models/api.models';
 
 /**
  * Text of each permission of `grants`, in display order: a per-project permission names its
@@ -22,15 +22,4 @@ export function describeGrants(grants: Grants, i18n: I18nService): string[] {
           })
         : i18n.translate('permission.onAllProjects', { permission: label });
     });
-}
-
-/**
- * Labels of the permissions of `role` that do not apply when it is given on a project (the
- * permissions on the whole Controller server), joined; empty when they all apply.
- */
-export function ignoredOnProject(role: AccessRole | undefined, i18n: I18nService): string {
-  return (role?.permissions ?? [])
-    .filter((permission) => !SCOPED_PERMISSIONS.has(permission))
-    .map((permission) => i18n.translate(PERMISSION_META[permission].label))
-    .join(', ');
 }

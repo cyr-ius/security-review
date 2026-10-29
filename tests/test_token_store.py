@@ -494,13 +494,13 @@ def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
 
     known_projects("billing")
     reader = role_id("reader")
-    web_users.update_user(user["id"], [], [("billing", reader), ("shop-api", reader)])
+    web_users.update_user(user["id"], [reader], [("billing", False), ("shop-api", False)])
     info = STORE.lookup(digest_of(created["token"]))
     assert info.projects == frozenset({"billing", "shop-api"})
-    # Without any role, the token reaches no project (never every project)
-    web_users.update_user(user["id"], [], [])
+    # Without any project, the token reaches no project (never every project)
+    web_users.update_user(user["id"], [reader], [])
     assert STORE.lookup(digest_of(created["token"])).projects == frozenset()
-    web_users.update_user(user["id"], [reader])
+    web_users.update_user(user["id"], [reader], all_projects=True)
     assert STORE.lookup(digest_of(created["token"])).projects is None
 
 

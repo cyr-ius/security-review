@@ -31,8 +31,9 @@ interface RoleFormModel {
 const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
 
 /**
- * Administrator page for the roles: named sets of permissions, given to users (on every project
- * or on projects) and by the OIDC mappings. The system roles (reader, admin) are shown but can be
+ * Administrator page for the roles: named sets of permissions, given to users and by the OIDC
+ * mappings: the per-project permissions apply to the projects of the user, the others to the
+ * whole Controller server. The system roles (reader, admin) are shown but can be
  * neither changed nor deleted.
  */
 @Component({
@@ -229,5 +230,5 @@ export class RoleListComponent {
 
 /** Users and OIDC mappings that give a role. */
 function usage(role: AccessRole): number {
-  return role.users + role.project_users + role.mappings;
+  return role.users + role.mappings;
 }

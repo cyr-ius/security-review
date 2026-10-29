@@ -123,13 +123,9 @@ def test_duplicate_users_and_unknown_roles_or_projects_are_refused():
         make_user("alice", PASSWORD, "admin")
     with pytest.raises(NotFoundError, match="Role 999"):
         web_users.create_user("bob", PASSWORD, [999])
-    # A role on a project needs a known project, and a role that gives something there
+    # Only a known project may be given
     with pytest.raises(NotFoundError, match="Project 'nowhere'"):
-        web_users.create_user("bob", PASSWORD, [], [("nowhere", role_id("reader"))])
-    known_projects("shop")
-    auditor = access_control.create_role("auditor", ["audit.read"])
-    with pytest.raises(ValueError, match="gives nothing on a project"):
-        web_users.create_user("bob", PASSWORD, [], [("shop", auditor["id"])])
+        web_users.create_user("bob", PASSWORD, [], [("nowhere", False)])
     # Nothing is created when a role or a project is refused
     assert [user["username"] for user in web_users.list_users()] == ["alice"]
 
@@ -203,7 +199,9 @@ def test_change_own_password_needs_the_current_one():
 
 def test_a_password_set_by_someone_else_must_be_changed(database):
     signer = oidc.SessionSigner(SECRET)
-    created = web_users.create_user("alice", PASSWORD, [role_id("reader")], created_by="admin")
+    created = web_users.create_user(
+        "alice", PASSWORD, [role_id("reader")], created_by="admin", all_projects=True
+    )
     assert created["must_change_password"] is True
     assert web_users.new_session(signer, created["id"])["must_change_password"] is True
     session = web_users.new_session(signer, created["id"])["session"]
@@ -256,8 +254,8 @@ def test_session_follows_the_stored_user():
         user["id"],
     )
     assert info.grants == {"reports.read": frozenset({"shop-api"})}
-    # A new role applies to the open session at once
-    web_users.update_user(user["id"], [role_id("triager")], [])
+    # A new role and every project apply to the open session at once
+    web_users.update_user(user["id"], [role_id("triager")], [], all_projects=True)
     info = verifier.verify_session(session)
     assert (info.role, info.projects, info.grants) == (Role.USER, None, TRIAGER_GRANTS)
     # A deleted user loses its sessions
@@ -357,8 +355,8 @@ def test_sso_login_creates_the_user_when_auto_creation_is_enabled(database):
         "oidc",
         "oidc",
     )
-    assert [(r["claim"], r["role"], r["projects"]) for r in user["oidc_roles"]] == [
-        ("devs", "triager", None)
+    assert [(r["claim"], r["roles"], r["projects"]) for r in user["oidc"]] == [
+        ("devs", ["triager"], None)
     ]
     assert user["permissions"] == TRIAGER_GRANTS
     assert user["sso_linked"] and user["last_login_at"]
@@ -385,12 +383,14 @@ def test_sso_login_maps_the_admin_groups_of_the_settings():
     login(signer, identity("alice", "sub-1", "sec-admins"), **settings)
 
     assert web_users.find_user("alice")["permissions"] == ADMIN_GRANTS
-    mappings = [(m["claim"], m["role"], m["projects"]) for m in access_control.list_oidc_mappings()]
+    mappings = [
+        (m["claim"], m["roles"], m["projects"]) for m in access_control.list_oidc_mappings()
+    ]
     # Mapped only when a user who holds it logs in
-    assert mappings == [("sec-admins", "admin", None)]
+    assert mappings == [("sec-admins", ["admin"], None)]
     # A mapping changed by an administrator is left as it is
     make_user("root", PASSWORD, "admin")
-    access_control.set_oidc_mappings([("sec-admins", role_id("reader"), None)])
+    access_control.set_oidc_mappings([("sec-admins", [role_id("reader")], None)])
     login(signer, identity("alice", "sub-1", "sec-admins"), **settings)
     assert web_users.find_user("alice")["permissions"] == {"reports.read": None}
 
@@ -408,16 +408,16 @@ def test_sso_login_combines_the_given_roles_with_the_oidc_ones(database):
         frozenset({"shop", "billing"}),
         {"reports.read": frozenset({"shop", "billing"})},
     )
-    # Each permission keeps its own projects: reading is not narrowed by a triage mapping
+    # The roles and the projects add up: the triage role applies to every project of the user
     info = verifier.verify_session(login(signer, identity("alice", "sub-1", "leads"))["session"])
     assert (info.projects, info.grants["findings.triage"]) == (
         frozenset({"shop", "crm"}),
-        frozenset({"crm"}),
+        frozenset({"shop", "crm"}),
     )
     # The OIDC claims are replaced at each login
     login(signer, identity("alice", "sub-1"))
     user = web_users.find_user("alice")
-    assert (user["oidc_roles"], [p["project"] for p in user["projects"]]) == ([], ["shop"])
+    assert (user["oidc"], [p["project"] for p in user["projects"]]) == ([], ["shop"])
     assert user["permissions"] == {"reports.read": ["shop"]}
 
 
@@ -648,7 +648,7 @@ def run_cli(capsys, *argv: str) -> tuple[int, object]:
 
 def test_user_cli_create_list_set_access_delete(capsys):
     known_projects("shop")
-    code, created = run_cli(capsys, "create", "alice", "--project", "shop=triager")
+    code, created = run_cli(capsys, "create", "alice", "--role", "triager", "--project", "shop")
 
     assert code == cli.EXIT_PASSED
     assert created["created_by"] == "cli"
@@ -666,7 +666,7 @@ def test_user_cli_create_list_set_access_delete(capsys):
 def test_user_cli_restores_an_administrator(capsys):
     make_user("alice", PASSWORD, "reader")
 
-    code, updated = run_cli(capsys, "set-access", "alice", "--role", "admin")
+    code, updated = run_cli(capsys, "set-access", "alice", "--role", "admin", "--all-projects")
 
     assert (code, updated["permissions"]) == (cli.EXIT_PASSED, ADMIN_GRANTS)
     assert [role["name"] for role in updated["roles"]] == ["admin"]
@@ -678,7 +678,9 @@ def test_user_cli_creates_an_sso_user(capsys):
     assert code == cli.EXIT_PASSED
     assert (created["auth_source"], created["roles"]) == ("oidc", [])
     assert "password" not in created
-    code, updated = run_cli(capsys, "set-access", "alice@example.com", "--role", "triager")
+    code, updated = run_cli(
+        capsys, "set-access", "alice@example.com", "--role", "triager", "--all-projects"
+    )
     assert (code, updated["permissions"]) == (cli.EXIT_PASSED, TRIAGER_GRANTS)
     # An unknown role or project is refused; an OIDC user never has a password
     assert cli.run(["user", "create", "bob", "--role", "nope"]) == cli.EXIT_ERROR

@@ -21,32 +21,27 @@
           <thead>
             <tr>
               <th scope="col">{{ 'login.username' | t }}</th>
-              <th scope="col">{{ 'access.role' | t }}</th>
+              <th scope="col">{{ 'access.readOnly' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
             </tr>
           </thead>
           <tbody>
-            @for (row of rows(); track row.userId + ':' + row.roleId) {
+            @for (row of rows(); track row.userId) {
               <tr>
                 <td class="access-name">{{ username(row.userId) }}</td>
                 <td>
-                  <select
-                    class="form-select form-select-sm w-auto"
-                    [attr.aria-label]="'projectMembers.roleOf' | t: { user: username(row.userId) }"
-                    (change)="changeRole(row, $event)"
-                  >
-                    @for (role of projectRoles(); track role.id) {
-                      <option [value]="role.id" [selected]="role.id === row.roleId">
-                        {{ role.name }}
-                      </option>
-                    }
-                  </select>
-                  @if (ignored(row.roleId); as permissions) {
-                    <div class="form-text text-warning-emphasis">
-                      <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                      {{ 'access.ignoredOnProject' | t: { permissions } }}
-                    </div>
-                  }
+                  <div class="form-check form-switch mb-0">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                      [checked]="row.readOnly"
+                      [attr.aria-label]="
+                        'projectMembers.readOnlyOf' | t: { user: username(row.userId) }
+                      "
+                      (change)="setReadOnly(row, $event)"
+                    />
+                  </div>
                 </td>
                 <td class="text-end">
                   <button
@@ -71,7 +66,7 @@
 
     <div class="border rounded p-2 mb-2">
       <div class="row g-2 align-items-end">
-        <div class="col-md-6">
+        <div class="col-md-8">
           <label class="form-label small" for="project-members-search">{{
             'projectMembers.searchUsers' | t
           }}</label>
@@ -88,25 +83,7 @@
             />
           </div>
         </div>
-        <div class="col-md-3">
-          <label class="form-label small" for="project-members-role">{{ 'access.role' | t }}</label>
-          <select
-            id="project-members-role"
-            class="form-select form-select-sm"
-            (change)="onRole($event)"
-          >
-            @for (role of projectRoles(); track role.id) {
-              <option [value]="role.id" [selected]="role.id === addRole()">{{ role.name }}</option>
-            }
-          </select>
-          @if (ignored(addRole()); as permissions) {
-            <div class="form-text text-warning-emphasis">
-              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-              {{ 'access.ignoredOnProject' | t: { permissions } }}
-            </div>
-          }
-        </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
           <button
             type="button"
             class="btn btn-sm btn-outline-primary w-100"

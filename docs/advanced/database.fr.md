@@ -49,8 +49,10 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
 - Sur PostgreSQL, une migration prend un verrou consultatif (advisory lock) : des instances qui
   démarrent ensemble (plusieurs réplicas, un `db upgrade` lancé à la main) s'attendent, et la
   suivante trouve le schéma à jour.
-- La version 10 (révision `0039`) transforme les groupes d'utilisateurs web en rôles des
-  utilisateurs et en correspondances OIDC, en gardant les droits de chaque compte, et supprime les
+- La version 10 (révision `0039`) transforme les groupes d'utilisateurs web en rôles et projets
+  des utilisateurs et en correspondances OIDC, sans jamais élargir un droit (des rôles donnés sur
+  des projets différents deviennent des projets en lecture seule, leur triage limité à certains
+  projets est perdu), et supprime les
   rôles `triager` et `mcp-user` (les jetons API de ces rôles sont révoqués). Elle **ne peut pas
   être rétrogradée** : sauvegardez la base avant la mise à niveau.
 

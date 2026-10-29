@@ -217,9 +217,9 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
    le nom du projet (en général le nom du dépôt) :
     - le jeton atteint déjà le projet : `accessible`, la revue continue ;
     - le projet est nouveau et l'utilisateur porte `projects.create` : il est **créé**
-      immédiatement, avec le rôle `reader` pour l'utilisateur, et la revue continue ;
+      immédiatement, en lecture seule pour l'utilisateur, et la revue continue ;
     - le projet existe et l'utilisateur porte `projects.autojoin` : il le **rejoint**
-      immédiatement (`joined`, rôle `reader`, lecture seule), sauf si un utilisateur portant
+      immédiatement (`joined`, projet en lecture seule), sauf si un utilisateur portant
       `projects.create` a [bloqué son adhésion automatique](../../usage/projects.md#blocage-de-ladhesion-automatique),
       et la revue continue. Un utilisateur lit au plus 200 projets de cette façon ;
     - sinon la réponse est `requested`, et l'agent s'arrête avant la revue, pour qu'aucune revue
@@ -242,7 +242,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
     security-review-controller project reject 4
     ```
 
-    La validation donne au **demandeur** le rôle `reader` sur le projet (voir
+    La validation ajoute le projet au **demandeur** en lecture seule (voir
     [membres](../../usage/projects.md#membres)), créé pour un nouveau projet : son
     jeton personnel atteint le projet dès la requête suivante, sans reconfiguration. Une demande
     que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut)

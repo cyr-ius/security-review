@@ -19,28 +19,29 @@ leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
 | Moyen | Qui | Résultat |
 |---|---|---|
 | Bouton **Nouveau projet** de la page **Projets** | Une personne qui a `projects.create` | Créé aussitôt ([création d'un projet](#creation-dun-projet)) |
-| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt, avec le rôle `reader` pour le développeur, s'il peut créer des projets (même si son jeton atteint déjà tous les projets) ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
+| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt, lu par le développeur, s'il peut créer des projets (même si son jeton atteint déjà tous les projets) ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | Premier rapport enregistré pour lui | Un jeton qui l'atteint (pipeline, jeton pour **Tous les projets**) | Le projet apparaît avec son premier rapport |
 
 Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première revue.
 
 ## Membres
 
-Les **membres** d'un projet sont les comptes qui portent un rôle sur ce projet. Son créateur, ou le
-développeur dont la demande a été validée, y reçoit le rôle `reader`.
+Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets : les permissions par
+projet de leurs rôles s'y appliquent. Son créateur, ou le développeur dont la demande a été
+validée, l'a en **lecture seule**.
 
 Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet :
-recherchez des comptes, cochez-les, choisissez le rôle (`reader` par défaut) et ajoutez-les,
-changez le rôle d'un membre ou retirez-le, puis **Enregistrer**. Les mêmes rôles se donnent dans
-**Utilisateurs** ([rôles](access-control.md#tous-les-projets-ou-un-projet)), ou en validant la
-**Demande d'accès** déposée par un agent dans **Projets**. Pour qu'un collègue trie, donnez-lui un
-rôle qui porte `findings.triage` sur le projet. Les rôles sur tous les projets et ceux des
+recherchez des comptes, cochez-les et ajoutez-les, mettez un membre en lecture seule ou retirez-le,
+puis **Enregistrer**. Les mêmes projets se donnent dans **Utilisateurs** ([rôles et projets d'un
+compte](access-control.md#roles-et-projets-dun-compte)), ou en validant la **Demande d'accès**
+déposée par un agent dans **Projets**. Pour qu'un collègue trie, donnez-lui le projet et un rôle
+qui porte `findings.triage`. Les comptes qui ont tous les projets et ceux des
 [correspondances OIDC](sso.md#correspondances-oidc) n'y sont pas listés.
 
 ## Création d'un projet
 
 Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur la page
-**Projets**. Créer un projet vous donne le rôle `reader` sur ce projet : vous le lisez aussitôt, et
+**Projets**. Créer un projet l'ajoute à vos projets en lecture seule : vous le lisez aussitôt, et
 votre agent peut y enregistrer ses revues.
 
 ## Suppression d'un projet
@@ -49,8 +50,8 @@ Avec la permission `projects.delete`, un bouton corbeille apparaît sur chaque l
 **Projets**. La suppression est **irréversible** et retire tout ce qui se rapporte au projet :
 
 - ses rapports, findings et commentaires ;
-- les rôles des utilisateurs sur le projet, et le projet dans les correspondances OIDC (une
-  correspondance qui n'a plus de projet est supprimée) ;
+- le projet dans les projets des utilisateurs et des correspondances OIDC (une correspondance qui
+  n'a plus de projet est supprimée) ;
 - le projet dans les jetons : un jeton qui n'atteignait que ce projet est **révoqué**, et un
   pipeline qui l'utilisait s'arrête.
 
@@ -63,11 +64,11 @@ L'agent d'un développeur peut demander à rejoindre un projet existant. Sa dema
 en attente de validation, dans **Projets en attente** sur la page **Projets**.
 
 Une personne dotée des permissions `projects.create` et `users.manage` peut valider cette
-demande ; une personne dotée de `users.manage` peut aussi donner à l'utilisateur un rôle sur le
-projet ([membres](#membres)).
+demande ; une personne dotée de `users.manage` peut aussi donner le projet à l'utilisateur
+([membres](#membres)).
 
 Avec la permission `projects.autojoin`, le développeur **rejoint aussitôt le projet**, sans
-demande : la requête de son agent lui donne le rôle `reader` sur le projet, pour qu'il le lise
+demande : la requête de son agent ajoute le projet aux siens en lecture seule, pour qu'il le lise
 (jamais plus : pas de tri) et que la revue continue. Cette permission ne crée pas de nouveau projet : il
 faut pour cela `projects.create`.
 
