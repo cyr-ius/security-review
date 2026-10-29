@@ -217,10 +217,9 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
    le nom du projet (en général le nom du dépôt) :
     - le jeton atteint déjà le projet : `accessible`, la revue continue ;
     - le projet est nouveau et l'utilisateur porte `projects.create` : il est **créé**
-      immédiatement, avec l'utilisateur pour membre (groupe `project:<projet>`), et la revue
-      continue ;
+      immédiatement, avec le rôle `reader` pour l'utilisateur, et la revue continue ;
     - le projet existe et l'utilisateur porte `projects.autojoin` : il le **rejoint**
-      immédiatement (`joined`, groupe de projet, lecture seule), sauf si un utilisateur portant
+      immédiatement (`joined`, rôle `reader`, lecture seule), sauf si un utilisateur portant
       `projects.create` a [bloqué son adhésion automatique](../../usage/projects.md#blocage-de-ladhesion-automatique),
       et la revue continue. Un utilisateur lit au plus 200 projets de cette façon ;
     - sinon la réponse est `requested`, et l'agent s'arrête avant la revue, pour qu'aucune revue
@@ -234,7 +233,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
    valide ou refuse la demande dans la section **Projets en attente** de la page **Projets**,
    où chaque demande est marquée **Nouveau projet** ou **Demande d'accès**, ou en CLI
    (`existing` : `true` pour une demande d'accès). Valider une demande d'accès demande aussi
-   `users.manage`, comme l'ajout d'un membre à un groupe : `projects.create` seul n'ouvre jamais
+   `users.manage`, comme donner un rôle : `projects.create` seul n'ouvre jamais
    un projet existant.
 
     ```bash
@@ -243,8 +242,8 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
     security-review-controller project reject 4
     ```
 
-    La validation ajoute le **demandeur** au groupe de projet `project:<projet>` (voir
-    [contrôle d'accès](../../usage/projects.md#groupe-de-projet)), créé pour un nouveau projet : son
+    La validation donne au **demandeur** le rôle `reader` sur le projet (voir
+    [membres](../../usage/projects.md#membres)), créé pour un nouveau projet : son
     jeton personnel atteint le projet dès la requête suivante, sans reconfiguration. Une demande
     que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut)
     est supprimée.

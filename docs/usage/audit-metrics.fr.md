@@ -14,7 +14,7 @@ Chaque événement, l'API, la ligne de commande et les variables sont dans
 |---|---|
 | Findings | Décision de triage, proposition d'un agent, commentaire, criticité relevée, envoi par un connecteur |
 | Jetons | Création, renouvellement, révocation, changement de projets |
-| Comptes et droits | Connexions et échecs de connexion, déconnexions, rôles, groupes et leurs membres |
+| Comptes et droits | Connexions et échecs de connexion, déconnexions, rôles, rôles des comptes, correspondances OIDC |
 | Projets | Demande par un agent, validation, refus, création, suppression |
 | Réglages | Serveur syslog, adresse du serveur Controller, connecteurs |
 

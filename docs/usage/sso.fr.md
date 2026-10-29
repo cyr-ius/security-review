@@ -15,7 +15,7 @@ Chez votre fournisseur d'identité, créez un client OIDC (avec ou sans secret) 
 
 - l'**URL de retour** `https://<contrôleur>/api/v1/auth/oidc/callback`, exactement telle que le
   navigateur la voit (derrière un reverse proxy, l'adresse du proxy) ;
-- un claim qui contient les **groupes** de l'utilisateur (souvent `groups`).
+- un claim qui contient les **groupes** ou rôles de l'utilisateur (souvent `groups`).
 
 Le fournisseur doit être joignable en HTTPS par le serveur Controller, par le proxy sortant au besoin.
 
@@ -25,7 +25,7 @@ Un administrateur remplit la page **Connexions**, sans redémarrer le serveur Co
 
 1. **Émetteur (issuer)**, **Identifiant client**, **Secret client** (vide pour un client public)
    et **URL de retour** ;
-2. le **Claim des groupes**, et les **Groupes administration** dont les membres deviennent
+2. le **Claim des rôles**, et les **Groupes administration** dont les membres deviennent
    administrateurs ;
 3. **Créer les utilisateurs à leur première connexion**, ou laissez-la désactivée et créez chaque
    compte OIDC dans **Utilisateurs** ;
@@ -44,30 +44,37 @@ changé chez le fournisseur garde le même compte.
 | Situation à la connexion | Résultat |
 |---|---|
 | Compte connu | Connexion |
-| Aucun compte, création automatique activée | Le compte est créé, si ses groupes lui donnent une permission |
+| Aucun compte, création automatique activée | Le compte est créé, si ses correspondances lui donnent une permission |
 | Aucun compte, création automatique désactivée | Refus : un administrateur crée d'abord le compte OIDC |
 | Un compte **local** porte le même nom | Refus : une connexion OIDC n'ouvre jamais un compte local |
 | Compte supprimé par un administrateur | Refus jusqu'à **Autoriser à nouveau** dans **Utilisateurs** |
 
-## Groupes du fournisseur d'identité
+## Correspondances OIDC
 
-À chaque connexion, l'utilisateur rejoint chaque groupe **Ouvert au OIDC** dont le nom est
-**exactement** l'un des groupes envoyés par le fournisseur (casse comprise), et quitte ceux qu'il
-n'a plus. Les autres valeurs sont ignorées : créez un groupe du même nom pour en utiliser une.
+En bas de la page **Connexions**, chaque **correspondance OIDC** donne un rôle aux utilisateurs
+OIDC dont le fournisseur d'identité envoie **exactement** une valeur (casse comprise) : sur tous les
+projets (**Tous les projets**) ou sur une liste de projets. À chaque connexion, les valeurs du
+claim nommées par une correspondance sont conservées ; les autres valeurs sont ignorées. Un
+changement des correspondances s'applique aussitôt aux utilisateurs OIDC, par les valeurs de leur
+dernière connexion.
 
-Exemple : le fournisseur envoie `["payments-team", "staff"]` ; un groupe `payments-team` ouvert
-au OIDC donne le rôle `triager` sur `billing`, et aucun groupe ne s'appelle `staff`. L'utilisateur
-ne trie alors que `billing`.
+Exemple : le fournisseur envoie `["payments-team", "staff"]` ; une correspondance donne à
+`payments-team` un rôle *Triager* sur `billing`, et aucune correspondance ne nomme `staff`.
+L'utilisateur ne trie alors que `billing`.
 
-Un groupe non ouvert au OIDC (par exemple `administrators`) n'est jamais rejoint de cette façon.
+Une correspondance sur des projets ne s'applique qu'aux projets qui existent : un projet pas
+encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur d'identité. Chaque
+valeur des **Groupes administration** reçoit une correspondance vers `admin` sur tous les projets
+à la première connexion d'un utilisateur qui la porte ; une correspondance modifiée ensuite est
+conservée.
 
 ## Lecture du projet
 
-Pour qu'un développeur lise un projet, ajoutez son compte OIDC au
-[groupe de projet](projects.md#groupe-de-projet) dans **Groupes** ou **Utilisateurs**, ou validez
-la demande d'accès de son agent dans **Projets**. Le compte doit d'abord exister : le développeur
-s'est connecté une fois (création automatique), ou un administrateur l'a créé dans
-**Utilisateurs**.
+Pour qu'un développeur lise un projet, donnez à son compte OIDC un rôle sur ce projet dans
+**Utilisateurs** ou dans les [membres](projects.md#membres) du projet, faites correspondre l'un de
+ses groupes, ou validez la demande d'accès de son agent dans **Projets**. Donner un rôle à un
+compte exige qu'il existe : le développeur s'est connecté une fois (création automatique), ou un
+administrateur l'a créé dans **Utilisateurs**.
 
 ## OIDC seul
 
@@ -79,7 +86,7 @@ pour que personne ne reste bloqué si le fournisseur est mal configuré
 ## Sessions
 
 - Une session dure 8 heures par défaut. Un changement de groupes chez le fournisseur s'applique à
-  la connexion suivante ; un changement fait dans l'interface, aussitôt.
+  la connexion suivante ; un changement fait dans l'interface (rôles, correspondances), aussitôt.
 - **Se déconnecter** ferme la session de l'interface, pas celle du fournisseur d'identité.
 - En cas d'échec, la page de connexion indique la cause (accès refusé, compte pas encore créé ou
   supprimé, nom pris par un compte local...).
@@ -88,8 +95,9 @@ pour que personne ne reste bloqué si le fournisseur est mal configuré
 
 - **Gardez un administrateur local** : si le fournisseur devient injoignable, il reste le seul
   accès, en plus de la ligne de commande.
-- **Les noms de groupes doivent correspondre exactement**, casse comprise, et le groupe doit être
-  **Ouvert au OIDC**.
+- **Les valeurs d'une correspondance doivent correspondre exactement** aux groupes envoyés par le
+  fournisseur, casse comprise.
 - **Supprimer un compte OIDC** l'empêche d'être recréé à sa prochaine connexion, même avec la
   création automatique ; **Autoriser à nouveau** lève cette interdiction.
-- **Un utilisateur dont les groupes ne donnent aucune permission** ne peut pas se connecter.
+- **Un utilisateur dont les rôles et correspondances ne donnent aucune permission** ne peut pas se
+  connecter : une correspondance sur des projets pas encore créés ne donne rien.

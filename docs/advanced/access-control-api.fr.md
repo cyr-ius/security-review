@@ -1,64 +1,73 @@
 # Contrôle d'accès par l'API REST
 
-Les pages [rôles, groupes et permissions](../usage/access-control.md) et
+Les pages [rôles et permissions](../usage/access-control.md) et
 [projets](../usage/projects.md) décrivent le modèle dans l'interface web. Cette page donne les
 limites, les règles détaillées et les appels de l'API REST (permission `users.manage` pour les
-rôles, groupes et utilisateurs).
+rôles, les rôles des utilisateurs, les membres des projets et les correspondances OIDC).
 
 ## Limites
 
 | Élément | Limite |
 |---|---|
 | Rôles créés par les administrateurs | 100 au plus |
-| Nom d'un groupe | 200 caractères au plus |
-| Projets d'un rôle dans un groupe | 50 au plus, seulement pour un rôle fait de permissions par projet (`reports.read`, `findings.triage`) ; un rôle qui contient une permission sur tout le serveur Controller s'applique toujours à tous les projets |
-| Projets d'une permission pour un utilisateur | 200 au plus, union de ses groupes : au-delà, le compte n'a aucun accès |
+| Rôles d'un utilisateur sur tous les projets | 100 au plus |
+| Projets sur lesquels un utilisateur porte des rôles | 200 au plus ; au-delà (avec les correspondances OIDC), le compte n'a aucun accès |
+| Membres définis d'un coup sur un projet | 500 au plus |
+| Correspondances OIDC | 500 au plus, chaque valeur du claim de 200 caractères au plus et chaque correspondance de 50 projets au plus |
 
-`users.manage` couvre aussi la configuration OIDC, puisqu'elle décide qui rejoint quel groupe. Le
-rôle `admin` est aussi donné aux groupes nommés par `SECREVIEW_OIDC_ADMIN_GROUPS`
-([OIDC](oidc.md)). Un nouveau groupe n'est ouvert au OIDC que sur demande
-(`"sso": true`) ; les valeurs du claim des groupes qui ne nomment aucun groupe sont ignorées.
+Un rôle donné **sur tous les projets** applique toutes ses permissions partout. Un rôle donné
+**sur un projet** n'y applique que ses permissions par projet (`reports.read`,
+`findings.triage`) : un rôle sans aucune d'elles est refusé sur un projet, et un rôle donné sur des
+projets doit en garder une. Seul un projet connu reçoit un rôle (`404` sinon).
 
-## Rôles, groupes et utilisateurs
+`users.manage` couvre aussi les réglages OIDC, puisqu'ils décident qui reçoit quel rôle. Le rôle
+`admin` est aussi donné par une correspondance créée à la première connexion d'un utilisateur qui
+porte une valeur de `SECREVIEW_OIDC_ADMIN_GROUPS` ([OIDC](oidc.md)) ; une correspondance qui nomme
+déjà cette valeur est laissée telle qu'un administrateur l'a modifiée. Les valeurs du claim des
+rôles qu'aucune correspondance ne nomme sont ignorées.
+
+## Rôles et utilisateurs
 
 ```bash
-# Un rôle et un groupe qui le donne sur le projet « billing », ouvert au OIDC
+# Un rôle, puis une utilisatrice qui l'a sur le projet « billing » et le rôle reader sur tous les projets
 curl -X POST https://secreview.example.com/api/v1/roles \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "Auditor", "description": "Reads the log", "permissions": ["audit.read", "reports.read"]}'
-curl -X POST https://secreview.example.com/api/v1/groups \
+  -d '{"name": "Triager", "description": "", "permissions": ["findings.triage", "reports.read"]}'
+curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "payments-team", "description": "", "sso": true}'
-curl -X PUT https://secreview.example.com/api/v1/groups/4/roles \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"roles": [{"role_id": 2, "projects": ["billing"]}]}'
-curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"user_ids": [7, 9]}'
-# Les groupes locaux du compte 7 (ses groupes OIDC sont gardés)
+  -d '{"username": "alice", "role_ids": [2], "projects": [{"project": "billing", "role_id": 3}]}'
+# Remplacer seulement les rôles sur des projets du compte 7 (ses rôles sur tous les projets sont gardés)
 curl -X PUT https://secreview.example.com/api/v1/users/7 \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"group_ids": [4]}'
+  -d '{"projects": [{"project": "billing", "role_id": 2}, {"project": "crm", "role_id": 2}]}'
 ```
 
 | Route | Effet |
 |---|---|
-| `GET /api/v1/permissions` | Permissions qu'un rôle peut contenir, et si elles peuvent être limitées à des projets |
-| `GET`, `POST /api/v1/roles` ; `PUT`, `DELETE /api/v1/roles/{id}` | Rôles |
-| `GET`, `POST /api/v1/groups` ; `PUT`, `DELETE /api/v1/groups/{id}` | Groupes (`GET` renvoie aussi la configuration OIDC qui les utilise) |
-| `PUT /api/v1/groups/{id}/roles` | Remplace les rôles d'un groupe |
-| `PUT /api/v1/groups/{id}/members` | Remplace les membres locaux d'un groupe (les membres OIDC sont gardés) |
-| `POST /api/v1/users` | Crée un utilisateur, membre des groupes `group_ids` |
-| `PUT /api/v1/users/{id}` | Remplace les groupes locaux (`group_ids`) d'un utilisateur ; un champ absent reste inchangé |
+| `GET /api/v1/permissions` | Permissions qu'un rôle peut porter, et si elles s'appliquent par projet |
+| `GET`, `POST /api/v1/roles` ; `PUT`, `DELETE /api/v1/roles/{id}` | Rôles, avec le nombre d'utilisateurs et de correspondances OIDC qui donnent chacun |
+| `POST /api/v1/users` | Crée un utilisateur avec ses rôles sur tous les projets (`role_ids`) et sur des projets (`projects`) |
+| `PUT /api/v1/users/{id}` | Remplace les rôles d'un utilisateur sur tous les projets (`role_ids`) et sur des projets (`projects`) ; un champ absent reste inchangé, les rôles de ses correspondances OIDC sont gardés |
+| `GET /api/v1/access/projects?search=&limit=` | Projets connus dont le nom contient `search` (tous les projets, y compris ceux que l'appelant ne lit pas), 200 au plus |
+| `GET`, `PUT /api/v1/access/projects/{project}/members` | Rôles des utilisateurs sur un projet (leurs rôles sur tous les projets et ceux des correspondances OIDC ne sont pas listés) |
+| `GET`, `PUT /api/v1/oidc/mappings` | Correspondances OIDC, remplacées d'un bloc ([OIDC](oidc.md#correspondances-oidc)) |
 
-Un champ `roles` dans le corps de ces deux routes est refusé (`422`) : un compte n'a pas de rôle
-propre. Les rôles intégrés `reader` et `admin` ne peuvent être ni modifiés ni supprimés ;
-supprimer un autre rôle le retire de ses groupes.
+Un champ inconnu (comme l'ancien `group_ids`) est refusé (`422`). Les rôles intégrés `reader` et
+`admin` ne peuvent être ni modifiés ni supprimés ; supprimer un autre rôle le retire des
+utilisateurs et des correspondances OIDC qui le donnent (un rôle utilisé par un jeton ne peut pas
+être supprimé).
 
-Chaque modification est écrite au [journal d'audit](audit-log.md) (`role.*`,
-`group.*`, `user.groups_changed`). En CLI, `security-review-controller user set-groups` change les
-groupes d'un compte, et `security-review-controller group list` / `group roles` liste les groupes
-et les rôles (voir [CLI](../reference/cli.md#security-review-controller)).
+```bash
+curl -X PUT https://secreview.example.com/api/v1/access/projects/billing/members \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"members": [{"user_id": 7, "role_id": 1}, {"user_id": 9, "role_id": 2}]}'
+```
+
+Chaque changement est écrit dans le [journal d'audit](audit-log.md) (`role.*`,
+`user.roles_changed`, `user.projects_changed`, `oidc.mappings_changed`). En CLI,
+`security-review-controller user set-access` change les rôles d'un compte, et
+`security-review-controller role list` / `role mappings` liste les rôles et les correspondances
+OIDC (voir [CLI](../reference/cli.md#security-review-controller)).
 
 ## Permissions de l'appelant
 
@@ -74,30 +83,34 @@ jamais pour un jeton `admin`, même avec toutes les permissions : les routes ré
 ```
 
 Un compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes s'arrêtent.
-Retirer le dernier détenteur de `users.manage` (supprimer son compte, son groupe, le rôle de son
-groupe ou la permission de son rôle) est refusé avec `409` ou `422` ; une connexion OIDC qui le
-retire de son groupe OIDC n'est pas bloquée.
+Retirer le dernier détenteur de `users.manage` (supprimer son compte, ses rôles, la permission de
+son rôle ou la correspondance OIDC qui la lui donne) est refusé avec `409` ou `422`. Une connexion
+OIDC ne la retire jamais : les valeurs du claim qui la donnaient sont gardées, avec un
+avertissement dans les journaux et un événement `user.roles_changed`.
 
 ## Projets
 
-### Groupes de projet
+### Projets connus
 
-Le **groupe de projet** d'un projet est un groupe non ouvert au OIDC dont le seul rôle est
-`reader` sur ce seul projet. La validation d'un projet demandé par un agent
-([enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) y ajoute
-l'utilisateur demandeur (en le créant pour un nouveau projet ; pour un projet existant, la
-demande est une demande d'accès, que seul un utilisateur portant `users.manage` valide), et la
-création d'un projet le crée avec son créateur. Un groupe existant de ce type est réutilisé (même
-créé par un administrateur, quel que soit son nom) ; sinon le groupe `project:<projet>` est créé
-(avec un numéro, par exemple `project:shop (2)`, quand un autre groupe porte déjà ce nom). Voir
-aussi [lecture du projet](../usage/sso.md#lecture-du-projet).
+Un projet est connu dès qu'il a une ligne en base : créé par son premier rapport, un jeton qui
+l'atteint, une validation ou une création dans l'interface web. Une demande en attente ne rend pas
+un projet connu.
+
+### Rôles sur un projet
+
+La validation d'un projet demandé par un agent
+([enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) donne
+à l'utilisateur demandeur le rôle `reader` sur ce projet (en créant le projet s'il est nouveau ;
+pour un projet existant, la demande est une demande d'accès, que seul un utilisateur doté de
+`users.manage` valide), et créer un projet le donne à son créateur. Voir aussi
+[lecture du projet](../usage/sso.md#lecture-du-projet).
 
 ### Création d'un projet
 
 `POST /api/v1/projects` crée un projet, depuis une session de l'interface web uniquement. Le seul
-jeton qui crée un projet est le jeton MCP personnel d'un utilisateur portant `projects.create`,
-par l'outil `request_project` de son agent. Le serveur Controller ajoute le compte au groupe de projet
-comme membre local.
+jeton qui crée un projet est le jeton MCP personnel d'un utilisateur doté de `projects.create`,
+par l'outil `request_project` de son agent. Le serveur Controller donne au compte le rôle `reader`
+sur le projet.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -105,22 +118,21 @@ curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/j
 # {"project": "mobile-app", "reports_total": 0, "last_report_at": null, …}
 ```
 
-Un nom qui a déjà un rapport, qu'un rôle d'un groupe cite (projet validé compris), ou qu'un jeton
-atteint est refusé (`409`). Un projet encore en attente n'est pas encore connu : le créer solde la
-demande de son créateur (celles des autres utilisateurs deviennent des demandes d'accès). Chaque
-création est inscrite au journal d'audit (`project.created`).
+Un projet connu est refusé (`409`). Un projet encore en attente n'est pas encore connu : le créer
+règle la demande de son créateur (les demandes des autres utilisateurs deviennent des demandes
+d'accès). Chaque création est écrite dans le journal d'audit (`project.created`).
 
 ### Adhésion automatique à un projet
 
-Un utilisateur portant `projects.autojoin` rejoint un projet existant par l'outil
-`request_project` de son agent : le serveur Controller ajoute le compte au groupe de projet
-(lecture seule), solde sa demande en attente pour ce projet et inscrit `project.joined` au
-journal d'audit. Un utilisateur qui lit déjà 200 projets est refusé.
-`PUT /api/v1/projects/{project}/autojoin` bloque (`true`) ou autorise de nouveau (`false`) cette
-adhésion, avec `projects.create`, depuis une session de l'interface web uniquement, pour un projet
-que l'appelant lit (un autre répond `404`). Un projet bloqué porte `"autojoin_blocked": true`
-dans `GET /api/v1/projects` ; les utilisateurs qui l'ont déjà rejoint gardent leur accès. Chaque
-changement est inscrit au journal d'audit (`project.autojoin_changed`).
+Un utilisateur doté de `projects.autojoin` rejoint un projet existant par l'outil
+`request_project` de son agent : le serveur Controller lui donne le rôle `reader` sur le projet,
+règle sa demande en attente pour ce projet et écrit `project.joined` dans le journal d'audit. Un
+utilisateur qui lit déjà 200 projets est refusé. `PUT /api/v1/projects/{project}/autojoin` bloque
+(`true`) ou autorise de nouveau (`false`) cette adhésion automatique, avec `projects.create`,
+depuis une session de l'interface web uniquement, pour un projet que l'appelant lit (un autre
+donne `404`). Un projet bloqué affiche `"autojoin_blocked": true` dans `GET /api/v1/projects` ;
+les utilisateurs qui l'ont déjà rejoint gardent leur accès. Chaque changement est écrit dans le
+journal d'audit (`project.autojoin_changed`).
 
 ```bash
 curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -131,23 +143,22 @@ curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/js
 ### Suppression d'un projet
 
 `DELETE /api/v1/projects/{project}` supprime un projet, depuis une session de l'interface web
-uniquement : un jeton ne supprime jamais de projet. La suppression se fait en une seule
-transaction :
+uniquement : un jeton ne supprime jamais un projet. La suppression se fait en une transaction :
 
 - ses rapports, avec leurs findings et les commentaires de ces findings ;
-- le projet dans les rôles des groupes : un rôle qui n'a plus de projet est retiré (jamais laissé
-  sur tous les projets), et un groupe de projet qui n'a plus de rôle est supprimé avec ses
-  membres ; tout autre groupe est conservé ;
-- le projet dans les jetons : un jeton qui n'atteint aucun autre projet est révoqué (jamais laissé
-  sur tous les projets), les autres gardent leurs autres projets.
+- les rôles des utilisateurs sur le projet ;
+- le projet dans les correspondances OIDC : une correspondance qui n'a plus de projet est
+  supprimée (jamais laissée atteindre tous les projets) ;
+- le projet dans les jetons : un jeton qui n'atteint plus aucun autre projet est révoqué (jamais
+  laissé atteindre tous les projets), les autres gardent leurs autres projets.
 
 ```bash
 curl -X DELETE -H "Authorization: Bearer $SESSION" \
   https://secreview.example.com/api/v1/projects/mobile-app
-# {"project": "mobile-app", "reports": 3, "findings": 12, "groups_deleted": ["project:mobile-app"], …}
+# {"project": "mobile-app", "reports": 3, "findings": 12, "members_removed": 2, "mappings_changed": [], …}
 ```
 
-Le journal d'audit conserve les événements du projet et inscrit `project.deleted`, avec les
-comptes dans son détail ; chaque groupe et jeton modifié ou supprimé a son propre événement
-(`group.deleted`, `group.roles_changed`, `token.revoked`, `token.projects_changed`). Un projet
+Le journal d'audit garde les événements du projet et enregistre `project.deleted`, avec les
+nombres dans ses détails ; les correspondances OIDC et les jetons changés ou supprimés ont leurs
+propres événements (`oidc.mappings_changed`, `token.revoked`, `token.projects_changed`). Un projet
 inconnu donne `404`.

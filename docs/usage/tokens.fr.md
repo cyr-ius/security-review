@@ -2,9 +2,9 @@
 
 Les **jetons** sont destinés aux machines : agents MCP, pipelines CI/CD, Prometheus et scripts
 d'administration. Les **personnes** se connectent avec un [compte utilisateur](user-accounts.md),
-seul moyen d'ouvrir l'interface web, avec les droits de ses groupes
-([Rôles, groupes et permissions](access-control.md)). Il n'existe pas de jeton de
-lecture ou de triage : pour qu'une personne lise ou trie, ajoutez son compte à un groupe.
+seul moyen d'ouvrir l'interface web, avec les droits de ses rôles
+([Rôles et permissions](access-control.md)). Il n'existe pas de jeton de
+lecture ou de triage : pour qu'une personne lise ou trie, donnez un rôle à son compte.
 
 La ligne de commande, l'API REST et les limites sont dans [Jetons Bearer](../advanced/bearer-tokens.md).
 

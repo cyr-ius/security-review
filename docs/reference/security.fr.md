@@ -95,8 +95,8 @@
   créé pour un client. Avec un jeton, `request_project` ne crée un nouveau projet que pour un
   utilisateur portant `projects.create` (jamais un projet existant) ; sinon la demande reste
   **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` la valide sur le
-  serveur Controller, ce qui ajoute l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
-  au groupe de projet, créé pour un nouveau projet. Pour un projet existant, la demande est une
+  serveur Controller, ce qui donne à l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
+  le rôle `reader` sur le projet, créé s'il est nouveau. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
   porte aussi `users.manage`, sauf pour un utilisateur portant `projects.autojoin`, qui le
   rejoint aussitôt en lecture si son adhésion automatique n'est pas bloquée (cet utilisateur
@@ -240,17 +240,17 @@
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
-  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou OIDC (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
+  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou OIDC (par ses rôles ou une correspondance OIDC), ne peut être ni supprimé ni rétrogradé, pas même par une connexion OIDC qui ne nomme plus son groupe. Le mot de passe
   du compte `admin` initial apparaît une fois dans les journaux du serveur Controller : protégez-les et
   changez-le dès la première connexion.
 - **Connexion OIDC (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
-  viennent des [groupes](../usage/access-control.md#groupes) du compte : ceux donnés par un
-  administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
-  groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
-  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
+  viennent des [rôles](../usage/access-control.md#roles) du compte : ceux donnés par un
+  administrateur et ceux des correspondances OIDC dont la valeur est exactement une valeur du claim
+  des rôles (les autres valeurs sont ignorées ; une correspondance sur des projets ne donne que des
+  permissions par projet sur des projets existants, sans jamais en créer) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
   sa première connexion (uniques en base), jamais par un nom : un nom changé chez le fournisseur
   garde le compte. Il est nommé à sa création par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas

@@ -89,8 +89,8 @@
   MCP server serves no other public route than `/healthz`. No token is ever created for a
   client. With a token, `request_project` creates a new project only for a user holding
   `projects.create` (never an existing project); otherwise the request is **pending** until a
-  user with `projects.create` approves it on the Controller server, which adds the requesting user
-  (authenticated by the token, never declared) to the project group, created for a new project.
+  user with `projects.create` approves it on the Controller server, which gives the requesting user
+  (authenticated by the token, never declared) the `reader` role on the project, created when new.
   For an existing project, the request is an access request, never granted at once, and only
   approved by a user who also holds `users.manage`, except for a user holding
   `projects.autojoin`, who joins it at once as a reader unless its autojoin is blocked (this
@@ -222,16 +222,18 @@
   immediately, and a password change draws a new random session version that invalidates every
   previous session. The session must also carry the identifier of the account: it never opens
   an account created again under the same internal number. The last administrator, local or
-  OIDC (by its role or the role of its groups), can be neither deleted nor demoted. The password
+  OIDC (by its roles or an OIDC mapping), can be neither deleted nor demoted, not even by an OIDC
+  login that no longer names its group. The password
   of the initial `admin` account appears once in the logs of the Controller server: protect them and
   change it at the first login.
 - **OIDC login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
   never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
-  [groups](../usage/access-control.md#groups) of the account: those given by an administrator and the
-  groups open to OIDC whose name is exactly a value of the groups claim (other values are
-  ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
+  [roles](../usage/access-control.md#roles) of the account: those given by an administrator and those
+  of the OIDC mappings whose value is exactly a value of the roles claim (other values are
+  ignored; a mapping on projects only gives per-project permissions on existing projects, never
+  creates one); an OIDC session never
   opens `/mcp`. The account is identified by the issuer and the `sub` of its first login (unique
   in the database), never by a name: a name changed at the provider keeps the account. It is
   named at its creation by the exact identifier of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no

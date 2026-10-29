@@ -30,7 +30,13 @@ the same commit as the change.
   `Settings(...)`).
 - `tests/conftest.py` gives each test an in-memory SQLite database and an empty rule registry:
   never use the real database. The `import_pack` fixture imports internal rules (TOML pack),
-  `triage` records a decision as a person would, `tmp_path` holds the files.
+  `triage` records a decision as a person would, `tmp_path` holds the files. The database is
+  marked at the latest revision: `outdated_schema` marks it one revision behind, and
+  `legacy_database` replaces it by a database of version 1.x (no revision), for the migration
+  tests.
+- `make_user` creates an account with a role on every project or on projects (`role_ids` and
+  `project_roles` for several), `known_projects` makes projects known and `map_claim` adds an
+  OIDC mapping; the database has the built-in roles and an ordinary `triager` role.
 - `tests/conftest.py` hashes passwords with a tiny scrypt cost; a test that checks the production
   cost is marked `@pytest.mark.real_password_hashing`.
 - No network, no `sleep`, no dependency on the order of the tests. Keys and tokens are fake.

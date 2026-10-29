@@ -2,9 +2,9 @@
 
 **Tokens** are for machines: the MCP agents, the CI/CD pipelines, Prometheus and the
 administration scripts. **People** sign in with a [user account](user-accounts.md), the only
-way to open the web interface, with the rights of its groups
-([Roles, groups and permissions](access-control.md)). There is no read-only or
-triage token: to let a person read or triage, add their account to a group.
+way to open the web interface, with the rights of its roles
+([Roles and permissions](access-control.md)). There is no read-only or
+triage token: to let a person read or triage, give their account a role.
 
 The command line, the REST API and the limits are in [Bearer tokens](../advanced/bearer-tokens.md).
 

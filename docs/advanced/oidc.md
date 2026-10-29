@@ -14,7 +14,8 @@ The flow is *authorization code* with PKCE (`S256`), state and nonce:
 2. the provider sends back to `GET /api/v1/auth/oidc/callback`; the Controller server exchanges the
    code (server-to-server call), checks the ID token (signature by the JWKS keys of the
    provider, issuer, audience, expiry, nonce), finds the [OIDC account](#oidc-accounts) of the
-   user (or creates it) and records the groups named by its groups claim;
+   user (or creates it) and keeps the values of its roles claim that an
+   [OIDC mapping](#oidc-mappings) names;
 3. it hands the interface a signed **session token**, valid `SECREVIEW_SESSION_HOURS` hours,
    that the tab uses like a Bearer token.
 
@@ -50,7 +51,7 @@ through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General** page)
 ## Configuring OIDC in the interface
 
 The same settings can be changed on the **Sign-in** page (`users.manage` permission: the OIDC
-settings decide who joins which group), without restarting the Controller server. As for
+settings decide who gets which role), without restarting the Controller server. As for
 the proxy of the **General** page, **a `SECREVIEW_OIDC_*` variable that is set always takes
 precedence**, field by field; a value stored in the database applies only to the fields whose
 variable is not set:
@@ -107,9 +108,9 @@ account and its user name). Only an identity bound to no account is looked up by
 
 | Situation | Result |
 |---|---|
-| Account bound to this issuer and `sub` | Login, with the permissions of its groups (below), even if the username claim changed |
+| Account bound to this issuer and `sub` | Login, with the permissions of its roles (below), even if the username claim changed |
 | OIDC account of this name, not bound yet (created by an administrator) | The account is **bound** to the issuer and `sub`, then login |
-| No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its groups give it a permission; otherwise refused, without creation |
+| No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its mappings give it a permission; otherwise refused, without creation |
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (default) | **Refused**: an administrator must first create the OIDC account |
 | **Local** account with the same name | **Refused**: an OIDC login never opens a local account |
 | OIDC account bound to another `sub` or another issuer | **Refused** (see below) |
@@ -122,18 +123,18 @@ from another issuer (another identity provider, which could reuse the same `sub`
 An account bound when only the `sub` was recorded gets the issuer of its next login. To give
 the user name to someone else, delete then create the account again.
 
-What an OIDC account may do comes from its [groups](../usage/access-control.md#groups): those an administrator
-gave it (**Users** or **Groups** page) and the groups open to OIDC
-named by its groups claim, recorded at every login (see
-[groups of the identity provider](#groups-of-the-identity-provider)). An account without any
-permission is refused and its open sessions are closed. A change of its given groups applies at
-once; a change of its groups at the provider, at the next login.
+What an OIDC account may do comes from its [roles](../usage/access-control.md): those an
+administrator gave it (**Users** page or members of a project) and those of the OIDC mappings
+of the values of its roles claim, recorded at every login (see [OIDC mappings](#oidc-mappings)).
+An account without any permission is refused and its open sessions are closed. A change of its
+roles or of the mappings applies at once; a change of its groups at the provider, at the next
+login.
 
 **Deleting an OIDC account** (**Utilisateurs** page, `DELETE /api/v1/users/{id}` or
 `security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
 user name and its identity (issuer and `sub`): an OIDC login no longer creates it again, under
 that name or another one (name changed at the provider), even with the automatic creation and
-groups that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
+mappings that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
 access back, an administrator creates the account again, or lifts the revocation (**Autoriser à nouveau**, Allow again,
 `DELETE /api/v1/users/revoked/{username}`): the account is then created again at its next
 login. `GET /api/v1/users/revoked` lists the revoked accounts, with the author and the date of
@@ -145,32 +146,49 @@ provider becomes unreachable, it remains the only access, besides the CLI.
 
 ```
 INFO security_review_mcp.web: OIDC web user alice created at its first login
-INFO security_review_mcp.web: OIDC login of oidc:alice with role reader through 1 OIDC group(s)
+INFO security_review_mcp.web: OIDC login of oidc:alice through 1 mapped claim(s)
 WARNING security_review_mcp.web: OIDC login of oidc:bob refused: no web user bob
 INFO security_review_mcp.web: Web user carol (oidc) deleted by admin
 WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user carol was deleted
 ```
 
-## Groups of the identity provider
+## OIDC mappings
 
 The values of the `SECREVIEW_OIDC_ROLES_CLAIM` claim (list or string, dotted path accepted) are
-compared with the **names of the groups** of the **Groups** page: at each login, the user joins
-every group **open to OIDC** whose name is **exactly** one of these values (case included), and
-leaves the OIDC groups it no longer has. The other values are ignored: create a group of the same
-name to use one. The roles of the group, and their projects, then apply (see
-[Roles, groups and permissions](../usage/access-control.md)).
+compared with the **OIDC mappings** of the **Sign-in** page. A mapping gives a role to the users
+whose claim holds **exactly** its value (case included), on every project or on a list of
+projects; a value may have several mappings, one per role. At each login, the values of the claim
+named by a mapping are kept for the account; the other values are ignored. The roles of the
+mappings of these values then apply, with the roles given to the account (see
+[Roles and permissions](../usage/access-control.md)).
+
+- A change of the mappings applies at once, to every OIDC account, through the values of its last
+  login; a value that no mapping names any more is forgotten.
+- A mapping on projects only gives its per-project permissions, and only on the projects that
+  exist: a project not created yet is ignored until it is, never created by the identity
+  provider. A mapping left without project when its projects are deleted is deleted.
+- A login never removes the last holder of `users.manage`: the values of the claim that gave it
+  are kept, with a warning in the logs and a `user.roles_changed` event. Removing such a mapping
+  in the interface is refused.
 
 | Setting | Effect |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated groups that hold the `admin` role: such a group, missing at the login of one of its members, is created open to OIDC with the `admin` role. An existing group is left as administrators changed it. Used to name the first administrator |
-| `SECREVIEW_OIDC_DEFAULT_GROUP` | Name of a group every OIDC user joins at each login, whatever its claim (empty by default: none). A missing group gives nothing |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated values of the claim that hold the `admin` role: such a value, without any mapping at the login of a user who holds it, gets a mapping to `admin` on every project. A mapping that already names it is left as administrators changed it. Used to name the first administrator |
 
-A group **not open to OIDC** (for example `administrators`) is never joined through the claim, even when a value has its name. A restricted session behaves
-like a [token restricted to a project](bearer-tokens.md#tokens-restricted-to-a-project): the other
+```bash
+# Every OIDC mapping, replaced at once (projects null: every project)
+curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"mappings": [{"claim": "secreview-admins", "role_id": 2, "projects": null},
+                    {"claim": "payments-team", "role_id": 3, "projects": ["billing"]}]}'
+```
+
+A restricted session behaves like a
+[token restricted to a project](bearer-tokens.md#tokens-restricted-to-a-project): the other
 projects, their reports and their findings are handled as missing.
 
-Example: with the claim `["payments-team", "staff"]`, a group `payments-team` open to OIDC with the
-`triager` role on `billing`, and no `staff` group, the user triages `billing` only.
+Example: with the claim `["payments-team", "staff"]`, a mapping of `payments-team` to a
+*Triager* role on `billing`, and no mapping of `staff`, the user triages `billing` only.
 
 The label of an OIDC session is `oidc:<username>`: it is the one that appears in the logs and
 in the triage history.
@@ -197,7 +215,7 @@ restart the Controller server, then log in with a local account (its password ca
 - The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SECRET_KEY`
   (at least 32 characters), like the one of the [local accounts](architecture/controller.md#login-and-sessions), and
   names the OIDC account, read again at every request: deleting the account or changing its
-  groups or their roles applies at once. Every replica of the Controller server must share this secret; without
+  roles or the OIDC mappings applies at once. Every replica of the Controller server must share this secret; without
   it, a random secret is drawn at every start and sessions end at restart.
 - A group change at the provider only applies at the next login. To cut every session before it
   expires, delete the account, or change `SECREVIEW_SECRET_KEY` and restart the Controller server

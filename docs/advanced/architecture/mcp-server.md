@@ -215,9 +215,9 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    the project name (usually the repository name):
     - the token already reaches the project: `accessible`, the review goes on;
     - the project is new and the user holds `projects.create`: it is **created** at once, with
-      the user as its member (group `project:<project>`), and the review goes on;
+      the `reader` role for the user, and the review goes on;
     - the project exists and the user holds `projects.autojoin`: the user **joins** it at once
-      (`joined`, project group, reading only), unless a user with `projects.create` has
+      (`joined`, `reader` role, reading only), unless a user with `projects.create` has
       [blocked its autojoin](../../usage/projects.md#blocking-the-autojoin), and the review
       goes on. A user reads at most 200 projects this way;
     - otherwise the answer is `requested`, and the agent stops before reviewing, so that no
@@ -231,7 +231,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    rejects the request in the **Pending projects** section of the **Projects** page, where
    each request is marked **New project** or **Access request**, or from the CLI (`existing`:
    `true` for an access request). Approving an access request also takes `users.manage`, as
-   adding a member to a group does: `projects.create` alone never opens an existing project.
+   giving a role does: `projects.create` alone never opens an existing project.
 
     ```bash
     security-review-controller project list          # requester, address, expiry
@@ -239,8 +239,8 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
     security-review-controller project reject 4
     ```
 
-    The approval adds the **requester** to the project group `project:<project>` (see
-    [access control](../../usage/projects.md#project-group)), created for a new project: their
+    The approval gives the **requester** the `reader` role on the project (see
+    [members](../../usage/projects.md#members)), created for a new project: their
     personal token reaches the project from the next request, without reconfiguration. A
     request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)
     is deleted.

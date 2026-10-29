@@ -231,7 +231,7 @@ injectées ([injection de prompt](../reference/security.md#securite-du-serveur-l
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
   remplace la précédente. Elle est écrite dans le [journal d'audit](../usage/audit-metrics.md),
   comme la décision qui suit.
-- Une personne qui a le rôle `triager` ou `admin` l'applique ou la rejette dans
+- Une personne qui a la permission `findings.triage` sur le projet l'applique ou la rejette dans
   l'[interface web](../usage/triage.md). `accepted` et `false_positive`
   exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir
   de cette date, le finding est de nouveau compté comme ouvert.

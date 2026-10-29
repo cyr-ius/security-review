@@ -93,7 +93,7 @@ Les autres commandes de `security-review-controller` s'exécutent là où tourne
 |---|---|
 | `db` | migrer le schéma, afficher sa révision, purger des rapports |
 | `token` | créer, lister, renouveler et révoquer les jetons ([Jetons Bearer](../bearer-tokens.md)) |
-| `user`, `group` | comptes de l'interface web et leurs groupes ([Gérer les comptes](#gerer-les-comptes)) |
+| `user`, `role` | comptes de l'interface web et leurs rôles, rôles et correspondances OIDC ([Gérer les comptes](#gerer-les-comptes)) |
 | `project` | valider ou refuser les projets demandés par les agents MCP des utilisateurs ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | `rules` | importer et exporter les [règles](../../review/rules.md) internes et les checklists |
 | `advisories` | importer ou télécharger la [base OSV](../../review/analysis/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
@@ -111,25 +111,26 @@ chiffres et `. _ @ -`, 64 caractères au plus ; le type d'un compte est son `aut
 (`local` ou `oidc`).
 
 ```bash
-security-review-controller user create alice --group shop-triagers
-# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
+security-review-controller user create alice --project shop=Triager
+# {"id": 2, "username": "alice", "auth_source": "local", "roles": [], "projects": [{"project": "shop", "role_id": 3, "role": "Triager"}], "oidc_roles": [], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso   # groupes OIDC uniquement
+security-review-controller user create carol@example.com --sso   # correspondances OIDC uniquement
 security-review-controller user list
-security-review-controller user set-groups alice --group readers --group auditors
-security-review-controller user set-groups alice --group administrators   # créé s'il manque
+security-review-controller user set-access alice --role Auditor --project shop --project crm=Triager
+security-review-controller user set-access alice --role admin   # restaure un administrateur
 security-review-controller user reset-password alice   # compte local : nouveau mot de passe, sessions fermées
 security-review-controller user delete alice
-security-review-controller group list    # groupes, leurs rôles et leurs membres
+security-review-controller role list       # rôles et leurs permissions
+security-review-controller role mappings   # correspondances OIDC
 ```
 
-Par l'API, un compte OIDC se crée avec `"auth_source": "oidc"`, sans `password` ; `group_ids`
-liste ses groupes :
+Par l'API, un compte OIDC se crée avec `"auth_source": "oidc"`, sans `password` ; `role_ids` et
+`projects` listent ses rôles sur tous les projets et sur des projets :
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "projects": [{"project": "shop", "role_id": 1}]}'
 ```
 
 Un compte OIDC est aussi créé à sa première connexion avec
@@ -159,7 +160,7 @@ Les variables de l'interface sont dans la
 ## Premier administrateur
 
 À son premier démarrage, tant qu'aucun compte n'existe, le serveur Controller crée le compte local
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), membre du groupe `administrators` (rôle `admin`),
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), avec le rôle `admin` sur tous les projets,
 avec un mot de passe aléatoire que personne ne connaît et qui n'est jamais écrit dans les
 journaux. Le seul moyen d'obtenir un mot de passe est la CLI, qui en définit un nouveau et
 l'affiche une fois :
@@ -213,7 +214,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ```
 
 Un compte OIDC n'a pas de mot de passe (code de sortie `2`). S'il ne reste aucun administrateur,
-créez-en un avec `security-review-controller user create NAME --group administrators` (mot de
+créez-en un avec `security-review-controller user create NAME --role admin` (mot de
 passe généré, affiché de la même façon) : le compte `admin` n'est créé au démarrage que tant
 qu'aucun compte n'existe.
 
@@ -238,8 +239,8 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 Chaque session désigne un compte (local ou OIDC) ; à chaque requête, le serveur Controller le relit en
 base :
 
-- un changement de ses **groupes**, de leurs rôles ou d'un rôle s'applique immédiatement aux
-  sessions ouvertes ;
+- un changement de ses **rôles**, d'un rôle ou des correspondances OIDC s'applique immédiatement
+  aux sessions ouvertes ;
 - une **suppression** ou un **nouveau mot de passe** (changé par l'utilisateur ou réinitialisé
   par un administrateur) ferme toutes les sessions du compte ; `PUT /api/v1/me/password` remet une
   nouvelle session à l'onglet qui a changé le mot de passe ;

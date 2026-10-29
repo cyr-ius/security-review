@@ -90,7 +90,7 @@ The other commands of `security-review-controller` run where the Controller serv
 |---|---|
 | `db` | migrate the schema, show its revision, purge reports |
 | `token` | create, list, rotate and revoke the tokens ([Bearer tokens](../bearer-tokens.md)) |
-| `user`, `group` | accounts of the web interface and their groups ([Managing the accounts](#managing-the-accounts)) |
+| `user`, `role` | accounts of the web interface and their roles, roles and OIDC mappings ([Managing the accounts](#managing-the-accounts)) |
 | `project` | approve or reject the projects requested by the MCP agents of users ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | `rules` | import and export the internal [rules](../../review/rules.md) and checklists |
 | `advisories` | import or download the [OSV database](../../review/analysis/dependencies.md#offline-vulnerability-database-osv-format) |
@@ -108,25 +108,26 @@ The [user accounts](../../usage/user-accounts.md) are managed on the **Users** p
 `oidc`).
 
 ```bash
-security-review-controller user create alice --group shop-triagers
-# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
+security-review-controller user create alice --project shop=Triager
+# {"id": 2, "username": "alice", "auth_source": "local", "roles": [], "projects": [{"project": "shop", "role_id": 3, "role": "Triager"}], "oidc_roles": [], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso   # OIDC groups only
+security-review-controller user create carol@example.com --sso   # OIDC mappings only
 security-review-controller user list
-security-review-controller user set-groups alice --group readers --group auditors
-security-review-controller user set-groups alice --group administrators   # created if missing
+security-review-controller user set-access alice --role Auditor --project shop --project crm=Triager
+security-review-controller user set-access alice --role admin   # restores an administrator
 security-review-controller user reset-password alice   # local account: new password, sessions closed
 security-review-controller user delete alice
-security-review-controller group list    # groups, their roles and members
+security-review-controller role list       # roles and their permissions
+security-review-controller role mappings   # OIDC mappings
 ```
 
 Through the API, an OIDC account is created with `"auth_source": "oidc"`, without `password`;
-`group_ids` lists its groups:
+`role_ids` and `projects` list its roles on every project and on projects:
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "projects": [{"project": "shop", "role_id": 1}]}'
 ```
 
 An OIDC account is also created at its first login with `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`
@@ -155,7 +156,7 @@ The variables of the interface are in the
 ## First administrator
 
 At its first start, while no account exists, the Controller server creates the local account
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), member of the `administrators` group (`admin` role),
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), with the `admin` role on every project,
 with a random password that nobody knows and that is never written to the logs. The only way to
 a password is the CLI, which sets a new one and prints it once:
 
@@ -206,7 +207,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ```
 
 An OIDC account has no password (exit code `2`). If no administrator is left, create one with
-`security-review-controller user create NAME --group administrators` (generated password, printed
+`security-review-controller user create NAME --role admin` (generated password, printed
 the same way): the `admin` account is only created at start-up while no account exists.
 
 ## Login and sessions
@@ -230,7 +231,7 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 Every session names an account (local or OIDC); at every request, the Controller server reads it again
 from the database:
 
-- a change of its **groups**, of their roles or of a role applies immediately to the open
+- a change of its **roles**, of a role or of the OIDC mappings applies immediately to the open
   sessions;
 - a **deletion** or a **new password** (changed by the user or reset by an administrator)
   closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab

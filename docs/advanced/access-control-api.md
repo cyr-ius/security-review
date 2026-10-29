@@ -1,64 +1,71 @@
 # Access control through the REST API
 
-The [roles, groups and permissions](../usage/access-control.md) and the
+The [roles and permissions](../usage/access-control.md) and the
 [projects](../usage/projects.md) pages describe the model in the web interface. This page gives
 the limits, the detailed rules and the REST API calls (`users.manage` permission for the roles,
-groups and users).
+the roles of the users, the members of the projects and the OIDC mappings).
 
 ## Limits
 
 | Element | Limit |
 |---|---|
 | Roles created by the administrators | 100 at most |
-| Name of a group | 200 characters at most |
-| Projects of a role in a group | 50 at most, only for a role made of per-project permissions (`reports.read`, `findings.triage`); a role holding a permission on the whole Controller server always applies to every project |
-| Projects of a permission for a user | 200 at most, union of its groups: beyond that, the account has no access |
+| Roles of a user on every project | 100 at most |
+| Projects on which a user holds roles | 200 at most; beyond that (with the OIDC mappings), the account has no access |
+| Members set at once on a project | 500 at most |
+| OIDC mappings | 500 at most, each value of the claim 200 characters at most and each mapping 50 projects at most |
 
-`users.manage` also covers the OIDC settings, since they decide who joins which group. The
-`admin` role is also given to the groups named by `SECREVIEW_OIDC_ADMIN_GROUPS`
-([OIDC](oidc.md)). A new group is not open to OIDC unless asked (`"sso": true`); the
-values of the groups claim that name no group are ignored.
+A role given **on every project** applies all its permissions everywhere. A role given **on a
+project** only applies its per-project permissions (`reports.read`, `findings.triage`) there: a
+role without any of them is refused on a project, and a role given on projects must keep one of
+them. Only a known project receives a role (`404` otherwise).
 
-## Roles, groups and users
+`users.manage` also covers the OIDC settings, since they decide who gets which role. The
+`admin` role is also given by a mapping created at the first login of a user who holds a value of
+`SECREVIEW_OIDC_ADMIN_GROUPS` ([OIDC](oidc.md)); a mapping that already names this value is left
+as an administrator changed it. The values of the roles claim that no mapping names are ignored.
+
+## Roles and users
 
 ```bash
-# A role and a group that gives it on the "billing" project, open to OIDC
+# A role, then a user with it on the "billing" project and the reader role on every project
 curl -X POST https://secreview.example.com/api/v1/roles \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "Auditor", "description": "Reads the log", "permissions": ["audit.read", "reports.read"]}'
-curl -X POST https://secreview.example.com/api/v1/groups \
+  -d '{"name": "Triager", "description": "", "permissions": ["findings.triage", "reports.read"]}'
+curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "payments-team", "description": "", "sso": true}'
-curl -X PUT https://secreview.example.com/api/v1/groups/4/roles \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"roles": [{"role_id": 2, "projects": ["billing"]}]}'
-curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"user_ids": [7, 9]}'
-# The local groups of account 7 (its OIDC groups are kept)
+  -d '{"username": "alice", "role_ids": [2], "projects": [{"project": "billing", "role_id": 3}]}'
+# Replace the roles of account 7 on projects only (its roles on every project are kept)
 curl -X PUT https://secreview.example.com/api/v1/users/7 \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"group_ids": [4]}'
+  -d '{"projects": [{"project": "billing", "role_id": 2}, {"project": "crm", "role_id": 2}]}'
 ```
 
 | Route | Effect |
 |---|---|
-| `GET /api/v1/permissions` | Permissions a role may hold, and whether they can be limited to projects |
-| `GET`, `POST /api/v1/roles`; `PUT`, `DELETE /api/v1/roles/{id}` | Roles |
-| `GET`, `POST /api/v1/groups`; `PUT`, `DELETE /api/v1/groups/{id}` | Groups (`GET` also returns the OIDC settings that use them) |
-| `PUT /api/v1/groups/{id}/roles` | Replaces the roles of a group |
-| `PUT /api/v1/groups/{id}/members` | Replaces the local members of a group (OIDC members are kept) |
-| `POST /api/v1/users` | Creates a user, member of the groups `group_ids` |
-| `PUT /api/v1/users/{id}` | Replaces the local groups (`group_ids`) of a user; a missing field is left unchanged |
+| `GET /api/v1/permissions` | Permissions a role may hold, and whether they apply per project |
+| `GET`, `POST /api/v1/roles`; `PUT`, `DELETE /api/v1/roles/{id}` | Roles, with the number of users and OIDC mappings that give each one |
+| `POST /api/v1/users` | Creates a user with its roles on every project (`role_ids`) and on projects (`projects`) |
+| `PUT /api/v1/users/{id}` | Replaces the roles of a user on every project (`role_ids`) and on projects (`projects`); a missing field is left unchanged, the roles of its OIDC mappings are kept |
+| `GET /api/v1/access/projects?search=&limit=` | Known projects whose name contains `search` (every project, also those the caller does not read), 200 at most |
+| `GET`, `PUT /api/v1/access/projects/{project}/members` | Roles of the users on a project (their roles on every project and those of the OIDC mappings are not listed) |
+| `GET`, `PUT /api/v1/oidc/mappings` | OIDC mappings, replaced all at once ([OIDC](oidc.md#oidc-mappings)) |
 
-A `roles` field in the body of these two routes is refused (`422`): an account has no role of its
-own. The built-in roles `reader` and `admin` can be neither changed nor deleted; deleting another
-role removes it from its groups.
+An unknown field (such as the former `group_ids`) is refused (`422`). The built-in roles
+`reader` and `admin` can be neither changed nor deleted; deleting another role removes it from
+the users and the OIDC mappings that give it (a role used by a token cannot be deleted).
 
-Every change is written to the [audit log](audit-log.md) (`role.*`, `group.*`,
-`user.groups_changed`). From the CLI, `security-review-controller user set-groups` changes the
-groups of an account, and `security-review-controller group list` / `group roles` lists the
-groups and the roles (see [CLI](../reference/cli.md#security-review-controller)).
+```bash
+curl -X PUT https://secreview.example.com/api/v1/access/projects/billing/members \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"members": [{"user_id": 7, "role_id": 1}, {"user_id": 9, "role_id": 2}]}'
+```
+
+Every change is written to the [audit log](audit-log.md) (`role.*`, `user.roles_changed`,
+`user.projects_changed`, `oidc.mappings_changed`). From the CLI,
+`security-review-controller user set-access` changes the roles of an account, and
+`security-review-controller role list` / `role mappings` lists the roles and the OIDC mappings
+(see [CLI](../reference/cli.md#security-review-controller)).
 
 ## Permissions of the caller
 
@@ -74,30 +81,34 @@ pipeline scans) refuse it.
 ```
 
 An account without any permission cannot log in, and its open sessions stop. Removing the last
-holder of `users.manage` (deleting its account, its group, the role of its group or the
-permission of its role) is refused with `409` or `422`; an OIDC login that removes it from its
-OIDC group is not blocked.
+holder of `users.manage` (deleting its account, its roles, the permission of its role or the
+OIDC mapping that gives it) is refused with `409` or `422`. An OIDC login never removes it: the
+values of the claim that gave it are kept, with a warning in the logs and a
+`user.roles_changed` event.
 
 ## Projects
 
-### Project groups
+### Known projects
 
-The **project group** of a project is a group not open to OIDC whose only role is `reader` on
-that project alone. The approval of a project requested by an agent
-([enrollment](architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) adds the requesting
-user to it (creating it for a new project; for an existing project, the request is an access
-request, which only a user holding `users.manage` approves), and creating a project creates it
-with its creator. An existing group of this kind is reused (even one made by an administrator,
-whatever its name); otherwise the group `project:<project>` is created (with a number, such as
-`project:shop (2)`, when another group already has this name). See also
+A project is known once it has a row in the database: created by its first report, a token that
+reaches it, an approval or a creation in the web interface. A pending request does not make a
+project known.
+
+### Roles on a project
+
+The approval of a project requested by an agent
+([enrollment](architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) gives
+the requesting user the `reader` role on it (creating the project when new; for an existing
+project, the request is an access request, which only a user holding `users.manage` approves),
+and creating a project gives it to its creator. See also
 [project read access](../usage/sso.md#project-read-access).
 
 ### Creating a project
 
 `POST /api/v1/projects` creates a project, from a session of the web interface only. The only
 token that creates a project is the personal MCP token of a user holding `projects.create`,
-through the `request_project` tool of its agent. The Controller server adds the account to the project
-group as a local member.
+through the `request_project` tool of its agent. The Controller server gives the account the
+`reader` role on the project.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -105,15 +116,14 @@ curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/j
 # {"project": "mobile-app", "reports_total": 0, "last_report_at": null, …}
 ```
 
-A name that already has a report, that a role of a group names (an approved project included),
-or that a token reaches is refused (`409`). A project still pending is not known yet: creating
-it settles the creator's own request (the requests of other users become access requests). Each
+A known project is refused (`409`). A project still pending is not known yet: creating it
+settles the creator's own request (the requests of other users become access requests). Each
 creation is written to the audit log (`project.created`).
 
 ### Autojoin of a project
 
 A user holding `projects.autojoin` joins an existing project through the `request_project`
-tool of its agent: the Controller server adds the account to the project group (reading only),
+tool of its agent: the Controller server gives the account the `reader` role on the project,
 settles its pending request of the project and writes `project.joined` to the audit log. A
 user who already reads 200 projects is refused. `PUT /api/v1/projects/{project}/autojoin`
 blocks (`true`) or allows again (`false`) this autojoin, with `projects.create`, from a session
@@ -134,18 +144,19 @@ curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/js
 a token never deletes a project. The deletion runs in one transaction:
 
 - its reports, with their findings and the comments of those findings;
-- the project in the roles of the groups: a role left without project is removed (never left
-  reaching every project), and a project group left without role is deleted with its members;
-  any other group is kept;
+- the roles of the users on the project;
+- the project in the OIDC mappings: a mapping left without project is deleted (never left
+  reaching every project);
 - the project in the tokens: a token that reaches no other project is revoked (never left
   reaching every project), the others keep their other projects.
 
 ```bash
 curl -X DELETE -H "Authorization: Bearer $SESSION" \
   https://secreview.example.com/api/v1/projects/mobile-app
-# {"project": "mobile-app", "reports": 3, "findings": 12, "groups_deleted": ["project:mobile-app"], …}
+# {"project": "mobile-app", "reports": 3, "findings": 12, "members_removed": 2, "mappings_changed": [], …}
 ```
 
 The audit log keeps the events of the project and records `project.deleted`, with the counts in
-its details; each group and token changed or deleted has its own event (`group.deleted`,
-`group.roles_changed`, `token.revoked`, `token.projects_changed`). An unknown project gives `404`.
+its details; the OIDC mappings and the tokens changed or deleted have their own events
+(`oidc.mappings_changed`, `token.revoked`, `token.projects_changed`). An unknown project gives
+`404`.

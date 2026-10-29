@@ -48,6 +48,10 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
 - On PostgreSQL, a migration takes an advisory lock: instances that start together (several
   replicas, a `db upgrade` run by hand) wait for each other, and the next one finds the schema
   up to date.
+- Version 10 (revision `0039`) moves the groups of web users to roles of the users and OIDC
+  mappings, keeping the rights of each account, and deletes the `triager` and `mcp-user` roles
+  (the API tokens of these roles are revoked). It **cannot be downgraded**: back up the database
+  before upgrading.
 
 ### Dedicated migration job
 
