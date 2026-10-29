@@ -35,7 +35,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
 | `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |
 | `audit_syslog.changed` | Le [serveur syslog](#envoi-vers-syslog) est modifié sur la page **Journal d'audit** (adresse et *facility* définies, `null` : valeur enregistrée supprimée) |
-| `controller_url.changed` | L'URL publique du serveur Controller, dont l'interface web est donnée aux agents sans jeton, est modifiée dans l'écran **Général**, ou recopiée depuis `SECREVIEW_CONTROLLER_URL` par le serveur Controller au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
+| `controller_url.changed` | L'URL publique du serveur Controller, dont l'interface web est donnée aux agents sans jeton, est modifiée dans l'écran **Général**, ou recopiée depuis `SECREVIEW_PUBLIC_URL` par le serveur Controller au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
 | `oauth.client_registered` | Un client MCP s'enregistre pour la [connexion OAuth](mcp-oauth.md) (acteur `anonymous`, nom du client) |
 | `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur l'écran **Connecter un client MCP** |
 | `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, par le client (`/revoke`), ou avec son utilisateur |

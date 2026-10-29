@@ -3,7 +3,7 @@
 A stored value applies when its variable is not set, for both processes since they share the
 database: the language of the review reports (read by the MCP server when it builds a review
 prompt), the public URL of the controller (read by the MCP server for the clients without a
-token, and by the connectors; SECREVIEW_CONTROLLER_URL set on the controller is copied here at
+token, and by the connectors; SECREVIEW_PUBLIC_URL set on the controller is copied here at
 start, see sync_controller_url; the MCP server reads it there only), the OAuth login of the MCP
 clients (see set_mcp_oauth), the proxy of the outgoing connections, the single sign-on settings
 and the syslog server of the audit log (read by the controller, see effective_settings). A
@@ -51,7 +51,7 @@ MCP_URL = "mcp_url"
 # Key stored ("false") while SECREVIEW_PERSONAL_MCP_TOKENS is false (see sync_personal_mcp_tokens):
 # the MCP server then no longer tells a client without a valid token to create one
 PERSONAL_MCP_TOKENS = "personal_mcp_tokens"
-# Author of the URL copied from SECREVIEW_CONTROLLER_URL by the controller (see
+# Author of the URL copied from SECREVIEW_PUBLIC_URL by the controller (see
 # sync_controller_url)
 ENV_ACTOR = "environment"
 # Keys of the proxy settings, also the names of their Settings fields. A stored proxy "" means a
@@ -66,7 +66,7 @@ SYSLOG_FACILITY = "audit_syslog_facility"
 def env_set(settings: Settings, field: str) -> bool:
     """True when the variable of a Settings field is set (environment or ``.env`` file): it then
     wins over the value stored in the web interface. An empty proxy or syslog address variable
-    counts as unset, as an empty SECREVIEW_CONTROLLER_URL."""
+    counts as unset, as an empty SECREVIEW_PUBLIC_URL."""
     if field in (PROXY, NO_PROXY, SYSLOG_ADDRESS, CONTROLLER_URL, MCP_URL):
         return getattr(settings, field) is not None
     return field in settings.model_fields_set
@@ -142,10 +142,10 @@ def set_report_language(
 
 
 def controller_url() -> str | None:
-    """Public root URL of the controller as stored: copied from SECREVIEW_CONTROLLER_URL by the
+    """Public root URL of the controller as stored: copied from SECREVIEW_PUBLIC_URL by the
     controller at start, or set in the web interface; None when unknown.
 
-    The MCP server reads it here only: its own SECREVIEW_CONTROLLER_URL is ignored.
+    The MCP server reads it here only: its own SECREVIEW_PUBLIC_URL is ignored.
     """
     with session_scope() as session:
         row = session.get(AppSetting, CONTROLLER_URL)
@@ -180,14 +180,14 @@ def set_controller_url(value: str | None, actor: str, settings: Settings | None 
 
     Raises:
         ValueError: If the value is not an http(s) root URL without credentials, or if
-            SECREVIEW_CONTROLLER_URL is set on the controller (it is copied at start).
+            SECREVIEW_PUBLIC_URL is set on the controller (it is copied at start).
     """
-    _check_not_env(settings or get_settings(), CONTROLLER_URL, "SECREVIEW_CONTROLLER_URL")
+    _check_not_env(settings or get_settings(), CONTROLLER_URL, "SECREVIEW_PUBLIC_URL")
     _store_controller_url(check_controller_url(value), actor)
 
 
 def sync_controller_url(settings: Settings | None = None) -> None:
-    """Copy SECREVIEW_CONTROLLER_URL, when set, to the database (controller start): the MCP
+    """Copy SECREVIEW_PUBLIC_URL, when set, to the database (controller start): the MCP
     server then reads it there and needs no variable. Unset: the stored value is kept."""
     settings = settings or get_settings()
     if env_set(settings, CONTROLLER_URL):
@@ -230,7 +230,7 @@ def _oauth_resource_of(effective: Settings) -> str | None:
     if controller_url() is None:
         raise ValueError(
             "the OAuth login of the MCP clients needs the public URL of the controller: set "
-            "SECREVIEW_CONTROLLER_URL or the Controller server address in the settings"
+            "SECREVIEW_PUBLIC_URL or the Controller server address in the settings"
         )
     return effective.mcp_url
 

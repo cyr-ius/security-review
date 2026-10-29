@@ -35,7 +35,7 @@ exists exactly when the change was committed.
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
 | `user.logout` | A web user logs out with **Log out** (address) |
 | `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
-| `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** screen, or copied from `SECREVIEW_CONTROLLER_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
+| `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** screen, or copied from `SECREVIEW_PUBLIC_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** screen |
 | `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, by the client (`/revoke`), or with its user |

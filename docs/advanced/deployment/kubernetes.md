@@ -129,13 +129,13 @@ to `secreview-mcp`, everything else to `secreview-controller`.
 
 Then, in the ConfigMap:
 
-- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the Controller server (`https://…`), or
+- set `SECREVIEW_PUBLIC_URL` to the public root URL of the Controller server (`https://…`), or
   fill in the **General** screen: the MCP server gives its web interface (`/ui`) to the clients
   without a valid token, so that the user knows where to create
   a personal MCP token;
 - to let the MCP hosts sign in through the browser instead of a personal MCP token, set
   `SECREVIEW_MCP_OAUTH_ENABLED` and `SECREVIEW_MCP_URL` (public URL of `/mcp`), with
-  `SECREVIEW_CONTROLLER_URL` in `https` (see [OAuth login of MCP clients](../mcp-oauth.md));
+  `SECREVIEW_PUBLIC_URL` in `https` (see [OAuth login of MCP clients](../mcp-oauth.md));
 - set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address range of the ingress controller pods:
   otherwise every client shares their address for the login throttling, the rate limit and the
   audit log.

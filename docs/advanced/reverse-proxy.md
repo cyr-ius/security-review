@@ -23,7 +23,7 @@ never from the `Host` header: they must be those of the proxy, as seen from the 
 
 | Variable (Controller server) | One host per process | Single host |
 |---|---|---|
-| `SECREVIEW_CONTROLLER_URL` | `https://secreview.example.com` | `https://secreview.example.com` |
+| `SECREVIEW_PUBLIC_URL` | `https://secreview.example.com` | `https://secreview.example.com` |
 | `SECREVIEW_MCP_URL` (OAuth login) | `https://mcp.secreview.example.com/mcp` | `https://secreview.example.com/mcp` |
 
 The hosts then use the same address as `SECREVIEW_MCP_URL`.
@@ -188,5 +188,5 @@ curl -si -X POST https://secreview.example.com/mcp | head -1                    
 curl -s https://secreview.example.com/api/health                                 # {"status":"ok"}
 ```
 
-The `issuer` of the second answer must be `SECREVIEW_CONTROLLER_URL` exactly, and the
+The `issuer` of the second answer must be `SECREVIEW_PUBLIC_URL` exactly, and the
 `authorization_servers` of the first one the same URL.

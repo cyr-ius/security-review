@@ -72,7 +72,7 @@ Good to know:
   (uncomment `SECREVIEW_MCP_OAUTH_ENABLED` and `SECREVIEW_MCP_URL` in `controller`; behind a
   single reverse proxy host, route `/mcp` and `/.well-known/oauth-protected-resource` to `mcp`,
   everything else to `controller`).
-  Add to `.env` the public root URL of the Controller server (`SECREVIEW_CONTROLLER_URL=https://…`):
+  Add to `.env` the public root URL of the Controller server (`SECREVIEW_PUBLIC_URL=https://…`):
   the Controller server copies it to the database at start, so that the MCP server gives the link of
   the web interface (`/ui`) to an agent without a token, and the connectors link their tickets to the reports. Without it, set
   it in the **General** screen.

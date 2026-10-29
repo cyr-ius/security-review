@@ -33,7 +33,7 @@ If you would rather not use the web interface, here are the environment variable
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
 SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # public URL of the MCP endpoint
-SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http on localhost only)
+SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http on localhost only)
 ```
 
 Whatever the method used, the MCP server picks up the changes (within 30 seconds).
@@ -155,7 +155,7 @@ Registrations (`oauth.client_registered`), approvals (`oauth.grant_approved`), r
 | Symptom | Cause |
 |---|---|
 | The host still shows the enrollment server | OAuth off on the Controller server, or the MCP server has not read the setting yet (30 seconds) |
-| The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` missing |
+| The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` missing |
 | The Controller server does not start: `Issuer URL must be HTTPS` | Controller server URL in `http://` outside localhost |
 | `invalid_redirect_uri` at registration, or VS Code asks for a client ID ("Dynamic client registration not supported") | no redirect URI on the loopback interface: add its host to `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) or its scheme to `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` back in the host | the host asks for a resource other than `SECREVIEW_MCP_URL`: check that this URL is the one configured in the host |

@@ -1155,7 +1155,7 @@ class ReportLanguageUpdate(BaseModel):
 class ControllerUrlUpdate(BaseModel):
     """Body of PUT /settings/controller-url: public root URL of the controller, whose web
     interface (/ui) the MCP server gives to the clients without a valid token; null or ""
-    removes the stored value. Refused (422) when SECREVIEW_CONTROLLER_URL is set on the
+    removes the stored value. Refused (422) when SECREVIEW_PUBLIC_URL is set on the
     controller: the variable takes precedence."""
 
     value: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)

@@ -93,7 +93,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    tool**, whose prompts are named like the reviews (`security-review`, `codebase-review`…).
    They tell the user to sign in to the web interface (its URL comes from
    the database, where the Controller server copies its
-   [`SECREVIEW_CONTROLLER_URL`](../../reference/configuration.md#web-interface-and-sessions), followed by `/ui`, or the
+   [`SECREVIEW_PUBLIC_URL`](../../reference/configuration.md#web-interface-and-sessions), followed by `/ui`, or the
    **General** screen stores it; read again at most every 30 seconds; none: no
    link), to create a
    **personal MCP token** in **My account** (see

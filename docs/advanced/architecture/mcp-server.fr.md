@@ -94,7 +94,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
    outil**, dont les prompts sont nommés comme les revues (`security-review`,
    `codebase-review`…). Ils invitent l'utilisateur à se connecter à l'interface web (son URL
    vient de la base, où le serveur Controller recopie sa
-   [`SECREVIEW_CONTROLLER_URL`](../../reference/configuration.md#interface-web-et-sessions), suivie de `/ui`, ou l'écran
+   [`SECREVIEW_PUBLIC_URL`](../../reference/configuration.md#interface-web-et-sessions), suivie de `/ui`, ou l'écran
    **Général** l'enregistre ; relue au plus toutes les 30 secondes ; aucune :
    pas de lien), à créer un
    **jeton MCP personnel** dans **Mon compte** (voir

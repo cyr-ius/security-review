@@ -68,7 +68,7 @@ Read by `security-review-controller` only.
 |---|---|---|
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../advanced/architecture/controller.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; unset: a random secret at every start (sessions end at restart) |
-| `SECREVIEW_CONTROLLER_URL` | — | Public root URL of the Controller server (`https://…`, without `/ui`), the same as for [`security-review-ci`](#clients). Copied to the database at each start; the MCP server reads it there (it ignores its own variable) and gives the address of the web interface (`/ui`) to the clients without a valid token (instructions and prompts of the enrollment server, `401` of `/mcp`), so that the user knows where to sign in and create a personal MCP token; the connectors use it for their links. Unset, it is set in the [**General**](../usage/index.md#screens) screen; without any, no link is given |
+| `SECREVIEW_PUBLIC_URL` | — | Public root URL of the Controller server (`https://…`, without `/ui`), often the same address as `SECREVIEW_CONTROLLER_URL` of [`security-review-ci`](#clients). Copied to the database at each start; the MCP server reads it there (it ignores its own variable) and gives the address of the web interface (`/ui`) to the clients without a valid token (instructions and prompts of the enrollment server, `401` of `/mcp`), so that the user knows where to sign in and create a personal MCP token; the connectors use it for their links. Unset, it is set in the [**General**](../usage/index.md#screens) screen; without any, no link is given. `SECREVIEW_CONTROLLER_URL`, its former name, is still read by the Controller server when it is not set, with a warning |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_WEB_UI` | `true` | Serves the [web interface](../usage/index.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the web interface |
@@ -108,7 +108,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Enables the [OAuth login of the MCP clients](../advanced/mcp-oauth.md): the Controller server becomes their authorization server (routes `/authorize`, `/token`, `/register`, `/revoke` at the root of `SECREVIEW_CONTROLLER_URL`, which must be set, in https outside localhost) and the MCP server sends a client without a token to it. Unset, an administrator may turn it on in the web interface (**Tokens** screen) |
+| `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Enables the [OAuth login of the MCP clients](../advanced/mcp-oauth.md): the Controller server becomes their authorization server (routes `/authorize`, `/token`, `/register`, `/revoke` at the root of `SECREVIEW_PUBLIC_URL`, which must be set, in https outside localhost) and the MCP server sends a client without a token to it. Unset, an administrator may turn it on in the web interface (**Tokens** screen) |
 | `SECREVIEW_MCP_URL` | — | Public URL of the MCP endpoint (`https://…/mcp`, ASCII: punycode for a non-ASCII host), required with OAuth: the resource of the tokens. Stored in the database at start, where the MCP server reads it. Unset, it may be entered in the web interface (**Tokens** screen) |
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Lifetime of an access token (5 to 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Lifetime of a refresh token (1 to 365 days), extended at each refresh; `SECREVIEW_TOKEN_MAX_DAYS`, when set, bounds the whole grant from its approval |
@@ -184,7 +184,7 @@ Read by the pipeline client `security-review-ci` (`SECREVIEW_CI_TOKEN` never by 
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_CI_TOKEN` | — | Bearer token sent by [`security-review-ci`](../advanced/architecture/ci.md) to the Controller server (`ci` token, personal or not); never used by the servers. `SECREVIEW_TOKEN`, its former name, is still read when it is not set, with a warning |
-| `SECREVIEW_CONTROLLER_URL` | — | URL of the Controller server used by [`security-review-ci`](../advanced/architecture/ci.md) (default of `--url`); read from the environment only, never from `.env`. The Controller server reads the same variable for [its public URL](#web-interface-and-sessions) |
+| `SECREVIEW_CONTROLLER_URL` | — | URL of the Controller server used by [`security-review-ci`](../advanced/architecture/ci.md) (default of `--url`); read from the environment only, never from `.env`. The Controller server has its own variable for [its public URL](#web-interface-and-sessions), `SECREVIEW_PUBLIC_URL` |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see

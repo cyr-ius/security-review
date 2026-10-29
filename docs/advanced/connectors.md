@@ -48,7 +48,7 @@ record is created. Sending a finding that already has its record returns it.
 
 Every connector receives the same content: a title (`[HIGH] shop-api: SQL injection`), the
 project, severity, location, rule, CWE, OWASP, branch, commit, link to the report (with
-`SECREVIEW_CONTROLLER_URL`), then the description, evidence and recommendation, and the fingerprint of
+`SECREVIEW_PUBLIC_URL`), then the description, evidence and recommendation, and the fingerprint of
 the issue. The texts of the report are masked again (secrets) before they leave. How each field
 lands in the system is described on the page of the connector.
 

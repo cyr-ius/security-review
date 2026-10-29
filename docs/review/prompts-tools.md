@@ -84,11 +84,11 @@ revoked or expired gets a `401` instead, see
 
 | Item | Role |
 |---|---|
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | No argument; tell the user to sign in to the web interface (`SECREVIEW_CONTROLLER_URL` + `/ui`), to create a personal MCP token and to add it to the host configuration, instead of running the review |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | No argument; tell the user to sign in to the web interface (`SECREVIEW_PUBLIC_URL` + `/ui`), to create a personal MCP token and to add it to the host configuration, instead of running the review |
 
 The instructions it sends at connection, shown by the host, give the same steps and the
 address of the web interface, from the URL stored by the Controller server (its
-`SECREVIEW_CONTROLLER_URL`, or the
+`SECREVIEW_PUBLIC_URL`, or the
 [General](../usage/index.md#screens) screen); without it, no link is given.
 
 See [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).

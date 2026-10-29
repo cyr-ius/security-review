@@ -32,7 +32,7 @@ Si vous ne souhaitez pas utiliser l'interface web, voici les variables d'environ
 ```bash
 SECREVIEW_MCP_OAUTH_ENABLED=true
 SECREVIEW_MCP_URL=https://mcp.example.com/mcp          # URL publique du point d'accès MCP
-SECREVIEW_CONTROLLER_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
+SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http sur localhost seulement)
 ```
 
 Quelle que soit la méthode employée, le serveur MCP prend en compte les modifications (sous 30 secondes).
@@ -158,7 +158,7 @@ avec un jeton.
 | Symptôme | Cause |
 |---|---|
 | L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le serveur Controller, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
-| Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_CONTROLLER_URL` manquant |
+| Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` manquant |
 | Le serveur Controller ne démarre pas : `Issuer URL must be HTTPS` | URL du serveur Controller en `http://` hors localhost |
 | `invalid_redirect_uri` à l'enregistrement, ou VS Code demande un ID client (« Enregistrement client dynamique non pris en charge ») | aucune URI de redirection sur l'interface loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
 | `invalid_target` au retour dans l'hôte | l'hôte demande une autre ressource que `SECREVIEW_MCP_URL` : vérifiez que cette URL est celle configurée dans l'hôte |

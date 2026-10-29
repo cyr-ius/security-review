@@ -73,12 +73,12 @@ def test_controller_url_set_on_the_controller_is_copied_for_the_mcp_server(monke
 
     # The variable alone changes nothing (the MCP server ignores it): the controller copies it
     # at start, and it then locks the web interface
-    monkeypatch.setenv("SECREVIEW_CONTROLLER_URL", "https://reviews.example/secreview")
+    monkeypatch.setenv("SECREVIEW_PUBLIC_URL", "https://reviews.example/secreview")
     controller = make_settings()
     assert app_settings.web_url() == "https://secreview.example/ui"
     app_settings.sync_controller_url(controller)
     assert app_settings.web_url() == "https://reviews.example/secreview/ui"
-    with pytest.raises(ValueError, match="SECREVIEW_CONTROLLER_URL is set"):
+    with pytest.raises(ValueError, match="SECREVIEW_PUBLIC_URL is set"):
         app_settings.set_controller_url("https://other.example", "user:alice", controller)
     # Each change is audited, a start without change is not
     app_settings.sync_controller_url(controller)
@@ -94,7 +94,7 @@ def test_controller_url_set_on_the_controller_is_copied_for_the_mcp_server(monke
     ["javascript:alert(1)", "https://bob:pw@evil.example", "https://secreview.example/ui/"],
 )
 def test_controller_url_refuses_what_cannot_be_shown_to_anonymous_clients(value):
-    with pytest.raises(ValueError, match="SECREVIEW_CONTROLLER_URL"):
+    with pytest.raises(ValueError, match="SECREVIEW_PUBLIC_URL"):
         app_settings.set_controller_url(value, "admin", make_settings())
     assert app_settings.web_url() is None
 

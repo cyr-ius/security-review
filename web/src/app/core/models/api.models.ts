@@ -967,10 +967,10 @@ export interface AppSettings {
   };
   /** Public root URL of the controller; its web interface is given to the agents without a token. */
   controller_url: {
-    /** Stored: set here, or copied from SECREVIEW_CONTROLLER_URL by the controller at start. */
+    /** Stored: set here, or copied from SECREVIEW_PUBLIC_URL by the controller at start. */
     value: string | null;
     env: string | null;
-    /** SECREVIEW_CONTROLLER_URL is set on the controller: it takes precedence over this screen. */
+    /** SECREVIEW_PUBLIC_URL is set on the controller: it takes precedence over this screen. */
     env_set: boolean;
     effective: string | null;
   };

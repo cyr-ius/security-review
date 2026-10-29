@@ -68,7 +68,7 @@ Ingress :
 
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur l'adresse du proxy, sinon tous les clients
   partagent son adresse pour la limitation des connexions et la limite de débit ;
-- réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du serveur Controller, sans `/ui` (ou
+- réglez `SECREVIEW_PUBLIC_URL` sur l'URL publique racine du serveur Controller, sans `/ui` (ou
   renseignez l'écran
   **Général**) : le serveur Controller la recopie en base au démarrage et le serveur
   MCP l'y lit, pour qu'un agent sans jeton valide sache où en créer un. Tant qu'elle est

@@ -37,7 +37,10 @@ SN_PASSWORD = "servicenow-test-password"
 
 def make_settings(**values) -> Settings:
     """Settings that ignore the developer's .env file, with the connectors enabled."""
-    defaults = {"connectors_enabled": True, "controller_url": "https://secreview.acme.example"}
+    defaults = {
+        "connectors_enabled": True,
+        "secreview_public_url": "https://secreview.acme.example",
+    }
     return Settings(_env_file=None, **(defaults | values))
 
 

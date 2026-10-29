@@ -50,7 +50,7 @@
   (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
   `secreview_auth_rejections_total` [metric](metrics.md) only counts the
   rejections of the Controller server. The address of the web interface given in that description
-  (`SECREVIEW_CONTROLLER_URL` + `/ui`) is a public URL:
+  (`SECREVIEW_PUBLIC_URL` + `/ui`) is a public URL:
   it holds no credentials (refused at start-up and in the web interface, where each change is
   audited).
 - **OAuth login of the MCP clients** (`SECREVIEW_MCP_OAUTH_ENABLED`, off by default): the

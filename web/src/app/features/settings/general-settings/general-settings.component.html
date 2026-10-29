@@ -125,7 +125,7 @@
             {{ 'settings.variable' | t }}
           </span>
           <span class="ms-1">
-            {{ 'settings.controllerUrlLockedHelp' | t: { variable: 'SECREVIEW_CONTROLLER_URL' } }}
+            {{ 'settings.controllerUrlLockedHelp' | t: { variable: 'SECREVIEW_PUBLIC_URL' } }}
           </span>
           @if (current.controller_url.value !== null) {
             <span class="text-body-secondary ms-1">{{
@@ -136,7 +136,7 @@
               class="btn btn-link btn-sm p-0 ms-1 align-baseline"
               [disabled]="busy()"
               [attr.aria-label]="
-                'settings.controllerUrlDeleteStored' | t: { variable: 'SECREVIEW_CONTROLLER_URL' }
+                'settings.controllerUrlDeleteStored' | t: { variable: 'SECREVIEW_PUBLIC_URL' }
               "
               (click)="deleteStoredControllerUrl()"
             >

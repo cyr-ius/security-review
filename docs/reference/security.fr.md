@@ -51,7 +51,7 @@
   par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
   l'adresse du client) ; la [métrique](metrics.md)
   `secreview_auth_rejections_total` ne compte que les refus du serveur Controller. L'adresse
-  de l'interface web donnée dans cette description (`SECREVIEW_CONTROLLER_URL` + `/ui`) est une
+  de l'interface web donnée dans cette description (`SECREVIEW_PUBLIC_URL` + `/ui`) est une
   URL publique : elle ne contient aucun identifiant
   (refusé au démarrage et dans l'interface web, où chaque modification est auditée).
 - **Connexion OAuth des clients MCP** (`SECREVIEW_MCP_OAUTH_ENABLED`, désactivée par défaut) :
