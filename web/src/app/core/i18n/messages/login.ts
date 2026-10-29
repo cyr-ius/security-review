@@ -32,7 +32,7 @@ export const login = defineMessages({
     'login.passwordTooLong': 'The password is at most 256 characters',
     'login.oidcDenied': 'Login refused or cancelled at the identity provider.',
     'login.oidcForbidden':
-      'Your account has no role on the interface: no role given and no allowed group (reader, triager or admin).',
+      'Your account has no role on the interface: no role given to it and no OIDC mapping of its claim.',
     'login.oidcUnknownUser':
       'Your OIDC account is not created on the interface yet: ask an administrator to add it in Users.',
     'login.oidcConflict':
@@ -45,8 +45,7 @@ export const login = defineMessages({
     'login.oidcProvider': 'Identity provider unreachable or misconfigured.',
     'login.oidcFailed': 'The OIDC login failed.',
     'login.authRequired': 'The authentication of the interface is not configured on this server.',
-    'login.forbidden':
-      'This account has no access to the web interface (role reader, triager or admin required).',
+    'login.forbidden': 'This account has no access to the web interface: it holds no role.',
     'login.expired': 'Session expired or account deleted: log in again.',
     'login.badCredentials': 'Wrong username or password.',
     'login.tooManyAttempts': 'Too many failed attempts: try again in a few minutes.',
@@ -85,7 +84,7 @@ export const login = defineMessages({
     'login.passwordTooLong': 'Le mot de passe ne dépasse pas 256 caractères',
     'login.oidcDenied': "Connexion refusée ou annulée auprès du fournisseur d'identité.",
     'login.oidcForbidden':
-      "Votre compte n'a aucun rôle sur l'interface : ni rôle attribué, ni groupe autorisé (reader, triager ou admin).",
+      "Votre compte n'a aucun rôle sur l'interface : aucun rôle donné, ni correspondance OIDC de son claim.",
     'login.oidcUnknownUser':
       "Votre compte OIDC n'est pas encore créé sur l'interface : demandez à un administrateur de l'ajouter dans Utilisateurs.",
     'login.oidcConflict':
@@ -100,8 +99,7 @@ export const login = defineMessages({
     'login.oidcProvider': "Fournisseur d'identité injoignable ou mal configuré.",
     'login.oidcFailed': 'La connexion par OIDC a échoué.',
     'login.authRequired': "L'authentification de l'interface n'est pas configurée sur ce serveur.",
-    'login.forbidden':
-      "Ce compte n'a pas accès à l'interface web (rôle reader, triager ou admin requis).",
+    'login.forbidden': "Ce compte n'a pas accès à l'interface web : il ne porte aucun rôle.",
     'login.expired': 'Session expirée ou compte supprimé : reconnectez-vous.',
     'login.badCredentials': 'Identifiant ou mot de passe incorrect.',
     'login.tooManyAttempts': 'Trop de tentatives échouées : réessayez dans quelques minutes.',
@@ -141,7 +139,7 @@ export const login = defineMessages({
     'login.passwordTooLong': 'La contraseña tiene como máximo 256 caracteres',
     'login.oidcDenied': 'Inicio de sesión rechazado o cancelado en el proveedor de identidad.',
     'login.oidcForbidden':
-      'Su cuenta no tiene ningún rol en la interfaz: ni rol asignado ni grupo autorizado (reader, triager o admin).',
+      'Su cuenta no tiene ningún rol en la interfaz: ningún rol asignado ni correspondencia OIDC de su claim.',
     'login.oidcUnknownUser':
       'Su cuenta OIDC aún no existe en la interfaz: pida a un administrador que la añada en Usuarios.',
     'login.oidcConflict':
@@ -155,8 +153,7 @@ export const login = defineMessages({
     'login.oidcProvider': 'Proveedor de identidad inaccesible o mal configurado.',
     'login.oidcFailed': 'El inicio de sesión por OIDC ha fallado.',
     'login.authRequired': 'La autenticación de la interfaz no está configurada en este servidor.',
-    'login.forbidden':
-      'Esta cuenta no tiene acceso a la interfaz web (se requiere el rol reader, triager o admin).',
+    'login.forbidden': 'Esta cuenta no tiene acceso a la interfaz web: no tiene ningún rol.',
     'login.expired': 'Sesión caducada o cuenta eliminada: vuelva a iniciar sesión.',
     'login.badCredentials': 'Usuario o contraseña incorrectos.',
     'login.tooManyAttempts': 'Demasiados intentos fallidos: vuelva a intentarlo en unos minutos.',

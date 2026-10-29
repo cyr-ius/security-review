@@ -1,0 +1,140 @@
+<section class="card mb-4" aria-labelledby="project-members-title">
+  <div class="card-body">
+    <h2 id="project-members-title" class="h5">
+      <i class="bi bi-people me-2" aria-hidden="true"></i>{{ 'projectMembers.title' | t }}
+      <app-help-link topic="projectMembers" />
+    </h2>
+    <p class="text-body-secondary small">{{ 'projectMembers.help' | t }}</p>
+
+    @if (error(); as text) {
+      <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+    }
+    @if (message(); as text) {
+      <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+    }
+
+    @if (members.error()) {
+      <div class="alert alert-danger" role="alert">{{ 'projectMembers.loadError' | t }}</div>
+    } @else if (rows().length) {
+      <div class="table-responsive mb-2">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'login.username' | t }}</th>
+              <th scope="col">{{ 'access.role' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.userId + ':' + row.roleId) {
+              <tr>
+                <td class="access-name">{{ username(row.userId) }}</td>
+                <td>
+                  <select
+                    class="form-select form-select-sm w-auto"
+                    [attr.aria-label]="'projectMembers.roleOf' | t: { user: username(row.userId) }"
+                    (change)="changeRole(row, $event)"
+                  >
+                    @for (role of projectRoles(); track role.id) {
+                      <option [value]="role.id" [selected]="role.id === row.roleId">
+                        {{ role.name }}
+                      </option>
+                    }
+                  </select>
+                </td>
+                <td class="text-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [attr.aria-label]="
+                      'projectMembers.removeOf' | t: { user: username(row.userId) }
+                    "
+                    (click)="remove(row)"
+                  >
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (!members.isLoading()) {
+      <p class="text-body-secondary">{{ 'projectMembers.empty' | t }}</p>
+    }
+
+    <div class="border rounded p-2 mb-2">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label small" for="project-members-search">{{
+            'projectMembers.searchUsers' | t
+          }}</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            <input
+              id="project-members-search"
+              type="search"
+              class="form-control"
+              maxlength="64"
+              autocomplete="off"
+              [value]="search()"
+              (input)="onSearch($event)"
+            />
+          </div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small" for="project-members-role">{{ 'access.role' | t }}</label>
+          <select
+            id="project-members-role"
+            class="form-select form-select-sm"
+            (change)="onRole($event)"
+          >
+            @for (role of projectRoles(); track role.id) {
+              <option [value]="role.id" [selected]="role.id === addRole()">{{ role.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary w-100"
+            [disabled]="!picked().length"
+            (click)="add()"
+          >
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+            {{ 'projectMembers.addUsers' | t: { count: picked().length } }}
+          </button>
+        </div>
+      </div>
+      @if (choices().length) {
+        <div class="d-flex flex-wrap gap-3 mt-2">
+          @for (user of choices(); track user.id) {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'project-member-pick-' + user.id"
+                [checked]="picked().includes(user.id)"
+                (change)="togglePick(user.id, $event)"
+              />
+              <label class="form-check-label access-name" [for]="'project-member-pick-' + user.id">
+                {{ user.username }}
+              </label>
+            </div>
+          }
+        </div>
+      } @else if (!users.isLoading()) {
+        <div class="form-text mt-2">{{ 'projectMembers.noUserFound' | t }}</div>
+      }
+    </div>
+
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="busy() || !changed()"
+      (click)="save()"
+    >
+      <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'common.save' | t }}
+    </button>
+  </div>
+</section>

@@ -20,7 +20,7 @@ import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';
 
-type RoleSortKey = 'name' | 'permissions' | 'groups';
+type RoleSortKey = 'name' | 'permissions' | 'usage';
 
 /** Name and description of the role being created or edited. */
 interface RoleFormModel {
@@ -31,8 +31,9 @@ interface RoleFormModel {
 const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
 
 /**
- * Administrator page for the roles: named sets of permissions, given to groups. The system roles
- * (reader, triager, admin) are shown but can be neither changed nor deleted.
+ * Administrator page for the roles: named sets of permissions, given to users (on every project
+ * or on projects) and by the OIDC mappings. The system roles (reader, admin) are shown but can be
+ * neither changed nor deleted.
  */
 @Component({
   selector: 'app-role-list',
@@ -58,7 +59,7 @@ export class RoleListComponent {
   readonly tableSearch = signal('');
   readonly tableSort = new TableSort<RoleSortKey>(
     'roles',
-    ['name', 'permissions', 'groups'],
+    ['name', 'permissions', 'usage'],
     'name',
     'asc',
   );
@@ -104,8 +105,8 @@ export class RoleListComponent {
             .join(', ');
           return compareTableText(leftPermissions, rightPermissions);
         }
-        if (sort === 'groups') {
-          return left.groups - right.groups || compareTableText(left.name, right.name);
+        if (sort === 'usage') {
+          return usage(left) - usage(right) || compareTableText(left.name, right.name);
         }
         return compareTableText(left.name, right.name);
       },
@@ -135,7 +136,7 @@ export class RoleListComponent {
     }
   }
 
-  /** Only scoped permissions: the role may be limited to projects in a group. */
+  /** Only per-project permissions: a token with the role may be limited to projects. */
   readonly scoped = computed(() => {
     const scoped = new Set(
       (this.permissions.value() ?? []).filter((item) => item.scoped).map((item) => item.name),
@@ -198,7 +199,7 @@ export class RoleListComponent {
   async remove(role: AccessRole): Promise<void> {
     const question = this.i18n.translate('roles.confirmDelete', {
       role: role.name,
-      count: role.groups,
+      count: usage(role),
     });
     if (this.busy() || !window.confirm(question)) {
       return;
@@ -224,4 +225,9 @@ export class RoleListComponent {
       this.roles.reload();
     }
   }
+}
+
+/** Users and OIDC mappings that give a role. */
+function usage(role: AccessRole): number {
+  return role.users + role.project_users + role.mappings;
 }

@@ -117,8 +117,8 @@
               <th scope="col" [appSortHeader]="tableSort" sortKey="permissions">
                 {{ 'roles.permissions' | t }}
               </th>
-              <th scope="col" [appSortHeader]="tableSort" sortKey="groups">
-                {{ 'layout.groups' | t }}
+              <th scope="col" [appSortHeader]="tableSort" sortKey="usage">
+                {{ 'roles.givenTo' | t }}
               </th>
               <th scope="col">{{ 'rules.origin' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
@@ -145,7 +145,17 @@
                     }
                   </div>
                 </td>
-                <td>{{ role.groups }}</td>
+                <td class="small text-nowrap">
+                  {{
+                    'roles.usage'
+                      | t
+                        : {
+                            users: role.users,
+                            projects: role.project_users,
+                            mappings: role.mappings,
+                          }
+                  }}
+                </td>
                 <td class="small">
                   {{ role.created_by ?? '—' }}
                   <span class="text-body-secondary">

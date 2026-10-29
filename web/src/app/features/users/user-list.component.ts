@@ -8,10 +8,14 @@ import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
-import { AuthSource, WebUser } from '../../core/models/api.models';
+import { AccessRole, AuthSource, WebUser } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
+import {
+  ProjectRoleDraft,
+  ProjectRolesComponent,
+} from '../../shared/components/project-roles/project-roles.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlFilter,
@@ -39,8 +43,8 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
 /**
  * Administrator page for the web users, the only accounts of the web interface: local users
  * (username and password) and OIDC users (OpenID Connect, created here or at their first login),
- * the groups given to them (the only source of their permissions: an account has no role of its
- * own), password resets and deletion.
+ * the roles given to them on every project and on projects (with the roles of their OIDC
+ * mappings, the only source of their permissions), password resets and deletion.
  */
 @Component({
   selector: 'app-user-list',
@@ -49,6 +53,7 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
     DatePipe,
     FormField,
     PasswordPolicyComponent,
+    ProjectRolesComponent,
     RefreshButtonComponent,
     SortHeaderComponent,
     TableControlsComponent,
@@ -65,7 +70,7 @@ export class UserListComponent {
   readonly users = rxResource({ stream: () => this.api.users() });
   /** Deleted OIDC users, never created again by a login. */
   readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
-  readonly groups = rxResource({ stream: () => this.api.groups() });
+  readonly roles = rxResource({ stream: () => this.api.roles() });
   /** Login methods of the controller: tells whether OIDC users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
   readonly tableSearch = signal('');
@@ -98,10 +103,7 @@ export class UserListComponent {
       users,
       this.tableSearch(),
       this.tableSort.direction(),
-      (user) =>
-        [user.username, user.groups.map((group) => group.name).join(' '), this.describe(user)].join(
-          ' ',
-        ),
+      (user) => [user.username, this.describeRoles(user).join(' '), this.describe(user)].join(' '),
       (left, right) => {
         if (sort === 'created') {
           return left.created_at.localeCompare(right.created_at);
@@ -160,13 +162,13 @@ export class UserListComponent {
     );
   });
 
-  /** User whose groups are being edited (null: creation form). */
+  /** User whose roles are being edited (null: creation form). */
   readonly editing = signal<WebUser | null>(null);
   readonly userModel = signal<UserFormModel>({ ...EMPTY_USER });
   readonly userForm = form(this.userModel, (path) => {
     required(path.username);
     maxLength(path.username, 64);
-    // The name of an existing user never changes: only its groups are edited
+    // The name of an existing user never changes: only its roles are edited
     disabled(path.username, () => this.editing() !== null);
     maxLength(path.password, MAX_PASSWORD_CHARS);
     // Empty: the controller generates one; typed: it follows the password policy
@@ -176,8 +178,10 @@ export class UserListComponent {
         : undefined,
     );
   });
-  /** Ids of the groups given by an administrator (the OIDC groups are kept apart). */
-  readonly selectedGroups = signal<number[]>([]);
+  /** Ids of the roles given on every project (the roles of the OIDC mappings are kept apart). */
+  readonly selectedRoles = signal<number[]>([]);
+  /** Roles given on projects. */
+  readonly projectRoles = signal<ProjectRoleDraft[]>([]);
 
   /** Generated password, shown once with the user it belongs to. */
   readonly createdPassword = signal<{ username: string; password: string } | null>(null);
@@ -208,10 +212,8 @@ export class UserListComponent {
     return config?.oidc ? config.oidc_display_name : null;
   });
 
-  /** OIDC groups of the edited user (named by its groups claim at its last login). */
-  readonly ssoGroups = computed(() =>
-    (this.editing()?.groups ?? []).filter((group) => group.source === 'oidc'),
-  );
+  /** Roles of the OIDC mappings of the edited user (its claim at its last login). */
+  readonly oidcRoles = computed(() => this.editing()?.oidc_roles ?? []);
 
   readonly passwordInvalid = computed(
     () => this.formSource() === 'local' && this.userForm.password().invalid(),
@@ -244,19 +246,36 @@ export class UserListComponent {
     return this.access(user).join(', ');
   }
 
-  toggleGroup(groupId: number, event: Event): void {
+  /** Roles of a user, e.g. "admin", "reader @ shop-api", "triager @ crm (OIDC: devs)". */
+  describeRoles(user: WebUser): string[] {
+    const all = this.i18n.translate('reports.allProjects');
+    return [
+      ...user.roles.map((role) => `${role.name} (${all})`),
+      ...user.projects.map((item) => `${item.role} @ ${item.project}`),
+      ...user.oidc_roles.map(
+        (item) => `${item.role} (${item.projects?.join(', ') ?? all}) ← ${item.claim}`,
+      ),
+    ];
+  }
+
+  roleLabel(role: AccessRole): string {
+    return role.system ? `${role.name} — ${this.i18n.translate('roles.system')}` : role.name;
+  }
+
+  toggleRole(roleId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    this.selectedGroups.update((selected) =>
-      checked ? [...selected, groupId] : selected.filter((item) => item !== groupId),
+    this.selectedRoles.update((selected) =>
+      checked ? [...selected, roleId] : selected.filter((item) => item !== roleId),
     );
   }
 
-  /** Load a user into the form to change its groups. */
+  /** Load a user into the form to change its roles. */
   edit(user: WebUser): void {
     this.editing.set(user);
     this.userForm().reset({ source: user.auth_source, username: user.username, password: '' });
-    this.selectedGroups.set(
-      user.groups.filter((group) => group.source === 'local').map((group) => group.group_id),
+    this.selectedRoles.set(user.roles.map((role) => role.role_id));
+    this.projectRoles.set(
+      user.projects.map((item) => ({ project: item.project, roleId: item.role_id })),
     );
     this.message.set(null);
     this.error.set(null);
@@ -265,7 +284,8 @@ export class UserListComponent {
   resetForm(): void {
     this.editing.set(null);
     this.userForm().reset({ ...EMPTY_USER });
-    this.selectedGroups.set([]);
+    this.selectedRoles.set([]);
+    this.projectRoles.set([]);
   }
 
   async submit(event: Event): Promise<void> {
@@ -273,17 +293,21 @@ export class UserListComponent {
     if (!this.canSubmit()) {
       return;
     }
-    const groups = this.selectedGroups();
+    const roles = this.selectedRoles();
+    const projects = this.projectRoles().map((item) => ({
+      project: item.project,
+      role_id: item.roleId,
+    }));
     const editing = this.editing();
     const { source, username, password: typed } = this.userModel();
     await this.run(async () => {
       if (editing) {
-        const updated = await firstValueFrom(this.api.updateUser(editing.id, groups));
+        const updated = await firstValueFrom(this.api.updateUser(editing.id, roles, projects));
         this.message.set(msg('users.updated', { user: updated.username }));
       } else {
         const password = source === 'local' ? typed || null : null;
         const created = await firstValueFrom(
-          this.api.createUser(username.trim(), source, groups, password),
+          this.api.createUser(username.trim(), source, roles, projects, password),
         );
         if (created.password) {
           this.createdPassword.set({ username: created.username, password: created.password });

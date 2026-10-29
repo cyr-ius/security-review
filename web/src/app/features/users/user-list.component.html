@@ -126,47 +126,57 @@
         }
       </div>
     }
-    <fieldset [class]="editing() || formSource() === 'oidc' ? 'col-md-7' : 'col-md-4'">
-      <legend class="form-label">{{ 'layout.groups' | t }}</legend>
-      @if ((groups.value()?.groups ?? []).length) {
+    <fieldset class="col-12">
+      <legend class="form-label">{{ 'users.allProjectsRoles' | t }}</legend>
+      @if ((roles.value() ?? []).length) {
         <div class="d-flex flex-wrap gap-3">
-          @for (group of groups.value()?.groups ?? []; track group.id) {
+          @for (role of roles.value() ?? []; track role.id) {
             <div class="form-check">
               <input
                 class="form-check-input"
                 type="checkbox"
-                [id]="'user-group-' + group.id"
-                [checked]="selectedGroups().includes(group.id)"
-                (change)="toggleGroup(group.id, $event)"
+                [id]="'user-role-' + role.id"
+                [checked]="selectedRoles().includes(role.id)"
+                (change)="toggleRole(role.id, $event)"
               />
-              <label class="form-check-label user-name" [for]="'user-group-' + group.id">
-                {{ group.name }}
+              <label class="form-check-label" [for]="'user-role-' + role.id">
+                {{ roleLabel(role) }}
               </label>
             </div>
           }
         </div>
-      } @else if (!groups.isLoading()) {
-        <div class="form-text">{{ 'users.noGroups' | t }}</div>
       }
-      <div class="form-text">{{ 'users.groupsHelp' | t }}</div>
-      @if (ssoGroups().length) {
+      <div class="form-text">{{ 'users.allProjectsHelp' | t }}</div>
+    </fieldset>
+    <fieldset class="col-12">
+      <legend class="form-label">{{ 'users.projectRoles' | t }}</legend>
+      <app-project-roles
+        idPrefix="user-project"
+        [roles]="roles.value() ?? []"
+        [(bindings)]="projectRoles"
+      />
+      <div class="form-text">{{ 'users.projectRolesHelp' | t }}</div>
+      @if (oidcRoles().length) {
         <div class="form-text">
-          {{ 'users.ssoGroups' | t }}
-          @for (group of ssoGroups(); track group.group_id) {
+          {{ 'users.oidcRoles' | t }}
+          @for (item of oidcRoles(); track item.claim + item.role_id) {
             <span class="badge text-bg-primary bg-opacity-75 ms-1">
-              <i class="bi bi-shield-lock" aria-hidden="true"></i> {{ group.name }}
+              <i class="bi bi-shield-lock" aria-hidden="true"></i>
+              {{ item.claim }} → {{ item.role }} ({{
+                item.projects?.join(', ') ?? ('reports.allProjects' | t)
+              }})
             </span>
           }
         </div>
       }
     </fieldset>
-    <div class="col-md-2 d-flex flex-column gap-2 pt-md-4">
-      <button type="submit" class="btn btn-primary w-100" [disabled]="!canSubmit()">
+    <div class="col-12 d-flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
         <i class="bi" [class]="editing() ? 'bi-check-lg' : 'bi-person-plus'" aria-hidden="true"></i>
         {{ (editing() ? 'common.save' : 'common.create') | t }}
       </button>
       @if (editing()) {
-        <button type="button" class="btn btn-outline-secondary w-100" (click)="resetForm()">
+        <button type="button" class="btn btn-outline-secondary" (click)="resetForm()">
           {{ 'common.cancel' | t }}
         </button>
       }
@@ -197,7 +207,7 @@
                 {{ 'login.username' | t }}
               </th>
               <th scope="col">{{ 'users.type' | t }}</th>
-              <th scope="col">{{ 'layout.groups' | t }}</th>
+              <th scope="col">{{ 'layout.roles' | t }}</th>
               <th scope="col" [appSortHeader]="tableSort" sortKey="access">
                 {{ 'users.access' | t }}
               </th>
@@ -245,18 +255,8 @@
                   }
                 </td>
                 <td class="small">
-                  @for (group of user.groups; track group.group_id + group.source) {
-                    <span
-                      class="badge text-bg-light border me-1"
-                      [title]="
-                        (group.source === 'oidc' ? 'users.ssoGroup' : 'users.givenGroup') | t
-                      "
-                    >
-                      @if (group.source === 'oidc') {
-                        <i class="bi bi-shield-lock" aria-hidden="true"></i>
-                      }
-                      {{ group.name }}
-                    </span>
+                  @for (role of describeRoles(user); track role) {
+                    <div class="text-nowrap">{{ role }}</div>
                   } @empty {
                     —
                   }

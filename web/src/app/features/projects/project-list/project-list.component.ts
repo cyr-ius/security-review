@@ -68,7 +68,7 @@ export class ProjectListComponent {
   });
   /** A user with projects.delete may delete a project and everything that refers to it. */
   readonly canDelete = computed(() => this.auth.can('projects.delete'));
-  /** Giving access to an existing project also takes users.manage, as a group membership does. */
+  /** Giving access to an existing project also takes users.manage, as giving a role does. */
   readonly canGrantAccess = computed(() => this.auth.can('users.manage'));
   /** The row actions: blocking the autojoin (projects.create), deleting (projects.delete). */
   readonly hasActions = computed(() => this.canCreate() || this.canDelete());
@@ -222,10 +222,13 @@ export class ProjectListComponent {
       return;
     }
     await this.decide(async () => {
-      const { group } = await firstValueFrom(this.api.approvePendingProject(id));
+      const { granted_to: user } = await firstValueFrom(this.api.approvePendingProject(id));
+      if (!user) {
+        return msg('projects.approvedNoUser', { project });
+      }
       return existing
-        ? msg('projects.approvedAccess', { project, group })
-        : msg('projects.approved', { project });
+        ? msg('projects.approvedAccess', { project, user })
+        : msg('projects.approved', { project, user });
     });
   }
 
