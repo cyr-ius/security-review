@@ -65,6 +65,9 @@ class Identity(BaseModel):
     risk_acceptance_min_severity: Severity | None = None
     # A web user may create a personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS)
     personal_mcp_tokens: bool = True
+    # A web user may create a personal MCP or CI token and approve an MCP client with the OAuth
+    # login (SECREVIEW_PERSONAL_TOKENS_ENABLED)
+    personal_tokens_enabled: bool = True
     # The OAuth login of the MCP clients is on (variable or web interface)
     mcp_oauth: bool = False
     version: str

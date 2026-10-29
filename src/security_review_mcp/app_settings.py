@@ -51,6 +51,10 @@ MCP_URL = "mcp_url"
 # Key stored ("false") while SECREVIEW_PERSONAL_MCP_TOKENS is false (see sync_personal_mcp_tokens):
 # the MCP server then no longer tells a client without a valid token to create one
 PERSONAL_MCP_TOKENS = "personal_mcp_tokens"
+# Key stored ("false") while SECREVIEW_PERSONAL_TOKENS_ENABLED is false (see
+# sync_personal_mcp_tokens): the personal mcp and ci tokens and the OAuth grants are then refused
+# by both processes (see token_store)
+PERSONAL_TOKENS_ENABLED = "personal_tokens_enabled"
 # Author of the URL copied from SECREVIEW_PUBLIC_URL by the controller (see
 # sync_controller_url)
 ENV_ACTOR = "environment"
@@ -333,17 +337,37 @@ def describe_mcp_oauth(settings: Settings | None = None) -> dict:
 
 
 def personal_mcp_tokens() -> bool:
-    """False while the controller offers no personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS);
-    the MCP server reads it here to advise the clients without a valid token."""
+    """False while the controller offers no personal MCP token (SECREVIEW_PERSONAL_MCP_TOKENS or
+    SECREVIEW_PERSONAL_TOKENS_ENABLED); the MCP server reads it here to advise the clients
+    without a valid token."""
     with session_scope() as session:
         row = session.get(AppSetting, PERSONAL_MCP_TOKENS)
         return row is None or row.value != "false"
 
 
-def sync_personal_mcp_tokens(settings: Settings | None = None) -> None:
-    """Store SECREVIEW_PERSONAL_MCP_TOKENS=false, remove it otherwise (controller start)."""
+def personal_tokens_enabled(session: Session, settings: Settings | None = None) -> bool:
+    """False while SECREVIEW_PERSONAL_TOKENS_ENABLED is false in this process or in the
+    controller, which stores it (fail closed when the two processes disagree)."""
     settings = settings or get_settings()
-    _write({PERSONAL_MCP_TOKENS: None if settings.personal_mcp_tokens else "false"}, ENV_ACTOR)
+    if not settings.personal_tokens_enabled:
+        return False
+    row = session.get(AppSetting, PERSONAL_TOKENS_ENABLED)
+    return row is None or row.value != "false"
+
+
+def sync_personal_mcp_tokens(settings: Settings | None = None) -> None:
+    """Store SECREVIEW_PERSONAL_MCP_TOKENS=false and SECREVIEW_PERSONAL_TOKENS_ENABLED=false,
+    remove them otherwise (controller start). No personal MCP token is offered when either one
+    is false."""
+    settings = settings or get_settings()
+    offered = settings.personal_mcp_tokens and settings.personal_tokens_enabled
+    _write(
+        {
+            PERSONAL_MCP_TOKENS: None if offered else "false",
+            PERSONAL_TOKENS_ENABLED: None if settings.personal_tokens_enabled else "false",
+        },
+        ENV_ACTOR,
+    )
 
 
 # ── Proxy of the outgoing connections ────────────────────────────────────────

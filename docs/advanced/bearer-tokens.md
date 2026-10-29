@@ -180,9 +180,10 @@ rules:
 - nobody can rotate it nor change its projects; an administrator can revoke it from the
   **Tokens** page.
 
-A personal `mcp` token needs `mcp_tokens.create` in the groups of the account (`403` without
-it); a token already created keeps working when the account loses it, and an administrator
-revokes it if needed. It reaches the projects of `reports.read` of the groups of the account:
+Every account may create a personal `mcp` or `ci` token, unless
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` (`422`): the tokens already created are then refused
+(`401`) by the MCP server and the Controller server, but kept, and work again once it is `true`.
+It reaches the projects of `reports.read` of the groups of the account:
 every project when one of its groups reads every project, none when it has none. When the
 server refuses it (unknown, revoked or expired), the agent receives a `401` that tells the user
 to sign in again and create a new one.

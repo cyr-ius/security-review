@@ -123,8 +123,8 @@ your token, then requests the project at the next review (see
 
 3. **Create your personal MCP token**: sign in to the web interface, open **My
    account** > **Personal tokens** and create a token with the **MCP** usage (see
-   [personal MCP tokens](../usage/tokens.md#personal-mcp-and-ci-tokens); your groups need the
-   `mcp-user` role). It is shown **only once**.
+   [personal MCP tokens](../usage/tokens.md#personal-mcp-and-ci-tokens)). It is shown **only
+   once**.
 4. **Store the token in the host**, then restart the MCP server in the host:
 
     === "VS Code / GitHub Copilot"

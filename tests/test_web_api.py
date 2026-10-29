@@ -1,6 +1,5 @@
 """Web interface: REST API, permissions and static files."""
 
-import hashlib
 import io
 import json
 import logging
@@ -1005,7 +1004,6 @@ def test_roles_are_managed_with_users_manage(secured, web_sessions, caplog):
         "admin",
         "reader",
         "Auditor",
-        "mcp-user",
         "triager",
     ]
 
@@ -3141,8 +3139,7 @@ def test_personal_api_tokens_are_bounded_and_private(secured, reports, monkeypat
 
 
 def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
-    groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
-    make_user("alice", USER_PASSWORD, group_ids=groups)
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
     headers = session_headers(secured, "alice")
     url = "/api/v1/me/tokens"
 
@@ -3168,8 +3165,7 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
 
 
 def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
-    groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
-    make_user("alice", USER_PASSWORD, group_ids=groups)
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
     headers = session_headers(secured, "alice")
     # One usage per token: a personal mcp token is an MCP agent token only
     agent = secured.post(
@@ -3206,7 +3202,7 @@ def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
 
 
 def test_personal_mcp_tokens_can_be_turned_off_for_the_oauth_login(secured, monkeypatch):
-    make_user("alice", USER_PASSWORD, group_ids=[group_for("mcp-user")])
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
     headers = session_headers(secured, "alice")
     url = "/api/v1/me/tokens"
     old = secured.post(url, json={"label": "agent", "role": "mcp"}, headers=headers).json()
@@ -3223,31 +3219,39 @@ def test_personal_mcp_tokens_can_be_turned_off_for_the_oauth_login(secured, monk
     assert all(token["role"] != "mcp" for token in secured.get(url, headers=headers).json())
 
 
-def test_a_personal_mcp_token_needs_the_mcp_tokens_create_permission(secured, reports):
+def test_personal_tokens_disabled_refuses_the_mcp_and_ci_tokens_of_every_user(
+    secured, reports, monkeypatch
+):
     make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
     headers = session_headers(secured, "alice")
     url = "/api/v1/me/tokens"
+    created = {
+        role: secured.post(url, json={"label": role, "role": role}, headers=headers).json()
+        for role in ("mcp", "ci")
+    }
+    store = token_store.DatabaseTokenStore()
+    digests = {role: http_server.hash_token(body["token"]) for role, body in created.items()}
+    settings = get_settings()
+    monkeypatch.setattr(settings, "personal_tokens_enabled", False)
 
-    refused = secured.post(url, json={"label": "agent", "role": "mcp"}, headers=headers)
-    assert refused.status_code == 403
-    assert "mcp_tokens.create" in refused.json()["detail"]
-    assert secured.get(url, headers=headers).json() == []
-    # The api token does not need it
+    assert secured.get("/api/v1/me", headers=headers).json()["personal_tokens_enabled"] is False
+    for role in ("mcp", "ci"):
+        refused = secured.post(url, json={"label": "new", "role": role}, headers=headers)
+        assert refused.status_code == 422 and "disabled" in refused.json()["detail"]
+        # Refused at authentication, but kept
+        assert store.lookup(digests[role]) is None
+    assert len(secured.get(url, headers=headers).json()) == 2
+    # The api token stays
     assert secured.post(url, json={"label": "rest"}, headers=headers).status_code == 201
 
-    # The mcp-user role gives it; a token created keeps working once it is taken back
-    alice = web_users.find_user("alice")
-    reader = group_for("reader", ["shop-api"])
-    web_users.update_user(alice["id"], [reader, group_for("mcp-user")])
-    me = secured.get("/api/v1/me", headers=headers).json()
-    assert me["permissions"]["mcp_tokens.create"] is None
-    created = secured.post(url, json={"label": "agent", "role": "mcp"}, headers=headers)
-    assert created.status_code == 201
-    web_users.update_user(alice["id"], [reader])
-    listed = secured.get(url, headers=headers).json()
-    assert [item["role"] for item in listed if item["role"] == "mcp"] == ["mcp"]
-    digest = hashlib.sha256(created.json()["token"].encode()).digest()
-    assert token_store.DatabaseTokenStore().lookup(digest).projects == frozenset({"shop-api"})
+    # The MCP server reads the value the controller stored, even without the variable
+    app_settings.sync_personal_mcp_tokens(settings)
+    monkeypatch.setattr(settings, "personal_tokens_enabled", True)
+    assert store.lookup(digests["mcp"]) is None
+    assert app_settings.personal_mcp_tokens() is False
+    # true again: the tokens work again
+    app_settings.sync_personal_mcp_tokens(settings)
+    assert store.lookup(digests["mcp"]).projects == frozenset({"shop-api"})
 
 
 def test_a_personal_api_token_is_deleted_with_its_user(secured, web_sessions, reports):

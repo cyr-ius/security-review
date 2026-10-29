@@ -76,7 +76,8 @@ désactive aussi la connexion et saisit son point d'accès MCP.
 ### Jetons MCP et CI personnels
 
 Le jeton personnel **MCP** connecte votre agent MCP, le jeton personnel **CI**
-`security-review-ci`. Ils ne sont proposés que si vos groupes le permettent (rôle `mcp-user`, voir [Rôles](access-control.md#roles)). Il atteint les
+`security-review-ci`. Tout compte peut les créer, sauf si un administrateur les a désactivés
+(`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, voir plus bas). Il atteint les
 projets que votre compte peut lire, affichés dans la colonne **Projets**.
 
 Pour un projet qu'il n'atteint pas encore : un administrateur vous en donne l'accès, vous le
@@ -94,6 +95,12 @@ Quand le serveur utilise la [connexion OAuth des clients MCP](../advanced/mcp-oa
 administrateur peut désactiver les jetons MCP personnels (`SECREVIEW_PERSONAL_MCP_TOKENS=false`) :
 l'usage **MCP** n'est alors plus proposé, et le serveur Controller révoque les jetons MCP restants à son
 prochain démarrage. Les jetons CI et API REST restent.
+
+Un administrateur peut aussi désactiver, pour toute l'application, les jetons MCP et CI
+personnels et la connexion OAuth (`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`) : les usages **MCP**
+et **CI** ne sont plus proposés, et les jetons déjà créés, comme les clients MCP déjà connectés
+par OAuth, sont refusés. Ils sont conservés et fonctionnent de nouveau une fois la variable à
+`true`. Les jetons API REST restent.
 
 ## Points d'attention
 

@@ -74,8 +74,8 @@ endpoint set.
 ### Personal MCP and CI tokens
 
 The personal **MCP** token connects your MCP agent, the personal **CI** token
-`security-review-ci`. They are offered only when your groups
-allow it (role `mcp-user`, see [Roles](access-control.md#roles)). It reaches the
+`security-review-ci`. Every account may create them, unless an administrator turned them off
+(`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, see below). It reaches the
 projects your account may read, shown in the **Projects** column.
 
 For a project it does not reach yet: an administrator gives you access to it, you create it
@@ -92,6 +92,12 @@ When the server uses the [OAuth login of MCP clients](../advanced/mcp-oauth.md),
 may turn the personal MCP tokens off (`SECREVIEW_PERSONAL_MCP_TOKENS=false`): the **MCP** usage is
 then no longer offered, and the Controller server revokes the MCP tokens left at its next start. The CI
 and REST API tokens stay.
+
+An administrator may also turn off, for the whole application, the personal MCP and CI tokens
+and the OAuth login (`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`): the **MCP** and **CI** usages
+are no longer offered, and the tokens already created, like the MCP clients already connected
+with OAuth, are refused. They are kept, and work again once the variable is `true`. The REST API
+tokens stay.
 
 ## Points to watch
 

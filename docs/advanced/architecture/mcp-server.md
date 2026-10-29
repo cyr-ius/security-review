@@ -268,7 +268,7 @@ With the [OAuth login](../mcp-oauth.md) on, this `401` also carries the
 OAuth signs in again by itself, and a request without a token gets the same `401` (without
 `error`) instead of the enrollment server.
 
-When the Controller server offers no personal MCP token (`SECREVIEW_PERSONAL_MCP_TOKENS=false`, stored in
-the database at its start), the description of the `401`, the instructions and the prompts of the
+When the Controller server offers no personal MCP token (`SECREVIEW_PERSONAL_MCP_TOKENS=false` or
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, stored in the database at its start), the description of the `401`, the instructions and the prompts of the
 enrollment server tell the user to sign in through the OAuth login, or to ask an administrator
 for an MCP token, instead of creating a personal one.

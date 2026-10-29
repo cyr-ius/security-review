@@ -24,10 +24,11 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `audit.read` | Lire le journal d'audit | |
 | `projects.create` | [Créer un projet](projects.md#creation-dun-projet) et valider les projets demandés par les agents | |
 | `projects.delete` | [Supprimer un projet](projects.md#suppression-dun-projet) | |
-| `mcp_tokens.create` | Créer un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | |
 
 Une permission marquée **par projet** peut être limitée à certains projets ; les autres
-s'appliquent à tout le serveur Controller.
+s'appliquent à tout le serveur Controller. Aucune permission n'est nécessaire pour les
+[jetons MCP et CI personnels](tokens.md#jetons-mcp-et-ci-personnels) : tout compte peut les
+créer, sauf avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
 
 ## Rôles
 
@@ -36,7 +37,6 @@ s'appliquent à tout le serveur Controller.
 | `reader` | `reports.read` | Intégré, non modifiable : utilisé par les [groupes de projet](projects.md#groupe-de-projet) |
 | `admin` | Toutes les permissions, y compris celles des versions ultérieures | Intégré, non modifiable : le rôle du groupe `administrators` |
 | `triager` | `reports.read`, `findings.triage` | Créé avec la base, modifiable |
-| `mcp-user` | `mcp_tokens.create` | Créé avec la base, modifiable ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que lit son utilisateur |
 
 Les administrateurs créent d'autres rôles, par exemple un rôle *Auditeur* avec `audit.read` et
 `reports.read`.

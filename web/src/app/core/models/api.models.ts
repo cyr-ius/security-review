@@ -105,8 +105,7 @@ export type Permission =
   | 'users.manage'
   | 'audit.read'
   | 'projects.create'
-  | 'projects.delete'
-  | 'mcp_tokens.create';
+  | 'projects.delete';
 
 /** Each permission held, with its projects (null: every project). */
 export type Grants = Partial<Record<Permission, string[] | null>>;
@@ -136,6 +135,11 @@ export interface Identity {
   risk_acceptance_min_severity?: Severity | null;
   /** False when the server offers no personal MCP token (OAuth login of the MCP clients). */
   personal_mcp_tokens?: boolean;
+  /**
+   * False when the server turned the personal MCP and CI tokens and the OAuth login off
+   * (SECREVIEW_PERSONAL_TOKENS_ENABLED).
+   */
+  personal_tokens_enabled?: boolean;
   /** True while the OAuth login of the MCP clients is on. */
   mcp_oauth?: boolean;
   version: string;

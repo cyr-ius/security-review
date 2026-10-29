@@ -23,10 +23,11 @@ machines keep a fixed role ([tokens](tokens.md)).
 | `audit.read` | Read the audit log | |
 | `projects.create` | [Create a project](projects.md#creating-a-project) and approve the projects requested by the agents | |
 | `projects.delete` | [Delete a project](projects.md#deleting-a-project) | |
-| `mcp_tokens.create` | Create a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | |
 
 A permission marked **per project** may be limited to some projects; the others apply to the
-whole Controller server.
+whole Controller server. No permission is needed for the
+[personal MCP and CI tokens](tokens.md#personal-mcp-and-ci-tokens): every account may create
+them, unless `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
 
 ## Roles
 
@@ -35,7 +36,6 @@ whole Controller server.
 | `reader` | `reports.read` | Built in, cannot be changed: used by the [project groups](projects.md#project-group) |
 | `admin` | Every permission, including those of later versions | Built in, cannot be changed: the role of the `administrators` group |
 | `triager` | `reports.read`, `findings.triage` | Created with the database, can be changed |
-| `mcp-user` | `mcp_tokens.create` | Created with the database, can be changed; give it with a reading role, since the token reaches the projects its user reads |
 
 Administrators create other roles, for example an *Auditor* role with `audit.read` and
 `reports.read`.

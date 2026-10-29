@@ -274,7 +274,7 @@ Avec la [connexion OAuth](../mcp-oauth.md) active, ce `401` porte aussi le param
 reconnecte seul, et une requête sans jeton reçoit le même `401` (sans `error`) au lieu du
 serveur d'enrôlement.
 
-Quand le serveur Controller ne propose pas de jeton MCP personnel (`SECREVIEW_PERSONAL_MCP_TOKENS=false`,
-enregistré en base à son démarrage), la description du `401`, les instructions et les prompts du
+Quand le serveur Controller ne propose pas de jeton MCP personnel (`SECREVIEW_PERSONAL_MCP_TOKENS=false`
+ou `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, enregistré en base à son démarrage), la description du `401`, les instructions et les prompts du
 serveur d'enrôlement invitent l'utilisateur à se connecter par la connexion OAuth, ou à demander
 un jeton MCP à un administrateur, plutôt qu'à créer un jeton personnel.

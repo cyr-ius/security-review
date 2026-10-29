@@ -6,7 +6,7 @@ from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from conftest import group_for, make_user
+from conftest import make_user
 from sqlmodel import select
 from starlette.testclient import TestClient
 
@@ -41,9 +41,8 @@ def controller(monkeypatch, tmp_path) -> TestClient:
 
 
 def controller_app() -> TestClient:
-    """The controller as configured, with a developer ``dev`` who may create MCP tokens on
-    ``shop``."""
-    make_user("dev", PASSWORD, group_ids=[group_for("mcp-user"), group_for("reader", ["shop"])])
+    """The controller as configured, with a developer ``dev`` who reads ``shop``."""
+    make_user("dev", PASSWORD, "reader", ["shop"])
     signer = oidc.SessionSigner("s" * 40)
     app = http_server.build_controller_app(
         web_api.create_app(ui=False, signer=signer),
@@ -272,6 +271,22 @@ def test_a_controller_started_with_the_oauth_login_off_revokes_every_grant(contr
 
     assert oauth_server.revoke_all_grants("environment") == 1
 
+    assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
+
+
+def test_personal_tokens_disabled_refuses_the_oauth_login(controller, monkeypatch):
+    client_id = register(controller).json()["client_id"]
+    headers = session(controller)
+    access = log_in(controller, client_id, headers)
+    monkeypatch.setattr(get_settings(), "personal_tokens_enabled", False)
+    handle = parse_qs(urlsplit(authorize(controller, client_id).headers["location"]).query)
+
+    refused = controller.post(
+        "/api/v1/oauth/approve", json={"request": handle["request"][0]}, headers=headers
+    )
+
+    assert refused.status_code == 403
+    # The grant already given authenticates nothing
     assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
 
 

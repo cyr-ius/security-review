@@ -634,23 +634,24 @@ def test_a_new_database_gets_an_ordinary_triager_role(empty_engine):
     roles = {role["name"]: role for role in access_control.list_roles()}
     assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
     assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
-    assert not roles["mcp-user"]["system"]
-    assert roles["mcp-user"]["permissions"] == ["mcp_tokens.create"]
+    assert "mcp-user" not in roles
 
 
-def test_the_mcp_user_role_is_kept_on_downgrade_while_a_group_holds_it(empty_engine):
+def test_the_mcp_tokens_create_permission_is_removed_from_every_role(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
     with empty_engine.begin() as connection:
         config = database.alembic_config(connection)
-        command.upgrade(config, "head")
-        command.downgrade(config, "0023")
-        assert not connection.execute(
-            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
-        ).first()
-        command.upgrade(config, "head")
-        role_id = connection.execute(
+        command.upgrade(config, "0035")
+        connection.execute(
+            text(
+                "INSERT INTO accessrole (name, description, permissions, system, created_at, "
+                "updated_at) VALUES ('ops', '', :permissions, 0, '2026-10-01', '2026-10-01')"
+            ),
+            {"permissions": '["audit.read", "mcp_tokens.create"]'},
+        )
+        mcp_user = connection.execute(
             text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
         ).scalar_one()
         group_id = connection.execute(
@@ -663,19 +664,23 @@ def test_the_mcp_user_role_is_kept_on_downgrade_while_a_group_holds_it(empty_eng
             text(
                 "INSERT INTO grouprole (group_id, role_id, projects) VALUES (:group, :role, '[]')"
             ),
-            {"group": group_id, "role": role_id},
+            {"group": group_id, "role": mcp_user},
         )
-        command.downgrade(config, "0023")
-        kept = connection.execute(
-            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
-        ).scalar_one()
-        # Upgrading again keeps the role of that name
         command.upgrade(config, "head")
-        count = connection.execute(
-            text("SELECT COUNT(*) FROM accessrole WHERE name = 'mcp-user'")
+        roles = dict(connection.execute(text("SELECT name, permissions FROM accessrole")).all())
+        bindings = connection.execute(
+            text("SELECT COUNT(*) FROM grouprole WHERE group_id = :group"), {"group": group_id}
+        ).scalar_one()
+        # Downgrading gives the role back, held by no group
+        command.downgrade(config, "0035")
+        restored = connection.execute(
+            text("SELECT permissions FROM accessrole WHERE name = 'mcp-user'")
         ).scalar_one()
 
-    assert (kept, count) == (role_id, 1)
+    # The role left empty goes with its bindings; the others keep their other permissions
+    assert "mcp-user" not in roles and bindings == 0
+    assert roles["ops"] == '["audit.read"]'
+    assert restored == '["mcp_tokens.create"]'
 
 
 def test_downgrading_the_api_tokens_deletes_them(empty_engine):

@@ -62,7 +62,8 @@
   codes sont à usage
   unique (60 secondes), seules les empreintes SHA-256 des jetons sont conservées, un
   rafraîchissement remplace les deux jetons et un jeton de rafraîchissement réutilisé révoque
-  l'autorisation. Autoriser un client exige une session web et `mcp_tokens.create` ; un jeton
+  l'autorisation. Autoriser un client exige une session web et est refusé, comme toute
+  autorisation et tout jeton `mcp` ou `ci` personnel, avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false` ; un jeton
   agit comme un jeton `mcp` personnel de son utilisateur, sur le serveur MCP seulement, et est
   supprimé avec l'utilisateur ; un serveur Controller démarré avec la connexion désactivée révoque
   toutes les autorisations (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).

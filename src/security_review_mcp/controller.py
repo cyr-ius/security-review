@@ -87,6 +87,11 @@ def serve(argv: list[str]) -> None:
         oauth_enabled = app_settings.effective_settings(settings).mcp_oauth_enabled
         if not oauth_enabled and (revoked := oauth_server.revoke_all_grants("environment")):
             logger.warning("OAuth login of the MCP clients off: %d grants revoked", revoked)
+        if not settings.personal_tokens_enabled:
+            logger.warning(
+                "SECREVIEW_PERSONAL_TOKENS_ENABLED=false: the personal MCP and CI tokens and the "
+                "OAuth grants are refused"
+            )
         if not settings.personal_mcp_tokens:
             if revoked := token_store.revoke_personal_mcp_tokens("environment"):
                 logger.warning("Personal MCP tokens off: %d tokens revoked", revoked)

@@ -13,6 +13,8 @@ métadonnées de la ressource protégée).
 
 Le serveur Controller est le serveur d'autorisation. Le serveur MCP ne fait que vérifier les jetons.
 Les jetons MCP personnels restent acceptés, sauf si un administrateur les désactive par `SECREVIEW_PERSONAL_MCP_TOKENS=false`.
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` désactive aussi la connexion OAuth : plus aucun client
+n'est autorisé, et les clients déjà connectés sont refusés.
 
 ## Activation
 
@@ -98,8 +100,8 @@ Un jeton d'accès agit comme un [jeton MCP personnel](../usage/tokens.md#jetons-
 de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire.
 Les droits sont relus à chaque requête.
 
-Autoriser un client exige la permission `mcp_tokens.create`, comme créer un jeton MCP
-personnel, et une session web : un jeton Bearer n'autorise jamais un client.
+Autoriser un client exige une session web (un jeton Bearer n'autorise jamais un client), et est
+refusé (`403`) avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, comme créer un jeton MCP personnel.
 
 | Jeton | Durée | Renouvellement |
 |---|---|---|

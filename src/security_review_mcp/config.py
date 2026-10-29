@@ -384,6 +384,12 @@ class Settings(BaseSettings):
     # clients logged in with OAuth, see mcp_oauth_enabled): none is offered nor created, and
     # the controller revokes those left at start. Personal CI and REST API tokens stay.
     personal_mcp_tokens: bool = True
+    # Whole application (controller and MCP server): the web users may connect their own MCP
+    # agent or security-review-ci, with a personal mcp or ci token or the OAuth login of the MCP
+    # clients. false: none is created nor approved, and the personal mcp and ci tokens and the
+    # OAuth grants already given are refused at authentication (kept: true allows them again).
+    # The controller stores it in the database, where the MCP server reads it too.
+    personal_tokens_enabled: bool = True
 
     # Controller only: delete the audit events older than audit_retention_days, checked at start
     # then every day. 0 keeps them forever.

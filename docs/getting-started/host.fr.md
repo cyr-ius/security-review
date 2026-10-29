@@ -123,8 +123,8 @@ créer votre jeton, puis demande le projet à la revue suivante (voir
 
 3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web, ouvrez
    **Mon compte** > **Jetons personnels** et créez un jeton d'usage **MCP** (voir
-   [jetons MCP personnels](../usage/tokens.md#jetons-mcp-et-ci-personnels) ; vos groupes doivent
-   avoir le rôle `mcp-user`). Il n'est affiché **qu'une seule fois**.
+   [jetons MCP personnels](../usage/tokens.md#jetons-mcp-et-ci-personnels)). Il n'est affiché
+   **qu'une seule fois**.
 4. **Enregistrez le jeton dans l'hôte**, puis redémarrez le serveur MCP dans l'hôte :
 
     === "VS Code / GitHub Copilot"

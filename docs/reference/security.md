@@ -59,7 +59,8 @@
   to the loopback interface unless an https host or a scheme is listed by the operator (no
   other site receives a code); at most 10,000 requests are pending at once; codes are single use (60 seconds), only the SHA-256
   digests of the tokens are stored, a refresh rotates both tokens and a reused refresh token
-  revokes the grant. Approving a client needs a web session and `mcp_tokens.create`; a token
+  revokes the grant. Approving a client needs a web session and is refused, like every grant and
+  personal `mcp` or `ci` token, while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`; a token
   acts as a personal `mcp` token of its user, on the MCP server only, and is deleted with the
   user; a Controller server started with the login off revokes every grant (see
   [OAuth login of MCP clients](../advanced/mcp-oauth.md)).

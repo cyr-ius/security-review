@@ -14,6 +14,8 @@ resource metadata).
 
 The Controller server is the authorization server. The MCP server only checks the tokens.
 The personal MCP tokens keep working, unless an administrator turns them off with `SECREVIEW_PERSONAL_MCP_TOKENS=false`.
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` turns off the OAuth login too: no client is approved
+any more, and the clients already connected are refused.
 
 ## Enabling it
 
@@ -98,8 +100,8 @@ An access token acts as a [personal MCP token](../usage/tokens.md#personal-mcp-a
 the user who approved the client: the projects the user may read.
 The rights are read again at each request.
 
-Approving a client needs the `mcp_tokens.create` permission, like creating a personal MCP
-token, and a web session: a Bearer token never approves a client.
+Approving a client needs a web session (a Bearer token never approves a client), and is refused
+(`403`) while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, like creating a personal MCP token.
 
 | Token | Lifetime | Renewal |
 |---|---|---|

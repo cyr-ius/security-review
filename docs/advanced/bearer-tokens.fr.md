@@ -185,9 +185,10 @@ règles :
 - personne ne peut le renouveler ni changer ses projets ; un administrateur peut le révoquer
   depuis la page **Jetons**.
 
-Un jeton `mcp` personnel exige `mcp_tokens.create` dans les groupes du compte (`403` sans elle) ;
-un jeton déjà créé continue de fonctionner quand le compte la perd, et un administrateur le
-révoque au besoin. Il atteint les projets de `reports.read` des groupes du compte : tous les
+Tout compte peut créer un jeton `mcp` ou `ci` personnel, sauf avec
+`SECREVIEW_PERSONAL_TOKENS_ENABLED=false` (`422`) : les jetons déjà créés sont alors refusés
+(`401`) par le serveur MCP et le serveur Controller, mais conservés, et fonctionnent de nouveau
+une fois la variable à `true`. Il atteint les projets de `reports.read` des groupes du compte : tous les
 projets quand l'un de ses groupes lit tous les projets, aucun quand il n'en a pas. Quand le
 serveur le refuse (inconnu, révoqué ou expiré), l'agent reçoit un `401` qui invite
 l'utilisateur à se reconnecter pour en créer un nouveau.
