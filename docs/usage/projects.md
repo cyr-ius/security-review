@@ -19,7 +19,7 @@ project `mobile-app`, so that the members of a team reach the same project whate
 | Way | Who | Result |
 |---|---|---|
 | **New project** button of the **Projects** page | A person with `projects.create` | Created at once ([creating a project](#creating-a-project)) |
-| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once if the developer may create projects; otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
+| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once, with its project group, if the developer may create projects (even when their token already reaches every project); otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | First report saved for it | A token that reaches it (pipeline, token for **All projects**) | The project shows with its first report |
 
 A project created without a report shows **No report yet** until its first review.

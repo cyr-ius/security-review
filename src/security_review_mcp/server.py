@@ -973,20 +973,25 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     give the user ``next_steps``). No token is created.
     """
     allowed = _caller_projects(ctx)
-    if allowed is None or project in allowed:
+    state = _auth_state(ctx)
+    label = state.get("auth_client")
+    actor = audit.token_actor(label) if label is not None else None
+    if allowed is None:
+        # A token of a user that reaches every project still creates the project group
+        if state.get("auth_owner") is None:
+            return {"project": project, "status": "accessible"}
+        adopted = access_control.adopt_project(project, state["auth_owner"], actor)
+        logger.info("Project %s %s by %s", adopted["project"], adopted["status"], label)
+        return adopted
+    if project in allowed:
         return {"project": project, "status": "accessible"}
     if not get_settings().enrollment:
         raise ValueError(
             "Project requests are disabled on this server; ask an administrator for access to "
             f"project '{project}'"
         )
-    state = _auth_state(ctx)
-    label = state.get("auth_client")
     requested = access_control.request_project(
-        project,
-        state.get("auth_owner"),
-        _caller_address(ctx),
-        audit.token_actor(label) if label is not None else None,
+        project, state.get("auth_owner"), _caller_address(ctx), actor
     )
     logger.info("Project %s %s by %s", requested["project"], requested["status"], label)
     return requested

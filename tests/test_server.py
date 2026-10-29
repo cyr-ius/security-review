@@ -21,6 +21,7 @@ from security_review_mcp.server import (
     mcp,
     set_enrollment_web_url,
 )
+from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
 
 pytestmark = pytest.mark.anyio
@@ -691,6 +692,18 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     _, text = carol.call("request_project", {"project": "mobile-app"})
     assert json.loads(text) == {"project": "mobile-app", "status": "accessible"}
     assert carol.call("save_security_report", {"project": "mobile-app", **review})[0] is False
+
+    # A token that reaches every project still creates the project group, with its user in it
+    dave = McpOverHttp(http_app, personal_token("dave", ["projects.create", "reports.read"]))
+    assert json.loads(dave.call("request_project", {"project": "intranet"})[1])["status"] == (
+        "created"
+    )
+    with session_scope() as session:
+        group_id = access_control.find_project_group(session, "intranet").id
+    members = access_control.get_group(group_id)["members"]
+    assert [member["username"] for member in members] == ["dave"]
+    _, text = dave.call("request_project", {"project": "intranet"})
+    assert json.loads(text) == {"project": "intranet", "status": "accessible"}
 
     # Without it: a new project and an existing one get the same answer, and no review is saved
     alice = McpOverHttp(http_app, personal_token("alice"))

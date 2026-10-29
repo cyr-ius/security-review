@@ -1045,6 +1045,37 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
         return _create_project(session, user_id, cleaned, actor)
 
 
+def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[str, Any]:
+    """Settle ``project`` for the web user ``owner`` whose token already reaches every project:
+    an unknown project is created as by request_project when the user holds
+    ``projects.create`` (its project group, with the user as first member), so that it does not
+    appear later through a report without any group.
+
+    Returns:
+        ``project`` and ``status`` (``created`` or ``accessible``), with ``next_steps`` when
+        created.
+
+    Raises:
+        ValueError: Invalid project name, or MAX_GROUPS groups already stored.
+    """
+    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    with session_scope() as session:
+        user = session.exec(select(WebUser).where(WebUser.username == owner)).first()
+        if (
+            user is not None
+            and not project_exists(session, cleaned)
+            and allows(user_grants(session, user.id), Permission.PROJECTS_CREATE)  # type: ignore[arg-type]
+        ):
+            _create_project(session, user.id, cleaned, actor)  # type: ignore[arg-type]
+            return {
+                "project": cleaned,
+                "status": "created",
+                "next_steps": f"Project '{cleaned}' was created and the user is a member of "
+                "it: the review can go on.",
+            }
+    return {"project": cleaned, "status": "accessible"}
+
+
 def _create_project(
     session: Session, user_id: int, project: str, actor: str | None
 ) -> dict[str, Any]:
