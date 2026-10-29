@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Path, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response
+from pydantic import StringConstraints
 
 from ..auth import access_control
 from ..reports import services, trends
@@ -63,6 +64,8 @@ logger = logging.getLogger("security_review_mcp.web")
 router = APIRouter(tags=["reports"])
 
 ProjectQuery = Annotated[ProjectName, Query()]
+# Projects a report list can be filtered by at once
+MAX_FILTER_PROJECTS = 50
 TrendDays = Annotated[int, Query(ge=1, le=1095)]
 EnrollmentIdPath = Annotated[int, Path(ge=1)]
 
@@ -205,16 +208,19 @@ async def posture(project: ProjectQuery, identity: CurrentIdentity) -> ProjectPo
 async def project_findings(
     identity: CurrentIdentity,
     project: Annotated[ProjectName | None, Query()] = None,
-    finding_status: Annotated[FindingStatus, Query(alias="status")] = FindingStatus.OPEN,
-    severity: Severity | None = None,
-    review_type: ReviewType | None = None,
+    finding_status: Annotated[
+        list[FindingStatus] | None, Query(alias="status", max_length=len(FindingStatus))
+    ] = None,
+    severity: Annotated[list[Severity] | None, Query(max_length=len(Severity))] = None,
+    review_type: Annotated[list[ReviewType] | None, Query(max_length=len(ReviewType))] = None,
     limit: Annotated[int, Query(ge=1)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ProjectFindingPage:
     """Findings of a project across all its reports (open by default), worst first.
 
     Gives an expert the whole list to review; without ``project``, lists the findings of every
-    project in the scope of the caller. limit is capped by SECREVIEW_MAX_LIST_LIMIT.
+    project in the scope of the caller. ``status``, ``severity`` and ``review_type`` may be
+    repeated (any of the values matches). limit is capped by SECREVIEW_MAX_LIST_LIMIT.
     """
     if project is not None:
         scoped_project(identity, project)
@@ -283,9 +289,12 @@ async def sarif(
 @router.get("/reports")
 async def reports(
     identity: CurrentIdentity,
-    project: Annotated[str | None, Query(max_length=MAX_RAW_PROJECT_CHARS)] = None,
-    risk_level: Severity | None = None,
-    review_type: ReviewType | None = None,
+    project: Annotated[
+        list[Annotated[str, StringConstraints(max_length=MAX_RAW_PROJECT_CHARS)]] | None,
+        Query(max_length=MAX_FILTER_PROJECTS),
+    ] = None,
+    risk_level: Annotated[list[Severity] | None, Query(max_length=len(Severity))] = None,
+    review_type: Annotated[list[ReviewType] | None, Query(max_length=len(ReviewType))] = None,
     author: Annotated[str | None, Query(max_length=MAX_AUTHOR_CHARS)] = None,
     search: Annotated[str | None, Query(max_length=200)] = None,
     sort_by: Literal[
@@ -304,13 +313,13 @@ async def reports(
 ) -> list[ReportSummary]:
     """List reports, newest first (limit is capped by SECREVIEW_MAX_LIST_LIMIT).
 
+    ``project``, ``risk_level`` and ``review_type`` may be repeated (any of the values matches).
     The author is returned, filtered, searched and sorted only for a manager of the users or
     of the tokens."""
-    if project:
-        project = scoped_project(identity, project)
+    names = [scoped_project(identity, name) for name in project or [] if name]
     return await run_in_threadpool(
         services.list_reports,
-        project or None,
+        names,
         risk_level,
         limit,
         offset,

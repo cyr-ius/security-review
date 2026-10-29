@@ -438,13 +438,13 @@ export class ApiService {
   }
 
   reports(query: ReportQuery): Observable<ReportSummary[]> {
-    let params = new HttpParams().set('limit', query.limit).set('offset', query.offset);
-    if (query.project) {
-      params = params.set('project', query.project);
-    }
-    if (query.risk_level) {
-      params = params.set('risk_level', query.risk_level);
-    }
+    let params = new HttpParams()
+      .set('limit', query.limit)
+      .set('offset', query.offset)
+      .appendAll({
+        project: [...(query.project ?? [])],
+        risk_level: [...(query.risk_level ?? [])],
+      });
     if (query.search) {
       params = params.set('search', query.search);
     }
@@ -471,18 +471,17 @@ export class ApiService {
 
   /** Findings of a project (or of every project) across all reports, worst first. */
   projectFindings(query: ProjectFindingQuery): Observable<ProjectFindingPage> {
+    // Repeated parameters: any of the values matches
     let params = new HttpParams()
-      .set('status', query.status)
       .set('limit', query.limit)
-      .set('offset', query.offset);
+      .set('offset', query.offset)
+      .appendAll({
+        status: [...query.status],
+        severity: [...query.severity],
+        review_type: [...query.reviewType],
+      });
     if (query.project) {
       params = params.set('project', query.project);
-    }
-    if (query.severity) {
-      params = params.set('severity', query.severity);
-    }
-    if (query.reviewType) {
-      params = params.set('review_type', query.reviewType);
     }
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }

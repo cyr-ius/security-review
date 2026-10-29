@@ -40,9 +40,9 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 |---|---|
 | **Projets** | Tous les projets avec leurs findings ouverts par sévérité. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
 | **Projet** | Tendance, findings ouverts les plus graves et le plus ancien, export SARIF, **Tous les rapports** du projet |
-| **Findings à revoir** | Tous les findings ouverts du projet, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage |
-| **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration |
-| **Rapports**, **Rapport** | Toutes les revues enregistrées, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings, téléchargement Markdown et SARIF |
+| **Findings à revoir** | Tous les findings ouverts du projet, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
+| **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
+| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings, téléchargement Markdown et SARIF |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent des fichiers TOML)
 

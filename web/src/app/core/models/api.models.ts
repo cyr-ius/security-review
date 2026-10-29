@@ -849,9 +849,12 @@ export interface FindingComment {
 export interface ProjectFindingQuery {
   /** Omitted: the findings of every project in the scope of the caller. */
   project?: string;
-  status: FindingStatus;
-  severity: Severity | '';
-  reviewType: ReviewType | '';
+  /** Any of these statuses (empty: open). */
+  status: readonly FindingStatus[];
+  /** Any of these severities (empty: every severity). */
+  severity: readonly Severity[];
+  /** Any of these review types (empty: every type). */
+  reviewType: readonly ReviewType[];
   limit: number;
   offset: number;
 }
@@ -913,8 +916,10 @@ export interface Trend {
 
 /** Query parameters of the report list. */
 export interface ReportQuery {
-  project?: string;
-  risk_level?: Severity | '';
+  /** Any of these projects (empty: every project in the scope). */
+  project?: readonly string[];
+  /** Any of these risk levels (empty: every level). */
+  risk_level?: readonly Severity[];
   search?: string;
   sort_by?:
     'created_at' | 'project' | 'risk_level' | 'review_type' | 'branch' | 'submitted_by' | 'summary';

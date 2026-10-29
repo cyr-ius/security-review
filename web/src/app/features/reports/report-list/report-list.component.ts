@@ -2,9 +2,14 @@ import { Component, computed, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { SEVERITY_META } from '../../../core/constants/labels';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { SEVERITIES, Severity } from '../../../core/models/api.models';
+import { SEVERITIES } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
+import {
+  MultiSelectDropdownComponent,
+  MultiSelectOption,
+} from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
   ReportSortKey,
@@ -21,22 +26,27 @@ const PAGE_SIZE = 25;
  */
 @Component({
   selector: 'app-report-list',
-  imports: [ReportTableComponent, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
+  imports: [
+    MultiSelectDropdownComponent,
+    ReportTableComponent,
+    RefreshButtonComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './report-list.component.html',
   styleUrl: './report-list.component.css',
 })
 export class ReportListComponent {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
+  private readonly i18n = inject(I18nService);
 
-  /** Query parameters ?project=&risk=&page= */
-  readonly project = input<string>();
-  readonly risk = input<string>();
+  /** Query parameters ?project=&risk=&page= (project and risk may be repeated) */
+  readonly project = input<string | string[]>();
+  readonly risk = input<string | string[]>();
   readonly page = input<string>();
   readonly search = input<string>();
 
-  readonly severities = SEVERITIES;
-  readonly severityMeta = SEVERITY_META;
   readonly pageSize = PAGE_SIZE;
   /** Columns the server sorts by (not the open findings: they depend on the triage). */
   readonly sort = new TableSort<Exclude<ReportSortKey, 'findings_open'>>(
@@ -49,17 +59,28 @@ export class ReportListComponent {
 
   readonly pageNumber = computed(() => Math.max(1, Number.parseInt(this.page() ?? '1', 10) || 1));
 
-  readonly riskLevel = computed<Severity | ''>(() => {
-    const risk = this.risk() ?? '';
-    return (SEVERITIES as readonly string[]).includes(risk) ? (risk as Severity) : '';
+  readonly projectFilter = computed(() => asList(this.project()));
+  readonly riskLevels = computed(() => {
+    const risks = asList(this.risk());
+    return SEVERITIES.filter((severity) => risks.includes(severity));
   });
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
 
+  readonly projectOptions = computed<MultiSelectOption[]>(() =>
+    (this.projects.value() ?? []).map((p) => ({ value: p.project, label: p.project })),
+  );
+  readonly riskOptions = computed<MultiSelectOption[]>(() =>
+    SEVERITIES.map((severity) => ({
+      value: severity,
+      label: this.i18n.translate(SEVERITY_META[severity].label),
+    })),
+  );
+
   readonly reports = rxResource({
     params: () => ({
-      project: this.project() ?? '',
-      risk_level: this.riskLevel(),
+      project: this.projectFilter(),
+      risk_level: this.riskLevels(),
       search: this.search()?.trim() || undefined,
       sort_by: this.sort.key(),
       sort_direction: this.sort.direction(),
@@ -73,12 +94,12 @@ export class ReportListComponent {
   readonly rows = computed(() => (this.reports.value() ?? []).slice(0, PAGE_SIZE));
   readonly hasNext = computed(() => (this.reports.value() ?? []).length > PAGE_SIZE);
 
-  onProject(event: Event): void {
-    this.navigate({ project: (event.target as HTMLSelectElement).value || null, page: null });
+  onProjects(values: string[]): void {
+    this.navigate({ project: values.length ? values : null, page: null });
   }
 
-  onRisk(event: Event): void {
-    this.navigate({ risk: (event.target as HTMLSelectElement).value || null, page: null });
+  onRisks(values: string[]): void {
+    this.navigate({ risk: values.length ? values : null, page: null });
   }
 
   onSearch(value: string): void {
@@ -89,7 +110,15 @@ export class ReportListComponent {
     this.navigate({ page: page > 1 ? page : null });
   }
 
-  private navigate(queryParams: Record<string, string | number | null>, replaceUrl = false): void {
+  private navigate(
+    queryParams: Record<string, string | string[] | number | null>,
+    replaceUrl = false,
+  ): void {
     this.router.navigate([], { queryParams, queryParamsHandling: 'merge', replaceUrl });
   }
+}
+
+/** Values of a query parameter given once or repeated. */
+function asList(value: string | string[] | undefined): string[] {
+  return (Array.isArray(value) ? value : [value ?? '']).filter(Boolean);
 }

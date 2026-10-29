@@ -71,9 +71,9 @@ export class ProjectDetailComponent {
   readonly openFindings = rxResource({
     params: () => ({
       project: this.project(),
-      status: 'open' as const,
-      severity: '' as const,
-      reviewType: '' as const,
+      status: ['open' as const],
+      severity: [],
+      reviewType: [],
       limit: TOP_OPEN_FINDINGS,
       offset: 0,
     }),

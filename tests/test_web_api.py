@@ -40,6 +40,7 @@ from security_review_mcp.storage.models import (
     ReviewType,
     Severity,
 )
+from security_review_mcp.web_api import report_routes
 from security_review_mcp.web_api.body_limit import MAX_BODY_BYTES
 
 # Bearer value of each role, set by the ``secured`` fixture: the raw secret of a token for the
@@ -478,6 +479,27 @@ def test_findings_and_reports_show_and_filter_the_review_type(client):
     bad = {"project": "typed", "review_type": "bogus"}
     assert client.get("/api/v1/findings", params=bad).status_code == 422
     assert client.get("/api/v1/reports", params=bad).status_code == 422
+
+
+def test_findings_and_reports_filter_on_several_values(client, reports):
+    first = client.get("/api/v1/findings", params={"project": "shop-api"}).json()["findings"][0]
+    services.update_finding_status(first["id"], FindingStatus.FALSE_POSITIVE, "alice")
+    params = {"project": "shop-api", "status": ["open", "false_positive"]}
+    assert client.get("/api/v1/findings", params=params).json()["total"] == 2
+    params = {"project": "shop-api", "severity": ["low", "critical"]}
+    assert [
+        f["title"] for f in client.get("/api/v1/findings", params=params).json()["findings"]
+    ] == ["Weak hash"]
+    listed = client.get("/api/v1/reports", params={"project": ["shop-api", "billing"]}).json()
+    assert sorted(r["project"] for r in listed) == ["billing", "shop-api"]
+    params = {"risk_level": ["high", "critical"]}
+    assert [r["project"] for r in client.get("/api/v1/reports", params=params).json()] == [
+        "shop-api"
+    ]
+    too_many = {"severity": ["high"] * (len(Severity) + 1)}
+    assert client.get("/api/v1/findings", params=too_many).status_code == 422
+    too_many = {"project": [f"p{i}" for i in range(report_routes.MAX_FILTER_PROJECTS + 1)]}
+    assert client.get("/api/v1/reports", params=too_many).status_code == 422
 
 
 def test_reports_show_and_filter_the_author(client):

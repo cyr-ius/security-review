@@ -5,7 +5,7 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
 import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
-import { Message } from '../../../core/i18n/i18n.service';
+import { I18nService, Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import {
@@ -24,6 +24,10 @@ import { ExportService, kindsByProject, systemNames } from '../../../core/servic
 import { TriageChange, TriageService } from '../../../core/services/triage.service';
 import { ApiService } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
+import {
+  MultiSelectDropdownComponent,
+  MultiSelectOption,
+} from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
@@ -41,6 +45,7 @@ const PAGE_SIZE = 50;
     RouterLink,
     DatePipe,
     FindingCardComponent,
+    MultiSelectDropdownComponent,
     RefreshButtonComponent,
     TranslatePipe,
   ],
@@ -49,6 +54,7 @@ const PAGE_SIZE = 50;
 })
 export class ProjectFindingsComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
   readonly triage = inject(TriageService);
   readonly exports = inject(ExportService);
@@ -56,22 +62,51 @@ export class ProjectFindingsComponent {
   /** Route parameter :project (undefined at /findings: every project in the scope). */
   readonly project = input<string>();
 
-  readonly severities = SEVERITIES;
-  readonly statuses = FINDING_STATUSES;
-  readonly severityMeta = SEVERITY_META;
-  readonly statusMeta = STATUS_META;
-  readonly reviewTypes = REVIEW_TYPES;
   readonly reviewTypeMeta = REVIEW_TYPE_META;
 
-  readonly statusFilter = signal<FindingStatus>('open');
-  readonly severityFilter = signal<Severity | ''>('');
-  readonly reviewTypeFilter = signal<ReviewType | ''>('');
+  /** Selected values of each filter (none: no filter, every status for the status). */
+  readonly statusFilter = signal<FindingStatus[]>(['open']);
+  readonly severityFilter = signal<Severity[]>([]);
+  readonly reviewTypeFilter = signal<ReviewType[]>([]);
+
+  /** Statuses listed: the selected ones, or all of them. */
+  private readonly statuses = computed(() =>
+    this.statusFilter().length ? this.statusFilter() : FINDING_STATUSES,
+  );
+
+  readonly statusOptions = computed<MultiSelectOption[]>(() =>
+    FINDING_STATUSES.map((status) => ({
+      value: status,
+      label: this.i18n.translate(STATUS_META[status].label),
+    })),
+  );
+  readonly severityOptions = computed<MultiSelectOption[]>(() =>
+    SEVERITIES.map((severity) => ({
+      value: severity,
+      label: this.i18n.translate(SEVERITY_META[severity].label),
+    })),
+  );
+  readonly reviewTypeOptions = computed<MultiSelectOption[]>(() =>
+    REVIEW_TYPES.map((reviewType) => ({
+      value: reviewType,
+      label: this.i18n.translate(REVIEW_TYPE_META[reviewType].label),
+    })),
+  );
+
+  /** No filter but the default one (open findings). */
+  readonly defaultFilters = computed(
+    () =>
+      this.statusFilter().length === 1 &&
+      this.statusFilter()[0] === 'open' &&
+      !this.severityFilter().length &&
+      !this.reviewTypeFilter().length,
+  );
 
   /** First page for the current filters. */
   readonly firstPage = rxResource({
     params: () => ({
       project: this.project(),
-      status: this.statusFilter(),
+      status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
       limit: PAGE_SIZE,
@@ -103,7 +138,7 @@ export class ProjectFindingsComponent {
 
   /** Findings whose status changed on this page (they stay listed until the next reload). */
   readonly triagedCount = computed(
-    () => this.findings().filter((f) => f.status !== this.statusFilter()).length,
+    () => this.findings().filter((f) => !this.statuses().includes(f.status)).length,
   );
 
   readonly forbidden = computed(() => {
@@ -111,16 +146,16 @@ export class ProjectFindingsComponent {
     return error instanceof HttpErrorResponse && error.status === 404;
   });
 
-  onStatusFilter(event: Event): void {
-    this.statusFilter.set((event.target as HTMLSelectElement).value as FindingStatus);
+  onStatusFilter(values: string[]): void {
+    this.statusFilter.set(FINDING_STATUSES.filter((status) => values.includes(status)));
   }
 
-  onSeverityFilter(event: Event): void {
-    this.severityFilter.set((event.target as HTMLSelectElement).value as Severity | '');
+  onSeverityFilter(values: string[]): void {
+    this.severityFilter.set(SEVERITIES.filter((severity) => values.includes(severity)));
   }
 
-  onReviewTypeFilter(event: Event): void {
-    this.reviewTypeFilter.set((event.target as HTMLSelectElement).value as ReviewType | '');
+  onReviewTypeFilter(values: string[]): void {
+    this.reviewTypeFilter.set(REVIEW_TYPES.filter((reviewType) => values.includes(reviewType)));
   }
 
   /** Append the next page to the list. */
@@ -129,7 +164,7 @@ export class ProjectFindingsComponent {
     this.loadMoreFailed.set(false);
     const request = this.api.projectFindings({
       project: this.project(),
-      status: this.statusFilter(),
+      status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
       limit: PAGE_SIZE,

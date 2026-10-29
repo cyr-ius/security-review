@@ -39,9 +39,9 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 |---|---|
 | **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
 | **Project** | Trend, worst and oldest open findings, SARIF export, **All reports** of the project |
-| **Findings to review** | Every open finding of the project, once each, worst first: this is where you triage |
-| **Risk acceptances** | The accepted risks, with their expiry date |
-| **Reports**, **Report** | Every saved review, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings, Markdown and SARIF download |
+| **Findings to review** | Every open finding of the project, once each, worst first: this is where you triage. The status, severity and review type filters accept several values |
+| **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
+| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings, Markdown and SARIF download |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange TOML files)
 

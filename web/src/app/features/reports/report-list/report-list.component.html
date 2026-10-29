@@ -11,28 +11,24 @@
 
 <div class="card">
   <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-    <select
-      class="form-select form-select-sm filter"
-      [attr.aria-label]="'reportTable.project' | t"
-      (change)="onProject($event)"
-    >
-      <option value="">{{ 'reports.allProjects' | t }}</option>
-      @for (p of projects.value() ?? []; track p.project) {
-        <option [value]="p.project" [selected]="p.project === project()">{{ p.project }}</option>
-      }
-    </select>
-    <select
-      class="form-select form-select-sm filter"
-      [attr.aria-label]="'reports.riskLevel' | t"
-      (change)="onRisk($event)"
-    >
-      <option value="">{{ 'reports.allRisks' | t }}</option>
-      @for (severity of severities; track severity) {
-        <option [value]="severity" [selected]="severity === riskLevel()">
-          {{ severityMeta[severity].label | t }}
-        </option>
-      }
-    </select>
+    <app-multi-select-dropdown
+      class="filter"
+      id="reports-filter-project"
+      [label]="'reportTable.project' | t"
+      [allLabel]="'reports.allProjects' | t"
+      [options]="projectOptions()"
+      [selected]="projectFilter()"
+      (selectedChange)="onProjects($event)"
+    />
+    <app-multi-select-dropdown
+      class="filter"
+      id="reports-filter-risk"
+      [label]="'reports.riskLevel' | t"
+      [allLabel]="'reports.allRisks' | t"
+      [options]="riskOptions()"
+      [selected]="riskLevels()"
+      (selectedChange)="onRisks($event)"
+    />
   </div>
 
   @if (reports.error()) {
