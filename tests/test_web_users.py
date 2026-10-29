@@ -25,6 +25,7 @@ def stored(database, username: str) -> WebUser:
 # ── Passwords ────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.real_password_hashing
 def test_password_hash_is_salted_and_verified():
     first, second = web_users.hash_password(PASSWORD), web_users.hash_password(PASSWORD)
 

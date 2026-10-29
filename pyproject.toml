@@ -37,7 +37,7 @@ Issues = "https://github.com/cyr-ius/security-review/issues"
 
 [project.optional-dependencies]
 postgres = ["psycopg2-binary>=2.9"]
-dev = ["pytest>=8", "ruff>=0.5", "debugpy>=1.8"]
+dev = ["pytest>=8", "pytest-xdist>=3.6", "ruff>=0.5", "debugpy>=1.8"]
 docs = [
     "mkdocs>=1.6,<2",
     "mkdocs-material>=9.5",
@@ -58,6 +58,8 @@ security_review_mcp = ["rules/default_rules.toml", "favicon.svg", "storage/migra
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-n auto"
+markers = ["real_password_hashing: hash passwords with the production scrypt cost"]
 
 [tool.ruff]
 line-length = 100
