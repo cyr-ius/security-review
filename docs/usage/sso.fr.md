@@ -64,7 +64,7 @@ Un groupe non ouvert au OIDC (par exemple `administrators`) n'est jamais rejoint
 ## Lecture du projet
 
 Pour qu'un développeur lise un projet, ajoutez son compte OIDC au
-[groupe de projet](projects.md#groupes-de-projet) dans **Groupes** ou **Utilisateurs**, ou validez
+[groupe de projet](projects.md#groupe-de-projet) dans **Groupes** ou **Utilisateurs**, ou validez
 la demande d'accès de son agent dans **Projets**. Le compte doit d'abord exister : le développeur
 s'est connecté une fois (création automatique), ou un administrateur l'a créé dans
 **Utilisateurs**.

@@ -37,30 +37,31 @@ dans **Groupes** ou **Utilisateurs**, ou validez la **Demande d'accès** dépos�
 
 ## Création d'un projet
 
-Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur l'écran **Projets**.
-Créer un projet vous rend membre de son groupe de projet : vous le lisez aussitôt, et votre agent peut y
-enregistrer ses revues.
+Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur l'écran
+**Projets**. Créer un projet vous rend membre de son groupe de projet : vous le lisez aussitôt, et
+votre agent peut y enregistrer ses revues.
 
 ## Suppression d'un projet
 
-Avec la permission `projects.delete`, le bouton corbeille s'active sur la ligne du projet présenté sur
-la page **Projets**. La suppression est **irréversible** et retire tout ce qui se rapporte au projet :
+Avec la permission `projects.delete`, un bouton corbeille apparaît sur chaque ligne de l'écran
+**Projets**. La suppression est **irréversible** et retire tout ce qui se rapporte au projet :
 
 - ses rapports, findings et commentaires ;
 - le projet dans les rôles des groupes ; son groupe de projet est supprimé ;
 - le projet dans les jetons : un jeton qui n'atteignait que ce projet est **révoqué**, et un
   pipeline qui l'utilisait s'arrête.
 
-Le journal d'audit conserve les événements du projet. Une confirmation est demandée au moment 
+Le journal d'audit conserve les événements du projet. Une confirmation est demandée au moment
 de l'action.
 
 ## Rejoindre un projet
 
-Un agent peut faire la demande de rejoindre un projet existant. Vous verrez sa demande en attente 
-de validation sur la page **Projets**.
+L'agent d'un développeur peut demander à rejoindre un projet existant. Sa demande apparaît,
+en attente de validation, dans **Projets en attente** sur l'écran **Projets**.
 
-Une personne doté de la permission `user.manage` peut valider la demande en attente ou ajouter 
-l'utilisateur dans le groupe de projet.
+Une personne dotée des permissions `projects.create` et `users.manage` peut valider cette
+demande ; une personne dotée de `users.manage` peut aussi ajouter l'utilisateur au groupe de
+projet.
 
 ## Points d'attention
 

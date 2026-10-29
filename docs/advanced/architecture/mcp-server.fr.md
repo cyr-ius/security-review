@@ -128,7 +128,7 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
     ```
 
     La validation ajoute le **demandeur** au groupe de projet `project:<projet>` (voir
-    [contrôle d'accès](../../usage/projects.md#groupes-de-projet)), créé pour un nouveau projet : son
+    [contrôle d'accès](../../usage/projects.md#groupe-de-projet)), créé pour un nouveau projet : son
     jeton personnel atteint le projet dès la requête suivante, sans reconfiguration. Une demande
     que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut)
     est supprimée.

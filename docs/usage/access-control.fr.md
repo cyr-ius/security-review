@@ -33,7 +33,7 @@ s'appliquent à tout le serveur Controller.
 
 | Rôle | Permissions | Remarque |
 |---|---|---|
-| `reader` | `reports.read` | Intégré, non modifiable : utilisé par les [groupes de projet](projects.md#groupes-de-projet) |
+| `reader` | `reports.read` | Intégré, non modifiable : utilisé par les [groupes de projet](projects.md#groupe-de-projet) |
 | `admin` | Toutes les permissions, y compris celles des versions ultérieures | Intégré, non modifiable : le rôle du groupe `administrators` |
 | `triager` | `reports.read`, `findings.triage` | Créé avec la base, modifiable |
 | `mcp-user` | `mcp_tokens.create` | Créé avec la base, modifiable ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que lit son utilisateur |

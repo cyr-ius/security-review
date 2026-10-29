@@ -2,7 +2,8 @@
 
 L'interface web permet de suivre la sécurité de vos projets : consulter les rapports enregistrés
 par les agents et les pipelines, voir les findings ouverts et décider de leur sort (le
-[triage](triage.md)). Il est facultatif et est fournis par `security-review-controller'
+[triage](triage.md)). Elle est facultative et fournie par le serveur Controller
+(`security-review-controller`).
 
 ## Se connecter
 

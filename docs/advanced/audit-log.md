@@ -25,11 +25,11 @@ exists exactly when the change was committed.
 | `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details); the requester is added to the group (`user.groups_changed`) |
 | `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](../usage/access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](../usage/access-control.md#groups); the approval of a project request creates a missing [project group](../usage/projects.md#project-groups) (`project` in the details) |
+| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](../usage/access-control.md#groups); the approval of a project request creates a missing [project group](../usage/projects.md#project-group) (`project` in the details) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
 | `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (its project group and the user id in the details) |
 | `project.deleted` | A user with `projects.delete` [deletes a project](../usage/projects.md#deleting-a-project) (counts of reports, findings and tokens, groups deleted or changed in the details) |
-| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](../usage/projects.md#project-groups) (added and removed group ids) |
+| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](../usage/projects.md#project-group) (added and removed group ids) |
 | `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |

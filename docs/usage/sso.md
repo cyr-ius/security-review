@@ -61,7 +61,7 @@ A group not open to OIDC (for example `administrators`) is never joined this way
 ## Project read access
 
 To let a developer read a project, add their OIDC account to the
-[project group](projects.md#project-groups) in **Groups** or **Users**, or approve the access
+[project group](projects.md#project-group) in **Groups** or **Users**, or approve the access
 request of their agent in **Projects**. The account must exist first: the developer has logged
 in once (automatic creation), or an administrator has created it in **Users**.
 

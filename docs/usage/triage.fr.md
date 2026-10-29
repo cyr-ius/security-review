@@ -2,9 +2,9 @@
 
 Trier un finding, c'est décider de son sort. La décision est toujours prise par une
 **personne** connectée à l'interface web : un agent peut seulement proposer un statut, jamais
-l'appliquer. 
+l'appliquer.
 
-Si vous souhaitez utiliser l'API REST, voir [Triage par l'API REST](../advanced/reports/triage-api.md).
+Pour utiliser l'API REST, voir [Triage par l'API REST](../advanced/reports/triage-api.md).
 
 | Statut | Signification | Ce qui est demandé | Expire |
 |---|---|---|---|
@@ -15,11 +15,12 @@ Si vous souhaitez utiliser l'API REST, voir [Triage par l'API REST](../advanced/
 
 À savoir :
 
-- **Un agent peut effectuer une proposition** : sur le finding, est affiché dans un encadré distinct, l'auteur,
-  sa date et son motif.
-  - **Appliquer**, reprend la proposition (le formulaire s'ouvre pour une acceptation ou un faux positif).
-  - **Rejeter** supprime la proposition.
-  Le proposition vient d'un agent qui a lu le code : vérifiez-le avant de l'appliquer.
+- **Un agent peut faire une proposition** : elle s'affiche sur le finding dans un encadré
+  distinct, avec son auteur, sa date et son motif. La proposition vient d'un agent qui a lu le
+  code : vérifiez-la avant de l'appliquer.
+    - **Appliquer** reprend la proposition (le formulaire s'ouvre pour une acceptation ou un faux
+      positif).
+    - **Rejeter** supprime la proposition.
 - **Les findings peu graves** (`low` et `info` par défaut) s'acceptent par une simple
   validation, sans motif ni date.
 - **Une acceptation expirée compte de nouveau comme ouverte** partout : listes, posture,
@@ -51,8 +52,8 @@ occurrence **remplace** la précédente. Le système détecte les doublons.
 
 Un analyste peut **relever** la criticité donnée par un rapport, par exemple quand le code est
 exposé à Internet ou manipule des données sensibles.
-Le bouton **Relever la criticité**, en haut de la carte, demande la **Nouvelle criticité** et 
-une **Justification**. La criticité relevée compte partout, et le niveau de risque du rapport 
+Le bouton **Relever la criticité**, en haut de la carte, demande la **Nouvelle criticité** et
+une **Justification**. La criticité relevée compte partout, et le niveau de risque du rapport
 monte avec elle.
 
 Une criticité ne descend jamais sous celle du rapport : l'analyste peut seulement y revenir pour

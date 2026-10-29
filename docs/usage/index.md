@@ -2,7 +2,8 @@
 
 The web interface is where you follow the security of your projects: you browse the reports
 saved by the agents and the pipelines, see the open findings and decide what to do with them
-(the [triage](triage.md)).
+(the [triage](triage.md)). It is optional and provided by the Controller server
+(`security-review-controller`).
 
 ## Signing in
 

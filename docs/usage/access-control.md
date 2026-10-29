@@ -32,7 +32,7 @@ whole Controller server.
 
 | Role | Permissions | Note |
 |---|---|---|
-| `reader` | `reports.read` | Built in, cannot be changed: used by the [project groups](projects.md#project-groups) |
+| `reader` | `reports.read` | Built in, cannot be changed: used by the [project groups](projects.md#project-group) |
 | `admin` | Every permission, including those of later versions | Built in, cannot be changed: the role of the `administrators` group |
 | `triager` | `reports.read`, `findings.triage` | Created with the database, can be changed |
 | `mcp-user` | `mcp_tokens.create` | Created with the database, can be changed; give it with a reading role, since the token reaches the projects its user reads |

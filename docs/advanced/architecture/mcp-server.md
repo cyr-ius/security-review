@@ -125,7 +125,7 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
     ```
 
     The approval adds the **requester** to the project group `project:<project>` (see
-    [access control](../../usage/projects.md#project-groups)), created for a new project: their
+    [access control](../../usage/projects.md#project-group)), created for a new project: their
     personal token reaches the project from the next request, without reconfiguration. A
     request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)
     is deleted.

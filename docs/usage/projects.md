@@ -24,7 +24,7 @@ project `mobile-app`, so that the members of a team reach the same project whate
 
 A project created without a report shows **No report yet** until its first review.
 
-## Project groups
+## Project group
 
 Each project has its **project group**, `project:<project>`, which gives the reading of that
 project alone (`reader` role). Its creator, or the developer whose request was approved, is its
@@ -37,24 +37,29 @@ group in **Groups** or **Users**, or approve the **Access request** filed by the
 
 ## Creating a project
 
-With the `projects.create` permission, **New project** on the **Projects** screen creates the
-project and makes you a member of its project group: you read it at once, and your agent can
-save its reviews there. Only a **new** name is accepted: this permission never opens a project
-that already exists. You only get the reading; an administrator gives the triage through the
-groups.
+With the `projects.create` permission, the **New project** button shows on the **Projects**
+screen. Creating a project makes you a member of its project group: you read it at once, and
+your agent can save its reviews there.
 
 ## Deleting a project
 
-With the `projects.delete` permission (only `admin` by default), the trash button of a row of
-the **Projects** screen deletes the project after a confirmation. The deletion **cannot be
-undone** and removes everything that refers to the project:
+With the `projects.delete` permission, a trash button shows on each row of the **Projects**
+screen. The deletion **cannot be undone** and removes everything that refers to the project:
 
 - its reports, findings and comments;
 - the project in the roles of the groups; its project group is deleted;
 - the project in the tokens: a token that reached only this project is **revoked**, so a
   pipeline that used it stops.
 
-The audit log keeps the events of the project.
+The audit log keeps the events of the project. A confirmation is asked before the deletion.
+
+## Joining a project
+
+The agent of a developer may ask to join an existing project. Its request shows, waiting for
+approval, in **Pending projects** on the **Projects** screen.
+
+A person with the `projects.create` and `users.manage` permissions may approve this request; a
+person with `users.manage` may also add the user to the project group.
 
 ## Points to watch
 
