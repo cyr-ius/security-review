@@ -318,8 +318,9 @@ that exist on public registries (dependency confusion), abandoned or typosquatte
 Reply with a short summary and the findings, then call `save_security_report` once with \
 `review_type` `dependency-review`. {_AUTHOR_RULE} Pass in `checklist_results` every \
 checklist item you walked through with its outcome (`ok`, `issue`, `not_applicable`, \
-`not_verifiable`). Use category `dependency`, the advisory \
-id as `rule_id`, `CWE-1395` for vulnerable components and the manifest path as `file_path`.
+`not_verifiable`). Use category `dependency`, the `advisory_id` returned by the tool (not \
+an alias) or the hygiene `rule_id` as `rule_id`, `CWE-1395` for vulnerable components and the \
+manifest path as `file_path`: the finding then matches the one of a dependency scan.
 """,
         _checklists(["dependencies"]),
         (

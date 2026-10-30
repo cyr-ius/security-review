@@ -44,7 +44,10 @@ d'expiration passée ou trop lointaine, ou une date d'expiration pour `open` / `
 ## Finding signalé de nouveau
 
 Le serveur reconnaît un problème à son empreinte : projet, règle ou CWE, fichier et titre, sans
-le numéro de ligne, comme en [SARIF](sarif.md). Quand une règle trouve plusieurs lignes d'un
+le numéro de ligne, comme en [SARIF](sarif.md). Un finding de catégorie `dependency` avec un
+`rule_id` ignore son titre : un avis (`GHSA-`, `CVE-`, `PYSEC-`...) est reconnu à son seul
+identifiant, quel que soit le fichier (un scan le signale sur le lockfile, une revue sur le
+manifeste), et une règle d'hygiène (`DEP-*`) à son identifiant et au nom du fichier. Quand une règle trouve plusieurs lignes d'un
 fichier, les occurrences sont appariées dans l'ordre des lignes si leur nombre n'a pas changé
 (le code a bougé), sinon seulement sur la même ligne : une nouvelle occurrence n'hérite jamais de
 la décision prise sur une autre, elle est ouverte. Une proposition d'agent en attente

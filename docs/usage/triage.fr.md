@@ -35,7 +35,9 @@ Pour utiliser l'API REST, voir [Triage par l'API REST](../advanced/reports/triag
 
 Quand un rapport ultérieur signale de nouveau le même problème (même projet, règle, fichier et
 titre, quelle que soit la ligne), il n'ajoute pas un second finding à revoir : la nouvelle
-occurrence **remplace** la précédente. Le système détecte les doublons.
+occurrence **remplace** la précédente. Le système détecte les doublons. Un finding de dépendance
+est reconnu à son avis (ou à sa règle d'hygiène et au nom de son fichier), quel que soit son
+titre : une revue et un scan des dépendances signalent une seule fois un paquet vulnérable.
 
 - Une **acceptation** ou un **faux positif** encore valide est repris, avec son motif, son
   approbateur et sa date d'expiration, de même que les commentaires et une criticité relevée.

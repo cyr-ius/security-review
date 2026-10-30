@@ -8,6 +8,7 @@ location (the project): some consumers ignore or reject those.
 import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 
 from .. import __version__
 from ..storage.models import FindingBase, FindingPublic, FindingStatus, Severity
@@ -53,11 +54,26 @@ def rule_key(finding: FindingBase) -> str:
 
 def issue_fingerprint(project: str, finding: FindingBase) -> str:
     """Return a stable id of an issue in a project; it ignores line numbers so edits don't
-    reset it. It links the occurrences of one issue across reports (services.save_report)."""
-    raw = "|".join(
-        [project, rule_key(finding), finding.file_path or "", finding.title.strip().lower()]
-    )
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+    reset it. It links the occurrences of one issue across reports (services.save_report).
+
+    A dependency finding with a rule id ignores its title, written freely by an agent, so that
+    a dependency review and a dependency scan report the same issue once: an advisory is
+    identified by its id alone (the scan reports it on the lockfile, a review on the manifest),
+    a hygiene rule (DEP-*) by its id and the name of the file (the scan keeps only the name).
+    """
+    rule = rule_key(finding)
+    if finding.category.strip().lower() == "dependency" and finding.rule_id:
+        if rule.upper().startswith(_ADVISORY_PREFIXES):
+            parts = [project, rule.upper()]
+        else:
+            parts = [
+                project,
+                rule,
+                PurePosixPath((finding.file_path or "").replace("\\", "/")).name,
+            ]
+    else:
+        parts = [project, rule, finding.file_path or "", finding.title.strip().lower()]
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]
 
 
 def fingerprint(item: SarifItem) -> str:

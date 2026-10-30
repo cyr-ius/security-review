@@ -882,6 +882,59 @@ def test_stored_findings_get_their_occurrences(empty_engine):
     assert services.project_posture("shop")["open_findings_total"] == 1
 
 
+def test_the_dependency_findings_of_a_review_and_a_scan_are_merged(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    from security_review_mcp.reports import services
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0040")
+        for report_id, day in ((1, "01"), (2, "02")):
+            connection.execute(
+                text(
+                    "INSERT INTO securityreport (id, project, summary, risk_level, created_at, "
+                    "checklist_results, scan_rules) VALUES (:id, 'shop', 'summary', 'HIGH', "
+                    ":at, '[]', '[]')"
+                ),
+                {"id": report_id, "at": f"2026-10-{day} 10:00:00"},
+            )
+        # Report 1: the scan; report 2: the review, which fixed the advisory, other titles
+        for finding_id, report_id, title, path, status in (
+            (1, 1, "Vulnerable dependency: ecdsa 0.19.2", "uv.lock", "OPEN"),
+            (2, 2, "ecdsa : attaque temporelle", "pyproject.toml", "FIXED"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO finding (id, report_id, title, severity, category, rule_id, "
+                    "file_path, description, status, fingerprint, first_seen_at) VALUES (:id, "
+                    ":report, :title, 'HIGH', 'dependency', 'GHSA-wj6h-64fc-37mp', :path, "
+                    "'Known issue', :status, :id, :seen)"
+                ),
+                {
+                    "id": finding_id,
+                    "report": report_id,
+                    "title": title,
+                    "path": path,
+                    "status": status,
+                    "seen": f"2026-10-0{report_id} 10:00:00",
+                },
+            )
+        connection.execute(
+            text(
+                "INSERT INTO findingcomment (finding_id, author, body, created_at) "
+                "VALUES (1, 'bob', 'Seen', '2026-10-01 11:00:00')"
+            )
+        )
+        command.upgrade(database.alembic_config(connection), "head")
+
+    scanned, reviewed = (services.get_report(r).findings[0] for r in (1, 2))
+    assert (scanned.superseded_by, reviewed.superseded_by) == (2, None)
+    assert reviewed.first_seen_at.day == 1
+    assert reviewed.status == "fixed"  # statuses unchanged
+    assert [c.body for c in services.list_finding_comments(2)] == ["Seen"]
+
+
 def test_the_tickets_and_their_settings_move_to_the_connector_names(empty_engine):
     from alembic import command
     from sqlalchemy import text
