@@ -147,7 +147,7 @@ Un utilisateur doté de `projects.autojoin` rejoint un projet existant par l'out
 `request_project` de son agent : le serveur Controller ajoute le projet au compte avec
 `reports.read` et `reports.write`, règle sa demande en attente pour ce projet et écrit `project.joined` dans le journal d'audit. Un
 utilisateur qui lit déjà 200 projets est refusé. `PUT /api/v1/projects/{project}/autojoin` bloque
-(`true`) ou autorise de nouveau (`false`) cette adhésion automatique, avec `projects.create`,
+(`true`) ou autorise de nouveau (`false`) cette adhésion automatique, avec `users.manage`,
 depuis une session de l'interface web uniquement, pour un projet que l'appelant lit (un autre
 donne `404`). Un projet bloqué affiche `"autojoin_blocked": true` dans `GET /api/v1/projects` ;
 les utilisateurs qui l'ont déjà rejoint gardent leur accès. Chaque changement est écrit dans le

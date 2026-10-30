@@ -1662,9 +1662,11 @@ def test_a_requested_project_waits_for_an_approval_on_the_projects_screen(secure
     assert listed_tokens(secured) == []
 
 
-def test_a_creator_blocks_the_autojoin_of_a_project_it_reads(secured, reports):
-    role = access_control.create_role("Creator", [access_control.Permission.PROJECTS_CREATE])
-    make_user("carol", USER_PASSWORD, "reader", ["shop-api"], role_ids=[role["id"]])
+def test_a_users_manager_blocks_the_autojoin_of_a_project_it_reads(secured, reports):
+    manager = access_control.create_role("Manager", [access_control.Permission.USERS_MANAGE])
+    creator = access_control.create_role("Creator", [access_control.Permission.PROJECTS_CREATE])
+    make_user("carol", USER_PASSWORD, "reader", ["shop-api"], role_ids=[manager["id"]])
+    make_user("cody", USER_PASSWORD, "reader", ["shop-api"], role_ids=[creator["id"]])
     make_user("rita", USER_PASSWORD, "reader", ["shop-api"])
     headers = session_headers(secured, "carol")
 
@@ -1684,7 +1686,11 @@ def test_a_creator_blocks_the_autojoin_of_a_project_it_reads(secured, reports):
     assert put("unknown", True).status_code == 404
     assert put("shop-api", False, session_headers(secured, "rita")).status_code == 403
     assert put("shop-api", False, auth("admin")).status_code == 403
+    # Creating projects never opens an existing one: projects.create neither allows nor blocks
+    assert put("shop-api", False, session_headers(secured, "cody")).status_code == 403
+    assert secured.get("/api/v1/projects", headers=headers).json()[0]["autojoin_blocked"] is True
     assert put("shop-api", False).json()["autojoin_blocked"] is False
+    assert put("shop-api", True, session_headers(secured, "cody")).status_code == 403
 
 
 def test_reader_of_several_projects_in_the_web_interface(secured, reports):

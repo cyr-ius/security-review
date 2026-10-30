@@ -77,8 +77,9 @@ faut pour cela `projects.create`.
 
 ## Blocage de l'adhésion automatique
 
-Avec la permission `projects.create`, un bouton cadenas apparaît sur chaque ligne de la page
-**Projets**, pour les projets que vous lisez. Il **bloque l'adhésion automatique** au projet : les
+Avec la permission `users.manage`, un bouton cadenas apparaît sur chaque ligne de la page
+**Projets**, pour les projets que vous lisez : `projects.create` seule ne bloque ni n'autorise
+l'adhésion automatique. Il **bloque l'adhésion automatique** au projet : les
 titulaires de `projects.autojoin` déposent alors une demande qui attend une validation, comme les
 autres. Le projet affiche le badge **Adhésion automatique bloquée** ; le bouton cadenas ouvert
 autorise de nouveau l'adhésion automatique. Les utilisateurs qui ont déjà rejoint le projet

@@ -32,6 +32,7 @@ from .deps import (
     ProjectCreator,
     ProjectDeleter,
     Triager,
+    UsersManager,
     actor_of,
     check_report_scope,
     ensure_report_scope,
@@ -191,12 +192,12 @@ async def set_project_autojoin(
     request: Request,
     project: Annotated[ProjectName, Path()],
     body: ProjectAutojoinUpdate,
-    identity: ProjectCreator,
+    identity: UsersManager,
 ) -> ProjectAutojoin:
-    """Block or allow again the autojoin of a project the caller reads (``projects.create``,
-    logged-in web user only): while it is blocked, a holder of ``projects.autojoin`` who
-    requests it waits for an approval. A project outside the scope of the caller is not
-    found (404)."""
+    """Block or allow again the autojoin of a project the caller reads (``users.manage``, as
+    giving access to an existing project; logged-in web user only): while it is blocked, a
+    holder of ``projects.autojoin`` who requests it waits for an approval. A project outside
+    the scope of the caller is not found (404)."""
     web_user_id(request)
     cleaned = scoped_project(identity, project)
     try:

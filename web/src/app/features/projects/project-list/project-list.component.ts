@@ -74,13 +74,12 @@ export class ProjectListComponent {
   readonly canDelete = computed(() => this.auth.can('projects.delete'));
   /** Giving access to an existing project also takes users.manage, as giving a role does. */
   readonly canGrantAccess = computed(() => this.auth.can('users.manage'));
-  /** A user with users.manage sees and changes the members of a project and their permissions. */
+  /** A user with users.manage sees and changes the members of a project and their permissions,
+   * and blocks or allows again its autojoin (projects.create alone never does). */
   readonly canManageMembers = computed(() => this.auth.can('users.manage'));
-  /** The row actions: the members (users.manage), blocking the autojoin (projects.create),
-   * deleting (projects.delete). */
-  readonly hasActions = computed(
-    () => this.canManageMembers() || this.canCreate() || this.canDelete(),
-  );
+  /** The row actions: the members and blocking the autojoin (users.manage), deleting
+   * (projects.delete). */
+  readonly hasActions = computed(() => this.canManageMembers() || this.canDelete());
   /** Project whose members are shown in the modal. */
   readonly membersProject = signal<string | null>(null);
   readonly creating = signal(false);

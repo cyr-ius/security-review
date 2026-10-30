@@ -75,8 +75,8 @@ project: that takes `projects.create`.
 
 ## Blocking the autojoin
 
-With the `projects.create` permission, a lock button shows on each row of the **Projects** page,
-for the projects you read. It **blocks the autojoin** of the project: the holders of
+With the `users.manage` permission, a lock button shows on each row of the **Projects** page,
+for the projects you read: `projects.create` alone neither blocks nor allows the autojoin. It **blocks the autojoin** of the project: the holders of
 `projects.autojoin` then file a request that waits for approval, as the others do. The project
 shows the **Autojoin blocked** badge; the unlock button allows the autojoin again. The users who
 already joined the project keep their access: remove them from its [members](#members) if

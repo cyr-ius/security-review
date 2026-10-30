@@ -143,7 +143,7 @@ A user holding `projects.autojoin` joins an existing project through the `reques
 tool of its agent: the Controller server adds the project to the account with `reports.read`
 and `reports.write`, settles its pending request of the project and writes `project.joined` to the audit log. A
 user who already reads 200 projects is refused. `PUT /api/v1/projects/{project}/autojoin`
-blocks (`true`) or allows again (`false`) this autojoin, with `projects.create`, from a session
+blocks (`true`) or allows again (`false`) this autojoin, with `users.manage`, from a session
 of the web interface only, for a project the caller reads (another one is `404`). A blocked
 project shows `"autojoin_blocked": true` in `GET /api/v1/projects`; the users who already
 joined it keep their access. Each change is written to the audit log
