@@ -1124,7 +1124,10 @@ export interface ProjectMember {
   user_id: number;
   username: string;
   auth_source: AuthSource;
+  /** Given on the project (empty when the user only has every project). */
   permissions: Permission[];
+  /** Held on every project, by the user or its OIDC mappings (read only here). */
+  all_projects_permissions: Permission[];
 }
 
 /** A value of the OIDC roles claim that gives roles, per-project permissions on every project

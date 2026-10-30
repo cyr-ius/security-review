@@ -1,7 +1,8 @@
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { Message, msg } from '../../../core/i18n/i18n.service';
+import { PERMISSION_META } from '../../../core/constants/labels';
+import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { Permission } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
@@ -21,7 +22,8 @@ const SEARCH_LIMIT = 50;
 /**
  * The users who have one project (``users.manage``): several users found by a search are added
  * at once (with its reading), then the per-project permissions of each row are chosen, or the
- * row removed. The users who have every project and those of the OIDC mappings are not listed.
+ * row removed. The users who have every project (themselves or by an OIDC mapping) are listed
+ * apart, read only.
  */
 @Component({
   selector: 'app-project-members',
@@ -30,6 +32,7 @@ const SEARCH_LIMIT = 50;
 })
 export class ProjectMembersComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly project = input.required<string>();
   /** Shown in a modal of the Projects page: the title names the project, no bottom margin. */
@@ -42,11 +45,18 @@ export class ProjectMembersComponent {
   readonly users = rxResource({ stream: () => this.api.users() });
 
   /** Rows being edited, reset from the stored members. */
-  readonly drafts = linkedSignal<MemberDraft[]>(() =>
-    (this.members.value()?.data ?? []).map((item) => ({
-      userId: item.user_id,
-      permissions: item.permissions,
-    })),
+  readonly drafts = linkedSignal<MemberDraft[]>(() => this.stored());
+
+  /** Users given the project, with their permissions there. */
+  private readonly stored = computed<MemberDraft[]>(() =>
+    (this.members.value()?.data ?? [])
+      .filter((item) => item.permissions.length)
+      .map((item) => ({ userId: item.user_id, permissions: item.permissions })),
+  );
+
+  /** Users who have every project, with their permissions there (read only). */
+  readonly allProjects = computed(() =>
+    (this.members.value()?.data ?? []).filter((item) => item.all_projects_permissions.length),
   );
   readonly search = signal('');
   readonly picked = signal<number[]>([]);
@@ -80,12 +90,15 @@ export class ProjectMembersComponent {
         .map((item) => `${item.userId}:${item.permissions.join('+')}`)
         .sort()
         .join(',');
-    const stored = (this.members.value()?.data ?? []).map((item) => ({
-      userId: item.user_id,
-      permissions: item.permissions,
-    }));
-    return key(stored) !== key(this.drafts());
+    return key(this.stored()) !== key(this.drafts());
   });
+
+  /** Labels of per-project permissions. */
+  labels(permissions: Permission[]): string {
+    return permissions
+      .map((permission) => this.i18n.translate(PERMISSION_META[permission].label))
+      .join(', ');
+  }
 
   username(userId: number): string {
     return this.usernames().get(userId) ?? String(userId);

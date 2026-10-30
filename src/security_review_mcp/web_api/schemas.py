@@ -1118,12 +1118,14 @@ class AccessRole(BaseModel):
 
 
 class ProjectMember(BaseModel):
-    """A web user who has the project, with its per-project permissions there."""
+    """A web user who has the project, with its per-project permissions given there (empty
+    when it only has every project) and those it holds on every project (read only here)."""
 
     user_id: int
     username: str
     auth_source: AuthSource
     permissions: list[access_control.Permission]
+    all_projects_permissions: list[access_control.Permission]
 
 
 class ProjectMemberBinding(BaseModel):

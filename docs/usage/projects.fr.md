@@ -36,8 +36,9 @@ recherchez des comptes, cochez-les et ajoutez-les (avec la lecture), choisissez 
 chaque membre (**Écrire les rapports** pour ceux dont l'agent enregistre des revues) ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans
 **Utilisateurs** ([rôles et projets d'un compte](access-control.md#roles-et-projets-dun-compte)),
 ou en validant la **Demande d'accès** déposée par un agent dans **Projets**. Les comptes qui ont
-tous les projets et ceux des [correspondances OIDC](sso.md#correspondances-oidc) n'y sont pas
-listés.
+tous les projets, eux-mêmes ou par une [correspondance OIDC](sso.md#correspondances-oidc), sont
+listés à part, sous **Utilisateurs qui ont tous les projets**, en lecture seule : modifiez leurs
+droits dans **Utilisateurs** ou dans la correspondance.
 
 ## Création d'un projet
 

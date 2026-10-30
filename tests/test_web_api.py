@@ -1047,7 +1047,7 @@ def test_project_members_and_oidc_mappings_are_managed_with_users_manage(
     }
     response = secured.put(url, json=body, headers=admin)
     assert response.status_code == 200
-    assert [(m["username"], m["permissions"]) for m in response.json()] == [
+    assert [(m["username"], m["permissions"]) for m in response.json() if m["permissions"]] == [
         ("alice", ["findings.triage", "reports.read"])
     ]
     assert web_users.find_user("alice")["permissions"]["findings.triage"] == ["billing"]

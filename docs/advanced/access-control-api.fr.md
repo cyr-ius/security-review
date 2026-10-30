@@ -52,7 +52,7 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 | `POST /api/v1/users` | Crée un utilisateur avec ses rôles (`role_ids`), ses droits par projet sur tous les projets (`all_projects_permissions`) et ses projets (`projects`, chacun avec ses `permissions`, la lecture par défaut) |
 | `PUT /api/v1/users/{id}` | Remplace les rôles, les droits par projet sur tous les projets ou les projets d'un utilisateur ; un champ absent reste inchangé, ceux de ses correspondances OIDC sont gardés |
 | `GET /api/v1/access/projects?search=&limit=` | Projets connus dont le nom contient `search` (tous les projets, y compris ceux que l'appelant ne lit pas), 200 au plus |
-| `GET`, `PUT /api/v1/access/projects/{project}/members` | Utilisateurs qui ont un projet, chacun avec ses `permissions` sur ce projet (ceux qui ont tous les projets et ceux des correspondances OIDC ne sont pas listés) |
+| `GET`, `PUT /api/v1/access/projects/{project}/members` | Utilisateurs qui ont un projet, chacun avec ses `permissions` données sur ce projet et ses `all_projects_permissions` détenues sur tous les projets, par l'utilisateur ou ses correspondances OIDC (lecture seule ; un utilisateur qui n'a que tous les projets a des `permissions` vides et ne compte ni dans la version de la liste ni dans le `PUT`) |
 | `GET`, `PUT /api/v1/oidc/mappings` | Correspondances OIDC, remplacées d'un bloc ([OIDC](oidc.md#correspondances-oidc)) |
 
 Un champ inconnu (comme l'ancien `group_ids`) est refusé (`422`). Les rôles intégrés `reader` et

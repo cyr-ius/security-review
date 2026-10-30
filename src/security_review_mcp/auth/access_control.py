@@ -804,18 +804,24 @@ def set_user_roles(
     )
 
 
-def _check_reach(session: Session, user_id: int) -> None:
-    """Refuse a user with more than MAX_SESSION_PROJECTS projects.
-
-    The row of the user stays locked until the end of the transaction (PostgreSQL; SQLite
-    serializes the writers): two concurrent additions to one user are counted one after the
-    other, never both against the projects read before either. FOR NO KEY UPDATE: it does not
-    wait for the key share locks of the rows just added (no deadlock between two additions).
-    """
-    session.flush()
+def _lock_user(session: Session, user_id: int) -> None:
+    """Lock the row of a user until the end of the transaction (PostgreSQL; SQLite serializes
+    the writers), before counting or replacing its projects. FOR NO KEY UPDATE: it does not wait
+    for the key share locks of the user_project rows just added (no deadlock between two
+    additions)."""
     session.exec(
         select(WebUser.id).where(WebUser.id == user_id).with_for_update(key_share=True)
     ).first()
+
+
+def _check_reach(session: Session, user_id: int) -> None:
+    """Refuse a user with more than MAX_SESSION_PROJECTS projects.
+
+    The row of the user stays locked (_lock_user): two concurrent additions to one user are
+    counted one after the other, never both against the projects read before either.
+    """
+    session.flush()
+    _lock_user(session, user_id)
     reached = session.exec(
         select(func.count()).select_from(UserProject).where(UserProject.user_id == user_id)
     ).one()
@@ -863,6 +869,9 @@ def set_user_projects(
     if changed_every:
         user.all_projects_permissions = json.dumps(every)  # type: ignore[union-attr]
         session.add(user)
+    # Read under the lock of the additions (_check_reach): a project joined meanwhile is seen,
+    # so removed when not wanted, never left beyond MAX_SESSION_PROJECTS
+    _lock_user(session, user_id)
     current = {
         row.project_id: row
         for row in session.exec(select(UserProject).where(UserProject.user_id == user_id)).all()
@@ -959,8 +968,9 @@ def add_user_project(
 
 
 def list_project_members(project: str) -> list[dict[str, Any]]:
-    """The users who have ``project``, by username (those who have every project and those of
-    the OIDC mappings are not listed).
+    """The users who have ``project``, by username: ``permissions`` are those given on the
+    project (empty for a user who only has every project), ``all_projects_permissions`` those
+    held on every project, by the user or the OIDC mappings of its claims (read only here).
 
     Raises:
         ValueError: Invalid name.
@@ -968,11 +978,44 @@ def list_project_members(project: str) -> list[dict[str, Any]]:
     """
     with session_scope() as session:
         row = _get_project(session, project)
-        return _members_public(session, row)
+        return _members_listed(session, row)
+
+
+def _members_listed(session: Session, project: Project) -> list[dict[str, Any]]:
+    """The members of ``project`` (_members_public) and the users who have every project."""
+    members = {
+        item["user_id"]: {**item, "all_projects_permissions": []}
+        for item in _members_public(session, project)
+    }
+    every: dict[int, set[str]] = {}
+    for user in session.exec(select(WebUser).where(col(WebUser.all_projects_permissions) != "[]")):
+        every.setdefault(user.id, set()).update(json.loads(user.all_projects_permissions))  # type: ignore[arg-type]
+    for user_id, permissions in session.exec(
+        select(UserOidcClaim.user_id, OidcRoleMapping.all_projects_permissions)
+        .join(OidcRoleMapping, col(OidcRoleMapping.claim) == col(UserOidcClaim.claim))
+        .where(col(OidcRoleMapping.all_projects_permissions) != "[]")
+    ).all():
+        every.setdefault(user_id, set()).update(json.loads(permissions))
+    for user_id, permissions in every.items():
+        held = sorted(permissions & SCOPED_PERMISSIONS)
+        if not held:
+            continue
+        if user_id not in members:
+            user = session.get(WebUser, user_id)
+            if user is None:
+                continue
+            members[user_id] = {
+                "user_id": user.id,
+                "username": user.username,
+                "auth_source": user.auth_source,
+                "permissions": [],
+            }
+        members[user_id]["all_projects_permissions"] = held
+    return sorted(members.values(), key=lambda item: item["username"])
 
 
 def _members_public(session: Session, project: Project) -> list[dict[str, Any]]:
-    """The users who have ``project``, with their permissions there."""
+    """The users given ``project``, with their permissions there."""
     rows = session.exec(
         select(WebUser, UserProject.permissions)
         .join(UserProject, col(UserProject.user_id) == col(WebUser.id))
@@ -991,8 +1034,11 @@ def _members_public(session: Session, project: Project) -> list[dict[str, Any]]:
 
 
 def project_members_version(members: list[dict[str, Any]]) -> str:
-    """Version of the members of a project (list_project_members), for set_project_members."""
-    return _version(sorted((item["user_id"], item["permissions"]) for item in members))
+    """Version of the members of a project (list_project_members), for set_project_members: the
+    users who only have every project do not count."""
+    return _version(
+        sorted((item["user_id"], item["permissions"]) for item in members if item["permissions"])
+    )
 
 
 def set_project_members(
@@ -1067,7 +1113,7 @@ def set_project_members(
                     "all_projects_permissions": None,
                 },
             )
-        return _members_public(session, row)
+        return _members_listed(session, row)
 
 
 def forget_user(session: Session, user_id: int) -> None:

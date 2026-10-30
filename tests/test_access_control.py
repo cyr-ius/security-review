@@ -251,6 +251,20 @@ def test_the_members_of_a_project_are_listed_and_replaced():
         access_control.list_project_members("unknown")
     events = audit.list_events(action="user.projects_changed")["events"]
     assert {event["target_id"] for event in events[:2]} == {str(alice["id"]), str(bob["id"])}
+    # The users who have every project, themselves or by an OIDC mapping, are listed read only
+    carol = web_users.create_user("carol", PASSWORD)
+    web_users.update_user(carol["id"], None, all_projects_permissions=["reports.read"])
+    access_control.set_oidc_mappings([("leads", [], ["findings.triage"], [])], "user:root")
+    with session_scope() as session:
+        access_control.sync_oidc_claims(session, bob["id"], {"leads"}, _settings())
+    listed = access_control.list_project_members("shop")
+    assert [(m["username"], m["permissions"], m["all_projects_permissions"]) for m in listed] == [
+        ("bob", ["findings.triage", "reports.read"], ["findings.triage"]),
+        ("carol", [], ["reports.read"]),
+    ]
+    version = access_control.project_members_version(listed)
+    assert version == access_control.project_members_version(members)
+    access_control.set_project_members("shop", [(bob["id"], ["reports.read"])], None, version)
 
 
 # ── OIDC mappings ────────────────────────────────────────────────────────────
@@ -703,6 +717,27 @@ def test_an_autojoin_counts_the_projects_once_added_with_those_of_the_oidc_mappi
     with pytest.raises(ValueError, match="already reads 2 projects"):
         access_control.request_project("shop", "joe")
     assert grants_of(joe["id"])["reports.read"] == frozenset({"mapped"})
+
+
+def test_replacing_the_projects_of_a_user_removes_a_project_joined_meanwhile(monkeypatch):
+    """The projects are read once the user locked: a join committed while waiting for the lock
+    is replaced too, never left beyond MAX_SESSION_PROJECTS."""
+    known_projects("crm", "shop")
+    joe = web_users.create_user("joe", PASSWORD)
+    lock = access_control._lock_user
+    joined = []
+
+    def join_then_lock(session, user_id):
+        if not joined:
+            joined.append(user_id)
+            access_control.add_user_project(session, user_id, "crm")
+        lock(session, user_id)
+
+    monkeypatch.setattr(access_control, "_lock_user", join_then_lock)
+    with session_scope() as session:
+        access_control.set_user_projects(session, joe["id"], [("shop", ["reports.read"])])
+
+    assert grants_of(joe["id"])["reports.read"] == frozenset({"shop"})
 
 
 def test_creating_a_project_settles_its_pending_request():

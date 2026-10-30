@@ -157,8 +157,8 @@ async def known_projects(
 async def project_members(
     project: Annotated[ProjectName, APIPath()], response: Response, identity: UsersManager
 ) -> list[ProjectMember]:
-    """List the users who have a project (not those who have every project), with their version
-    in the ETag header, to send back in If-Match when replacing them."""
+    """List the users who have a project, also those who have every project (read only), with
+    the version of the members in the ETag header, to send back in If-Match when replacing them."""
     try:
         members = await run_in_threadpool(access_control.list_project_members, project)
     except ValueError as exc:
