@@ -1,9 +1,17 @@
-<section class="card mb-4" aria-labelledby="project-members-title">
+<section class="card" [class.mb-4]="!embedded()" aria-labelledby="project-members-title">
   <div class="card-body">
-    <h2 id="project-members-title" class="h5">
-      <i class="bi bi-people me-2" aria-hidden="true"></i>{{ 'projectMembers.title' | t }}
-      <app-help-link topic="projectMembers" />
-    </h2>
+    <div class="d-flex align-items-start gap-2 mb-2">
+      <h2 id="project-members-title" class="h5 mb-0 text-break">
+        <i class="bi bi-people me-2" aria-hidden="true"></i>
+        @if (embedded()) {
+          {{ 'projects.members' | t: { project: project() } }}
+        } @else {
+          {{ 'projectMembers.title' | t }}
+        }
+        <app-help-link topic="projectMembers" />
+      </h2>
+      <div class="ms-auto"><ng-content /></div>
+    </div>
     <p class="text-body-secondary small">{{ 'projectMembers.help' | t }}</p>
 
     @if (error(); as text) {

@@ -32,6 +32,8 @@ export class ProjectMembersComponent {
   private readonly api = inject(ApiService);
 
   readonly project = input.required<string>();
+  /** Shown in a modal of the Projects page: the title names the project, no bottom margin. */
+  readonly embedded = input(false);
 
   readonly members = rxResource({
     params: () => this.project(),

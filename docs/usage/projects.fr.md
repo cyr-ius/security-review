@@ -30,7 +30,8 @@ Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets, chacu
 par projet ici (lecture, triage). Son créateur, ou le développeur dont la demande a été validée,
 n'en reçoit que la lecture.
 
-Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet :
+Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet,
+qu'ouvre aussi le bouton en forme de personnes de sa ligne sur la page **Projets** :
 recherchez des comptes, cochez-les et ajoutez-les (avec la lecture), choisissez les droits de
 chaque membre ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans
 **Utilisateurs** ([rôles et projets d'un compte](access-control.md#roles-et-projets-dun-compte)),

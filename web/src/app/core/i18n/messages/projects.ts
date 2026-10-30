@@ -44,6 +44,7 @@ export const projects = defineMessages({
     'projects.pendingGone': 'This request no longer exists (already handled or expired).',
     'projects.pendingLoadError': 'Could not load the pending projects.',
     'projects.delete': 'Delete project {project}',
+    'projects.members': 'Members of project {project}',
     'projects.confirmDelete':
       'Delete project {project}? Its reports, findings and comments, the roles of the users on it and its place in the OIDC mappings and in the tokens are deleted (a token left without project is revoked). This cannot be undone.',
     'projects.deleted':
@@ -144,6 +145,7 @@ export const projects = defineMessages({
     'projects.pendingGone': "Cette demande n'existe plus (déjà traitée ou expirée).",
     'projects.pendingLoadError': 'Impossible de charger les projets en attente.',
     'projects.delete': 'Supprimer le projet {project}',
+    'projects.members': 'Membres du projet {project}',
     'projects.confirmDelete':
       'Supprimer le projet {project} ? Ses rapports, findings et commentaires, les rôles des utilisateurs sur ce projet et sa place dans les correspondances OIDC et dans les jetons sont supprimés (un jeton qui n’a plus de projet est révoqué). Cette action est irréversible.',
     'projects.deleted':
@@ -244,6 +246,7 @@ export const projects = defineMessages({
     'projects.pendingGone': 'Esta solicitud ya no existe (ya procesada o caducada).',
     'projects.pendingLoadError': 'No se pudieron cargar los proyectos pendientes.',
     'projects.delete': 'Eliminar el proyecto {project}',
+    'projects.members': 'Miembros del proyecto {project}',
     'projects.confirmDelete':
       '¿Eliminar el proyecto {project}? Se eliminan sus informes, hallazgos y comentarios, los roles de los usuarios en él y su lugar en las correspondencias OIDC y en los tokens (un token que se queda sin proyecto se revoca). Esta acción no se puede deshacer.',
     'projects.deleted':

@@ -31,7 +31,8 @@ per-project permissions there (reading, triage). Its creator, or the developer w
 approved, gets its reading only.
 
 A person with `users.manage` sees the **Members** section at the bottom of the page of the
-project: search accounts, tick them and add them (with the reading), choose the permissions of
+project, also opened by the people button of its row on the **Projects**
+page: search accounts, tick them and add them (with the reading), choose the permissions of
 each member or remove it, then **Save**. The same projects are given in **Users** ([roles and
 projects of an account](access-control.md#roles-and-projects-of-an-account)), or by approving the
 **Access request** filed by an agent in **Projects**. The accounts that have every project and
