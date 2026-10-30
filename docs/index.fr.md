@@ -62,7 +62,7 @@ configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 
 via la commande `security-review-mcp`
 
-Un **serveur Controller* qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
+Un **serveur Controller** qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
 Il fournit aux administrateurs et analystes en cybersécurité :
 
  - la **consultation des rapports** d'analyse de sécurité
