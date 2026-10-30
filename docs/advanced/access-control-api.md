@@ -22,9 +22,9 @@ of a user (`projects[].permissions`, at least one) and with every project
 
 `users.manage` also covers the OIDC settings, since they decide who gets which role. The
 `admin` role, with the reading, the writing and the triage of every project, is also given by a mapping
-created at the first login of a user who holds a value of `SECREVIEW_OIDC_ADMIN_GROUPS`
-([OIDC](oidc.md)); a mapping that already names this value is left as an administrator changed
-it. The values of the roles claim that no mapping names are ignored.
+created at the login of a user who holds a value of `SECREVIEW_OIDC_ADMIN_GROUPS`
+([OIDC](oidc.md)) while no mapping names it; a mapping that already names this value is left as
+an administrator changed it, a deleted one is created again. The values of the roles claim that no mapping names are ignored.
 
 ## Roles and users
 

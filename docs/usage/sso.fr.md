@@ -66,8 +66,10 @@ donnés au compte.
 
 Un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur
 d'identité. Chaque valeur des **Groupes administration** reçoit une correspondance vers `admin`,
-avec la lecture, l'écriture et le triage de tous les projets, à la première connexion d'un utilisateur qui la
-porte ; une correspondance modifiée ensuite est conservée.
+avec la lecture, l'écriture et le triage de tous les projets, à chaque connexion d'un utilisateur qui la
+porte tant qu'aucune correspondance ne la nomme : une correspondance modifiée ensuite est
+conservée, une correspondance supprimée revient. Pour retirer durablement `admin` à un groupe,
+retirez sa valeur de `SECREVIEW_OIDC_ADMIN_GROUPS`, ou associez-la à un autre rôle.
 
 ## Lecture du projet
 

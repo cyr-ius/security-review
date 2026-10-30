@@ -23,9 +23,10 @@ utilisateur (`projects[].permissions`, au moins un) et avec tous les projets
 
 `users.manage` couvre aussi les réglages OIDC, puisqu'ils décident qui reçoit quel rôle. Le rôle
 `admin`, avec la lecture, l'écriture et le triage de tous les projets, est aussi donné par une correspondance
-créée à la première connexion d'un utilisateur qui porte une valeur de
-`SECREVIEW_OIDC_ADMIN_GROUPS` ([OIDC](oidc.md)) ; une correspondance qui nomme déjà cette valeur
-est laissée telle qu'un administrateur l'a modifiée. Les valeurs du claim des rôles qu'aucune
+créée à la connexion d'un utilisateur qui porte une valeur de
+`SECREVIEW_OIDC_ADMIN_GROUPS` ([OIDC](oidc.md)) tant qu'aucune correspondance ne la nomme ; une
+correspondance qui nomme déjà cette valeur est laissée telle qu'un administrateur l'a modifiée,
+une correspondance supprimée est recréée. Les valeurs du claim des rôles qu'aucune
 correspondance ne nomme sont ignorées.
 
 ## Rôles et utilisateurs

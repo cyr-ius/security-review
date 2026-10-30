@@ -172,7 +172,7 @@ account (see [Roles and permissions](../usage/access-control.md)).
 
 | Setting | Effect |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated values of the claim that hold the `admin` role: such a value, without any mapping at the login of a user who holds it, gets a mapping to `admin` with the reading, the writing and the triage of every project. A mapping that already names it is left as administrators changed it. Used to name the first administrator |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated values of the claim that hold the `admin` role: such a value, without any mapping at the login of a user who holds it, gets a mapping to `admin` with the reading, the writing and the triage of every project. A mapping that already names it is left as administrators changed it; a deleted one is created again. Used to name the first administrator |
 
 ```bash
 # Every OIDC mapping, replaced at once

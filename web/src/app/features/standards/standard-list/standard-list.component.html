@@ -8,12 +8,12 @@
   <div class="d-flex flex-wrap gap-2">
     <app-pack-transfer
       [busy]="transferring()"
-      [importable]="isAdmin()"
+      [importable]="canManage()"
       (exportRequested)="exportPack()"
       (fileChosen)="importPack($event)"
       (fileRejected)="onPackRejected($event)"
     />
-    @if (isAdmin()) {
+    @if (canManage()) {
       <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
         {{ 'standards.new' | t }}
@@ -108,7 +108,7 @@
                   >
                     <i class="bi bi-eye" aria-hidden="true"></i>
                   </button>
-                  @if (isAdmin()) {
+                  @if (canManage()) {
                     <button
                       type="button"
                       class="btn btn-sm btn-outline-secondary action-button ms-1"

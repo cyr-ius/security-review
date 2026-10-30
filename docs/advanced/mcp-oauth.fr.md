@@ -52,13 +52,23 @@ Derrière un reverse proxy, publiez ces chemins publics :
 L'issuer doit être en `https` : le serveur Controller refuse de démarrer avec une URL en `http` hors localhost.
 
 Par défaut, un client ne peut renvoyer le navigateur que vers l'interface loopback du poste (`127.0.0.1`, `localhost`,
-`::1`, en http ou https). Si l'adresse de retour n'est pas sur l'interface loopback (par exemple `https://vscode.dev/redirect`),
-ses noms d'hôte se déclarent dans la variable `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS`.
-Il peut arriver que le schéma de retour ne soit ni http ni https, par exemple **cursor**://localhost/redirect :
-ces schémas se déclarent dans la variable `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`.
+`::1`, en http ou https). Aucun autre site ne reçoit de code : sinon, n'importe qui pourrait
+enregistrer un client qui renvoie le navigateur vers son propre site, et recevoir le code d'un
+utilisateur qui suit son lien vers `/authorize`.
+
+Une adresse refusée est écartée, pas le client : VS Code enregistre aussi
+`https://vscode.dev/redirect` à côté de son adresse loopback, qui est gardée ; VS Code et Claude
+Code n'ont donc besoin d'aucune déclaration. Un client n'est refusé (`invalid_redirect_uri`) que
+si aucune de ses adresses n'est acceptée.
+
+Pour un client qui ne revient que par un site web, déclarez ses noms d'hôte dans
+`SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https seulement). Ne déclarez que des hôtes de confiance :
+tous les chemins d'un hôte déclaré sont acceptés. Il peut arriver que le schéma de retour ne soit
+ni http ni https, par exemple **cursor**://localhost/redirect : ces schémas se déclarent dans la
+variable `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`.
 
 ```bash
-SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=vscode.dev     # https seulement
+SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=mcp-client.example.com     # https seulement
 SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES=cursor
 ```
 
@@ -100,7 +110,8 @@ Une demande restée sans réponse expire au bout de 10 minutes.
 Un jeton d'accès agit comme un [jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)
 de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire, les
 rapports et propositions n'étant enregistrés que sur ceux de `reports.write`.
-Les droits sont relus à chaque requête.
+Les droits sont relus à chaque requête. Il n'atteint que le serveur MCP : ni l'API REST ni les
+routes de pipeline du serveur Controller.
 
 Autoriser un client exige une session web (un jeton Bearer n'autorise jamais un client), et est
 refusé (`403`) avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, comme créer un jeton MCP personnel.

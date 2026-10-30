@@ -96,7 +96,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | Public URL of `/api/v1/auth/oidc/callback`, declared at the provider |
 | `SECREVIEW_OIDC_SCOPE` | `openid profile email` | Requested scopes (must contain `openid`) |
 | `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim of the groups or roles, dotted path accepted (`realm_access.roles`); its values are matched against the [OIDC mappings](../advanced/oidc.md#oidc-mappings) |
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Values of the roles claim, comma separated, mapped to `admin`, with the reading, the writing and the triage of every project, at the first login of a user who holds one, when no mapping names them yet (first administrator) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Values of the roles claim, comma separated, mapped to `admin`, with the reading, the writing and the triage of every project, at the login of a user who holds one, when no mapping names them (first administrator); a deleted mapping comes back at the next such login |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim that names the [OIDC account](../advanced/oidc.md#oidc-accounts) (exact comparison, no fallback); session label `oidc:<value>` |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the OIDC account at its first login if its OIDC mappings give it a permission; when `false`, an administrator creates every OIDC account in **Users** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Name shown on the login button (40 characters at most) |
@@ -112,7 +112,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Lifetime of an access token (5 to 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Lifetime of a refresh token (1 to 365 days), extended at each refresh; `SECREVIEW_TOKEN_MAX_DAYS`, when set, bounds the whole grant from its approval |
 | `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients registered at once; a client nobody approved within a day is deleted |
-| `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` | — | Hosts reached over https accepted as redirect URI of a client, comma separated (`vscode.dev`); empty: the loopback interface only |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` | — | Hosts reached over https accepted as redirect URI of a client, comma separated (`mcp-client.example.com`), trusted hosts only (every path is accepted); empty: the loopback interface only |
 | `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` | — | Custom URI schemes accepted as redirect URI, comma separated (`cursor`); empty: none |
 
 ### Outgoing proxy

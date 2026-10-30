@@ -22,7 +22,7 @@ Dans VS Code (`.vscode/`) :
 
 | Configuration de `launch.json` | Rôle |
 |---|---|
-| **Controller (debug: FastAPI + Angular)** | Serveur Controller sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud de la page, redémarrage du serveur Controller à chaque enregistrement dans `src/` (`scripts/dev_reload.py`), migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
+| **Controller (debug: FastAPI + Angular)** | Serveur Controller sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud de la page, redémarrage du serveur Controller à chaque enregistrement dans `src/` (`scripts/dev_reload.py`), migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage. Pour rester connecté entre les redémarrages, définissez `SECREVIEW_SECRET_KEY` dans votre `.env` (ignoré par git), par exemple avec la sortie de `openssl rand -hex 32` |
 | **MCP server (debug, port 8000)** | Lance la tâche **Database upgrade**, puis le serveur MCP HTTP sous le débogueur |
 | **Controller CLI (prompt for arguments)** | Une commande du serveur Controller (`db status`, `token list`…) sous le débogueur |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` avec rechargement à chaud, ouvre le site dans le navigateur |
