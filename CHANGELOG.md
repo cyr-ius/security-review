@@ -1,5 +1,41 @@
 # Changelog
 
+## [10.0.0](https://github.com/cyr-ius/security-review/compare/v9.0.0...v10.0.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* an account that only holds reports.read can no longer save reports or propose a status through its agent. Revision 0040 adds reports.write wherever reports.read is held, so existing agents keep working; remove it from the accounts that should only read.
+* roles no longer accept reports.read or findings.triage; the reader role is removed; the user, project member, token and OIDC mapping APIs take per-project permissions.
+* the groups are removed: the /groups routes, the group_ids fields of the users (replaced by role_ids and projects), the `group` command (replaced by `role`), `user set-groups` (replaced by `user set-access` with --role and --project) and SECREVIEW_OIDC_DEFAULT_GROUP.
+
+### Features
+
+* add rules.read and standards.read permissions ([76f9ecc](https://github.com/cyr-ius/security-review/commit/76f9ecc412ac7ec9d2bf7dabcdcb7c78a320a597))
+* add the per-project reports.write permission ([e2473c2](https://github.com/cyr-ius/security-review/commit/e2473c271c2f6a26350d483a02f073a7c0ba41c1))
+* give each user roles and projects, the per-project permissions of its roles on its projects ([e1f316f](https://github.com/cyr-ius/security-review/commit/e1f316f73431212e7f07e86c2b86523d2f0843cd))
+* give roles to the users on every project or on projects, without groups ([3395bc8](https://github.com/cyr-ius/security-review/commit/3395bc89bf68c62dcf8ae99fd76ee0034913fb9c))
+* keep the roles for the site permissions and give per-project permissions on each project ([7bad8fd](https://github.com/cyr-ius/security-review/commit/7bad8fdc4dd55e04334b49e8ae38a063f8203a4e))
+* suspend the OAuth grants when the login is turned off, and revoke them all on demand ([68a0d4a](https://github.com/cyr-ius/security-review/commit/68a0d4a01b7ce872d76e2ac23d95e2ebcc133134))
+* suspend the OAuth login instead of refusing to start without the MCP endpoint URL ([04652a4](https://github.com/cyr-ius/security-review/commit/04652a42c7c83e79f40a404ef9ce0a6d1011d64d))
+* **ui:** choose the allowed projects of a token in a drop-down list ([eda687f](https://github.com/cyr-ius/security-review/commit/eda687f7011d666cd70a59e66c033f7d9340965f))
+* **ui:** choose the roles and the projects of a user in drop-down lists ([a920b92](https://github.com/cyr-ius/security-review/commit/a920b926aedafa8389bfa224520826ae5c20ba85))
+* **ui:** edit the roles of the users on every project and on projects, and the OIDC mappings ([2ced2eb](https://github.com/cyr-ius/security-review/commit/2ced2eb9ee88e615dfbaed6a49a3d7e845811f25))
+* **ui:** show the members of a project and their permissions in a modal from its row ([a8f4e49](https://github.com/cyr-ius/security-review/commit/a8f4e49171db0f3c6654fd53b9ce1d8bc6facb26))
+* **ui:** warn about the permissions of a role that do not apply on a project ([7ddd8c5](https://github.com/cyr-ius/security-review/commit/7ddd8c542e115c28eed0b6043f0f9426355458c0))
+
+
+### Bug Fixes
+
+* **ui:** keep the menu of the multiple choice above its scrolling container ([9d1acc2](https://github.com/cyr-ius/security-review/commit/9d1acc259f36e4e55a11400016a7e2b4fa0e398b))
+
+
+### Documentation
+
+* describe the roles of the users on every project or per project and the OIDC mappings ([9e30c01](https://github.com/cyr-ius/security-review/commit/9e30c013c15ab4b66887afb003706c01d7fd65c9))
+* Update index.fr.md ([ea8c4f4](https://github.com/cyr-ius/security-review/commit/ea8c4f4a2cc43c3fb842c8a8e894b9520ac179ab))
+* Update index.fr.md ([84a6afb](https://github.com/cyr-ius/security-review/commit/84a6afbd8629d7995d27fa433125206ff059efc3))
+
 ## [9.0.0](https://github.com/cyr-ius/security-review/compare/v8.1.2...v9.0.0) (2026-10-29)
 
 
