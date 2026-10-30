@@ -2,6 +2,18 @@
   display: block;
 }
 
+/* First element of an input group, before a button: fills the row, square right corners. */
+:host-context(.input-group) {
+  flex: 1 1 auto;
+  width: 1%;
+  min-width: 0;
+}
+
+:host-context(.input-group) .form-select {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
 .dropdown-menu {
   overflow-y: auto;
 }

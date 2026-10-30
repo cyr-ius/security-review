@@ -13,6 +13,10 @@ import {
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
+import {
+  MultiSelectDropdownComponent,
+  MultiSelectOption,
+} from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import { ProjectPermissionsComponent } from '../../../shared/components/project-permissions/project-permissions.component';
 import { describeAccessError } from '../../access/access-errors';
 
@@ -36,7 +40,13 @@ const MAX_PROJECTS = 50;
  */
 @Component({
   selector: 'app-oidc-mappings',
-  imports: [FormField, HelpLinkComponent, ProjectPermissionsComponent, TranslatePipe],
+  imports: [
+    FormField,
+    HelpLinkComponent,
+    MultiSelectDropdownComponent,
+    ProjectPermissionsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './oidc-mappings.component.html',
 })
 export class OidcMappingsComponent {
@@ -63,6 +73,12 @@ export class OidcMappingsComponent {
 
   /** Ids of the roles the new mapping gives. */
   readonly pickedRoles = signal<number[]>([]);
+  /** Roles offered in the list of roles of the new mapping. */
+  readonly roleOptions = computed<MultiSelectOption[]>(() =>
+    (this.roles.value() ?? []).map((role) => ({ value: String(role.id), label: role.name })),
+  );
+  /** Picked roles, as values of the list. */
+  readonly pickedRoleValues = computed(() => this.pickedRoles().map(String));
   /** Per-project permissions of the new mapping on every project. */
   readonly allProjectsPermissions = signal<Permission[]>([]);
   /** Per-project permissions of the new mapping on its projects: their reading by default. */
@@ -100,11 +116,8 @@ export class OidcMappingsComponent {
       .join(', ');
   }
 
-  toggleRole(roleId: number, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.pickedRoles.update((ids) =>
-      checked ? [...ids, roleId] : ids.filter((item) => item !== roleId),
-    );
+  onRolesChange(values: string[]): void {
+    this.pickedRoles.set(values.map(Number));
   }
 
   async add(event: Event): Promise<void> {

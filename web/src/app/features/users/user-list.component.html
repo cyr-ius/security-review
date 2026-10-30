@@ -126,41 +126,27 @@
         }
       </div>
     }
-    <fieldset class="col-md-5">
-      <legend class="form-label">{{ 'layout.roles' | t }}</legend>
-      @if ((roles.value() ?? []).length) {
-        <div class="d-flex flex-wrap gap-3">
-          @for (role of roles.value() ?? []; track role.id) {
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                [id]="'user-role-' + role.id"
-                [checked]="selectedRoles().includes(role.id)"
-                (change)="toggleRole(role.id, $event)"
-              />
-              <label class="form-check-label" [for]="'user-role-' + role.id">
-                {{ roleLabel(role) }}
-              </label>
-            </div>
-          }
-        </div>
-      }
+    <div class="col-md-5">
+      <label for="user-roles" class="form-label">{{ 'layout.roles' | t }}</label>
+      <app-multi-select-dropdown
+        id="user-roles"
+        [small]="false"
+        [label]="'layout.roles' | t"
+        [allLabel]="'access.noRole' | t"
+        [options]="roleOptions()"
+        [selected]="selectedRoleValues()"
+        (selectedChange)="onRolesChange($event)"
+      />
       <div class="form-text">{{ 'users.rolesHelp' | t }}</div>
-    </fieldset>
+    </div>
     <fieldset class="col-md-7">
       <legend class="form-label">{{ 'users.projects' | t }}</legend>
-      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <label for="user-all-projects" class="form-label mb-0">{{
-          'reports.allProjects' | t
-        }}</label>
-        <app-project-permissions
-          id="user-all-projects"
-          [label]="'reports.allProjects' | t"
-          [(permissions)]="allProjectsPermissions"
-        />
-      </div>
-      <app-project-picker idPrefix="user-projects" [(projects)]="projects" />
+      <app-project-picker
+        idPrefix="user-projects"
+        [withAllProjects]="true"
+        [(allProjects)]="allProjectsPermissions"
+        [(projects)]="projects"
+      />
       <div class="form-text">{{ 'users.projectsHelp' | t }}</div>
       @if (oidcAccess().length) {
         <div class="form-text">

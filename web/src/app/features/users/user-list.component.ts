@@ -12,8 +12,11 @@ import { HelpLinkComponent } from '../../shared/components/help-link/help-link.c
 import { AccessRole, AuthSource, Permission, WebUser } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import {
+  MultiSelectDropdownComponent,
+  MultiSelectOption,
+} from '../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
-import { ProjectPermissionsComponent } from '../../shared/components/project-permissions/project-permissions.component';
 import {
   ProjectDraft,
   ProjectPickerComponent,
@@ -55,8 +58,8 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
     HelpLinkComponent,
     DatePipe,
     FormField,
+    MultiSelectDropdownComponent,
     PasswordPolicyComponent,
-    ProjectPermissionsComponent,
     ProjectPickerComponent,
     RefreshButtonComponent,
     SortHeaderComponent,
@@ -190,8 +193,17 @@ export class UserListComponent {
   });
   /** Ids of the roles of the user (those of the OIDC mappings are kept apart). */
   readonly selectedRoles = signal<number[]>([]);
-  /** Per-project permissions of the user on every project. */
-  readonly allProjectsPermissions = signal<Permission[]>([]);
+  /** Roles offered in the list of roles of the user. */
+  readonly roleOptions = computed<MultiSelectOption[]>(() =>
+    (this.roles.value() ?? []).map((role) => ({
+      value: String(role.id),
+      label: this.roleLabel(role),
+    })),
+  );
+  /** Selected roles, as values of the list. */
+  readonly selectedRoleValues = computed(() => this.selectedRoles().map(String));
+  /** Per-project permissions of the user on every project, null when "All projects" is not given. */
+  readonly allProjectsPermissions = signal<Permission[] | null>(null);
   /** Projects of the user. */
   readonly projects = signal<ProjectDraft[]>([]);
 
@@ -234,6 +246,7 @@ export class UserListComponent {
   readonly canSubmit = computed(
     () =>
       !this.busy() &&
+      this.allProjectsPermissions()?.length !== 0 &&
       this.projects().every((item) => item.permissions.length > 0) &&
       (this.editing() !== null ||
         (this.userForm().valid() && this.userModel().username.trim().length > 0)),
@@ -292,11 +305,8 @@ export class UserListComponent {
     return role.system ? `${role.name} — ${this.i18n.translate('roles.system')}` : role.name;
   }
 
-  toggleRole(roleId: number, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.selectedRoles.update((selected) =>
-      checked ? [...selected, roleId] : selected.filter((item) => item !== roleId),
-    );
+  onRolesChange(values: string[]): void {
+    this.selectedRoles.set(values.map(Number));
   }
 
   /** Load a user into the form to change its roles. */
@@ -304,7 +314,9 @@ export class UserListComponent {
     this.editing.set(user);
     this.userForm().reset({ source: user.auth_source, username: user.username, password: '' });
     this.selectedRoles.set(user.roles.map((role) => role.role_id));
-    this.allProjectsPermissions.set(user.all_projects_permissions);
+    this.allProjectsPermissions.set(
+      user.all_projects_permissions.length ? user.all_projects_permissions : null,
+    );
     this.projects.set(
       user.projects.map((item) => ({ project: item.project, permissions: item.permissions })),
     );
@@ -316,7 +328,7 @@ export class UserListComponent {
     this.editing.set(null);
     this.userForm().reset({ ...EMPTY_USER });
     this.selectedRoles.set([]);
-    this.allProjectsPermissions.set([]);
+    this.allProjectsPermissions.set(null);
     this.projects.set([]);
   }
 
@@ -326,7 +338,7 @@ export class UserListComponent {
       return;
     }
     const roles = this.selectedRoles();
-    const allProjects = this.allProjectsPermissions();
+    const allProjects = this.allProjectsPermissions() ?? [];
     const projects = this.projects().map((item) => ({
       project: item.project,
       permissions: item.permissions,

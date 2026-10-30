@@ -81,25 +81,18 @@
       />
       <div class="form-text">{{ 'mappings.claimHelp' | t }}</div>
     </div>
-    <fieldset class="col-md-4">
-      <legend class="form-label">{{ 'layout.roles' | t }}</legend>
-      <div class="d-flex flex-wrap gap-3">
-        @for (role of roles.value() ?? []; track role.id) {
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              [id]="'mapping-role-' + role.id"
-              [checked]="pickedRoles().includes(role.id)"
-              (change)="toggleRole(role.id, $event)"
-            />
-            <label class="form-check-label" [for]="'mapping-role-' + role.id">{{
-              role.name
-            }}</label>
-          </div>
-        }
-      </div>
-    </fieldset>
+    <div class="col-md-4">
+      <label for="mapping-roles" class="form-label">{{ 'layout.roles' | t }}</label>
+      <app-multi-select-dropdown
+        id="mapping-roles"
+        [small]="false"
+        [label]="'layout.roles' | t"
+        [allLabel]="'access.noRole' | t"
+        [options]="roleOptions()"
+        [selected]="pickedRoleValues()"
+        (selectedChange)="onRolesChange($event)"
+      />
+    </div>
     <div class="col-md-3">
       <label for="mapping-all" class="form-label">{{ 'reports.allProjects' | t }}</label>
       <app-project-permissions

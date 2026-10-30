@@ -2,7 +2,8 @@
   <button
     #button
     type="button"
-    class="form-select form-select-sm text-start text-truncate"
+    class="form-select text-start text-truncate"
+    [class.form-select-sm]="small()"
     [id]="id()"
     [attr.aria-expanded]="open()"
     [attr.aria-controls]="id() + '-menu'"
@@ -19,6 +20,24 @@
       [id]="id() + '-menu'"
       [attr.aria-label]="label()"
     >
+      @if (searchLabel(); as searchLabel) {
+        <div class="sticky-top bg-body pb-2">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            <input
+              #searchInput
+              type="search"
+              class="form-control"
+              maxlength="200"
+              autocomplete="off"
+              [attr.aria-label]="searchLabel"
+              [placeholder]="searchLabel"
+              [value]="search()"
+              (input)="onSearch($event)"
+            />
+          </div>
+        </div>
+      }
       @for (option of options(); track option.value) {
         <div class="form-check">
           <input
@@ -26,14 +45,35 @@
             type="checkbox"
             [id]="id() + '-' + $index"
             [checked]="isSelected(option.value)"
+            [disabled]="option.disabled"
             (change)="toggle(option.value)"
           />
-          <label class="form-check-label text-nowrap" [for]="id() + '-' + $index">
+          <label
+            class="form-check-label text-nowrap"
+            [class.fw-semibold]="option.strong"
+            [class.font-monospace]="option.monospace"
+            [for]="id() + '-' + $index"
+          >
             {{ option.label }}
           </label>
         </div>
+        @if (option.divider && !$last) {
+          <hr class="dropdown-divider" />
+        }
       }
-      @if (selected().length > 0) {
+      @if (note(); as note) {
+        <div class="form-text text-wrap">{{ note }}</div>
+      }
+      @if (toggleAll()) {
+        @if (hasSelectable()) {
+          <div class="sticky-bottom bg-body">
+            <hr class="dropdown-divider" />
+            <button type="button" class="btn btn-link btn-sm p-0" (click)="selectAllOrNone()">
+              {{ 'access.pickAll' | t }}
+            </button>
+          </div>
+        }
+      } @else if (selected().length > 0) {
         <hr class="dropdown-divider" />
         <button type="button" class="btn btn-link btn-sm p-0" (click)="clear()">
           {{ 'common.clearSelection' | t }}

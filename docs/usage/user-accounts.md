@@ -17,9 +17,9 @@ An OIDC account also holds the roles and projects of the [OIDC mappings](sso.md#
 the groups that its identity provider names at each login.
 
 On the **Users** page, the form of an account gives its **Roles** (permissions on the whole
-Controller server), its per-project permissions on **All projects** and its **Projects** (search
-them, tick them and add them, then choose the permissions of each); it shows those of its OIDC
-mappings, read only.
+Controller server, chosen in a list) and its **Projects** (in the list **Search the projects**,
+search them and tick them, **All projects** included, add them, then choose the per-project
+permissions of each); it shows those of its OIDC mappings, read only.
 
 ## Password
 

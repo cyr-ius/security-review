@@ -18,9 +18,10 @@ Un compte OIDC porte aussi les rôles et projets des
 d'identité à chaque connexion.
 
 Sur la page **Utilisateurs**, le formulaire d'un compte donne ses **Rôles** (droits sur tout le
-serveur Controller), ses droits par projet sur **Tous les projets** et ses **Projets**
-(recherchez-les, cochez-les et ajoutez-les, puis choisissez les droits de chacun) ; il affiche
-ceux de ses correspondances OIDC, en lecture seule.
+serveur Controller, choisis dans une liste) et ses **Projets** (dans la liste **Rechercher les
+projets**, recherchez-les et cochez-les, **Tous les projets** compris, ajoutez-les, puis
+choisissez les droits par projet de chacun) ; il affiche ceux de ses correspondances OIDC, en
+lecture seule.
 
 ## Mot de passe
 
