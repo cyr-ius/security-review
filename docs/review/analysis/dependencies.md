@@ -169,7 +169,8 @@ Step-by-step setup, with the agent review: [Commit hooks](../../getting-started/
 
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
 [personal `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens) created in
-**My account**: it reaches the projects the developer may read, and the files are sent to the
+**My account**: it reaches the projects the developer may read (and saves a scan only on those
+of `reports.write`), and the files are sent to the
 Controller server exactly as they are on disk. The workstation needs no Python: install the client with
 uv (see [Installation](../../advanced/architecture/ci.md#installation)).
 

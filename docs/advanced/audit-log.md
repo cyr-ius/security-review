@@ -22,16 +22,17 @@ exists exactly when the change was committed.
 | `token.revoked` | A token is revoked |
 | `token.projects_changed` | An administrator changes the projects of a token (**Projects** button of the **Tokens** page), with the previous projects (`null`: every project) |
 | `enrollment.requested` | The agent of a user requests a project with `request_project` ([enrollment](architecture/mcp-server.md#enrollment-personal-token-and-project-requests)), with the token as actor, the requesting user, its address, whether a new request was filed (`requested`) and whether the project already existed (`existing`: an access request) |
-| `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details); the requester is added to the group (`user.groups_changed`) |
+| `enrollment.approved` | A user with `projects.create` approves a pending project (`granted_to`: the requester, in the details); the project is added to the requester with `reports.read` and `reports.write` (`user.projects_changed`) |
 | `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](../usage/access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](../usage/access-control.md#groups); the approval of a project request creates a missing [project group](../usage/projects.md#project-group) (`project` in the details) |
-| `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
-| `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (its project group and the user id in the details) |
-| `project.joined` | A user with `projects.autojoin` joins an existing project through `request_project` (actor: the token) (its project group and the user id in the details) |
+| `group.*`, `user.groups_changed` | Changes of the groups of web users, removed in version 10: kept in the history |
+| `oidc.mappings_changed` | An administrator replaces the [OIDC mappings](../usage/sso.md#oidc-mappings) (claims added and removed), a login maps a value of `SECREVIEW_OIDC_ADMIN_GROUPS` (actor `oidc`), or the deletion of a project changes them |
+| `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (the user id and its `reports.read` and `reports.write` permissions in the details) |
+| `project.joined` | A user with `projects.autojoin` joins an existing project through `request_project` (actor: the token) (the user id and its `reports.read` and `reports.write` permissions in the details) |
 | `project.autojoin_changed` | A user with `projects.create` [blocks or allows again the autojoin](../usage/projects.md#blocking-the-autojoin) of a project (`blocked` in the details) |
-| `project.deleted` | A user with `projects.delete` [deletes a project](../usage/projects.md#deleting-a-project) (counts of reports, findings and tokens, groups deleted or changed in the details) |
-| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](../usage/projects.md#project-group) (added and removed group ids) |
+| `project.deleted` | A user with `projects.delete` [deletes a project](../usage/projects.md#deleting-a-project) (counts of reports, findings, members and tokens, OIDC mappings changed in the details) |
+| `user.roles_changed` | An administrator replaces the roles of an account (added and removed role ids); a login keeps the OIDC claims of the last holder of `users.manage` (actor `oidc`) |
+| `user.projects_changed` | An administrator replaces the projects of an account (or its permissions on every project), or the [members](../usage/projects.md#members) of a project, or a project request adds a project with its reading and writing (`project=permissions` of each project, projects removed) |
 | `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
@@ -40,9 +41,9 @@ exists exactly when the change was committed.
 | `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** page, or copied from `SECREVIEW_PUBLIC_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** page |
-| `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, by the client (`/revoke`), or with its user |
+| `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, on the **Tokens** page (one or all), by the client (`/revoke`), or with its user |
 | `oauth.refresh_reused` | A refresh token already replaced is presented again: the grant is revoked |
-| `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface (turning it off also records the revocation of each grant) |
+| `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `project` and its name), the project when there is one, and details as JSON. The actor

@@ -19,6 +19,7 @@ import {
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ProjectMembersComponent } from '../project-members/project-members.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
@@ -42,6 +43,7 @@ const MAX_PROJECT_CHARS = 200;
     RouterLink,
     DatePipe,
     FormField,
+    ProjectMembersComponent,
     SeverityBadgeComponent,
     SeverityCountsComponent,
     RefreshButtonComponent,
@@ -58,6 +60,8 @@ export class ProjectListComponent {
   private readonly auth = inject(AuthService);
   /** Modal dialog hosting the creation form. */
   private readonly createDialog = viewChild<ElementRef<HTMLDialogElement>>('createDialog');
+  /** Modal dialog hosting the members of one project. */
+  private readonly membersDialog = viewChild<ElementRef<HTMLDialogElement>>('membersDialog');
 
   /** A user with projects.create may create a new project, which it then reads. */
   readonly canCreate = computed(() => this.auth.can('projects.create'));
@@ -68,10 +72,17 @@ export class ProjectListComponent {
   });
   /** A user with projects.delete may delete a project and everything that refers to it. */
   readonly canDelete = computed(() => this.auth.can('projects.delete'));
-  /** Giving access to an existing project also takes users.manage, as a group membership does. */
+  /** Giving access to an existing project also takes users.manage, as giving a role does. */
   readonly canGrantAccess = computed(() => this.auth.can('users.manage'));
-  /** The row actions: blocking the autojoin (projects.create), deleting (projects.delete). */
-  readonly hasActions = computed(() => this.canCreate() || this.canDelete());
+  /** A user with users.manage sees and changes the members of a project and their permissions. */
+  readonly canManageMembers = computed(() => this.auth.can('users.manage'));
+  /** The row actions: the members (users.manage), blocking the autojoin (projects.create),
+   * deleting (projects.delete). */
+  readonly hasActions = computed(
+    () => this.canManageMembers() || this.canCreate() || this.canDelete(),
+  );
+  /** Project whose members are shown in the modal. */
+  readonly membersProject = signal<string | null>(null);
   readonly creating = signal(false);
   /** Project being deleted (its row button shows a spinner). */
   readonly deleting = signal<string | null>(null);
@@ -181,6 +192,19 @@ export class ProjectListComponent {
     this.createDialog()?.nativeElement.close();
   }
 
+  /** Opens the modal of the members of a project. */
+  openMembers(project: string): void {
+    this.membersProject.set(project);
+    const dialog = this.membersDialog()?.nativeElement;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }
+
+  closeMembers(): void {
+    this.membersDialog()?.nativeElement.close();
+  }
+
   /** Create the project of the form; the session then reads it (its grants are reloaded). */
   async createProject(event: Event): Promise<void> {
     event.preventDefault();
@@ -222,10 +246,13 @@ export class ProjectListComponent {
       return;
     }
     await this.decide(async () => {
-      const { group } = await firstValueFrom(this.api.approvePendingProject(id));
+      const { granted_to: user } = await firstValueFrom(this.api.approvePendingProject(id));
+      if (!user) {
+        return msg('projects.approvedNoUser', { project });
+      }
       return existing
-        ? msg('projects.approvedAccess', { project, group })
-        : msg('projects.approved', { project });
+        ? msg('projects.approvedAccess', { project, user })
+        : msg('projects.approved', { project, user });
     });
   }
 

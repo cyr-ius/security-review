@@ -7,7 +7,7 @@ export const users = defineMessages({
     'users.subtitle':
       'Accounts of the web interface: local (username and password) or OIDC (identity provider)',
     'users.help':
-      'Only accounts can access the interface. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
+      'Only accounts can access the interface. What a user may do comes only from its roles (permissions on the whole Controller server) and its projects with their per-project permissions (reading, triage), and for an OIDC user from those of the OIDC mappings of its claim at its last login. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
     'users.generatedPassword': 'Generated password',
     'users.passwordOf': 'Password of “{user}”',
     'users.copyNow': 'Copy it now: it will not be shown again.',
@@ -24,8 +24,6 @@ export const users = defineMessages({
     'users.localUsernameHelp': 'Letters, digits and . _ @ -',
     'users.passwordPlaceholder': 'Empty: generated',
     'users.passwordHelp': 'Left empty, a password is generated and shown once.',
-    'users.someProjects': 'Selected projects',
-    'users.noProjects': 'No project available.',
     'users.accounts': 'Accounts',
     'users.loadError': 'Could not load the users.',
     'users.type': 'Type',
@@ -57,7 +55,7 @@ export const users = defineMessages({
     'users.confirmDelete': 'Delete user “{user}”?',
     'users.deleted': 'User “{user}” deleted.',
     'users.confirmLift':
-      'Allow “{user}” again? With automatic creation, their OIDC account will be created again at their next login if their groups give them a permission.',
+      'Allow “{user}” again? With automatic creation, their OIDC account will be created again at their next login if their roles give them a permission.',
     'users.lifted': '“{user}” can be created again at login.',
     'users.copied': 'Password copied. Send it through a safe channel.',
     'users.copyFailed': 'Copy impossible; select the password and copy it manually.',
@@ -66,19 +64,20 @@ export const users = defineMessages({
     'users.lastAdminRole': 'At least one user must keep the users.manage permission.',
     'users.notFound': 'This user no longer exists.',
     'users.failed': 'The management of the users failed.',
-    'users.groupsHelp': 'Groups given by an administrator; their roles give the permissions.',
-    'users.noGroups': 'No group yet: create one on the Groups page.',
-    'users.ssoGroups': 'OIDC groups at the last login:',
-    'users.ssoGroup': 'Named by the groups claim at the last login',
-    'users.givenGroup': 'Given by an administrator',
     'users.access': 'Access',
+    'users.rolesHelp':
+      'Permissions on the whole Controller server (rules, tokens, users, audit...).',
+    'users.projects': 'Projects',
+    'users.projectsHelp':
+      'Per-project permissions (reading, triage): on every project, and on each project added (search them, tick them and add them; reading by default). Without any, the user reads nothing.',
+    'users.oidcAccess': 'Roles and projects of its OIDC mappings (last login):',
   },
   fr: {
     'users.mustChange': 'mot de passe à changer',
     'users.subtitle':
       "Comptes de l'interface web : locaux (identifiant et mot de passe) ou OIDC (fournisseur d'identité)",
     'users.help':
-      "Seuls les comptes ouvrent l'interface. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
+      "Seuls les comptes ouvrent l'interface. Ce qu'un utilisateur peut faire vient uniquement de ses rôles (droits sur tout le serveur Controller) et de ses projets avec leurs droits par projet (lecture, triage), et pour un utilisateur OIDC de ceux des correspondances OIDC de son claim à sa dernière connexion. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
     'users.generatedPassword': 'Mot de passe généré',
     'users.passwordOf': 'Mot de passe de « {user} »',
     'users.copyNow': 'Copiez-le maintenant : il ne sera plus affiché.',
@@ -95,8 +94,6 @@ export const users = defineMessages({
     'users.localUsernameHelp': 'Lettres, chiffres et . _ @ -',
     'users.passwordPlaceholder': 'Vide : généré',
     'users.passwordHelp': 'Laissé vide, un mot de passe est généré et affiché une fois.',
-    'users.someProjects': 'Projets sélectionnés',
-    'users.noProjects': 'Aucun projet disponible.',
     'users.accounts': 'Comptes',
     'users.loadError': 'Impossible de charger les utilisateurs.',
     'users.type': 'Type',
@@ -129,7 +126,7 @@ export const users = defineMessages({
     'users.confirmDelete': "Supprimer l'utilisateur « {user} » ?",
     'users.deleted': 'Utilisateur « {user} » supprimé.',
     'users.confirmLift':
-      'Autoriser à nouveau « {user} » ? Avec la création automatique, son compte OIDC sera recréé à sa prochaine connexion si ses groupes lui donnent une permission.',
+      'Autoriser à nouveau « {user} » ? Avec la création automatique, son compte OIDC sera recréé à sa prochaine connexion si ses rôles lui donnent une permission.',
     'users.lifted': '« {user} » peut de nouveau être créé à sa connexion.',
     'users.copied': 'Mot de passe copié. Transmettez-le par un canal sûr.',
     'users.copyFailed':
@@ -140,20 +137,20 @@ export const users = defineMessages({
     'users.lastAdminRole': 'Au moins un utilisateur doit garder la permission users.manage.',
     'users.notFound': "Cet utilisateur n'existe plus.",
     'users.failed': 'La gestion des utilisateurs a échoué.',
-    'users.groupsHelp':
-      'Groupes donnés par un administrateur ; leurs rôles donnent les permissions.',
-    'users.noGroups': 'Aucun groupe : créez-en un sur la page Groupes.',
-    'users.ssoGroups': 'Groupes OIDC à la dernière connexion :',
-    'users.ssoGroup': 'Nommé par le claim des groupes à la dernière connexion',
-    'users.givenGroup': 'Donné par un administrateur',
     'users.access': 'Accès',
+    'users.rolesHelp':
+      'Droits sur tout le serveur Controller (règles, jetons, utilisateurs, audit...).',
+    'users.projects': 'Projets',
+    'users.projectsHelp':
+      "Droits par projet (lecture, triage) : sur tous les projets, et sur chaque projet ajouté (recherchez-les, cochez-les et ajoutez-les ; lecture par défaut). Sans aucun, l'utilisateur ne voit rien.",
+    'users.oidcAccess': 'Rôles et projets de ses correspondances OIDC (dernière connexion) :',
   },
   es: {
     'users.mustChange': 'contraseña por cambiar',
     'users.subtitle':
       'Cuentas de la interfaz web: locales (usuario y contraseña) o OIDC (proveedor de identidad)',
     'users.help':
-      'Solo estas cuentas abren la interfaz; los tokens sirven al servidor MCP y a la API REST. Lo que un usuario puede hacer viene solo de los roles de sus grupos (los asignados aquí y, para un usuario OIDC, los nombrados por su claim de grupos en su último inicio de sesión). Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
+      'Solo estas cuentas abren la interfaz. Lo que un usuario puede hacer viene solo de sus roles (permisos sobre todo el servidor Controller) y de sus proyectos con sus permisos por proyecto (lectura, clasificación), y para un usuario OIDC de los de las correspondencias OIDC de su claim en su último inicio de sesión. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
     'users.generatedPassword': 'Contraseña generada',
     'users.passwordOf': 'Contraseña de «{user}»',
     'users.copyNow': 'Cópiela ahora: no se volverá a mostrar.',
@@ -170,8 +167,6 @@ export const users = defineMessages({
     'users.localUsernameHelp': 'Letras, cifras y . _ @ -',
     'users.passwordPlaceholder': 'Vacío: generada',
     'users.passwordHelp': 'Si se deja vacía, se genera una contraseña y se muestra una vez.',
-    'users.someProjects': 'Proyectos seleccionados',
-    'users.noProjects': 'Ningún proyecto disponible.',
     'users.accounts': 'Cuentas',
     'users.loadError': 'No se pudieron cargar los usuarios.',
     'users.type': 'Tipo',
@@ -204,7 +199,7 @@ export const users = defineMessages({
     'users.confirmDelete': '¿Eliminar el usuario «{user}»?',
     'users.deleted': 'Usuario «{user}» eliminado.',
     'users.confirmLift':
-      '¿Permitir de nuevo «{user}»? Con la creación automática, su cuenta OIDC se creará de nuevo en su próximo inicio de sesión si sus grupos le dan un permiso.',
+      '¿Permitir de nuevo «{user}»? Con la creación automática, su cuenta OIDC se creará de nuevo en su próximo inicio de sesión si sus roles le dan un permiso.',
     'users.lifted': '«{user}» puede volver a crearse al iniciar sesión.',
     'users.copied': 'Contraseña copiada. Transmítala por un canal seguro.',
     'users.copyFailed': 'No se pudo copiar; seleccione la contraseña y cópiela manualmente.',
@@ -213,11 +208,12 @@ export const users = defineMessages({
     'users.lastAdminRole': 'Al menos un usuario debe conservar el permiso users.manage.',
     'users.notFound': 'Este usuario ya no existe.',
     'users.failed': 'La gestión de los usuarios ha fallado.',
-    'users.groupsHelp': 'Grupos asignados por un administrador; sus roles dan los permisos.',
-    'users.noGroups': 'Ningún grupo: cree uno en la página Grupos.',
-    'users.ssoGroups': 'Grupos OIDC en el último inicio de sesión:',
-    'users.ssoGroup': 'Nombrado por el claim de grupos en el último inicio de sesión',
-    'users.givenGroup': 'Asignado por un administrador',
     'users.access': 'Acceso',
+    'users.rolesHelp':
+      'Permisos sobre todo el servidor Controller (reglas, tokens, usuarios, auditoría...).',
+    'users.projects': 'Proyectos',
+    'users.projectsHelp':
+      'Permisos por proyecto (lectura, clasificación): en todos los proyectos, y en cada proyecto añadido (búsquelos, márquelos y añádalos; lectura por defecto). Sin ninguno, el usuario no ve nada.',
+    'users.oidcAccess': 'Roles y proyectos de sus correspondencias OIDC (último inicio de sesión):',
   },
 });

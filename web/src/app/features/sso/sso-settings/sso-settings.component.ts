@@ -36,7 +36,6 @@ const TEXT_SETTINGS: readonly TextSettingName[] = [
   'roles_claim',
   'username_claim',
   'admin_groups',
-  'default_group',
   'display_name',
 ];
 
@@ -99,12 +98,6 @@ const ACCESS_FIELDS: FieldMeta[] = [
     label: 'sso.adminGroups',
     kind: 'text',
     help: 'sso.adminGroupsHelp',
-  },
-  {
-    name: 'default_group',
-    label: 'sso.defaultGroup',
-    kind: 'text',
-    help: 'sso.defaultGroupHelp',
   },
   {
     name: 'auto_create_users',

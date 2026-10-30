@@ -212,29 +212,30 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
    **jeton MCP personnel** dans **Mon compte** (voir
    [jetons MCP personnels](../../usage/tokens.md#jetons-mcp-et-ci-personnels)) et à le placer dans
    la [configuration de l'hôte](../../getting-started/host.md#obtenir-un-jeton). Le jeton atteint
-   les projets que l'utilisateur peut lire, relus à chaque requête.
+   les projets que l'utilisateur peut lire, et n'enregistre de rapport ni de proposition que sur
+   ceux de `reports.write`, relus à chaque requête.
 2. **Projet de la revue.** Chaque prompt de revue commence par l'outil `request_project`, avec
    le nom du projet (en général le nom du dépôt) :
-    - le jeton atteint déjà le projet : `accessible`, la revue continue ;
+    - le jeton peut déjà enregistrer des rapports sur le projet (`reports.write`) : `accessible`,
+      la revue continue ;
     - le projet est nouveau et l'utilisateur porte `projects.create` : il est **créé**
-      immédiatement, avec l'utilisateur pour membre (groupe `project:<projet>`), et la revue
-      continue ;
-    - le projet existe et l'utilisateur porte `projects.autojoin` : il le **rejoint**
-      immédiatement (`joined`, groupe de projet, lecture seule), sauf si un utilisateur portant
+      immédiatement, avec sa lecture et son écriture pour l'utilisateur, et la revue continue ;
+    - le projet existe, l'utilisateur ne le lit pas encore et porte `projects.autojoin` : il le
+      **rejoint** immédiatement (`joined`, lecture et écriture, jamais le tri), sauf si un utilisateur portant
       `projects.create` a [bloqué son adhésion automatique](../../usage/projects.md#blocage-de-ladhesion-automatique),
       et la revue continue. Un utilisateur lit au plus 200 projets de cette façon ;
     - sinon la réponse est `requested`, et l'agent s'arrête avant la revue, pour qu'aucune revue
       ne soit perdue. Un nouveau projet est **en attente** : ce n'est pas encore un projet et il
-      ne donne aucun accès. Pour un projet qui existe déjà, l'utilisateur **demande l'accès** de
-      la même façon (jamais immédiatement, même avec `projects.create`, sauf avec `projects.autojoin`). La réponse est la même
+      ne donne aucun accès. Pour un projet qui existe déjà, y compris un projet que l'utilisateur
+      lit sans `reports.write`, l'utilisateur **demande l'accès** de la même façon (jamais immédiatement, même avec `projects.create`, sauf avec `projects.autojoin`). La réponse est la même
       dans les deux cas, pour ne pas révéler quels projets existent. Un utilisateur dépose une
       demande par projet ; rien n'est enregistré pour un jeton sans utilisateur sur un projet
-      existant, ni pour un utilisateur qui le lit déjà.
+      existant, ni pour un utilisateur qui y écrit déjà.
 3. **Validation.** Un utilisateur qui porte `projects.create` (entre autres le rôle `admin`)
    valide ou refuse la demande dans la section **Projets en attente** de la page **Projets**,
    où chaque demande est marquée **Nouveau projet** ou **Demande d'accès**, ou en CLI
    (`existing` : `true` pour une demande d'accès). Valider une demande d'accès demande aussi
-   `users.manage`, comme l'ajout d'un membre à un groupe : `projects.create` seul n'ouvre jamais
+   `users.manage`, comme donner un rôle : `projects.create` seul n'ouvre jamais
    un projet existant.
 
     ```bash
@@ -243,8 +244,8 @@ premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas be
     security-review-controller project reject 4
     ```
 
-    La validation ajoute le **demandeur** au groupe de projet `project:<projet>` (voir
-    [contrôle d'accès](../../usage/projects.md#groupe-de-projet)), créé pour un nouveau projet : son
+    La validation donne au **demandeur** la lecture et l'écriture du projet (voir
+    [membres](../../usage/projects.md#membres)), créé pour un nouveau projet : son
     jeton personnel atteint le projet dès la requête suivante, sans reconfiguration. Une demande
     que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut)
     est supprimée.

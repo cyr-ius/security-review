@@ -26,6 +26,8 @@ export type PackFileError = 'tooLarge' | 'unreadable';
 export class PackTransferComponent {
   /** True while an export or an import runs: both buttons are disabled. */
   readonly busy = input(false);
+  /** False for a user who may only read: the Import button is hidden. */
+  readonly importable = input(true);
   readonly exportRequested = output<void>();
   readonly fileChosen = output<PackFile>();
   readonly fileRejected = output<PackFileError>();

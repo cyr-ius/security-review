@@ -107,7 +107,7 @@ plugins:
             Read guard for AI assistants: Garde de lecture des assistants IA
             References: Références
             Reports and monitoring: Rapports et suivi
-            Roles, groups and permissions: Rôles, groupes et permissions
+            Roles and permissions: Rôles et permissions
             Rules: Règles
             SARIF export: Export SARIF
             Security and limits: Sécurité et limites
@@ -179,7 +179,7 @@ nav:
       - Projects: usage/projects.md
       - Triage of findings: usage/triage.md
       - User accounts: usage/user-accounts.md
-      - Roles, groups and permissions: usage/access-control.md
+      - Roles and permissions: usage/access-control.md
       - Tokens: usage/tokens.md
       - OIDC login: usage/sso.md
       - Audit log: usage/audit-metrics.md

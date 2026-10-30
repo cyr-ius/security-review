@@ -97,14 +97,14 @@ export const routes: Routes = [
       {
         path: 'rules',
         title: 'layout.rules',
-        canActivate: [permissionGuard('rules.manage')],
+        canActivate: [permissionGuard('rules.read')],
         loadComponent: () =>
           import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
       },
       {
         path: 'checklists',
         title: 'layout.checklists',
-        canActivate: [permissionGuard('rules.manage')],
+        canActivate: [permissionGuard('rules.read')],
         loadComponent: () =>
           import('./features/checklists/checklist-list/checklist-list.component').then(
             (m) => m.ChecklistListComponent,
@@ -112,7 +112,7 @@ export const routes: Routes = [
       },
       {
         path: 'standards',
-        canActivate: [permissionGuard('standards.manage')],
+        canActivate: [permissionGuard('standards.read')],
         title: 'layout.standards',
         loadComponent: () =>
           import('./features/standards/standard-list/standard-list.component').then(
@@ -156,15 +156,8 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/audit/audit-log/audit-log.component').then((m) => m.AuditLogComponent),
       },
-      {
-        path: 'groups',
-        title: 'layout.groups',
-        canActivate: [permissionGuard('users.manage')],
-        loadComponent: () =>
-          import('./features/access/group-list/group-list.component').then(
-            (m) => m.GroupListComponent,
-          ),
-      },
+      // Former page of the groups, replaced by the roles of the users and the OIDC mappings
+      { path: 'groups', pathMatch: 'full', redirectTo: 'users' },
       // Former single settings page, split into the three pages below
       { path: 'settings', pathMatch: 'full', redirectTo: 'settings/general' },
       {

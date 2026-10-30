@@ -25,7 +25,8 @@ export const DOC_LINKS = {
     anchor: { en: 'settings-stored-in-the-database', fr: 'reglages-enregistres-en-base' },
   },
   users: { path: 'usage/user-accounts/' },
-  groups: { path: 'usage/access-control/', anchor: { en: 'groups', fr: 'groupes' } },
+  oidcMappings: { path: 'usage/sso/', anchor: { en: 'oidc-mappings', fr: 'correspondances-oidc' } },
+  projectMembers: { path: 'usage/projects/', anchor: { en: 'members', fr: 'membres' } },
   roles: { path: 'usage/access-control/', anchor: { en: 'roles', fr: 'roles' } },
   tokens: { path: 'usage/tokens/' },
   personalTokens: {

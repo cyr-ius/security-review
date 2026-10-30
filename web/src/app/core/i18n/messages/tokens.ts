@@ -15,15 +15,14 @@ export const tokens = defineMessages({
     'tokens.pipelineHelp':
       'A CI/CD token only runs the gate, the SARIF export and the trend of the selected projects (security-review-ci command), without database access.',
     'tokens.machinesHelp':
-      'Tokens are for machines: an MCP agent, a CI/CD pipeline or a script on the REST API. A person reads and triages in this portal with a web user, whose rights come from its groups, and may create personal REST API and MCP tokens in My account.',
+      'Tokens are for machines: an MCP agent, a CI/CD pipeline or a script on the REST API. A person reads and triages in this portal with a web user, whose rights come from its roles, and may create personal REST API and MCP tokens in My account.',
     'tokens.accessRole': 'Role',
     'tokens.chooseRole': 'Choose a role',
-    'tokens.wholeControllerRole':
-      'This role holds permissions on the whole Controller server: the token reaches every project.',
     'tokens.apiHelp':
-      'An API token calls the REST API (Swagger “Authorize” button, scripts) with the permissions of its role, read at each request. Like every token, it never accepts a risk nor marks a false positive.',
+      'An API token calls the REST API (Swagger “Authorize” button, scripts) with the permissions of its role on the whole Controller server and its per-project permissions on its projects, read at each request. Like every token, it never accepts a risk nor marks a false positive.',
     'tokens.personal': 'personal',
     'tokens.allowedProjects': 'Allowed projects',
+    'tokens.chooseProjects': 'Choose the projects',
     'tokens.active': 'Active tokens',
     'tokens.loadError': 'Could not load the tokens.',
     'tokens.revokeToken': 'Revoke token {label}',
@@ -83,15 +82,14 @@ export const tokens = defineMessages({
     'tokens.pipelineHelp':
       'Un jeton CI/CD ne fait que le gate, l’export SARIF et la tendance des projets sélectionnés (commande security-review-ci), sans accès à la base.',
     'tokens.machinesHelp':
-      "Les jetons sont destinés aux machines : un agent MCP, un pipeline CI/CD ou un script sur l'API REST. Une personne lit et trie dans ce portail avec un utilisateur web, dont les droits viennent de ses groupes, et peut créer des jetons personnels API REST et MCP dans Mon compte.",
+      "Les jetons sont destinés aux machines : un agent MCP, un pipeline CI/CD ou un script sur l'API REST. Une personne lit et trie dans ce portail avec un utilisateur web, dont les droits viennent de ses rôles, et peut créer des jetons personnels API REST et MCP dans Mon compte.",
     'tokens.accessRole': 'Rôle',
     'tokens.chooseRole': 'Choisir un rôle',
-    'tokens.wholeControllerRole':
-      'Ce rôle détient des permissions sur tout le serveur Controller : le jeton atteint tous les projets.',
     'tokens.apiHelp':
-      "Un jeton API appelle l'API REST (bouton « Authorize » du Swagger, scripts) avec les permissions de son rôle, lues à chaque requête. Comme tout jeton, il n'accepte jamais un risque et ne marque jamais un faux positif.",
+      "Un jeton API appelle l'API REST (bouton « Authorize » du Swagger, scripts) avec les droits de son rôle sur tout le serveur Controller et ses droits par projet sur ses projets, relus à chaque requête. Comme tout jeton, il n'accepte jamais un risque et ne marque jamais un faux positif.",
     'tokens.personal': 'personnel',
     'tokens.allowedProjects': 'Projets autorisés',
+    'tokens.chooseProjects': 'Choisir les projets',
     'tokens.active': 'Jetons actifs',
     'tokens.loadError': 'Impossible de charger les jetons.',
     'tokens.revokeToken': 'Révoquer le jeton {label}',
@@ -151,15 +149,14 @@ export const tokens = defineMessages({
     'tokens.pipelineHelp':
       'Un token CI/CD solo ejecuta el gate, la exportación SARIF y la tendencia de los proyectos seleccionados (comando security-review-ci), sin acceso a la base de datos.',
     'tokens.machinesHelp':
-      'Los tokens son para máquinas: un agente MCP, un pipeline CI/CD o un script sobre la API REST. Una persona lee y clasifica en este portal con un usuario web, cuyos permisos provienen de sus grupos, y puede crear tokens personales API REST y MCP en Mi cuenta.',
+      'Los tokens son para máquinas: un agente MCP, un pipeline CI/CD o un script sobre la API REST. Una persona lee y clasifica en este portal con un usuario web, cuyos permisos provienen de sus roles, y puede crear tokens personales API REST y MCP en Mi cuenta.',
     'tokens.accessRole': 'Rol',
     'tokens.chooseRole': 'Elegir un rol',
-    'tokens.wholeControllerRole':
-      'Este rol tiene permisos sobre todo el servidor Controller: el token alcanza todos los proyectos.',
     'tokens.apiHelp':
-      'Un token API llama a la API REST (botón «Authorize» de Swagger, scripts) con los permisos de su rol, leídos en cada solicitud. Como todo token, nunca acepta un riesgo ni marca un falso positivo.',
+      'Un token API llama a la API REST (botón «Authorize» del Swagger, scripts) con los permisos de su rol sobre todo el servidor Controller y sus permisos por proyecto en sus proyectos, leídos en cada solicitud. Como todo token, nunca acepta un riesgo ni marca un falso positivo.',
     'tokens.personal': 'personal',
     'tokens.allowedProjects': 'Proyectos autorizados',
+    'tokens.chooseProjects': 'Elegir los proyectos',
     'tokens.active': 'Tokens activos',
     'tokens.loadError': 'No se pudieron cargar los tokens.',
     'tokens.revokeToken': 'Revocar el token {label}',

@@ -1,0 +1,98 @@
+<div class="input-group mb-2">
+  <app-multi-select-dropdown
+    [id]="idPrefix() + '-search'"
+    [small]="false"
+    [label]="'access.searchProjects' | t"
+    [allLabel]="'access.searchProjects' | t"
+    [searchLabel]="'common.search' | t"
+    [search]="search()"
+    (searchChange)="onSearch($event)"
+    [toggleAll]="true"
+    [note]="note()"
+    [options]="options()"
+    [selected]="picked()"
+    (selectedChange)="onPick($event)"
+  />
+  <button
+    type="button"
+    class="btn btn-outline-primary"
+    [attr.aria-label]="'access.addProjects' | t: { count: picked().length }"
+    [title]="'access.addProjects' | t: { count: picked().length }"
+    [disabled]="!picked().length"
+    (click)="add()"
+  >
+    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+  </button>
+</div>
+
+@if (rows().length || allProjects() !== null) {
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">{{ 'access.project' | t }}</th>
+          <th scope="col">{{ 'access.projectPermissions' | t }}</th>
+          <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (allProjects(); as permissions) {
+          <tr>
+            <td class="fw-semibold">{{ 'reports.allProjects' | t }}</td>
+            <td>
+              <app-project-permissions
+                [id]="idPrefix() + '-permissions-all'"
+                [label]="'reports.allProjects' | t"
+                [permissions]="permissions"
+                (permissionsChange)="allProjects.set($event)"
+              />
+              @if (!permissions.length) {
+                <div class="form-text text-danger">{{ 'access.permissionRequired' | t }}</div>
+              }
+            </td>
+            <td class="text-end">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                [attr.aria-label]="
+                  'access.removeProject' | t: { project: ('reports.allProjects' | t) }
+                "
+                (click)="allProjects.set(null)"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
+            </td>
+          </tr>
+        }
+        @for (row of rows(); track row.project) {
+          <tr>
+            <td class="font-monospace">{{ row.project }}</td>
+            <td>
+              <app-project-permissions
+                [id]="idPrefix() + '-permissions-' + row.project"
+                [label]="'access.permissionsOn' | t: { project: row.project }"
+                [permissions]="row.permissions"
+                (permissionsChange)="setPermissions(row, $event)"
+              />
+              @if (!row.permissions.length) {
+                <div class="form-text text-danger">{{ 'access.permissionRequired' | t }}</div>
+              }
+            </td>
+            <td class="text-end">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                [attr.aria-label]="'access.removeProject' | t: { project: row.project }"
+                (click)="remove(row)"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <div class="form-text">{{ 'access.noProject' | t }}</div>
+}

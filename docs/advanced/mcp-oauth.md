@@ -25,7 +25,7 @@ turn on the **Enable OAuth login** switch.
 
 The public URL of the Controller server is also needed, through the setting on the **General** page.
 
-The change applies at once, with no restart. Turning the login off asks for confirmation and revokes every grant.
+The change applies at once, with no restart. Turning the login off asks for confirmation and suspends the grants without revoking them.
 Each change is recorded in the audit log (`mcp_oauth.changed`).
 
 The OAuth routes follow the settings at each request. A change of the Controller server URL in **General** changes the issuer with no restart.
@@ -39,7 +39,8 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http on loca
 ```
 
 Whatever the method used, the MCP server picks up the changes (within 30 seconds).
-When you turn the MCP OAuth login off, the server revokes every grant, so that the tokens already issued stop working at once.
+Enabled without the URL of the MCP endpoint, the login is suspended: the Controller server starts, logs a warning, and the **Tokens** page asks for the URL, which turns the login on once saved.
+When you turn the MCP OAuth login off, the grants are suspended: the MCP server refuses the tokens already issued at once, and accepts them again when the login is turned back on (a client whose refresh token has expired in the meantime must log in again). To cut every client for good, use **Revoke all** (see [Administration](#administration)).
 
 Behind a reverse proxy, publish these public paths:
 
@@ -97,8 +98,8 @@ A request left without an answer expires after 10 minutes.
 ## What a token gives
 
 An access token acts as a [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) of
-the user who approved the client: the projects the user may read.
-The rights are read again at each request.
+the user who approved the client: the projects the user may read, with reports and proposals
+saved only on those of `reports.write`. The rights are read again at each request.
 
 Approving a client needs a web session (a Bearer token never approves a client), and is refused
 (`403`) while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, like creating a personal MCP token.
@@ -124,7 +125,11 @@ With the `tokens.manage` permission, the **Tokens** page shows a **MCP clients (
 
  - **Revoke** cuts one user of a client.
 
+ - **Revoke all** cuts every user of every client: each client must be approved again.
+
  - **Delete** removes a client with all its grants, and the client must register again.
+
+The section stays available while the login is off: the grants, then suspended, can still be revoked.
 
 
 ## Registered clients
@@ -157,6 +162,7 @@ Registrations (`oauth.client_registered`), approvals (`oauth.grant_approved`), r
 | Symptom | Cause |
 |---|---|
 | The host still shows the enrollment server | OAuth off on the Controller server, or the MCP server has not read the setting yet (30 seconds) |
+| **Tokens** says the OAuth login is suspended (warning `OAuth login of the MCP clients suspended` in the logs) | `SECREVIEW_MCP_URL` missing: set it, or enter the URL on the **Tokens** page |
 | The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` missing |
 | The Controller server does not start: `Issuer URL must be HTTPS` | Controller server URL in `http://` outside localhost |
 | `invalid_redirect_uri` at registration, or VS Code asks for a client ID ("Dynamic client registration not supported") | no redirect URI on the loopback interface: add its host to `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) or its scheme to `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |

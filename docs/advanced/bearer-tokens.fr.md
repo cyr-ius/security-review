@@ -154,8 +154,8 @@ et écrit dans le [journal d'audit](audit-log.md) (`GET /api/v1/audit`, permissi
 `audit.read`), avec l'acteur `token:ops-script` ou `user:<nom>`.
 
 Un jeton `api` lit le contrôle d'accès à chaque requête : un jeton personnel porte les droits de
-son utilisateur, un jeton de rôle les permissions de son **Rôle** sur ses projets (tous les
-projets, ou une liste quand le rôle ne détient que des permissions par projet).
+son utilisateur, un jeton de rôle les droits de son **Rôle** sur tout le serveur Controller et ses
+droits par projet (`project_permissions`) sur ses projets (tous les projets, ou une liste).
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -169,8 +169,9 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
 projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du
-jeton, avant et après un changement de ses projets, et, pour un jeton `api` de rôle, chaque
-permission de son rôle sur ces projets. La page **Jetons** ne liste que les jetons des projets
+jeton, avant et après un changement de ses projets, `reports.write` sur ces projets pour un
+jeton `mcp` ou `ci` (il enregistre des rapports), et, pour un jeton `api` de rôle, chaque
+permission de son rôle et chacun de ses droits par projet sur ces projets. La page **Jetons** ne liste que les jetons des projets
 que l'utilisateur lit. Sa **Validité** va de 30 jours à 1 an, ou le défaut du serveur
 (`SECREVIEW_TOKEN_MAX_DAYS`).
 
@@ -188,8 +189,11 @@ règles :
 Tout compte peut créer un jeton `mcp` ou `ci` personnel, sauf avec
 `SECREVIEW_PERSONAL_TOKENS_ENABLED=false` (`422`) : les jetons déjà créés sont alors refusés
 (`401`) par le serveur MCP et le serveur Controller, mais conservés, et fonctionnent de nouveau
-une fois la variable à `true`. Il atteint les projets de `reports.read` des groupes du compte : tous les
-projets quand l'un de ses groupes lit tous les projets, aucun quand il n'en a pas. Quand le
+une fois la variable à `true`. Il atteint les projets de `reports.read` du compte : tous les projets quand
+il lit tous les projets, aucun quand il n'en a pas. Il n'enregistre de rapport et ne propose de
+statut que sur les projets de `reports.write` (`save_security_report` et `propose_finding_status`
+répondent par une erreur, un scan avec `save` reçoit un `403` ailleurs) : un compte qui ne fait
+que lire un projet ne peut pas y écrire par son agent. Quand le
 serveur le refuse (inconnu, révoqué ou expiré), l'agent reçoit un `401` qui invite
 l'utilisateur à se reconnecter pour en créer un nouveau.
 

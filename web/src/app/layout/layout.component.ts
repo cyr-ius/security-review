@@ -85,18 +85,18 @@ export class LayoutComponent {
 
   /** What the reviews rely on: scan rules, checklists and development standards. */
   private readonly referenceItems: readonly NavItem[] = [
-    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.manage' },
+    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.read' },
     {
       path: '/checklists',
       label: 'layout.checklists',
       icon: 'bi-list-check',
-      permission: 'rules.manage',
+      permission: 'rules.read',
     },
     {
       path: '/standards',
       label: 'layout.standards',
       icon: 'bi-journal-code',
-      permission: 'standards.manage',
+      permission: 'standards.read',
     },
   ];
 
@@ -108,7 +108,6 @@ export class LayoutComponent {
       permission: 'settings.manage',
     },
     { path: '/users', label: 'layout.users', icon: 'bi-people', permission: 'users.manage' },
-    { path: '/groups', label: 'layout.groups', icon: 'bi-diagram-3', permission: 'users.manage' },
     { path: '/roles', label: 'layout.roles', icon: 'bi-shield-check', permission: 'users.manage' },
     { path: '/tokens', label: 'layout.tokens', icon: 'bi-key', permission: 'tokens.manage' },
     { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },

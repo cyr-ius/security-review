@@ -7,7 +7,7 @@ export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 /** Role of a bearer token: tokens are for machines, a person signs in with a web user. */
 export type TokenRole = 'mcp' | 'admin' | 'ci' | 'api';
 /** Role of the caller: the role of its token, or `user` for a web user, whose rights are the
- * permissions of its groups. */
+ * permissions of its roles. */
 export type Role = TokenRole | 'user';
 /** Role of a token managed in the web interface. */
 export type ProjectTokenRole = Exclude<TokenRole, 'admin'>;
@@ -97,8 +97,11 @@ export type SeverityCounts = Record<Severity, number>;
 /** Permission a role may hold (access_control.Permission on the server). */
 export type Permission =
   | 'reports.read'
+  | 'reports.write'
   | 'findings.triage'
+  | 'rules.read'
   | 'rules.manage'
+  | 'standards.read'
   | 'standards.manage'
   | 'tokens.manage'
   | 'settings.manage'
@@ -197,12 +200,24 @@ export interface LoginSession {
 /** Source of a web user: local account (password) or OIDC account (OpenID Connect). */
 export type AuthSource = 'local' | 'oidc';
 
-/** Membership of a web user in a group. */
-export interface UserGroupMembership {
-  group_id: number;
+/** A role of a web user. */
+export interface UserRoleRef {
+  role_id: number;
   name: string;
-  /** local: given by an administrator; oidc: named by the groups claim at the last login. */
-  source: AuthSource;
+}
+
+/** A project with the per-project permissions given there. */
+export interface UserProjectItem {
+  project: string;
+  permissions: Permission[];
+}
+
+/** What the mapping of a value of the roles claim of an OIDC user (last login) gives. */
+export interface UserOidcAccess {
+  claim: string;
+  roles: string[];
+  all_projects_permissions: Permission[];
+  projects: UserProjectItem[];
 }
 
 /** A web user, local or OIDC; the password hash is never returned. */
@@ -210,8 +225,14 @@ export interface WebUser {
   id: number;
   username: string;
   auth_source: AuthSource;
-  groups: UserGroupMembership[];
-  /** Permissions given by the roles of its groups; empty: no access. */
+  /** Roles (permissions on the whole server), per-project permissions on every project and
+   * projects with their permissions, given by an administrator. */
+  roles: UserRoleRef[];
+  all_projects_permissions: Permission[];
+  projects: UserProjectItem[];
+  /** Roles and projects of its OIDC mappings (read only, recomputed at each login). */
+  oidc: UserOidcAccess[];
+  /** Permissions given by its roles; empty: no access. */
   permissions: Grants;
   /** True once an OIDC user logged in (bound to its identity provider account). */
   sso_linked: boolean;
@@ -247,6 +268,8 @@ export interface ProjectToken {
   role: ProjectTokenRole;
   /** api token: its role (role token); null for a personal token or another usage. */
   access_role_id: number | null;
+  /** api role token: its per-project permissions on its projects. */
+  project_permissions: Permission[];
   /** api token created by a web user for itself: it holds the current rights of that user. */
   personal: boolean;
   project: string | null;
@@ -290,6 +313,8 @@ export type AuditAction =
   | 'project.joined'
   | 'project.autojoin_changed'
   | 'user.roles_changed'
+  | 'user.projects_changed'
+  | 'oidc.mappings_changed'
   | 'user.login'
   | 'user.login_failed'
   | 'user.logout'
@@ -332,6 +357,8 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'project.joined',
   'project.autojoin_changed',
   'user.roles_changed',
+  'user.projects_changed',
+  'oidc.mappings_changed',
   'user.login',
   'user.login_failed',
   'user.logout',
@@ -460,8 +487,6 @@ export interface TokenRoleChoice {
   id: number;
   name: string;
   permissions: Permission[];
-  /** Only permissions per project: the token may be limited to projects. */
-  scoped: boolean;
 }
 
 /** Origin of a stored rule: shipped default (seeded on the first run) or custom. */
@@ -600,10 +625,9 @@ export interface PendingProject {
   expires_at: string;
 }
 
-/** POST /api/v1/projects/pending/{id}/approve: the project group the requester joined. */
+/** POST /api/v1/projects/pending/{id}/approve: the requester, if any, got the reader role. */
 export interface PendingProjectApproved extends PendingProject {
-  group_id: number;
-  group: string;
+  granted_to: string | null;
 }
 
 /** GET /api/v1/projects */
@@ -630,8 +654,9 @@ export interface ProjectDeleted {
   project: string;
   reports: number;
   findings: number;
-  groups_deleted: string[];
-  groups_changed: string[];
+  /** Users who lost their roles on the project, claims of the OIDC mappings changed. */
+  members_removed: number;
+  mappings_changed: string[];
   tokens_revoked: number;
   tokens_changed: number;
 }
@@ -1061,18 +1086,17 @@ export interface PermissionInfo {
   scoped: boolean;
 }
 
-/** A role: a named set of permissions, given to groups. */
+/** A role: a named set of permissions, given to users and by OIDC mappings. */
 export interface AccessRole {
   id: number;
   name: string;
   description: string;
   permissions: Permission[];
-  /** reader, triager and admin: neither changed nor deleted. */
+  /** admin: neither changed nor deleted. */
   system: boolean;
-  /** Only scoped permissions: the role may be limited to projects in a group. */
-  scoped: boolean;
-  /** Number of groups that have the role. */
-  groups: number;
+  /** Users who hold the role, and OIDC mappings that give it. */
+  users: number;
+  mappings: number;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -1085,50 +1109,50 @@ export interface AccessRoleWrite {
   permissions: Permission[];
 }
 
-/** A role given to a group or to a user, on every project (null) or on some projects. */
-export interface GroupRoleBinding {
-  role_id: number;
-  name: string;
-  projects: string[] | null;
-}
+/** A known project given to a web user (body of the users routes). */
+export type UserProjectBinding = UserProjectItem;
 
-/** A member of a group. */
-export interface GroupMember {
+/** A web user who has a project (GET/PUT /api/v1/access/projects/{project}/members). */
+export interface ProjectMember {
   user_id: number;
   username: string;
-  source: AuthSource;
+  auth_source: AuthSource;
+  permissions: Permission[];
 }
 
-/** A group of web users. */
-export interface UserGroup {
+/** A value of the OIDC roles claim that gives roles, per-project permissions on every project
+ * and projects with their permissions. */
+export interface OidcRoleMapping {
   id: number;
-  name: string;
-  description: string;
-  /** The OIDC users whose groups claim holds the name are members too. */
-  sso: boolean;
-  roles: GroupRoleBinding[];
-  members: GroupMember[];
+  claim: string;
+  role_ids: number[];
+  roles: string[];
+  all_projects_permissions: Permission[];
+  projects: UserProjectItem[];
   created_at: string;
-  updated_at: string;
   created_by: string | null;
 }
 
-/** Body of POST /api/v1/groups and PUT /api/v1/groups/{id}. */
-export interface UserGroupWrite {
-  name: string;
-  description: string;
-  sso: boolean;
+/** An OIDC mapping as sent to PUT /api/v1/oidc/mappings. */
+export interface OidcRoleMappingWrite {
+  claim: string;
+  role_ids: number[];
+  all_projects_permissions: Permission[];
+  projects: UserProjectItem[];
 }
 
-/** GET /api/v1/groups */
-export interface GroupCatalog {
+/** GET /api/v1/oidc/mappings */
+export interface OidcMappingCatalog {
   oidc_enabled: boolean;
   roles_claim: string;
-  /** OIDC groups created with the admin role at the login of a member (OIDC settings). */
+  /** Values of the claim mapped to admin at the login of a user who holds one (settings). */
   admin_groups: string[];
-  /** Group every OIDC user joins at each login (OIDC settings). */
-  default_group: string | null;
-  groups: UserGroup[];
+  mappings: OidcRoleMapping[];
+}
+
+/** GET /api/v1/access/projects: a known project. */
+export interface KnownProject {
+  name: string;
 }
 
 /** OIDC setting an administrator may change (GET/PUT /api/v1/oidc/settings). */
@@ -1142,7 +1166,6 @@ export type OidcSettingName =
   | 'roles_claim'
   | 'username_claim'
   | 'admin_groups'
-  | 'default_group'
   | 'auto_create_users'
   | 'display_name';
 

@@ -65,7 +65,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton l'atteint, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), `joined` pour un projet existant quand l'utilisateur porte `projects.autojoin` (il le lit), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
+| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton peut y enregistrer des rapports, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), `joined` pour un projet existant que l'utilisateur ne lit pas encore quand il porte `projects.autojoin` (il le lit et y écrit), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
@@ -74,7 +74,9 @@ projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
 [jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels) atteint les projets de son
-utilisateur : pour un autre projet, `request_project` le crée ou le demande.
+utilisateur, et `save_security_report` et `propose_finding_status` seulement ceux où
+l'utilisateur porte `reports.write` : pour un autre projet, `request_project` le crée ou le
+demande.
 
 ### Serveur d'enrôlement
 
@@ -231,7 +233,7 @@ injectées ([injection de prompt](../reference/security.md#securite-du-serveur-l
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
   remplace la précédente. Elle est écrite dans le [journal d'audit](../usage/audit-metrics.md),
   comme la décision qui suit.
-- Une personne qui a le rôle `triager` ou `admin` l'applique ou la rejette dans
+- Une personne qui a la permission `findings.triage` sur le projet l'applique ou la rejette dans
   l'[interface web](../usage/triage.md). `accepted` et `false_positive`
   exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir
   de cette date, le finding est de nouveau compté comme ouvert.

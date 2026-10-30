@@ -58,19 +58,19 @@ client allowed on `/mcp` reads them.
 ## Management (web interface and REST API)
 
 The **Standards** page of the web interface lists the standards with their technologies and
-file patterns, and lets you search and read each one, rendered as Markdown. Like the rules and
-the checklists, it is reserved for administrators, who create, edit, disable or delete them. The
+file patterns, and lets you search and read each one, rendered as Markdown (permission
+`standards.read`). The users with `standards.manage` create, edit, disable or delete them. The
 content field opens in full screen next to its Markdown preview. The AI assistants get the
 active standards through the MCP server (prompt and tools above), whatever the web role of the
 user.
 
 | Method | Route | Required role |
 |---|---|---|
-| `GET` | `/api/v1/standards` | `admin` (disabled standards included) |
-| `GET` | `/api/v1/standards/{slug}` | `admin` |
-| `POST` | `/api/v1/standards` | `admin` (`409` if the identifier already exists) |
-| `PUT` | `/api/v1/standards/{slug}` | `admin` (the identifier does not change) |
-| `DELETE` | `/api/v1/standards/{slug}` | `admin` |
+| `GET` | `/api/v1/standards` | `standards.read` (disabled standards included) |
+| `GET` | `/api/v1/standards/{slug}` | `standards.read` |
+| `POST` | `/api/v1/standards` | `standards.manage` (`409` if the identifier already exists) |
+| `PUT` | `/api/v1/standards/{slug}` | `standards.manage` (the identifier does not change) |
+| `DELETE` | `/api/v1/standards/{slug}` | `standards.manage` |
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/standards \
@@ -103,7 +103,7 @@ content = """
 
 | Method | Route | Role |
 |---|---|---|
-| `GET` | `/api/v1/packs/standards` | `standards.manage`: TOML file of every standard |
+| `GET` | `/api/v1/packs/standards` | `standards.read`: TOML file of every standard |
 | `POST` | `/api/v1/packs/standards` | `standards.manage`: body `{"name": "standards.toml", "content": "<TOML>"}`; returns the identifiers `created` and `updated`, `422` with the errors if the file is invalid |
 
 ## Limits

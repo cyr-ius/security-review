@@ -394,7 +394,7 @@ def test_invalid_enabled_oidc_settings_are_refused_and_nothing_is_stored():
         ({"cafile": "/etc/passwd"}, "unknown OIDC setting"),
         ({"default_role": "admin"}, "unknown OIDC setting"),
         ({"triager_groups": "devs"}, "unknown OIDC setting"),
-        ({"default_group": "x" * 501}, "too long"),
+        ({"admin_groups": "x" * 501}, "too long"),
         ({"enabled": "yes"}, "true or false"),
         ({"issuer": 3}, "must be a string"),
         ({"display_name": "OIDC\nadmin"}, "control characters"),

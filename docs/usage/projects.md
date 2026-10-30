@@ -19,27 +19,31 @@ project `mobile-app`, so that the members of a team reach the same project whate
 | Way | Who | Result |
 |---|---|---|
 | **New project** button of the **Projects** page | A person with `projects.create` | Created at once ([creating a project](#creating-a-project)) |
-| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once, with its project group, if the developer may create projects (even when their token already reaches every project); otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
+| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once, read by the developer, if they may create projects (even when their token already reaches every project); otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | First report saved for it | A token that reaches it (pipeline, token for **All projects**) | The project shows with its first report |
 
 A project created without a report shows **No report yet** until its first review.
 
-## Project group
+## Members
 
-Each project has its **project group**, `project:<project>`, which gives the reading of that
-project alone (`reader` role). Its creator, or the developer whose request was approved, is its
-first member.
+The **members** of a project are the accounts that have it in their projects, each with its
+per-project permissions there (reading, writing, triage). Its creator, or the developer whose
+request was approved, gets its reading and writing (`reports.read` and `reports.write`), never
+its triage.
 
-To let a colleague read the project (and their agent review it), add their account to this
-group in **Groups** or **Users**, or approve the **Access request** filed by their agent in
-**Projects**. To let them triage, give them a group with the `triager` role on the project
-([groups](access-control.md#groups)).
+A person with `users.manage` sees the **Members** section at the bottom of the page of the
+project, also opened by the people button of its row on the **Projects**
+page: search accounts, tick them and add them (with the reading), choose the permissions of
+each member (**Write the reports** for those whose agent saves reviews) or remove it, then **Save**. The same projects are given in **Users** ([roles and
+projects of an account](access-control.md#roles-and-projects-of-an-account)), or by approving the
+**Access request** filed by an agent in **Projects**. The accounts that have every project and
+those of the [OIDC mappings](sso.md#oidc-mappings) are not listed there.
 
 ## Creating a project
 
 With the `projects.create` permission, the **New project** button shows on the **Projects**
-page. Creating a project makes you a member of its project group: you read it at once, and
-your agent can save its reviews there.
+page. Creating a project adds it to your projects with its reading and writing: you read it at
+once, and your agent can save its reviews there.
 
 ## Deleting a project
 
@@ -47,7 +51,8 @@ With the `projects.delete` permission, a trash button shows on each row of the *
 page. The deletion **cannot be undone** and removes everything that refers to the project:
 
 - its reports, findings and comments;
-- the project in the roles of the groups; its project group is deleted;
+- the project in the projects of the users and of the OIDC mappings (a mapping left without
+  project is deleted);
 - the project in the tokens: a token that reached only this project is **revoked**, so a
   pipeline that used it stops.
 
@@ -59,11 +64,13 @@ The agent of a developer may ask to join an existing project. Its request shows,
 approval, in **Pending projects** on the **Projects** page.
 
 A person with the `projects.create` and `users.manage` permissions may approve this request; a
-person with `users.manage` may also add the user to the project group.
+person with `users.manage` may also give the project to the user ([members](#members)).
 
 With the `projects.autojoin` permission, the developer **joins the project at once**, without
-any request: their agent's request adds them to the project group, so that they read the
-project (never more: no triage) and the review goes on. This permission does not create a new
+any request: their agent's request adds the project to theirs with its reading and writing, so
+that their agent saves its review (never more: no triage). A developer who already reads the
+project without **Write the reports** files a request instead: the autojoin never widens what an
+administrator gave. This permission does not create a new
 project: that takes `projects.create`.
 
 ## Blocking the autojoin
@@ -72,7 +79,8 @@ With the `projects.create` permission, a lock button shows on each row of the **
 for the projects you read. It **blocks the autojoin** of the project: the holders of
 `projects.autojoin` then file a request that waits for approval, as the others do. The project
 shows the **Autojoin blocked** badge; the unlock button allows the autojoin again. The users who
-already joined the project keep their access: remove them from its project group if needed.
+already joined the project keep their access: remove them from its [members](#members) if
+needed.
 
 ## Points to watch
 

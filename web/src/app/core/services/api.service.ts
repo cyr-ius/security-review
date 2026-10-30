@@ -25,8 +25,8 @@ import {
   FindingComment,
   FindingDecision,
   FindingSeverityChange,
-  GroupCatalog,
   Identity,
+  KnownProject,
   LoginSession,
   OAuthGrant,
   OAuthOverview,
@@ -44,6 +44,7 @@ import {
   ProjectFindingPage,
   ProjectFindingQuery,
   PendingProject,
+  Permission,
   PendingProjectApproved,
   ProjectAutojoin,
   ProjectSummary,
@@ -73,10 +74,12 @@ import {
   TokenRoleChoice,
   Trend,
   UpdateStatus,
-  UserGroup,
-  UserGroupWrite,
+  UserProjectBinding,
   WebUser,
   WebUserWithPassword,
+  OidcMappingCatalog,
+  OidcRoleMappingWrite,
+  ProjectMember,
 } from '../models/api.models';
 
 /** Base path of the REST API (served by the same origin as the application). */
@@ -138,27 +141,64 @@ export class ApiService {
   }
 
   /**
-   * Create a web user, member of these groups (the only source of its permissions). A local one
-   * without password gets a generated one, returned once; an OIDC one has no password and also
-   * joins its OIDC groups at each login.
+   * Create a web user with its roles and its projects (every project with allProjects), the
+   * only source of its permissions. A local one without password gets a generated one, returned
+   * once; an OIDC one has no password and also gets those of its OIDC mappings at each login.
    */
   createUser(
     username: string,
     authSource: AuthSource,
-    groupIds: number[],
+    roleIds: number[],
+    allProjectsPermissions: Permission[],
+    projects: UserProjectBinding[],
     password: string | null,
   ): Observable<WebUserWithPassword> {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users`, {
       username,
       auth_source: authSource,
-      group_ids: groupIds,
+      role_ids: roleIds,
+      all_projects_permissions: allProjectsPermissions,
+      projects,
       password,
     });
   }
 
-  /** Replace the groups given to a web user (its OIDC groups are kept). */
-  updateUser(id: number, groupIds: number[]): Observable<WebUser> {
-    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { group_ids: groupIds });
+  /** Replace the roles and projects given to a web user (those of its OIDC mappings are kept). */
+  updateUser(
+    id: number,
+    roleIds: number[],
+    allProjectsPermissions: Permission[],
+    projects: UserProjectBinding[],
+  ): Observable<WebUser> {
+    return this.http.put<WebUser>(`${API_URL}/users/${id}`, {
+      role_ids: roleIds,
+      all_projects_permissions: allProjectsPermissions,
+      projects,
+    });
+  }
+
+  /** Known projects whose name contains ``search`` (users.manage), to give roles on them. */
+  searchProjects(search: string, limit = 50): Observable<KnownProject[]> {
+    const params = new HttpParams().set('search', search).set('limit', limit);
+    return this.http.get<KnownProject[]>(`${API_URL}/access/projects`, { params });
+  }
+
+  /** Users who have a project (users.manage). */
+  projectMembers(project: string): Observable<ProjectMember[]> {
+    return this.http.get<ProjectMember[]>(
+      `${API_URL}/access/projects/${encodeURIComponent(project)}/members`,
+    );
+  }
+
+  /** Replace the users who have a project (users.manage). */
+  setProjectMembers(
+    project: string,
+    members: { user_id: number; permissions: Permission[] }[],
+  ): Observable<ProjectMember[]> {
+    return this.http.put<ProjectMember[]>(
+      `${API_URL}/access/projects/${encodeURIComponent(project)}/members`,
+      { members },
+    );
   }
 
   /** Replace the password of a web user (generated when null) and end its sessions. */
@@ -290,7 +330,7 @@ export class ApiService {
     return this.http.get<PendingProject[]>(`${API_URL}/projects/pending`);
   }
 
-  /** Approve a requested project: the requester joins its project group, created when missing. */
+  /** Approve a requested project: the requester gets the reader role on it, created if new. */
   approvePendingProject(id: number): Observable<PendingProjectApproved> {
     return this.http.post<PendingProjectApproved>(
       `${API_URL}/projects/pending/${id}/approve`,
@@ -323,7 +363,8 @@ export class ApiService {
 
   /**
    * projects null: every project (refused for a CI/CD token). expiresInDays null: the default
-   * validity of the server (SECREVIEW_TOKEN_MAX_DAYS). accessRoleId: the role of an api token.
+   * validity of the server (SECREVIEW_TOKEN_MAX_DAYS). accessRoleId and projectPermissions: the
+   * role of an api token and its per-project permissions on its projects.
    */
   createProjectToken(
     label: string,
@@ -331,6 +372,7 @@ export class ApiService {
     role: ProjectTokenRole,
     expiresInDays: number | null = null,
     accessRoleId: number | null = null,
+    projectPermissions: Permission[] = [],
   ): Observable<ProjectTokenCreated> {
     return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, {
       label,
@@ -338,6 +380,7 @@ export class ApiService {
       role,
       expires_in_days: expiresInDays,
       access_role_id: accessRoleId,
+      project_permissions: projectPermissions,
     });
   }
 
@@ -393,6 +436,11 @@ export class ApiService {
   /** Turn the OAuth login on or off and set the URL of the MCP endpoint (settings.manage). */
   setOAuthSettings(values: OAuthSettingsUpdate): Observable<OAuthSettings> {
     return this.http.put<OAuthSettings>(`${API_URL}/oauth/settings`, values);
+  }
+
+  /** Revoke the grants of every user, even while the OAuth login is suspended. */
+  revokeAllOAuthGrants(): Observable<{ revoked: number }> {
+    return this.http.delete<{ revoked: number }>(`${API_URL}/oauth/grants`);
   }
 
   revokeOAuthGrant(id: string): Observable<void> {
@@ -675,33 +723,14 @@ export class ApiService {
     return this.http.delete<void>(`${API_URL}/roles/${id}`);
   }
 
-  groups(): Observable<GroupCatalog> {
-    return this.http.get<GroupCatalog>(`${API_URL}/groups`);
+  /** The OIDC mappings of the roles claim, with the OIDC settings that use them. */
+  oidcMappings(): Observable<OidcMappingCatalog> {
+    return this.http.get<OidcMappingCatalog>(`${API_URL}/oidc/mappings`);
   }
 
-  createGroup(group: UserGroupWrite): Observable<UserGroup> {
-    return this.http.post<UserGroup>(`${API_URL}/groups`, group);
-  }
-
-  updateGroup(id: number, group: UserGroupWrite): Observable<UserGroup> {
-    return this.http.put<UserGroup>(`${API_URL}/groups/${id}`, group);
-  }
-
-  /** Replace the roles of a group; an empty project list reaches every project. */
-  setGroupRoles(
-    id: number,
-    roles: { role_id: number; projects: string[] }[],
-  ): Observable<UserGroup> {
-    return this.http.put<UserGroup>(`${API_URL}/groups/${id}/roles`, { roles });
-  }
-
-  /** Replace the members added by an administrator (the OIDC members are kept). */
-  setGroupMembers(id: number, userIds: number[]): Observable<UserGroup> {
-    return this.http.put<UserGroup>(`${API_URL}/groups/${id}/members`, { user_ids: userIds });
-  }
-
-  deleteGroup(id: number): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/groups/${id}`);
+  /** Replace every OIDC mapping (applies at once to the OIDC users). */
+  setOidcMappings(mappings: OidcRoleMappingWrite[]): Observable<OidcMappingCatalog> {
+    return this.http.put<OidcMappingCatalog>(`${API_URL}/oidc/mappings`, { mappings });
   }
 }
 

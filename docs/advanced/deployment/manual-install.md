@@ -41,7 +41,7 @@ export SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
 
 ```bash
 security-review-controller db upgrade                       # creates or migrates the schema
-security-review-controller user create admin --group administrators   # password shown once
+security-review-controller user create admin --role admin --all-projects   # password shown once
 ```
 
 Keep the password: it opens the web interface. Change it later from **My account**.

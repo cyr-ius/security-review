@@ -1,7 +1,7 @@
-"""Access control: permissions, roles, groups, members and the grants they give."""
+"""Access control: permissions, roles, the roles of the users and the grants they give."""
 
 import pytest
-from conftest import group_for, make_user
+from conftest import known_projects, make_user, map_claim
 from sqlmodel import select
 
 from security_review_mcp.auth import access_control, web_users
@@ -88,60 +88,34 @@ def test_allows_and_scope():
 # ── Roles ────────────────────────────────────────────────────────────────────
 
 
-def test_built_in_roles_exist_and_cannot_change():
-    roles = {role["name"]: role for role in access_control.list_roles()}
+def test_the_built_in_admin_role_holds_the_permissions_on_the_whole_controller():
+    (admin,) = access_control.list_roles()
 
-    assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
-    assert roles["admin"]["permissions"] == sorted(p.value for p in Permission)
-    assert roles["reader"]["scoped"] and not roles["admin"]["scoped"]
+    assert (admin["name"], admin["system"]) == ("admin", True)
+    assert admin["permissions"] == sorted(access_control.SITE_PERMISSIONS)
     with pytest.raises(ValueError, match="cannot be changed"):
-        access_control.update_role(roles["reader"]["id"], ["audit.read"])
+        access_control.update_role(admin["id"], ["audit.read"])
     with pytest.raises(ValueError, match="cannot be deleted"):
-        access_control.delete_role(roles["admin"]["id"])
+        access_control.delete_role(admin["id"])
     # Created once
-    built_in = {name: roles[name]["id"] for name in ("admin", "reader")}
-    assert access_control.ensure_system_roles() == built_in
-
-
-def test_triager_is_an_ordinary_role():
-    roles = {role["name"]: role for role in access_control.list_roles()}
-    triager = roles["triager"]
-    assert not triager["system"] and triager["scoped"]
-    assert triager["permissions"] == ["findings.triage", "reports.read"]
-
-    changed = access_control.update_role(
-        triager["id"], ["findings.triage", "reports.read"], "Triage of a team"
-    )
-    assert changed["description"] == "Triage of a team"
-    access_control.delete_role(triager["id"])
-    # Not created again: only the built-in roles are
-    access_control.ensure_system_roles()
-    assert "triager" not in {role["name"] for role in access_control.list_roles()}
+    assert access_control.ensure_system_roles() == {"admin": admin["id"]}
 
 
 def test_custom_roles_are_created_updated_and_deleted():
     created = access_control.create_role(
-        "Auditor", ["audit.read", "reports.read", "audit.read"], "Reads the log", actor="user:root"
+        "Auditor", ["audit.read", "rules.manage", "audit.read"], "Reads the log", actor="user:root"
     )
 
     assert (created["name"], created["permissions"], created["system"]) == (
         "Auditor",
-        ["audit.read", "reports.read"],
+        ["audit.read", "rules.manage"],
         False,
     )
-    assert (created["description"], created["groups"], created["scoped"]) == (
-        "Reads the log",
-        0,
-        False,
-    )
-    updated = access_control.update_role(created["id"], ["reports.read"], "", name="Readers 2")
-    assert (updated["name"], updated["permissions"], updated["scoped"]) == (
-        "Readers 2",
-        ["reports.read"],
-        True,
-    )
+    assert (created["description"], created["users"]) == ("Reads the log", 0)
+    updated = access_control.update_role(created["id"], ["audit.read"], "", name="Auditors 2")
+    assert (updated["name"], updated["permissions"]) == ("Auditors 2", ["audit.read"])
     deleted = access_control.delete_role(created["id"])
-    assert deleted["name"] == "Readers 2"
+    assert deleted["name"] == "Auditors 2"
     with pytest.raises(NotFoundError):
         access_control.delete_role(created["id"])
 
@@ -156,6 +130,8 @@ def test_custom_roles_are_created_updated_and_deleted():
         ("Auditor", ["root.everything"], "", "Unknown permission"),
         ("Auditor", ["audit.read"], "x" * 501, "at most 500"),
         ("Auditor", ["audit.read"], "bad\x00text", "control characters"),
+        # The per-project permissions are given with the projects, never by a role
+        ("Reader", ["audit.read", "reports.read"], "", "no per-project permission"),
     ],
 )
 def test_invalid_roles_are_refused(name, permissions, description, message):
@@ -166,248 +142,178 @@ def test_invalid_roles_are_refused(name, permissions, description, message):
 def test_duplicate_roles_and_the_role_limit_are_refused(monkeypatch):
     access_control.create_role("Auditor", ["audit.read"])
     with pytest.raises(ValueError, match="already exists"):
-        access_control.create_role("Auditor", ["reports.read"])
+        access_control.create_role("Auditor", ["rules.manage"])
     with pytest.raises(ValueError, match="already exists"):
-        access_control.create_role("reader", ["reports.read"])
-    monkeypatch.setattr(access_control, "MAX_ROLES", 4)
-    with pytest.raises(ValueError, match="At most 4 roles"):
+        access_control.create_role("admin", ["rules.manage"])
+    monkeypatch.setattr(access_control, "MAX_ROLES", 2)
+    with pytest.raises(ValueError, match="At most 2 roles"):
         access_control.create_role("Other", ["audit.read"])
 
 
-def test_a_role_limited_to_projects_cannot_gain_controller_permissions():
-    role = access_control.create_role("Shop readers", ["reports.read"])
-    group = access_control.create_group("shop")
-    access_control.set_group_roles(group["id"], [(role["id"], ["shop"])])
-
-    with pytest.raises(ValueError, match="limited to projects"):
-        access_control.update_role(role["id"], ["reports.read", "audit.read"])
-
-
-def test_a_role_change_applies_to_the_members_at_once():
+def test_a_user_holds_the_permissions_of_its_roles_and_those_of_each_of_its_projects():
     role = access_control.create_role("Auditor", ["audit.read"])
-    group = access_control.create_group("auditors")
-    access_control.set_group_roles(group["id"], [(role["id"], None)])
-    user = web_users.create_user("alice", PASSWORD, [group["id"]])
+    known_projects("shop", "crm", "billing")
+    alice = web_users.create_user(
+        "alice",
+        PASSWORD,
+        [role["id"]],
+        [("shop", ["reports.read"]), ("crm", ["reports.read", "findings.triage"])],
+    )
+
+    # Its role on the whole controller, the permissions of each project on that project
+    assert grants_of(alice["id"]) == {
+        "audit.read": None,
+        "findings.triage": frozenset({"crm"}),
+        "reports.read": frozenset({"crm", "shop"}),
+    }
+    assert [(item["project"], item["permissions"]) for item in alice["projects"]] == [
+        ("crm", ["findings.triage", "reports.read"]),
+        ("shop", ["reports.read"]),
+    ]
+    # Permissions on every project add up with those of the projects
+    web_users.update_user(alice["id"], None, all_projects_permissions=["reports.read"])
+    assert grants_of(alice["id"]) == {
+        "audit.read": None,
+        "findings.triage": frozenset({"crm"}),
+        "reports.read": None,
+    }
+    # Without any role nor project, nothing
+    bob = web_users.create_user("bob", PASSWORD)
+    assert grants_of(bob["id"]) == {}
+
+
+def test_a_role_change_applies_to_its_users_at_once():
+    role = access_control.create_role("Auditor", ["audit.read"])
+    user = web_users.create_user("alice", PASSWORD, [role["id"]])
     assert grants_of(user["id"]) == {"audit.read": None}
+    listed = {item["name"]: item for item in access_control.list_roles()}
+    assert listed["Auditor"]["users"] == 1
 
     access_control.update_role(role["id"], ["audit.read", "rules.manage"])
-    assert grants_of(user["id"]) == {"audit.read": None, "rules.manage": None}
+    # Who manages the rules also reads them
+    assert grants_of(user["id"]) == {"audit.read": None, "rules.manage": None, "rules.read": None}
     access_control.delete_role(role["id"])
     assert grants_of(user["id"]) == {}
-    assert access_control.get_group(group["id"])["roles"] == []
+    assert web_users.find_user("alice")["roles"] == []
 
 
-# ── Groups ───────────────────────────────────────────────────────────────────
+# ── Roles of the users ───────────────────────────────────────────────────────
 
 
-def test_groups_are_created_with_roles_and_members():
-    group = access_control.create_group("devs", "Developers", sso=True, actor="user:root")
+def test_the_projects_of_a_user_are_replaced_bounded_and_checked(monkeypatch):
+    known_projects("shop", "crm")
     alice = web_users.create_user("alice", PASSWORD)
+
+    def set_projects(*projects):
+        with session_scope() as session:
+            access_control.set_user_projects(session, alice["id"], projects, None, "user:root")
+
+    set_projects(
+        ("shop", ["reports.read"]), (" Shop ", ["findings.triage"]), ("crm", ["reports.read"])
+    )
+    assert grants_of(alice["id"])["findings.triage"] == frozenset({"shop"})
+    set_projects(("crm", ["reports.read"]))
+    assert grants_of(alice["id"]) == {"reports.read": frozenset({"crm"})}
+    with pytest.raises(NotFoundError, match="Project 'billing'"):
+        set_projects(("billing", ["reports.read"]))
+    with pytest.raises(ValueError, match="at least one per-project permission"):
+        set_projects(("shop", []))
+    with pytest.raises(ValueError, match="not a per-project permission"):
+        set_projects(("shop", ["audit.read"]))
+    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
+    with pytest.raises(ValueError, match="at most 1 projects"):
+        set_projects(("shop", ["reports.read"]), ("crm", ["reports.read"]))
+    (event,) = audit.list_events(action="user.projects_changed")["events"][:1]
+    assert (event["details"]["projects"], event["details"]["removed"]) == (
+        ["crm=reports.read"],
+        ["shop"],
+    )
+
+
+def test_the_members_of_a_project_are_listed_and_replaced():
+    known_projects("shop")
+    alice = make_user("alice", PASSWORD, "reader", ["shop"])
     bob = web_users.create_user("bob", PASSWORD)
 
-    access_control.set_group_roles(
-        group["id"], [(role_id("reader"), ["shop", "crm"]), (role_id("triager"), ["shop"])]
+    members = access_control.set_project_members(
+        "shop", [(bob["id"], ["reports.read", "findings.triage"])], "user:root"
     )
-    updated = access_control.set_group_members(group["id"], [alice["id"], bob["id"], bob["id"]])
 
-    assert (updated["name"], updated["description"], updated["sso"]) == ("devs", "Developers", True)
-    assert [(r["name"], r["projects"]) for r in updated["roles"]] == [
-        ("reader", ["shop", "crm"]),
-        ("triager", ["shop"]),
+    assert [(m["username"], m["permissions"]) for m in members] == [
+        ("bob", ["findings.triage", "reports.read"])
     ]
-    assert [(m["username"], m["source"]) for m in updated["members"]] == [
-        ("alice", "local"),
-        ("bob", "local"),
-    ]
-    assert grants_of(alice["id"]) == {
-        "reports.read": frozenset({"shop", "crm"}),
-        "findings.triage": frozenset({"shop"}),
-    }
-    # Replacing the members keeps the OIDC ones and removes the others
-    removed = access_control.set_group_members(group["id"], [bob["id"]])
-    assert [m["username"] for m in removed["members"]] == ["bob"]
     assert grants_of(alice["id"]) == {}
+    assert grants_of(bob["id"])["findings.triage"] == frozenset({"shop"})
+    assert access_control.list_project_members("shop") == members
+    with pytest.raises(NotFoundError, match="Web user 999"):
+        access_control.set_project_members("shop", [(999, ["reports.read"])])
+    with pytest.raises(NotFoundError):
+        access_control.list_project_members("unknown")
+    events = audit.list_events(action="user.projects_changed")["events"]
+    assert {event["target_id"] for event in events[:2]} == {str(alice["id"]), str(bob["id"])}
+
+
+# ── OIDC mappings ────────────────────────────────────────────────────────────
+
+
+def test_oidc_mappings_give_their_roles_and_projects_to_the_claims_of_the_last_login():
+    known_projects("shop")
+    alice = web_users.create_user("alice", None, auth_source="oidc")
+    map_claim("devs", "reader", ["shop", "not-yet"])
+    map_claim("leads", "triager")
+
+    with session_scope() as session:
+        kept = access_control.sync_oidc_claims(
+            session, alice["id"], {"devs", "unknown"}, _settings()
+        )
+    assert kept == ["devs"]
+    # A project not known yet is ignored, until it is created
+    assert grants_of(alice["id"]) == {"reports.read": frozenset({"shop"})}
+    known_projects("not-yet")
+    assert grants_of(alice["id"]) == {"reports.read": frozenset({"not-yet", "shop"})}
+    # A change of the mappings applies at once
+    auditor = access_control.create_role("Auditor", ["audit.read"])
+    access_control.set_oidc_mappings(
+        [("devs", [auditor["id"]], ["findings.triage", "reports.read"], [])], "user:root"
+    )
+    assert grants_of(alice["id"]) == {
+        "audit.read": None,
+        "findings.triage": None,
+        "reports.read": None,
+    }
+    (event,) = audit.list_events(action="oidc.mappings_changed")["events"][:1]
+    assert event["details"]["count"] == 1
+
+
+READ = ["reports.read"]
 
 
 @pytest.mark.parametrize(
-    ("bindings", "message"),
+    ("mappings", "message"),
     [
-        ([("admin", ["shop"])], "cannot list projects"),
-        ([("reader", ["shop"]), ("reader", None)], "given twice"),
-        ([("reader", [f"p{i}" for i in range(51)])], "at most 50 projects"),
-        ([("reader", ["\x01"])], "between 1 and 200"),
+        ([("devs", [], READ, []), ("devs", [], [], [("shop", READ)])], "twice"),
+        ([("devs", [], [], [])], "neither a role nor a project"),
+        ([("devs", [], [], [(f"p{i}", READ) for i in range(51)])], "at most 50 projects"),
+        ([("", [], READ, [])], "between 1 and 200"),
+        ([("de\nvs", [], READ, [])], "control characters"),
+        ([("devs", [], ["audit.read"], [])], "not a per-project permission"),
+        ([("devs", [], [], [("shop", [])])], "at least one per-project permission"),
     ],
 )
-def test_invalid_group_roles_are_refused(bindings, message):
-    group = access_control.create_group("devs")
+def test_invalid_oidc_mappings_are_refused(mappings, message):
     with pytest.raises(ValueError, match=message):
-        access_control.set_group_roles(
-            group["id"], [(role_id(name), projects) for name, projects in bindings]
-        )
+        access_control.set_oidc_mappings(mappings)
 
 
-def test_a_group_is_not_open_to_oidc_unless_asked():
-    assert access_control.create_group("devs")["sso"] is False
-    assert access_control.create_group("ops", sso=True)["sso"] is True
-
-
-def test_group_roles_and_members_are_bounded_and_checked(monkeypatch):
-    group = access_control.create_group("devs")
-    with pytest.raises(NotFoundError, match="Role 999"):
-        access_control.set_group_roles(group["id"], [(999, None)])
-    with pytest.raises(NotFoundError, match="Web user 999"):
-        access_control.set_group_members(group["id"], [999])
-    with pytest.raises(NotFoundError, match="Group 999"):
-        access_control.set_group_members(999, [])
-    monkeypatch.setattr(access_control, "MAX_ROLES_PER_GROUP", 1)
-    with pytest.raises(ValueError, match="at most 1 roles"):
-        access_control.set_group_roles(group["id"], [(1, None), (2, None)])
-    monkeypatch.setattr(access_control, "MAX_MEMBERS_PER_CHANGE", 1)
-    with pytest.raises(ValueError, match="At most 1 members"):
-        access_control.set_group_members(group["id"], [1, 2])
-
-
-@pytest.mark.parametrize("name", ["", " ", "x" * 201, "devs\nadmins"])
-def test_invalid_group_names_are_refused(name):
-    with pytest.raises(ValueError, match="Group name"):
-        access_control.create_group(name)
-
-
-def test_duplicate_groups_and_the_group_limit_are_refused(monkeypatch):
-    access_control.create_group("devs")
-    with pytest.raises(ValueError, match="already exists"):
-        access_control.create_group("devs")
-    other = access_control.create_group("ops")
-    with pytest.raises(ValueError, match="already exists"):
-        access_control.update_group(other["id"], "devs")
-    monkeypatch.setattr(access_control, "MAX_GROUPS", 2)
-    with pytest.raises(ValueError, match="At most 2 groups"):
-        access_control.create_group("qa")
-
-
-def test_renaming_a_group_or_closing_it_to_sso_drops_its_sso_members():
-    group_id = group_for("reader", name="devs", sso=True)
-    alice = web_users.create_user("alice", None, auth_source="oidc")
-    bob = web_users.create_user("bob", PASSWORD, [group_id])
-    with session_scope() as session:
-        access_control.sync_sso_groups(session, alice["id"], {"devs"}, _settings())
-    assert grants_of(alice["id"]) == {"reports.read": None}
-
-    access_control.update_group(group_id, "developers", "", sso=True)
-    assert grants_of(alice["id"]) == {}
-    with session_scope() as session:
-        access_control.sync_sso_groups(session, alice["id"], {"developers"}, _settings())
-    access_control.update_group(group_id, "developers", "", sso=False)
-    assert grants_of(alice["id"]) == {}
-    # The members added by an administrator stay
-    assert grants_of(bob["id"]) == {"reports.read": None}
-
-
-def test_deleting_a_group_removes_its_roles_and_members():
-    group_id = group_for("reader", name="devs")
-    alice = web_users.create_user("alice", PASSWORD, [group_id])
-
-    deleted = access_control.delete_group(group_id, actor="user:root")
-
-    assert deleted["name"] == "devs"
-    assert grants_of(alice["id"]) == {}
-    assert web_users.find_user("alice")["groups"] == []
-    with pytest.raises(NotFoundError):
-        access_control.get_group(group_id)
-
-
-def test_sync_sso_groups_replaces_only_the_sso_memberships():
-    devs = group_for("reader", ["shop"], name="devs", sso=True)
-    group_for("triager", name="leads", sso=True)
-    given = group_for("reader", ["crm"], name="given")
-    alice = web_users.create_user("alice", None, [given], auth_source="oidc")
-
-    with session_scope() as session:
-        joined = access_control.sync_sso_groups(
-            session, alice["id"], {"devs", "leads", "unknown"}, _settings()
-        )
-    assert joined == ["devs", "leads"]
-    with session_scope() as session:
-        assert access_control.sync_sso_groups(session, alice["id"], {"devs"}, _settings()) == [
-            "devs"
-        ]
-        groups = access_control.user_groups(session, alice["id"])
-    assert [(g["name"], g["source"]) for g in groups] == [("devs", "oidc"), ("given", "local")]
-    assert devs in [g["group_id"] for g in groups]
-
-
-# ── Project groups ───────────────────────────────────────────────────────────
-
-
-def ensure_project_group(project: str, actor: str | None = None) -> dict:
-    """Project group of a project, read in a new session."""
-    with session_scope() as session:
-        group_id = access_control.ensure_project_group(session, project, actor).id
-    return access_control.get_group(group_id)
-
-
-def test_a_project_group_reads_its_project_only_and_is_reused():
-    group = ensure_project_group("shop", actor="user:root")
-
-    assert (group["name"], group["sso"], group["created_by"]) == (
-        "project:shop",
-        False,
-        "user:root",
+def test_an_oidc_mapping_may_give_roles_or_projects_only():
+    auditor = access_control.create_role("Auditor", ["audit.read"])
+    mappings = access_control.set_oidc_mappings(
+        [("auditors", [auditor["id"]], [], []), ("shop-team", [], [], [("shop", READ)])]
     )
-    assert [(r["name"], r["projects"]) for r in group["roles"]] == [("reader", ["shop"])]
-    assert ensure_project_group(" shop ")["id"] == group["id"]
-    (created,) = audit.list_events(action="group.created")["events"]
-    assert created["details"] == {"name": "project:shop", "sso": False, "project": "shop"}
-
-
-def test_a_project_group_is_never_a_group_with_more_roles_or_open_to_oidc():
-    wider = access_control.create_group("project:shop", sso=False)
-    access_control.set_group_roles(
-        wider["id"], [(role_id("reader"), ["shop"]), (role_id("triager"), ["crm"])]
-    )
-    oidc = access_control.create_group("shop-readers", sso=True)
-    access_control.set_group_roles(oidc["id"], [(role_id("reader"), ["shop"])])
-
-    group = ensure_project_group("shop")
-
-    # The name of the wider group is taken: the new group gets a number
-    assert group["id"] not in (wider["id"], oidc["id"])
-    assert group["name"] == "project:shop (2)"
-
-
-def test_a_group_made_by_an_administrator_with_the_same_role_is_reused():
-    given = access_control.create_group("Shop team", sso=False)
-    access_control.set_group_roles(given["id"], [(role_id("reader"), ["shop"])])
-    assert ensure_project_group("shop")["id"] == given["id"]
-
-
-def test_the_name_of_a_project_group_fits_a_group_name():
-    project = "p" * 200
-    group = ensure_project_group(project)
-    assert len(group["name"]) == access_control.MAX_GROUP_NAME_CHARS
-    assert group["roles"][0]["projects"] == [project]
-
-
-def test_project_groups_are_bounded_and_checked(monkeypatch):
-    # The project is normalized: no control character reaches the group name
-    assert ensure_project_group("Bad\x00Name")["name"] == "project:bad-name"
-    with pytest.raises(ValueError, match="between 1 and"):
-        ensure_project_group(" ")
-    access_control.create_group("devs")
-    monkeypatch.setattr(access_control, "MAX_GROUPS", 1)
-    with pytest.raises(ValueError, match="At most 1 groups"):
-        ensure_project_group("shop")
-
-
-def test_a_project_group_created_concurrently_is_refused(monkeypatch):
-    access_control.create_group("project:shop")
-    # Another approval created the group between the lookup of the name and the insert
-    monkeypatch.setattr(
-        access_control, "_project_group_name", lambda session, project: "project:shop"
-    )
-    with pytest.raises(ValueError, match="created concurrently; retry"):
-        ensure_project_group("shop")
-    assert [group["name"] for group in access_control.list_groups()] == ["project:shop"]
+    assert [(m["claim"], m["roles"], m["projects"]) for m in mappings] == [
+        ("auditors", ["Auditor"], []),
+        ("shop-team", [], [{"project": "shop", "permissions": READ}]),
+    ]
 
 
 # ── Project creation ─────────────────────────────────────────────────────────
@@ -424,9 +330,7 @@ def enrolled(project: str) -> int:
 def creator() -> dict:
     """A web user whose only role holds ``projects.create``."""
     role = access_control.create_role("Creator", [Permission.PROJECTS_CREATE])
-    group = access_control.create_group("creators")
-    access_control.set_group_roles(group["id"], [(role["id"], None)])
-    return web_users.create_user("carol", PASSWORD, [group["id"]])
+    return web_users.create_user("carol", PASSWORD, [role["id"]])
 
 
 @pytest.mark.parametrize("permission", [Permission.PROJECTS_CREATE, Permission.PROJECTS_DELETE])
@@ -435,22 +339,27 @@ def test_project_permissions_are_on_the_whole_controller(permission):
     assert permission not in access_control.SCOPED_PERMISSIONS
     assert permission in access_control.SYSTEM_ROLES["admin"]
     assert {"name": permission.value, "scoped": False} in access_control.list_permissions()
+    # A role holds it: it applies to the whole Controller server, whatever the projects
     role = access_control.create_role(f"Role {permission.value}", [permission])
-    group = access_control.create_group(f"group {permission.value}")
-    with pytest.raises(ValueError, match="cannot list projects"):
-        access_control.set_group_roles(group["id"], [(role["id"], ["shop"])])
+    known_projects("shop")
+    alice = web_users.create_user("alice", PASSWORD, [role["id"]], [("shop", ["reports.read"])])
+    assert grants_of(alice["id"]) == {
+        permission.value: None,
+        "reports.read": frozenset({"shop"}),
+    }
 
 
-def test_a_created_project_is_read_by_its_creator_only():
+def test_a_created_project_is_reviewed_by_its_creator_only():
     carol = creator()
     other = web_users.create_user("dave", PASSWORD)
 
     created = access_control.create_project(carol["id"], " mobile-app ", "user:carol")
 
-    assert (created["project"], created["group"]) == ("mobile-app", "project:mobile-app")
+    assert created == {"project": "mobile-app"}
     assert grants_of(carol["id"]) == {
         "projects.create": None,
         "reports.read": frozenset({"mobile-app"}),
+        "reports.write": frozenset({"mobile-app"}),
     }
     assert grants_of(other["id"]) == {}
     (event,) = audit.list_events(action="project.created")["events"]
@@ -459,7 +368,10 @@ def test_a_created_project_is_read_by_its_creator_only():
         "mobile-app",
         "mobile-app",
     )
-    assert event["details"] == {"group": "project:mobile-app", "user_id": carol["id"]}
+    assert event["details"] == {
+        "permissions": ["reports.read", "reports.write"],
+        "user_id": carol["id"],
+    }
 
 
 def test_creating_a_project_never_opens_an_existing_one():
@@ -469,13 +381,11 @@ def test_creating_a_project_never_opens_an_existing_one():
 
     carol = creator()
     services.save_report("shop", "Review", [])
-    ensure_project_group("crm")
-    triage = access_control.create_group("triage")
-    access_control.set_group_roles(triage["id"], [(role_id("triager"), ["billing"])])
+    known_projects("crm")
     token_store.create_token("ci-hr", Role.CI, projects=["hr"])
     access_control.approve_enrollment(enrolled("payroll"))
 
-    for project in ("shop", "crm", "billing", "hr", "payroll"):
+    for project in ("shop", "crm", "hr", "payroll"):
         with pytest.raises(ValueError, match=f"Project '{project}' already exists"):
             access_control.create_project(carol["id"], project, "user:carol")
     # A variant of a known name is the same project once normalized: refused too
@@ -535,11 +445,9 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
     kept = services.save_report("crm", "Review", [finding])
     carol = creator()
     access_control.create_project(carol["id"], "shop-mobile")
-    group = ensure_project_group("shop")
-    triage = access_control.create_group("triage")
-    access_control.set_group_roles(
-        triage["id"], [(role_id("triager"), ["shop", "crm"]), (role_id("reader"), ["shop"])]
-    )
+    make_user("alice", PASSWORD, "triager", ["shop", "crm"])
+    map_claim("shop-team", "reader", ["shop"])
+    map_claim("leads", "triager", ["shop", "crm"])
     token_store.create_token("ci-shop", Role.CI, projects=["shop"])
     token_store.create_token("ci-both", Role.CI, projects=["shop", "crm"])
 
@@ -549,8 +457,8 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
         "project": "shop",
         "reports": 1,
         "findings": 1,
-        "groups_deleted": [group["name"]],
-        "groups_changed": ["triage"],
+        "members_removed": 1,
+        "mappings_changed": ["leads", "shop-team"],
         "tokens_revoked": 1,
         "tokens_changed": 1,
     }
@@ -562,9 +470,12 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
         assert not access_control.project_exists(session, "shop")
         assert access_control.project_exists(session, "shop-mobile")
     assert services.get_report(kept["report_id"]).project == "crm"
-    # The reader role on "shop" alone is removed, never left reaching every project
-    roles = access_control.get_group(triage["id"])["roles"]
-    assert [(role["name"], role["projects"]) for role in roles] == [("triager", ["crm"])]
+    # The mapping on "shop" alone is removed; the other one keeps "crm"
+    mappings = access_control.list_oidc_mappings()
+    assert [(m["claim"], [p["project"] for p in m["projects"]]) for m in mappings] == [
+        ("leads", ["crm"])
+    ]
+    assert web_users.find_user("alice")["permissions"]["reports.read"] == ["crm"]
     tokens = {token["label"]: token for token in token_store.list_tokens()}
     assert "ci-shop" not in tokens
     assert tokens["ci-both"]["projects"] == ["crm"]
@@ -607,14 +518,14 @@ def test_a_requested_project_waits_for_an_approval_that_gives_its_user_access():
 
     approved = access_control.approve_enrollment(pending["id"], "user:root")
 
-    assert approved["group"] == "project:mobile-app"
+    assert approved["granted_to"] == "alice"
     assert [item["project"] for item in access_control.list_enrollments()] == ["shop"]
     assert grants_of(alice["id"])["reports.read"] == frozenset({"mobile-app"})
     events = audit.list_events(project="mobile-app")["events"]
     approved_event = next(e for e in events if e["action"] == "enrollment.approved")
-    assert (approved_event["actor"], approved_event["details"]["group"]) == (
+    assert (approved_event["actor"], approved_event["details"]["granted_to"]) == (
         "user:root",
-        "project:mobile-app",
+        "alice",
     )
     requested_event = next(e for e in events if e["action"] == "enrollment.requested")
     assert (requested_event["actor"], requested_event["details"]["requested_by"]) == (
@@ -644,24 +555,24 @@ def test_a_creator_gets_a_new_requested_project_at_once():
 
 
 def test_a_user_asks_to_join_an_existing_project():
-    """An existing project is requested like a new one, once per user, and its approval adds
-    the user to the project group; nothing is recorded for a user who already reaches it."""
+    """An existing project is requested like a new one, once per user, and its approval gives
+    the user its review; a reader without reports.write asks too, nothing is recorded for a user
+    who already reviews it."""
     from security_review_mcp.reports import services
 
     alice = web_users.create_user("alice", PASSWORD)
     dave = web_users.create_user("dave", PASSWORD)
-    bob = web_users.create_user("bob", PASSWORD)
     services.save_report("shop", "Review", [])
-    group = ensure_project_group("shop")
-    with session_scope() as session:
-        access_control.add_user_to_group(session, bob["id"], group["id"])
+    bob = make_user("bob", PASSWORD, "reader", ["shop"])
+    make_user("erin", PASSWORD, "reviewer", ["shop"])
 
-    for owner in ("alice", "alice", "dave", "bob", None):
+    for owner in ("alice", "alice", "dave", "bob", "erin", None):
         assert access_control.request_project("shop", owner)["status"] == "requested"
     pending = access_control.list_enrollments()
     assert [(item["requested_by"], item["existing"]) for item in pending] == [
         ("alice", True),
         ("dave", True),
+        ("bob", True),
     ]
 
     # projects.create alone never opens an existing project
@@ -671,9 +582,12 @@ def test_a_user_asks_to_join_an_existing_project():
         pending[0]["id"], "user:root", may_grant_access=True
     )
 
-    assert approved["group_id"] == group["id"]
-    assert grants_of(alice["id"])["reports.read"] == frozenset({"shop"})
+    assert approved["granted_to"] == "alice"
+    assert grants_of(alice["id"])["reports.write"] == frozenset({"shop"})
     assert grants_of(dave["id"]) == {}
+    # The reader is given reports.write too
+    access_control.approve_enrollment(pending[2]["id"], "user:root", may_grant_access=True)
+    assert grants_of(bob["id"])["reports.write"] == frozenset({"shop"})
     assert [item["requested_by"] for item in access_control.list_enrollments()] == ["dave"]
 
 
@@ -729,14 +643,12 @@ def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monke
 
     monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 10)
     role = access_control.create_role("Joiner", [Permission.PROJECTS_AUTOJOIN])
-    group = access_control.create_group("joiners")
-    access_control.set_group_roles(group["id"], [(role["id"], None)])
     joe = web_users.create_user("joe", PASSWORD)
     for project in ("shop", "crm", "vault"):
         services.save_report(project, "Review", [])
     # Requested before it held the permission
     access_control.request_project("shop", "joe")
-    web_users.update_user(joe["id"], [group["id"]])
+    web_users.update_user(joe["id"], [role["id"]])
     access_control.set_autojoin_blocked("vault", True, "user:root")
 
     joined = access_control.request_project("shop", "joe", actor="token:joe:agent")
@@ -779,28 +691,20 @@ def test_creating_a_project_settles_its_pending_request():
     assert grants_of(carol["id"])["reports.read"] == frozenset({"mobile-app"})
 
 
-def test_adding_a_user_to_a_group_is_audited_once():
+def test_giving_the_review_of_a_project_is_audited_once():
     alice = web_users.create_user("alice", PASSWORD)
-    group = ensure_project_group("shop")
+    known_projects("shop")
     for _ in range(2):
         with session_scope() as session:
-            access_control.add_user_to_group(session, alice["id"], group["id"], "user:root")
+            access_control.add_user_project(session, alice["id"], "shop", "user:root")
 
-    assert grants_of(alice["id"]) == {"reports.read": frozenset({"shop"})}
-    (event,) = audit.list_events(action="user.groups_changed")["events"]
+    assert grants_of(alice["id"]) == {
+        "reports.read": frozenset({"shop"}),
+        "reports.write": frozenset({"shop"}),
+    }
+    (event,) = audit.list_events(action="user.projects_changed")["events"]
     assert (event["actor"], event["target_id"]) == ("user:root", str(alice["id"]))
-    assert event["details"] == {"added": [group["id"]], "removed": []}
-
-
-def test_a_user_has_no_role_of_its_own():
-    alice = web_users.create_user("alice", PASSWORD)
-    assert "roles" not in alice
-    assert "users" not in access_control.list_roles()[0]
-    with pytest.raises(TypeError):
-        web_users.create_user("bob", PASSWORD, roles=[(role_id("admin"), None)])  # type: ignore[call-arg]
-    with pytest.raises(TypeError):
-        web_users.update_user(alice["id"], None, "root", [(role_id("admin"), None)])  # type: ignore[call-arg]
-    assert grants_of(alice["id"]) == {}
+    assert event["details"]["projects"] == ["shop=reports.read,reports.write"]
 
 
 # ── The last holder of users.manage ──────────────────────────────────────────
@@ -808,31 +712,23 @@ def test_a_user_has_no_role_of_its_own():
 
 def test_no_change_removes_the_last_holder_of_users_manage():
     root = make_user("root", PASSWORD, "admin")
-    (group,) = [g for g in access_control.list_groups() if g["name"] == "admin"]
     managers = access_control.create_role("Managers", ["users.manage"])
 
     with pytest.raises(ValueError, match="keep the users.manage"):
-        access_control.delete_group(group["id"])
-    with pytest.raises(ValueError, match="keep the users.manage"):
-        access_control.set_group_roles(group["id"], [(role_id("reader"), None)])
-    with pytest.raises(ValueError, match="keep the users.manage"):
-        access_control.set_group_members(group["id"], [])
+        web_users.update_user(root["id"], [])
     # Another holder through a custom role: the change is accepted
-    other = access_control.create_group("managers")
-    access_control.set_group_roles(other["id"], [(managers["id"], None)])
-    access_control.set_group_members(other["id"], [root["id"]])
-    access_control.delete_group(group["id"])
+    web_users.update_user(root["id"], [managers["id"]])
     with pytest.raises(ValueError, match="keep the users.manage"):
         access_control.update_role(managers["id"], ["audit.read"])
     with pytest.raises(ValueError, match="keep the users.manage"):
         access_control.delete_role(managers["id"])
-    assert access_control.get_group(other["id"])["roles"][0]["name"] == "Managers"
+    assert [role["name"] for role in web_users.find_user("root")["roles"]] == ["Managers"]
 
 
 def test_the_guard_does_not_block_a_database_without_any_manager():
-    group = access_control.create_group("devs")
-    access_control.set_group_roles(group["id"], [(role_id("reader"), None)])
-    access_control.delete_group(group["id"])
+    auditor = access_control.create_role("Auditor", ["audit.read"])
+    alice = web_users.create_user("alice", PASSWORD, [auditor["id"]])
+    web_users.update_user(alice["id"], [])
 
 
 # ── Audit ────────────────────────────────────────────────────────────────────
@@ -840,29 +736,28 @@ def test_the_guard_does_not_block_a_database_without_any_manager():
 
 def test_access_changes_are_audited():
     make_user("root", PASSWORD, "admin")
+    known_projects("shop")
     role = access_control.create_role("Auditor", ["audit.read"], actor="user:root")
-    group = access_control.create_group("auditors", actor="user:root")
-    access_control.set_group_roles(group["id"], [(role["id"], None)], actor="user:root")
     alice = web_users.create_user("alice", PASSWORD)
-    access_control.set_group_members(group["id"], [alice["id"]], actor="user:root")
-    web_users.update_user(alice["id"], [], "user:root")
-    access_control.update_group(group["id"], "audit-team", actor="user:root")
-    access_control.delete_group(group["id"], actor="user:root")
+    web_users.update_user(alice["id"], [role["id"]], [("shop", ["reports.read"])], "user:root")
+    access_control.set_oidc_mappings([("devs", [role["id"]], ["reports.read"], [])], "user:root")
     access_control.delete_role(role["id"], actor="user:root")
 
     events = audit.list_events(actor="user:root")["events"]
     assert [event["action"] for event in reversed(events)] == [
         "role.created",
-        "group.created",
-        "group.roles_changed",
-        "group.members_changed",
-        "user.groups_changed",
-        "group.updated",
-        "group.deleted",
+        "user.roles_changed",
+        "user.projects_changed",
+        "oidc.mappings_changed",
         "role.deleted",
     ]
-    members = next(e for e in events if e["action"] == "group.members_changed")
-    assert members["details"] == {"added": [alice["id"]], "name": "auditors", "removed": []}
+    roles = next(e for e in events if e["action"] == "user.roles_changed")
+    assert roles["details"] == {"added": [role["id"]], "removed": []}
+    # The mapping loses the role; it still gives the reading of every project
+    mappings = access_control.list_oidc_mappings()
+    assert [(m["claim"], m["roles"], m["all_projects_permissions"]) for m in mappings] == [
+        ("devs", [], ["reports.read"])
+    ]
 
 
 def _settings(**values):

@@ -8,19 +8,22 @@
   <div class="d-flex flex-wrap gap-2">
     <app-pack-transfer
       [busy]="transferring()"
+      [importable]="canManage()"
       (exportRequested)="exportPack()"
       (fileChosen)="importPack($event)"
       (fileRejected)="onPackRejected($event)"
     />
-    <app-refresh-button
-      [label]="'rules.reload' | t"
-      [loading]="reloading() || catalog.isLoading()"
-      (refresh)="reload()"
-    />
-    <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
-      <i class="bi bi-plus-lg" aria-hidden="true"></i>
-      {{ 'rules.new' | t }}
-    </button>
+    @if (canManage()) {
+      <app-refresh-button
+        [label]="'rules.reload' | t"
+        [loading]="reloading() || catalog.isLoading()"
+        (refresh)="reload()"
+      />
+      <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        {{ 'rules.new' | t }}
+      </button>
+    }
   </div>
 </div>
 
@@ -71,7 +74,9 @@
                 {{ 'rules.updatedAt' | t }}
               </th>
               <th scope="col">{{ 'rules.state' | t }}</th>
-              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+              @if (canManage()) {
+                <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -105,44 +110,47 @@
                     {{ (rule.enabled ? 'rules.enabled' : 'rules.disabled') | t }}
                   </span>
                 </td>
-                <td class="text-end text-nowrap">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary action-button"
-                    [attr.aria-label]="
-                      (rule.enabled ? 'rules.disableRule' : 'rules.enableRule') | t: { id: rule.id }
-                    "
-                    [title]="(rule.enabled ? 'common.disable' : 'common.enable') | t"
-                    (click)="toggle(rule)"
-                  >
-                    <i
-                      class="bi"
-                      [class.bi-pause-fill]="rule.enabled"
-                      [class.bi-play-fill]="!rule.enabled"
-                      aria-hidden="true"
-                    ></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary action-button ms-1"
-                    [attr.aria-label]="'rules.editRule' | t: { id: rule.id }"
-                    [title]="'common.edit' | t"
-                    (click)="startEdit(rule)"
-                  >
-                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                  </button>
-                  @if (rule.origin === 'custom') {
+                @if (canManage()) {
+                  <td class="text-end text-nowrap">
                     <button
                       type="button"
-                      class="btn btn-sm btn-outline-danger action-button ms-1"
-                      [attr.aria-label]="'rules.deleteRule' | t: { id: rule.id }"
-                      [title]="'common.delete' | t"
-                      (click)="remove(rule)"
+                      class="btn btn-sm btn-outline-secondary action-button"
+                      [attr.aria-label]="
+                        (rule.enabled ? 'rules.disableRule' : 'rules.enableRule')
+                          | t: { id: rule.id }
+                      "
+                      [title]="(rule.enabled ? 'common.disable' : 'common.enable') | t"
+                      (click)="toggle(rule)"
                     >
-                      <i class="bi bi-trash" aria-hidden="true"></i>
+                      <i
+                        class="bi"
+                        [class.bi-pause-fill]="rule.enabled"
+                        [class.bi-play-fill]="!rule.enabled"
+                        aria-hidden="true"
+                      ></i>
                     </button>
-                  }
-                </td>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary action-button ms-1"
+                      [attr.aria-label]="'rules.editRule' | t: { id: rule.id }"
+                      [title]="'common.edit' | t"
+                      (click)="startEdit(rule)"
+                    >
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
+                    </button>
+                    @if (rule.origin === 'custom') {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger action-button ms-1"
+                        [attr.aria-label]="'rules.deleteRule' | t: { id: rule.id }"
+                        [title]="'common.delete' | t"
+                        (click)="remove(rule)"
+                      >
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                      </button>
+                    }
+                  </td>
+                }
               </tr>
             }
           </tbody>

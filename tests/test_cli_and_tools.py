@@ -12,7 +12,7 @@ from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.reports import services
 from security_review_mcp.rules import rule_store, rules_loader
-from security_review_mcp.storage.database import get_engine, init_db
+from security_review_mcp.storage.database import init_db
 from security_review_mcp.storage.models import FindingCreate, Severity
 
 
@@ -244,25 +244,29 @@ async def test_dependency_review_prompt():
 # ── schema upgrade ───────────────────────────────────────────────────────────
 
 
-def test_init_db_adds_missing_columns_and_keeps_data():
-    seed()
-    engine = get_engine()
-    with engine.begin() as conn:
+def test_init_db_adds_missing_columns_and_keeps_data(legacy_database):
+    with legacy_database.begin() as conn:
         conn.execute(text("ALTER TABLE finding DROP COLUMN rule_id"))
         conn.execute(text("ALTER TABLE finding DROP COLUMN status_changed_at"))
-    names = {c["name"] for c in inspect(engine).get_columns("finding")}
+        conn.execute(
+            text(
+                "INSERT INTO securityreport (id, project, summary, risk_level, created_at) "
+                "VALUES (1, 'demo', 'Seeded report', 'HIGH', '2026-10-01 10:00:00')"
+            )
+        )
+    names = {c["name"] for c in inspect(legacy_database).get_columns("finding")}
     assert "rule_id" not in names
 
     init_db()
 
-    names = {c["name"] for c in inspect(engine).get_columns("finding")}
+    names = {c["name"] for c in inspect(legacy_database).get_columns("finding")}
     assert {"rule_id", "status_changed_at"} <= names
     report = services.list_reports(project="demo")
     assert len(report) == 1
 
 
-def test_init_db_moves_legacy_project_tokens():
-    with get_engine().begin() as conn:
+def test_init_db_moves_legacy_project_tokens(legacy_database):
+    with legacy_database.begin() as conn:
         conn.execute(
             text(
                 "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "

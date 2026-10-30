@@ -14,10 +14,10 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
   deleted OIDC user is revoked by its name and its identity (``RevokedSsoUser``): a login never
   creates it again, even under another name, until an administrator creates it again.
 
-What a web user may do comes only from the roles of its groups (see access_control): a user
-never holds a role or a project of its own. Its groups are those an administrator gave it (a
-project group among them, see access_control.ensure_project_group) and, for an OIDC user, the
-groups named by its groups claim at its last login.
+What a web user may do comes only from its roles (permissions on the whole controller) and its
+projects with their per-project permissions (see access_control): those an administrator gave
+it (with the projects it created or joined, read only) and, for an OIDC user, those of the
+mappings that name a value of its roles claim at its last login.
 
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
 SessionVerifier reads the user again: a deleted user loses its sessions at once, a new role or
@@ -28,9 +28,9 @@ that a session never opens another account that reuses the id of a deleted one.
 
 The first administrator is the local user ``SECREVIEW_ADMIN_USERNAME`` (``admin``), created on
 the first start of the controller with a random password that only ``user reset-password`` sets,
-member of the group ``administrators``. The last user that holds ``users.manage`` can be
-neither deleted nor lose that permission, so that the web interface always keeps an
-administrator.
+with the ``admin`` role and every per-project permission on every project. The last user that
+holds ``users.manage`` can be neither deleted nor lose that permission, so that the web
+interface always keeps an administrator.
 
 Failed logins are throttled per username and address and per address, in the database
 (rate_limit.LoginThrottle): every worker and replica of the controller shares the counts.
@@ -266,7 +266,7 @@ def _label(row: WebUser) -> str:
 
 
 def _grants(session: Session, row: WebUser) -> dict[str, Any]:
-    """Permissions of a user through its groups; empty when it has none (or too many projects)."""
+    """Permissions of a user through its roles; empty when it has none (or too many projects)."""
     if row.id is None:
         return {}
     try:
@@ -283,7 +283,11 @@ def _public(session: Session, row: WebUser) -> dict[str, Any]:
         "id": row.id,
         "username": row.username,
         "auth_source": row.auth_source,
-        "groups": access_control.user_groups(session, row.id) if row.id is not None else [],
+        **(
+            access_control.user_access(session, row.id)
+            if row.id is not None
+            else {"roles": [], "all_projects_permissions": [], "projects": [], "oidc": []}
+        ),
         "permissions": {
             name: None if projects is None else sorted(projects)
             for name, projects in sorted(grants.items())
@@ -403,17 +407,22 @@ def find_user(reference: str) -> dict[str, Any]:
 def create_user(
     username: str,
     password: str | None,
-    groups: Iterable[int] | None = None,
+    roles: Iterable[int] | None = None,
+    projects: Iterable[tuple[str, Iterable[str]]] | None = None,
     created_by: str | None = None,
     auth_source: str = AUTH_LOCAL,
     actor: str | None = None,
+    all_projects_permissions: Iterable[str] = (),
 ) -> dict[str, Any]:
-    """Create a user, member of ``groups`` (ids); a local one without ``password`` gets a random
-    one. ``actor`` is written to the audit log (default: ``created_by``).
+    """Create a user with ``roles`` (ids), ``projects`` ((project, per-project permissions)
+    pairs) and per-project permissions on every project; a local one without ``password`` gets
+    a random one.
+    ``actor`` is written to the audit log (default: ``created_by``).
 
-    An OIDC user (``auth_source="oidc"``) has no password; its OIDC groups are added at each
-    login. Returns the user and, when generated, its ``password`` (shown exactly once). Raises
-    ValueError when invalid, duplicated or over the limit, NotFoundError for an unknown group.
+    An OIDC user (``auth_source="oidc"``) has no password; the roles and projects of its OIDC
+    mappings are added at each login. Returns the user and, when generated, its ``password``
+    (shown exactly once). Raises ValueError when invalid, duplicated or over the limit,
+    NotFoundError for an unknown role or project.
     """
     source = clean_auth_source(auth_source)
     name = clean_username(username)
@@ -440,8 +449,17 @@ def create_user(
             _lift_revocation(session, name)
             session.add(row)
             session.flush()
-            if groups:
-                access_control.set_user_groups(session, row.id, groups, actor or created_by)  # type: ignore[arg-type]
+            if roles:
+                access_control.set_user_roles(session, row.id, roles, actor or created_by)  # type: ignore[arg-type]
+            every = list(all_projects_permissions)
+            if projects or every:
+                access_control.set_user_projects(
+                    session,
+                    row.id,  # type: ignore[arg-type]
+                    projects or [],
+                    every,
+                    actor or created_by,
+                )
             session.refresh(row)
             created = _public(session, row)
     except IntegrityError as exc:
@@ -452,19 +470,34 @@ def create_user(
 
 def update_user(
     user_id: int,
-    groups: Iterable[int] | None,
+    roles: Iterable[int] | None,
+    projects: Iterable[tuple[str, Iterable[str]]] | None = None,
     updated_by: str | None = None,
+    all_projects_permissions: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    """Replace the groups an administrator gave to a user; applies to its sessions at once.
+    """Replace the roles, the projects ((project, per-project permissions) pairs) and the
+    per-project permissions on every project an administrator gave to a user; applies to its
+    sessions at once.
 
-    ``None`` leaves the groups unchanged. Its OIDC groups are kept. The last user that holds
-    ``users.manage`` cannot lose it.
+    ``None`` leaves that part unchanged. Those of its OIDC mappings are kept. The last user that
+    holds ``users.manage`` cannot lose it.
     """
     with session_scope() as session:
         row = _get(session, user_id)
         before = access_control.managers(session)
-        if groups is not None:
-            access_control.set_user_groups(session, user_id, groups, updated_by)
+        if roles is not None:
+            access_control.set_user_roles(session, user_id, roles, updated_by)
+        if projects is not None or all_projects_permissions is not None:
+            current = access_control.user_access(session, user_id)["projects"]
+            access_control.set_user_projects(
+                session,
+                user_id,
+                projects
+                if projects is not None
+                else [(item["project"], item["permissions"]) for item in current],
+                all_projects_permissions,
+                updated_by,
+            )
         if before and not access_control.managers(session):
             raise ValueError("At least one user must keep the users.manage permission")
         row.updated_at = utcnow()
@@ -642,7 +675,7 @@ def authenticate(username: str, password: str, address: str | None = None) -> di
 def ensure_bootstrap_admin(username: str = "admin") -> bool:
     """Create the local administrator ``username`` while no web user exists; True if created.
 
-    The user joins the group ``administrators`` (created with the ``admin`` role when missing).
+    The user holds the ``admin`` role and every per-project permission on every project.
     Its random password is never returned nor logged: an operator sets one with
     ``security-review-controller user reset-password``, and the user changes it at its first
     login.
@@ -653,10 +686,15 @@ def ensure_bootstrap_admin(username: str = "admin") -> bool:
     name = clean_username(username)
     if has_users():
         return False
-    with session_scope() as session:
-        group_id = access_control.ensure_admin_group(session).id
+    admin = access_control.ensure_system_roles()[access_control.ADMIN_ROLE]
     try:
-        create_user(name, None, [group_id], created_by="bootstrap")  # type: ignore[list-item]
+        create_user(
+            name,
+            None,
+            [admin],
+            created_by="bootstrap",
+            all_projects_permissions=sorted(access_control.SCOPED_PERMISSIONS),
+        )
     except ValueError:
         # Another instance sharing the database created it first
         return False
@@ -706,9 +744,9 @@ def oidc_login(
     was recorded: it gets it). It is refused when the name belongs to a local account, when it
     is bound to another subject or to another identity provider, or when it does not exist and
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
-    (``revoked``). Its OIDC groups are replaced by those its groups claim names (see
-    access_control.sync_sso_groups); the login is refused (``forbidden``) when its groups give
-    it no permission, and a missing user is then not created.
+    (``revoked``). The values of its roles claim that a mapping names replace those of its last
+    login (see access_control.sync_oidc_claims); the login is refused (``forbidden``) when its
+    roles give it no permission, and a missing user is then not created.
     """
     label = identity.label
     if not 1 <= len(identity.subject) <= MAX_SUBJECT_CHARS or not identity.subject.isascii():
@@ -771,7 +809,7 @@ def oidc_login(
             row.last_login_at = utcnow()
             session.add(row)
             session.flush()
-            joined = access_control.sync_sso_groups(
+            joined = access_control.sync_oidc_claims(
                 session,
                 row.id,  # type: ignore[arg-type]
                 identity.groups,
@@ -780,7 +818,7 @@ def oidc_login(
             grants = _grants(session, row)
             if not grants and created:
                 # Rolled back: the user is not created
-                logger.warning("OIDC login of %s refused: no group gives it a permission", label)
+                logger.warning("OIDC login of %s refused: no role gives it a permission", label)
                 raise OidcError("forbidden", "No web role granted to this user")
             if created:
                 logger.info("OIDC web user %s created at its first login", name)
@@ -791,10 +829,10 @@ def oidc_login(
         # The same user logged in twice at the same time
         raise OidcError("state", "Concurrent first login: try again") from None
     if result is None:
-        # The OIDC groups it lost are committed, so that its other sessions lose them too
-        logger.warning("OIDC login of %s refused: no group gives it a permission", label)
+        # The OIDC claims it lost are committed, so that its other sessions lose them too
+        logger.warning("OIDC login of %s refused: no role gives it a permission", label)
         raise OidcError("forbidden", "No web role granted to this user")
-    logger.info("OIDC login of %s through %d OIDC group(s)", label, len(joined))
+    logger.info("OIDC login of %s through %d mapped claim(s)", label, len(joined))
     return result
 
 

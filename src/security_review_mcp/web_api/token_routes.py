@@ -12,6 +12,7 @@ from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
 from ..auth import access_control, token_store
+from ..http_server import Role
 from ..reports import services
 from .auth_routes import LOGIN_HEADERS
 from .deps import (
@@ -74,12 +75,22 @@ def _check_delegation(
             )
 
 
+# Tokens that save reports on their projects (MCP agent, pipeline scans): their creator must
+# hold reports.write there
+WRITING_ROLES = frozenset({Role.MCP, Role.CI})
+
+
+def _writes(role: str) -> list[str]:
+    """``reports.write`` for a token that saves reports, nothing otherwise."""
+    return [Permission.REPORTS_WRITE] if role in WRITING_ROLES else []
+
+
 async def _role_permissions(role_id: int | None) -> list[str]:
     """Permissions of the role of an api token (none for another token); 404 when unknown."""
     if role_id is None:
         return []
     try:
-        permissions, _ = await run_in_threadpool(access_control.role_token_scope, role_id, None)
+        permissions, _, _ = await run_in_threadpool(access_control.role_token_scope, role_id, None)
     except services.NotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     return permissions
@@ -101,6 +112,8 @@ async def _check_token_delegation(
     token = next((item for item in tokens if item["id"] == token_id), None)
     if token is not None:
         permissions = await _role_permissions(token.get("access_role_id"))
+        permissions += token.get("project_permissions") or []
+        permissions += _writes(token["role"])
         _check_delegation(identity, token["projects"] if keep else projects, permissions)
 
 
@@ -126,9 +139,13 @@ async def create_project_token(
     body: ProjectTokenCreate, identity: TokensManager, response: Response
 ) -> ProjectTokenSecret:
     """Create a token for existing projects (or every project, ``projects`` null) and return
-    its secret exactly once. An ``api`` token holds the permissions of ``access_role_id``: the
-    caller must hold each of them on the projects of the token."""
-    _check_delegation(identity, body.projects, await _role_permissions(body.access_role_id))
+    its secret exactly once. An ``api`` token holds the permissions of ``access_role_id`` and
+    its per-project permissions on its projects: the caller must hold each of them on the
+    projects of the token, and ``reports.write`` there for an ``mcp`` or ``ci`` token."""
+    permissions = await _role_permissions(body.access_role_id)
+    _check_delegation(
+        identity, body.projects, [*permissions, *body.project_permissions, *_writes(body.role)]
+    )
     await _check_known_projects(body.projects)
     try:
         created = await run_in_threadpool(
@@ -139,6 +156,7 @@ async def create_project_token(
             body.expires_in_days,
             actor_of(identity),
             body.access_role_id,
+            body.project_permissions,
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc

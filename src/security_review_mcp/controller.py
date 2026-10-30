@@ -4,7 +4,7 @@ and administration.
 The controller runs apart from the MCP server (``security-review-mcp``), in its own process,
 container or pod; both share the database. ``serve`` serves the REST API (``/api/v1``) and the
 Angular application (``/ui``); the other commands are the operator commands of
-cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``group``, ``rules``...). The pipeline
+cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``role``, ``rules``...). The pipeline
 commands (``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_client).
 """
 
@@ -13,7 +13,7 @@ import logging
 import sys
 
 from . import __version__, app_settings, cli, connectors, http_server, web_api
-from .auth import oauth_server, oidc, token_store, web_users
+from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
 from .observability import audit_syslog
@@ -32,8 +32,8 @@ commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
   db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
   token        manage the bearer tokens
-  user         manage the web users (local and OIDC) and the groups they belong to
-  group        list the groups of web users and the roles (with their permissions)
+  user         manage the web users (local and OIDC) and their roles
+  role         list the roles (with their permissions) and the OIDC mappings
   project      list, approve or reject the projects requested by an enrollment
   audit        read or purge the audit log (triage decisions, tokens, enrollments, access)
   rules        manage the internal rules and checklists
@@ -85,8 +85,12 @@ def serve(argv: list[str]) -> None:
         app_settings.sync_personal_mcp_tokens(settings)
         # SECREVIEW_MCP_OAUTH_ENABLED, or the value stored in the web interface
         oauth_enabled = app_settings.effective_settings(settings).mcp_oauth_enabled
-        if not oauth_enabled and (revoked := oauth_server.revoke_all_grants("environment")):
-            logger.warning("OAuth login of the MCP clients off: %d grants revoked", revoked)
+        oauth = app_settings.describe_mcp_oauth(settings)
+        if oauth["enabled"]["effective"] and not oauth_enabled:
+            logger.warning(
+                "OAuth login of the MCP clients suspended: set the URL of the MCP endpoint "
+                "(SECREVIEW_MCP_URL or the Tokens page of the web interface)"
+            )
         if not settings.personal_tokens_enabled:
             logger.warning(
                 "SECREVIEW_PERSONAL_TOKENS_ENABLED=false: the personal MCP and CI tokens and the "

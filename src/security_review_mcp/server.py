@@ -250,6 +250,15 @@ def _caller_projects(ctx: Context) -> frozenset[str] | None:
     return _auth_state(ctx).get("auth_projects")
 
 
+def _caller_write_projects(ctx: Context) -> frozenset[str] | None:
+    """Projects the caller's token may save reports to and propose a status on, or None.
+
+    A personal token writes only to the projects of ``reports.write`` of its user (see
+    http_server.write_scope); with stdio, there is no restriction.
+    """
+    return http_server.write_scope(_auth_state(ctx))
+
+
 def _caller_address(ctx: Context) -> str | None:
     """Client address of the HTTP request (None with stdio), audited with the project requests."""
     request = ctx.request_context.request
@@ -686,7 +695,7 @@ def save_security_report(
     coverage: checklist items of the domains you used that got no result (not_covered) and
     warnings about unknown ids, which are not stored.
     """
-    allowed = _caller_projects(ctx)
+    allowed = _caller_write_projects(ctx)
     if allowed is not None and project not in allowed:
         reachable = ", ".join(f"'{name}'" for name in sorted(allowed)) or "no project yet"
         raise ValueError(
@@ -783,6 +792,12 @@ def propose_finding_status(
     never closes a finding.
     """
     services.check_finding_scope(_caller_projects(ctx), finding_id)
+    writable = _caller_write_projects(ctx)
+    if writable is not None and services.finding_project(finding_id) not in writable:
+        raise ValueError(
+            f"This token cannot propose a status for finding {finding_id}: its user does not "
+            "hold reports.write on the project"
+        )
     client = _auth_state(ctx).get("auth_client")
     proposed_by = client or "stdio"
     finding = services.propose_finding_status(
@@ -966,20 +981,20 @@ ProjectArg = Annotated[
 @mcp.tool(annotations=WRITE)
 @_tool_errors
 def request_project(ctx: Context, project: ProjectArg) -> dict:
-    """Make sure the token reaches the project of a review, before reviewing.
+    """Make sure the token may save the report of a review on the project, before reviewing.
 
     Returns ``status``: ``accessible`` (the review can start), ``created`` (the user may create
     projects: the project was created and the user is a member of it), ``joined`` (the user may
-    join projects: it joined the existing project as a reader) or ``requested`` (the
+    join projects: it joined the existing project to review it) or ``requested`` (the
     project waits for an administrator, or the user must be given access to it: do not review,
     give the user ``next_steps``). No token is created.
     """
-    allowed = _caller_projects(ctx)
+    allowed = _caller_write_projects(ctx)
     state = _auth_state(ctx)
     label = state.get("auth_client")
     actor = audit.token_actor(label) if label is not None else None
     if allowed is None:
-        # A token of a user that reaches every project still creates the project group
+        # A token of a user that reaches every project still creates the project
         if state.get("auth_owner") is None:
             return {"project": project, "status": "accessible"}
         adopted = access_control.adopt_project(project, state["auth_owner"], actor)

@@ -67,8 +67,8 @@ Un item a ces champs :
 
 ### Depuis l'interface web
 
-La page **Checklists** (permission `rules.manage`) liste tous les items, avec recherche, tri et
-filtres par domaine et origine. Les administrateurs créent, modifient ou suppriment les items
+La page **Checklists** (permission `rules.read`) liste tous les items, avec recherche, tri et
+filtres par domaine et origine. Les utilisateurs avec `rules.manage` créent, modifient ou suppriment les items
 personnalisés. Un item par défaut peut être modifié, mais pas supprimé ; un item par défaut
 modifié n'est plus mis à jour par les nouvelles versions du serveur. Chaque changement
 s'applique aussitôt et est repris dans les prompts de revue.
@@ -106,7 +106,7 @@ de la page **Checklists**, qui exporte aussi les items personnalisés ou modifi�
 | `PUT` | `/api/v1/checklists/{domain}/{id}` | Modifie un item |
 | `DELETE` | `/api/v1/checklists/{domain}/{id}` | Supprime un item personnalisé |
 
-Toutes les routes exigent la permission `rules.manage`.
+`GET` exige la permission `rules.read`, les autres routes `rules.manage`.
 
 !!! warning "Contenu de confiance"
     Le texte des items est lu par les agents à chaque revue : comme les règles, c'est un contenu

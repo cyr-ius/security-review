@@ -210,28 +210,31 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    **personal MCP token** in **My account** (see
    [personal MCP tokens](../../usage/tokens.md#personal-mcp-and-ci-tokens)) and to put it in the
    [host configuration](../../getting-started/host.md#getting-a-token). The token reaches the
-   projects the user may read, at each request.
+   projects the user may read, and saves reports and proposals only on those of
+   `reports.write`, read at each request.
 2. **Project of the review.** Every review prompt starts with the `request_project` tool, with
    the project name (usually the repository name):
-    - the token already reaches the project: `accessible`, the review goes on;
+    - the token may already save reports on the project (`reports.write`): `accessible`, the
+      review goes on;
     - the project is new and the user holds `projects.create`: it is **created** at once, with
-      the user as its member (group `project:<project>`), and the review goes on;
-    - the project exists and the user holds `projects.autojoin`: the user **joins** it at once
-      (`joined`, project group, reading only), unless a user with `projects.create` has
+      its reading and writing for the user, and the review goes on;
+    - the project exists, the user does not read it yet and holds `projects.autojoin`: the user
+      **joins** it at once (`joined`, reading and writing, never triage), unless a user with `projects.create` has
       [blocked its autojoin](../../usage/projects.md#blocking-the-autojoin), and the review
       goes on. A user reads at most 200 projects this way;
     - otherwise the answer is `requested`, and the agent stops before reviewing, so that no
       review is lost. A new project is **pending**: it is not a project yet and gives no access.
-      For a project that already exists, the user **requests access** to it the same way
+      For a project that already exists, including one the user reads without `reports.write`,
+      the user **requests access** to it the same way
       (never at once, even with `projects.create`, except with `projects.autojoin`). The answer is the same in both cases, so
       that it does not tell which projects exist. A user files one request per project; nothing
       is recorded for a token without a user on an existing project, or for a user who already
-      reads it.
+      writes to it.
 3. **Approval.** A user holding `projects.create` (the `admin` role among others) approves or
    rejects the request in the **Pending projects** section of the **Projects** page, where
    each request is marked **New project** or **Access request**, or from the CLI (`existing`:
    `true` for an access request). Approving an access request also takes `users.manage`, as
-   adding a member to a group does: `projects.create` alone never opens an existing project.
+   giving a role does: `projects.create` alone never opens an existing project.
 
     ```bash
     security-review-controller project list          # requester, address, expiry
@@ -239,8 +242,8 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
     security-review-controller project reject 4
     ```
 
-    The approval adds the **requester** to the project group `project:<project>` (see
-    [access control](../../usage/projects.md#project-group)), created for a new project: their
+    The approval gives the **requester** the reading and writing of the project (see
+    [members](../../usage/projects.md#members)), created for a new project: their
     personal token reaches the project from the next request, without reconfiguration. A
     request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)
     is deleted.

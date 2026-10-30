@@ -58,6 +58,16 @@
           }
         </select>
       </div>
+      <div class="col-md-2">
+        <label for="token-project-permissions" class="form-label">{{
+          'access.projectPermissions' | t
+        }}</label>
+        <app-project-permissions
+          id="token-project-permissions"
+          [label]="'access.projectPermissions' | t"
+          [(permissions)]="projectPermissions"
+        />
+      </div>
     }
     <div class="col-md-2">
       <label for="token-validity" class="form-label">{{ 'tokens.validity' | t }}</label>
@@ -68,64 +78,27 @@
         }
       </select>
     </div>
-    <fieldset class="col-md-3">
-      <legend class="form-label">{{ 'tokens.allowedProjects' | t }}</legend>
-      <div class="form-check form-check-inline">
-        <input
-          class="form-check-input"
-          type="radio"
-          name="token-scope"
-          id="token-scope-all"
-          [disabled]="formModel().usage === 'ci'"
-          [checked]="creationAllProjects()"
-          (change)="allProjects.set(true)"
-        />
-        <label class="form-check-label" for="token-scope-all">
-          {{ 'reports.allProjects' | t }}
-        </label>
-      </div>
-      <div class="form-check form-check-inline">
-        <input
-          class="form-check-input"
-          type="radio"
-          name="token-scope"
-          id="token-scope-some"
-          [disabled]="wholeControllerRole()"
-          [checked]="!creationAllProjects()"
-          (change)="allProjects.set(false)"
-        />
-        <label class="form-check-label" for="token-scope-some">
-          {{ 'users.someProjects' | t }}
-        </label>
-      </div>
+    <div class="col-md-3">
+      <label for="token-projects" class="form-label">{{ 'tokens.allowedProjects' | t }}</label>
+      <app-multi-select-dropdown
+        id="token-projects"
+        [small]="false"
+        [label]="'tokens.allowedProjects' | t"
+        [allLabel]="'tokens.chooseProjects' | t"
+        [searchLabel]="'common.search' | t"
+        [(search)]="creationSearch"
+        [toggleAll]="true"
+        [note]="creationNote()"
+        [options]="creationOptions()"
+        [selected]="creationSelected()"
+        (selectedChange)="selectedProjects.set(picked($event))"
+      />
       @if (formModel().usage === 'ci') {
         <div class="form-text">{{ 'tokens.pipelineProjects' | t }}</div>
-      } @else if (wholeControllerRole()) {
-        <div class="form-text">{{ 'tokens.wholeControllerRole' | t }}</div>
       } @else if (creationAllProjects()) {
         <div class="form-text">{{ 'tokens.allProjectsHelp' | t }}</div>
       }
-      @if (!creationAllProjects() && (projects.value() ?? []).length) {
-        <div class="d-flex flex-wrap gap-3 mt-2">
-          @for (item of projects.value() ?? []; track item.project) {
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                [id]="'token-project-' + item.project"
-                [checked]="selectedProjects().includes(item.project)"
-                (change)="toggleProject(item.project, $event)"
-              />
-              <label class="form-check-label" [for]="'token-project-' + item.project">
-                {{ item.project }}
-              </label>
-            </div>
-          }
-        </div>
-      } @else if (!creationAllProjects() && !projects.isLoading()) {
-        <span class="text-body-secondary">{{ 'users.noProjects' | t }}</span>
-      }
-    </fieldset>
+    </div>
     @if (formModel().usage === 'ci') {
       <p class="col-12 order-last form-text mb-0">{{ 'tokens.pipelineHelp' | t }}</p>
     }
@@ -137,9 +110,7 @@
       <button
         type="submit"
         class="btn btn-primary w-100"
-        [disabled]="
-          busy() || tokenForm().invalid() || (!creationAllProjects() && !selectedProjects().length)
-        "
+        [disabled]="busy() || tokenForm().invalid() || creationProjects()?.length === 0"
       >
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
         {{ 'common.create' | t }}
@@ -217,62 +188,26 @@
                       <legend class="visually-hidden">
                         {{ 'tokens.editProjectsOf' | t: { label: token.label } }}
                       </legend>
-                      @if (token.role !== 'ci') {
-                        <div class="form-check form-check-inline">
-                          <input
-                            class="form-check-input"
-                            type="radio"
-                            name="edit-scope"
-                            id="edit-scope-all"
-                            [checked]="editAllProjects()"
-                            (change)="editAllProjects.set(true)"
-                          />
-                          <label class="form-check-label" for="edit-scope-all">
-                            {{ 'reports.allProjects' | t }}
-                          </label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                          <input
-                            class="form-check-input"
-                            type="radio"
-                            name="edit-scope"
-                            id="edit-scope-some"
-                            [checked]="!editAllProjects()"
-                            (change)="editAllProjects.set(false)"
-                          />
-                          <label class="form-check-label" for="edit-scope-some">
-                            {{ 'users.someProjects' | t }}
-                          </label>
-                        </div>
-                      } @else {
-                        <div class="form-text mt-0">{{ 'tokens.pipelineProjects' | t }}</div>
-                      }
-                      @if (!editAllProjects() || token.role === 'ci') {
-                        <div class="d-flex flex-wrap gap-3 mt-1">
-                          @for (project of editChoices(token); track project) {
-                            <div class="form-check">
-                              <input
-                                class="form-check-input"
-                                type="checkbox"
-                                [id]="'edit-project-' + project"
-                                [checked]="editSelected().includes(project)"
-                                (change)="toggleEditProject(project, $event)"
-                              />
-                              <label class="form-check-label" [for]="'edit-project-' + project">
-                                {{ project }}
-                              </label>
-                            </div>
-                          }
-                        </div>
+                      <app-multi-select-dropdown
+                        [id]="'edit-projects-' + token.id"
+                        [label]="'tokens.editProjectsOf' | t: { label: token.label }"
+                        [allLabel]="'tokens.chooseProjects' | t"
+                        [searchLabel]="'common.search' | t"
+                        [(search)]="editSearch"
+                        [toggleAll]="true"
+                        [note]="editNote(token)"
+                        [options]="editOptions(token)"
+                        [selected]="editSelected()"
+                        (selectedChange)="editSelected.set(picked($event))"
+                      />
+                      @if (token.role === 'ci') {
+                        <div class="form-text">{{ 'tokens.pipelineProjects' | t }}</div>
                       }
                       <div class="d-flex gap-1 mt-2">
                         <button
                           type="button"
                           class="btn btn-sm btn-primary"
-                          [disabled]="
-                            busy() ||
-                            ((!editAllProjects() || token.role === 'ci') && !editSelected().length)
-                          "
+                          [disabled]="busy() || !editSelected().length"
                           (click)="saveProjects()"
                         >
                           <i class="bi bi-check-lg" aria-hidden="true"></i>

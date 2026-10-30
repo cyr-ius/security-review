@@ -1,7 +1,7 @@
 """Command line of the administrators (no MCP client or agent needed).
 
 ``security-review-controller`` runs ``db``, ``advisories``, ``rules``, ``token``, ``user``,
-``group``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The code and dependency scans of a
+``role``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The code and dependency scans of a
 pipeline are run by
 ``security-review-ci`` (see ci_client), which sends the files to the controller. Exit codes
 follow the same convention everywhere: 0 success, 1 blocked (findings found, schema not up to
@@ -25,7 +25,7 @@ from .observability import audit
 from .reports import services
 from .reports.services import NotFoundError
 from .rules import registry, rule_store, rules_loader
-from .storage.database import SchemaError, init_db, schema_status, session_scope, upgrade_db
+from .storage.database import SchemaError, init_db, schema_status, upgrade_db
 
 EXIT_PASSED = 0
 EXIT_BLOCKED = 1
@@ -125,7 +125,7 @@ def token_command(argv: list[str]) -> int:
         default=http_server.DEFAULT_ROLE.value,
         help="mcp (default): MCP endpoint; admin: MCP and REST API; ci: pipeline routes only "
         "(security-review-ci), needs --project; metrics: Prometheus endpoint of the controller "
-        "only. A person reaches the web interface with a web user and its groups; api tokens "
+        "only. A person reaches the web interface with a web user and its roles; api tokens "
         "(REST API, Swagger) are created in the web interface",
     )
     creator.add_argument(
@@ -289,23 +289,16 @@ def user_command(argv: list[str]) -> int:
         action="store_true",
         help="OIDC user (OpenID Connect): no password, logs in with the identity provider",
     )
-    creator.add_argument(
-        "--group",
-        action="append",
-        help="group the user joins (repeatable); its roles give the permissions of the user",
-    )
+    _access_arguments(creator)
     creator.add_argument("--password-stdin", action="store_true", help="read the password on stdin")
     actions.add_parser("list", help="list the web users (never their password hash)")
     updater = actions.add_parser(
-        "set-groups", help="replace the groups given to a user (its OIDC groups are kept)"
+        "set-access",
+        help="replace the roles and the projects given to a user (those of its OIDC mappings "
+        "are kept)",
     )
     updater.add_argument("username", help="username or id")
-    updater.add_argument(
-        "--group",
-        action="append",
-        help=f"group (repeatable; none: no group); {access_control.ADMIN_GROUP} is created "
-        "with the admin role when missing",
-    )
+    _access_arguments(updater)
     resetter = actions.add_parser(
         "reset-password", help="replace the password of a user and end its sessions"
     )
@@ -327,16 +320,24 @@ def user_command(argv: list[str]) -> int:
             result: object = web_users.create_user(
                 args.username,
                 None if args.sso else _read_password(args.password_stdin),
-                _group_ids(args.group),
+                _role_ids(args.role),
+                _projects(args.project),
                 "cli",
                 web_users.AUTH_OIDC if args.sso else web_users.AUTH_LOCAL,
+                all_projects_permissions=_split_permissions(args.all_projects),
             )
         elif args.action == "list":
             result = web_users.list_users()
         else:
             user_id = web_users.find_user(args.username)["id"]
-            if args.action == "set-groups":
-                result = web_users.update_user(user_id, _group_ids(args.group), "cli")
+            if args.action == "set-access":
+                result = web_users.update_user(
+                    user_id,
+                    _role_ids(args.role),
+                    _projects(args.project),
+                    "cli",
+                    all_projects_permissions=_split_permissions(args.all_projects),
+                )
             elif args.action == "reset-password":
                 result = web_users.set_password(user_id, _read_password(args.password_stdin))
             else:
@@ -347,35 +348,76 @@ def user_command(argv: list[str]) -> int:
     return EXIT_PASSED
 
 
-def _group_ids(names: list[str] | None) -> list[int]:
-    """Ids of the groups named on the command line; ``administrators`` is created if missing
-    (so that an operator can always restore an administrator)."""
-    with session_scope() as session:
-        if access_control.ADMIN_GROUP in (names or []):
-            access_control.ensure_admin_group(session)
-        return access_control.find_groups(session, names or [])
+def _access_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the --role, --project and --all-projects options of ``user create`` and
+    ``user set-access``."""
+    parser.add_argument(
+        "--role",
+        action="append",
+        help="role of the user, permissions on the whole server (repeatable), e.g. admin",
+    )
+    parser.add_argument(
+        "--project",
+        action="append",
+        metavar="PROJECT[=PERMISSIONS]",
+        help="known project of the user with its comma-separated per-project permissions "
+        "(repeatable; default: reports.read), e.g. shop=reports.read,findings.triage",
+    )
+    parser.add_argument(
+        "--all-projects",
+        nargs="?",
+        const=",".join(sorted(access_control.SCOPED_PERMISSIONS)),
+        metavar="PERMISSIONS",
+        help="per-project permissions on every project (default without a value: "
+        "reports.read,findings.triage)",
+    )
 
 
-# ── group ────────────────────────────────────────────────────────────────────
+def _role_ids(names: list[str] | None) -> list[int]:
+    """Ids of the roles named on the command line (NotFoundError for an unknown one)."""
+    roles = {role["name"]: role["id"] for role in access_control.list_roles()}
+    missing = [name for name in names or [] if name not in roles]
+    if missing:
+        raise NotFoundError(f"Role '{missing[0]}' not found")
+    return [roles[name] for name in names or []]
 
 
-def group_command(argv: list[str]) -> int:
-    """Run ``security-review-controller group``: list the groups and the roles."""
+def _split_permissions(value: str | None) -> list[str]:
+    """Permissions of a comma-separated list (empty or None: none)."""
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
+
+
+def _projects(values: list[str] | None) -> list[tuple[str, list[str]]]:
+    """(project, per-project permissions) pairs of the --project options (``PROJECT`` reads
+    the project, ``PROJECT=PERMISSIONS`` gives these permissions)."""
+    pairs: list[tuple[str, list[str]]] = []
+    for value in values or []:
+        project, _, permissions = value.partition("=")
+        pairs.append((project, _split_permissions(permissions) or ["reports.read"]))
+    return pairs
+
+
+# ── role ─────────────────────────────────────────────────────────────────────
+
+
+def role_command(argv: list[str]) -> int:
+    """Run ``security-review-controller role``: list the roles and the OIDC mappings."""
     parser = argparse.ArgumentParser(
-        prog="security-review-controller group",
-        description="List the groups of web users (with their roles and members) or the roles "
-        "(with their permissions). Groups and roles are managed in the web interface.",
+        prog="security-review-controller role",
+        description="List the roles (with their permissions) or the OIDC mappings of the roles "
+        "claim. Roles, the roles and projects of the users and the mappings are managed in the web "
+        "interface; `user set-access` gives roles and projects to a user.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
-    actions.add_parser("list", help="list the groups, their roles and their members")
-    actions.add_parser("roles", help="list the roles and their permissions")
+    actions.add_parser("list", help="list the roles and their permissions")
+    actions.add_parser("mappings", help="list the OIDC mappings (claim value, role, projects)")
     args = parser.parse_args(argv)
     try:
         init_db()
         if args.action == "list":
-            result: object = access_control.list_groups()
+            result: object = access_control.list_roles()
         else:
-            result = access_control.list_roles()
+            result = access_control.list_oidc_mappings()
     except ValueError as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
@@ -391,7 +433,7 @@ def project_command(argv: list[str]) -> int:
         prog="security-review-controller project",
         description="List, approve or reject the projects requested by an enrollment: a new "
         "project, or the access to an existing one (existing: true). An approval adds the "
-        "requesting user to the group project:<project>, created for a new project; a request "
+        "requesting user the reading of the project, created when new; a request "
         "nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
@@ -573,7 +615,7 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "token": token_command,
     "audit": audit_command,
     "user": user_command,
-    "group": group_command,
+    "role": role_command,
     "project": project_command,
 }
 

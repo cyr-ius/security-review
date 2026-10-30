@@ -165,7 +165,8 @@ security-review-controller token create --label jenkins-portal --role ci \
 
 Sur un poste de travail, un développeur utilise plutôt un
 [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels), créé dans
-**Mon compte** : il atteint les projets que le développeur peut lire.
+**Mon compte** : il atteint les projets que le développeur peut lire, et n'enregistre de scan
+que sur ceux de `reports.write`.
 
 Les sessions web et les jetons `api` (dans les projets qu'ils lisent) et les jetons `admin`
 peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non, personnels compris. Les scans, qui enregistrent

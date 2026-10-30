@@ -78,10 +78,10 @@ def test_token_validation():
 
 @pytest.mark.parametrize(
     ("role", "error"),
-    [(Role.USER, "through a group"), ("reader", "Unknown role"), ("triager", "Unknown role")],
+    [(Role.USER, "through a web user"), ("reader", "Unknown role"), ("triager", "Unknown role")],
 )
 def test_a_token_is_never_given_to_a_person(database, role, error):
-    """A person reaches the web API through a session and its groups, never a token (reader and
+    """A person reaches the web API through a session and its roles, never a token (reader and
     triager were the roles of a web session in older versions)."""
     with pytest.raises(ValueError, match=error):
         token_store.create_token("person", role)
@@ -213,21 +213,33 @@ def test_project_count_of_a_token_is_bounded(monkeypatch):
         token_store.set_token_projects(created["id"], ["a", "b", "c"])
 
 
-def test_legacy_project_tokens_are_migrated(database):
-    with Session(database) as session:
-        session.add(
-            ApiToken(id="t1", label="old", role="mcp", project="shop-api", token_hash="ab" * 32)
-        )
-        session.add(ApiToken(id="t2", label="admin", role="admin", token_hash="cd" * 32))
-        session.commit()
+def test_legacy_project_tokens_are_migrated(legacy_database):
+    from sqlalchemy import text
 
-    # Before the migration a legacy token stays restricted to its project
-    assert STORE.lookup(bytes.fromhex("ab" * 32)).projects == {"shop-api"}
+    with legacy_database.begin() as connection:
+        for token_id, label, role, project, digest in (
+            ("t1", "old", "mcp", "shop-api", "ab" * 32),
+            ("t2", "admin", "admin", None, "cd" * 32),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "
+                    "VALUES (:id, :label, :role, :project, :digest, CURRENT_TIMESTAMP)"
+                ),
+                {
+                    "id": token_id,
+                    "label": label,
+                    "role": role,
+                    "project": project,
+                    "digest": digest,
+                },
+            )
+
     # The baseline migration completes a database created by version 1.x
     database_module.upgrade_db()
     database_module.upgrade_db()  # already at the latest revision: nothing is copied twice
 
-    links = {link.token_id: link.project for link in link_rows(database)}
+    links = {link.token_id: link.project for link in link_rows(legacy_database)}
     assert links == {"t1": "shop-api"}
     assert STORE.lookup(bytes.fromhex("ab" * 32)).projects == {"shop-api"}
     assert STORE.lookup(bytes.fromhex("cd" * 32)).projects is None
@@ -465,7 +477,7 @@ def test_the_label_of_a_personal_token_names_its_user():
 @pytest.mark.parametrize("role", [Role.MCP, Role.CI])
 def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
     """The projects are read at each request: a project granted or removed applies at once."""
-    from conftest import group_for
+    from conftest import known_projects
 
     from security_review_mcp.auth import web_users
 
@@ -480,23 +492,23 @@ def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
     listed = token_store.list_personal_tokens(user["id"])
     assert [item["projects"] for item in listed] == [["shop-api"]]
 
-    web_users.update_user(user["id"], [group_for("reader", ["billing", "shop-api"])])
+    known_projects("billing")
+    reading = ["reports.read"]
+    web_users.update_user(user["id"], [], [("billing", reading), ("shop-api", reading)])
     info = STORE.lookup(digest_of(created["token"]))
     assert info.projects == frozenset({"billing", "shop-api"})
-    # Without any group, the token reaches no project (never every project)
-    web_users.update_user(user["id"], [])
+    # Without any project, the token reaches no project (never every project)
+    web_users.update_user(user["id"], [], [])
     assert STORE.lookup(digest_of(created["token"])).projects == frozenset()
-    web_users.update_user(user["id"], [group_for("reader")])
+    web_users.update_user(user["id"], [], all_projects_permissions=reading)
     assert STORE.lookup(digest_of(created["token"])).projects is None
 
 
 def test_a_personal_mcp_token_reaches_a_project_its_user_creates():
     from security_review_mcp.auth import access_control
 
-    role = access_control.create_role("Creator", ["projects.create"])
-    group = access_control.create_group("creators")
-    access_control.set_group_roles(group["id"], [(role["id"], None)])
-    user = make_user("carol", "Correct horse battery 9", group_ids=[group["id"]])
+    access_control.create_role("Creator", ["projects.create"])
+    user = make_user("carol", "Correct horse battery 9", "Creator")
     created = token_store.create_personal_token(user["id"], "agent", role="mcp")
     assert STORE.lookup(digest_of(created["token"])).projects == frozenset()
 

@@ -20,7 +20,7 @@ import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';
 
-type RoleSortKey = 'name' | 'permissions' | 'groups';
+type RoleSortKey = 'name' | 'permissions' | 'usage';
 
 /** Name and description of the role being created or edited. */
 interface RoleFormModel {
@@ -31,8 +31,10 @@ interface RoleFormModel {
 const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
 
 /**
- * Administrator page for the roles: named sets of permissions, given to groups. The system roles
- * (reader, triager, admin) are shown but can be neither changed nor deleted.
+ * Administrator page for the roles: named sets of permissions, given to users and by the OIDC
+ * mappings: the per-project permissions apply to the projects of the user, the others to the
+ * whole Controller server. The system roles (reader, admin) are shown but can be
+ * neither changed nor deleted.
  */
 @Component({
   selector: 'app-role-list',
@@ -58,7 +60,7 @@ export class RoleListComponent {
   readonly tableSearch = signal('');
   readonly tableSort = new TableSort<RoleSortKey>(
     'roles',
-    ['name', 'permissions', 'groups'],
+    ['name', 'permissions', 'usage'],
     'name',
     'asc',
   );
@@ -104,8 +106,8 @@ export class RoleListComponent {
             .join(', ');
           return compareTableText(leftPermissions, rightPermissions);
         }
-        if (sort === 'groups') {
-          return left.groups - right.groups || compareTableText(left.name, right.name);
+        if (sort === 'usage') {
+          return usage(left) - usage(right) || compareTableText(left.name, right.name);
         }
         return compareTableText(left.name, right.name);
       },
@@ -135,13 +137,11 @@ export class RoleListComponent {
     }
   }
 
-  /** Only scoped permissions: the role may be limited to projects in a group. */
-  readonly scoped = computed(() => {
-    const scoped = new Set(
-      (this.permissions.value() ?? []).filter((item) => item.scoped).map((item) => item.name),
-    );
-    return this.selected().every((permission) => scoped.has(permission));
-  });
+  /** Permissions a role may hold: those on the whole Controller server (the per-project ones
+   * are given with the projects). */
+  readonly sitePermissions = computed(() =>
+    (this.permissions.value() ?? []).filter((item) => !item.scoped),
+  );
 
   readonly canSubmit = computed(
     () =>
@@ -198,7 +198,7 @@ export class RoleListComponent {
   async remove(role: AccessRole): Promise<void> {
     const question = this.i18n.translate('roles.confirmDelete', {
       role: role.name,
-      count: role.groups,
+      count: usage(role),
     });
     if (this.busy() || !window.confirm(question)) {
       return;
@@ -224,4 +224,9 @@ export class RoleListComponent {
       this.roles.reload();
     }
   }
+}
+
+/** Users and OIDC mappings that give a role. */
+function usage(role: AccessRole): number {
+  return role.users + role.mappings;
 }

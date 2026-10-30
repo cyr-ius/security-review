@@ -14,7 +14,7 @@ export const sso = defineMessages({
     'sso.cafileHelp': '. Certificate authority:',
     'sso.systemCerts': 'system certificates',
     'sso.variableOnly': ', variable only). Proxy: the one of the page',
-    'sso.groups': 'Groups and accounts',
+    'sso.groups': 'Roles and accounts',
     'sso.reachable': 'Provider reachable',
     'sso.testFailed': 'Test failed',
     'sso.discovery': 'Discovery document',
@@ -36,9 +36,9 @@ export const sso = defineMessages({
     'sso.redirectUri': 'Callback URL',
     'sso.scopes': 'Scopes',
     'sso.displayName': 'Button label',
-    'sso.rolesClaim': 'Groups claim',
+    'sso.rolesClaim': 'Roles claim',
     'sso.rolesClaimHelp':
-      'Its values are compared against the group names. A dot-notated path is accepted (realm_access.roles).',
+      'Its values are compared to the OIDC mappings below. A dot-notated path is accepted (realm_access.roles).',
     'sso.usernameClaim': 'Username claim',
     'sso.adminGroups': 'Administration groups',
     'sso.autoCreate': 'Create the users at their first login',
@@ -53,13 +53,10 @@ export const sso = defineMessages({
     'sso.settingsRefusedCheck': 'Settings refused: check the values entered.',
     'sso.failed': 'The OIDC configuration failed.',
     'sso.subtitle': 'OpenID Connect login settings',
-    'sso.groupsBefore': 'Upon login, the user is assigned to groups based on the group claim (page',
-    'sso.groupsAfter': '). The other values of the claim are ignored.',
     'sso.adminGroupsHelp':
-      'Separated by commas: such a group is created with the admin role at the first login of one of its members (first administrator).',
-    'sso.defaultGroup': 'Default group',
-    'sso.defaultGroupHelp':
-      'Name of a group assigned by default upon each connection (empty: none).',
+      'Separated by commas: such a value of the claim is mapped to admin with reading, writing and triage on every project at the first login of a user who holds it (first administrator); a mapping changed afterwards is kept.',
+    'sso.mappingsIntro':
+      'What an OIDC user may do comes from the OIDC mappings of the values of its roles claim (below), which give roles and projects with their permissions, with those given to it on the Users page. The other values of the claim are ignored.',
   },
   fr: {
     'sso.title': 'Configuration OIDC',
@@ -73,7 +70,7 @@ export const sso = defineMessages({
     'sso.cafileHelp': '. Autorité de certification :',
     'sso.systemCerts': 'certificats du système',
     'sso.variableOnly': ', variable uniquement). Proxy : celui de la page',
-    'sso.groups': 'Groupes et comptes',
+    'sso.groups': 'Rôles et comptes',
     'sso.reachable': 'Fournisseur joignable',
     'sso.testFailed': 'Test en échec',
     'sso.discovery': 'Document de découverte',
@@ -95,9 +92,9 @@ export const sso = defineMessages({
     'sso.redirectUri': 'URL de retour',
     'sso.scopes': 'Scopes',
     'sso.displayName': 'Libellé du bouton',
-    'sso.rolesClaim': 'Claim des groupes',
+    'sso.rolesClaim': 'Claim des rôles',
     'sso.rolesClaimHelp':
-      'Ses valeurs sont comparées aux noms des groupes. Chemin pointé accepté (realm_access.roles).',
+      'Ses valeurs sont comparées aux correspondances OIDC ci-dessous. Chemin pointé accepté (realm_access.roles).',
     'sso.usernameClaim': "Claim du nom d'utilisateur",
     'sso.adminGroups': 'Groupes administration',
     'sso.autoCreate': 'Créer les utilisateurs à leur première connexion',
@@ -113,13 +110,10 @@ export const sso = defineMessages({
     'sso.settingsRefusedCheck': 'Paramètres refusés : vérifiez les valeurs saisies.',
     'sso.failed': 'La configuration OIDC a échoué.',
     'sso.subtitle': 'Configuration de la connexion OpenID Connect',
-    'sso.groupsBefore':
-      "Lors de la connexion , l'utilisateur est peuplé dans les groupes en fonction du claim des groupes (page",
-    'sso.groupsAfter': '). Les autres valeurs du claim sont ignorées.',
     'sso.adminGroupsHelp':
-      "Séparés par des virgules : un tel groupe est créé avec le rôle admin à la première connexion de l'un de ses membres (premier administrateur).",
-    'sso.defaultGroup': 'Groupe par défaut',
-    'sso.defaultGroupHelp': "Nom d'un groupe affecté par défaut à chaque connexion (vide : aucun).",
+      "Séparées par des virgules : une telle valeur du claim est associée au rôle admin, avec la lecture, l'écriture et le triage de tous les projets, à la première connexion d'un utilisateur qui la porte (premier administrateur) ; une correspondance modifiée ensuite est conservée.",
+    'sso.mappingsIntro':
+      "Ce qu'un utilisateur OIDC peut faire vient des correspondances OIDC des valeurs de son claim des rôles (ci-dessous), qui donnent des rôles et des projets avec leurs droits, en plus de ceux donnés sur la page Utilisateurs. Les autres valeurs du claim sont ignorées.",
   },
   es: {
     'sso.title': 'Configuración OIDC',
@@ -133,7 +127,7 @@ export const sso = defineMessages({
     'sso.cafileHelp': '. Autoridad de certificación:',
     'sso.systemCerts': 'certificados del sistema',
     'sso.variableOnly': ', solo variable). Proxy: el de la página',
-    'sso.groups': 'Grupos y cuentas',
+    'sso.groups': 'Roles y cuentas',
     'sso.reachable': 'Proveedor accesible',
     'sso.testFailed': 'Prueba fallida',
     'sso.discovery': 'Documento de descubrimiento',
@@ -155,9 +149,9 @@ export const sso = defineMessages({
     'sso.redirectUri': 'URL de retorno',
     'sso.scopes': 'Scopes',
     'sso.displayName': 'Texto del botón',
-    'sso.rolesClaim': 'Claim de los grupos',
+    'sso.rolesClaim': 'Claim de los roles',
     'sso.rolesClaimHelp':
-      'Sus valores se comparan con los nombres de los grupos abiertos al OIDC. Se acepta una ruta con puntos (realm_access.roles).',
+      'Sus valores se comparan con las correspondencias OIDC de abajo. Se acepta una ruta con puntos (realm_access.roles).',
     'sso.usernameClaim': 'Claim del nombre de usuario',
     'sso.adminGroups': 'Grupos de administración',
     'sso.autoCreate': 'Crear los usuarios en su primer inicio de sesión',
@@ -173,13 +167,9 @@ export const sso = defineMessages({
     'sso.settingsRefusedCheck': 'Parámetros rechazados: compruebe los valores introducidos.',
     'sso.failed': 'La configuración OIDC ha fallado.',
     'sso.subtitle': 'Configuración del inicio de sesión OpenID Connect',
-    'sso.groupsBefore':
-      'Al iniciar sesión, el usuario es asignado a grupos en función de la reclamación del grupo (página',
-    'sso.groupsAfter': '). Los demás valores del claim se ignoran.',
     'sso.adminGroupsHelp':
-      'Separados por comas: un grupo así se crea con el rol admin en el primer inicio de sesión de uno de sus miembros (primer administrador).',
-    'sso.defaultGroup': 'Grupo por defecto',
-    'sso.defaultGroupHelp':
-      'Nombre de un grupo al que se une todo usuario OIDC en cada inicio de sesión (vacío: ninguno).',
+      'Separados por comas: un valor así del claim se asocia al rol admin, con lectura, escritura y clasificación de todos los proyectos, en el primer inicio de sesión de un usuario que lo tiene (primer administrador); una correspondencia modificada después se conserva.',
+    'sso.mappingsIntro':
+      'Lo que un usuario OIDC puede hacer viene de las correspondencias OIDC de los valores de su claim de roles (abajo), que dan roles y proyectos con sus permisos, además de los asignados en la página Usuarios. Los demás valores del claim se ignoran.',
   },
 });

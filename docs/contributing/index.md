@@ -97,7 +97,7 @@ src/security_review_mcp/
 ├── standards.py   # development standards: storage, lookup by technology / file, rendering
 ├── controller.py  # entry point of the Controller server (serve, db and administration commands)
 ├── ci_client.py   # `security-review-ci`: pipeline client of the Controller server, file listing (standard library only)
-├── cli.py         # Controller server commands: db, advisories, rules, token, user, group, project, audit
+├── cli.py         # Controller server commands: db, advisories, rules, token, user, role, project, audit
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
 ├── healthcheck.py # HEALTHCHECK of the Docker image (/healthz of the HTTP processes)
 ├── config.py      # settings (SECREVIEW_*)
@@ -131,7 +131,7 @@ src/security_review_mcp/
 │   ├── advisory_sync.py   # OSV download by the Controller server (proxy, daily update, history)
 │   └── versions.py        # version comparison
 ├── auth/          # identity and access
-│   ├── access_control.py  # permissions, roles, groups and members of the web accounts, project requests
+│   ├── access_control.py  # permissions, roles of the web accounts, OIDC mappings, project requests
 │   ├── token_store.py     # Bearer tokens in the database: creation, expiry, rotation, revocation
 │   ├── web_users.py       # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 │   ├── oidc.py            # OpenID Connect OIDC login to the web interface (Controller server)

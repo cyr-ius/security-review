@@ -2,9 +2,9 @@
 
 Les **jetons** sont destinés aux machines : agents MCP, pipelines CI/CD, Prometheus et scripts
 d'administration. Les **personnes** se connectent avec un [compte utilisateur](user-accounts.md),
-seul moyen d'ouvrir l'interface web, avec les droits de ses groupes
-([Rôles, groupes et permissions](access-control.md)). Il n'existe pas de jeton de
-lecture ou de triage : pour qu'une personne lise ou trie, ajoutez son compte à un groupe.
+seul moyen d'ouvrir l'interface web, avec les droits de ses rôles
+([Rôles et permissions](access-control.md)). Il n'existe pas de jeton de
+lecture ou de triage : pour qu'une personne lise ou trie, donnez un rôle à son compte.
 
 La ligne de commande, l'API REST et les limites sont dans [Jetons Bearer](../advanced/bearer-tokens.md).
 
@@ -28,12 +28,13 @@ connectée à l'interface le fait ([triage](triage.md)). Les agents ne font que 
 Dans la page **Jetons**, un administrateur choisit :
 
 - l'**Usage** : **MCP**, **Pipeline CI/CD** ou **API REST** (avec le **Rôle** qu'il porte) ;
-- les **Projets autorisés** : **Tous les projets** (y compris ceux revus plus tard, jamais pour
-  un jeton CI/CD) ou **Projets sélectionnés** ;
+- les **Projets autorisés**, cochés dans une liste déroulante avec recherche : **Tous les
+  projets** (y compris ceux revus plus tard, jamais pour un jeton CI/CD) ou certains projets ;
 - la **Validité** : de 30 jours à 1 an.
 
-Un jeton ne donne jamais plus que ce que détient son créateur, et la page ne liste que les jetons
-des projets que vous lisez. **Projets** change les projets d'un jeton sans changer son secret ;
+Un jeton ne donne jamais plus que ce que détient son créateur : un jeton **MCP** ou **Pipeline
+CI/CD** enregistre des rapports sur ses projets, son créateur doit donc y avoir **Écrire les
+rapports** (`reports.write`). La page ne liste que les jetons des projets que vous lisez. **Projets** change les projets d'un jeton sans changer son secret ;
 **Renouveler** remplace son secret.
 
 ## Jetons API
@@ -45,9 +46,9 @@ deux sortes :
 - **Jeton personnel** : créé par un utilisateur pour lui-même (voir
   [jetons personnels](#jetons-personnels)). Il porte les droits actuels du compte : il n'atteint
   plus rien dès que le compte les perd.
-- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle**. Il
-  porte les permissions de ce rôle sur ses projets. Un rôle utilisé par un jeton ne peut pas être
-  supprimé.
+- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle** et des
+  **Droits par projet**. Il porte les droits de ce rôle sur tout le serveur Controller et ces
+  droits par projet sur ses projets. Un rôle utilisé par un jeton ne peut pas être supprimé.
 
 ## Jetons personnels
 
@@ -56,8 +57,8 @@ Un utilisateur crée ses propres jetons dans **Mon compte** > **Jetons personnel
 | Usage | Pour |
 |---|---|
 | **API REST — Swagger et scripts** | L'API REST, avec les droits du compte |
-| **MCP — votre agent MCP** | Votre agent MCP, sur les projets que votre compte peut lire |
-| **CI — security-review-ci sur votre poste** | `security-review-ci` (scans, gate, hooks de commit), sur les projets que votre compte peut lire |
+| **MCP — votre agent MCP** | Votre agent MCP, sur les projets que votre compte peut lire ; il enregistre des rapports et propose des statuts sur ceux où il peut écrire |
+| **CI — security-review-ci sur votre poste** | `security-review-ci` (scans, gate, hooks de commit), sur les projets que votre compte peut lire ; il enregistre les scans sur ceux où il peut écrire |
 
 Chaque jeton a un seul usage : un jeton MCP n'atteint pas les routes de pipeline, un jeton CI
 n'atteint pas le serveur MCP.
@@ -78,7 +79,9 @@ désactive aussi la connexion et saisit son point d'accès MCP.
 Le jeton personnel **MCP** connecte votre agent MCP, le jeton personnel **CI**
 `security-review-ci`. Tout compte peut les créer, sauf si un administrateur les a désactivés
 (`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, voir plus bas). Il atteint les
-projets que votre compte peut lire, affichés dans la colonne **Projets**.
+projets que votre compte peut lire, affichés dans la colonne **Projets**, et n'enregistre de
+rapport ni ne propose de statut que sur ceux où votre compte a **Écrire les rapports**
+(`reports.write`).
 
 Pour un projet qu'il n'atteint pas encore : un administrateur vous en donne l'accès, vous le
 créez depuis **Projets** s'il est nouveau et que vous le pouvez, ou votre agent le demande

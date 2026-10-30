@@ -66,7 +66,7 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](../advanced/architecture/controller.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (groupe `administrators`), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](../advanced/architecture/controller.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (rôle `admin`, avec la lecture, l'écriture et le triage de tous les projets), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; non défini : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
 | `SECREVIEW_PUBLIC_URL` | — | URL publique racine du serveur Controller (`https://…`, sans `/ui`), souvent la même adresse que `SECREVIEW_CONTROLLER_URL` de [`security-review-ci`](#clients). Recopiée en base à chaque démarrage ; le serveur MCP l'y lit (il ignore sa propre variable) et donne l'adresse de l'interface web (`/ui`) aux clients sans jeton valide (instructions et prompts du serveur d'enrôlement, `401` de `/mcp`), pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; les connecteurs l'utilisent pour leurs liens. Non définie, elle se règle dans la page [**Général**](../usage/index.md#pages) ; sans aucune des deux, aucun lien n'est donné. `SECREVIEW_CONTROLLER_URL`, son ancien nom, est encore lu par le serveur Controller quand elle n'est pas définie, avec un avertissement |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session de l'interface web (1 à 24 heures) |
@@ -95,11 +95,10 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Secret du client ; vide pour un client public (PKCE seul) |
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | URL publique de `/api/v1/auth/oidc/callback`, déclarée chez le fournisseur |
 | `SECREVIEW_OIDC_SCOPE` | `openid profile email` | Scopes demandés (doit contenir `openid`) |
-| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) ; ses valeurs sont comparées aux noms des [groupes ouverts au OIDC](../advanced/oidc.md#groupes-du-fournisseur-didentite) |
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Groupes OIDC, séparés par des virgules, créés ouverts au OIDC avec le rôle `admin` à la première connexion de l'un de leurs membres (premier administrateur) |
-| `SECREVIEW_OIDC_DEFAULT_GROUP` | — | Groupe que tout utilisateur OIDC rejoint à chaque connexion, quel que soit son claim (vide : aucun) |
+| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) ; ses valeurs sont comparées aux [correspondances OIDC](../advanced/oidc.md#correspondances-oidc) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Valeurs du claim des rôles, séparées par des virgules, associées à `admin`, avec la lecture, l'écriture et le triage de tous les projets, à la première connexion d'un utilisateur qui en porte une, quand aucune correspondance ne les nomme encore (premier administrateur) |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim qui nomme le [compte OIDC](../advanced/oidc.md#comptes-oidc) (comparaison exacte, sans repli) ; label de session `oidc:<valeur>` |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le compte OIDC à sa première connexion si ses groupes lui donnent un rôle ; à `false`, un administrateur crée chaque compte OIDC dans **Utilisateurs** |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le compte OIDC à sa première connexion si ses correspondances OIDC lui donnent une permission ; à `false`, un administrateur crée chaque compte OIDC dans **Utilisateurs** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Nom affiché sur le bouton de connexion (40 caractères au plus) |
 | `SECREVIEW_OIDC_CAFILE` | — | Bundle de CA pour joindre le fournisseur (CA interne) ; le proxy est celui de `HTTPS_PROXY` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/oidc.md#oidc-seul)) ; une variable uniquement, jamais modifiée dans l'interface |
@@ -109,7 +108,7 @@ Lues par `security-review-controller` uniquement.
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Active la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : le serveur Controller devient leur serveur d'autorisation (routes `/authorize`, `/token`, `/register`, `/revoke` à la racine de `SECREVIEW_PUBLIC_URL`, qui doit être défini, en https hors localhost) et le serveur MCP y envoie un client sans jeton. Non définie, un administrateur peut l'activer dans l'interface web (page **Jetons**) |
-| `SECREVIEW_MCP_URL` | — | URL publique du point d'accès MCP (`https://…/mcp`, en ASCII : punycode pour un hôte non ASCII), obligatoire avec OAuth : la ressource des jetons. Enregistrée en base au démarrage, où le serveur MCP la lit. Non définie, elle peut être saisie dans l'interface web (page **Jetons**) |
+| `SECREVIEW_MCP_URL` | — | URL publique du point d'accès MCP (`https://…/mcp`, en ASCII : punycode pour un hôte non ASCII), obligatoire avec OAuth (la connexion reste suspendue sans elle) : la ressource des jetons. Enregistrée en base au démarrage, où le serveur MCP la lit. Non définie, elle peut être saisie dans l'interface web (page **Jetons**) |
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Durée d'un jeton d'accès (5 à 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Durée d'un jeton de rafraîchissement (1 à 365 jours), prolongée à chaque rafraîchissement ; `SECREVIEW_TOKEN_MAX_DAYS`, s'il est défini, borne toute l'autorisation depuis son approbation |
 | `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients enregistrés à la fois ; un client que personne n'a autorisé dans la journée est supprimé |

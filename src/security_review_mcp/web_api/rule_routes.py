@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from .. import standards
 from ..rules import registry, rule_store, rules_loader
-from .deps import RulesManager, StandardsManager, unprocessable
+from .deps import RulesManager, RulesReader, StandardsManager, StandardsReader, unprocessable
 from .schemas import (
     ChecklistCatalog,
     ChecklistItemWrite,
@@ -61,7 +61,7 @@ async def _refresh_checklists() -> ChecklistReload:
 
 
 @router.get("/rules")
-async def list_custom_rules(identity: RulesManager) -> RuleCatalog:
+async def list_custom_rules(identity: RulesReader) -> RuleCatalog:
     """List the rules stored in the database (default and custom)."""
     return await run_in_threadpool(_rule_catalog)
 
@@ -126,7 +126,7 @@ async def set_custom_rule_enabled(
 
 
 @router.get("/checklists")
-async def list_checklist_items(identity: RulesManager) -> ChecklistCatalog:
+async def list_checklist_items(identity: RulesReader) -> ChecklistCatalog:
     """List the checklist items stored in the database (default and custom)."""
     return ChecklistCatalog.model_validate(
         {
@@ -182,7 +182,7 @@ async def delete_checklist_item(
 
 
 @router.get("/standards", tags=["standards"])
-async def list_standards(identity: StandardsManager) -> StandardCatalog:
+async def list_standards(identity: StandardsReader) -> StandardCatalog:
     """List the development standards (without content), disabled ones included.
 
     Administrators only, like the rules and checklists; the MCP tools serve the enabled
@@ -193,7 +193,7 @@ async def list_standards(identity: StandardsManager) -> StandardCatalog:
 
 
 @router.get("/standards/{slug}", tags=["standards"])
-async def get_standard(slug: SlugPath, identity: StandardsManager) -> Standard:
+async def get_standard(slug: SlugPath, identity: StandardsReader) -> Standard:
     """Return one development standard with its content (administrators only)."""
     return await run_in_threadpool(standards.get_standard, slug, True)
 
@@ -256,7 +256,7 @@ def _toml_download(text: str, filename: str) -> Response:
 
 @router.get("/packs/rules", response_class=Response, responses=TOML_FILE, tags=["packs"])
 async def export_rule_pack(
-    identity: RulesManager,
+    identity: RulesReader,
     sections: Annotated[list[Literal["rules", "checklist"]] | None, Query(max_length=2)] = None,
 ) -> Response:
     """Export the rules and checklist items that differ from the defaults as a TOML pack.
@@ -301,7 +301,7 @@ async def import_rule_pack(body: PackUpload, identity: RulesManager) -> RulePack
 
 
 @router.get("/packs/standards", response_class=Response, responses=TOML_FILE, tags=["packs"])
-async def export_standard_pack(identity: StandardsManager) -> Response:
+async def export_standard_pack(identity: StandardsReader) -> Response:
     """Export every development standard (disabled ones included) as a TOML pack."""
     text = await run_in_threadpool(standards.export_pack)
     logger.info("Development standards exported by %s", identity.client)

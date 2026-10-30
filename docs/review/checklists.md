@@ -65,8 +65,8 @@ An item has these fields:
 
 ### From the web interface
 
-The **Checklists** page (`rules.manage` permission) lists every item, with search, sort and
-filters by domain and origin. Administrators create, edit or delete the custom items. A default
+The **Checklists** page (`rules.read` permission) lists every item, with search, sort and
+filters by domain and origin. Users with `rules.manage` create, edit or delete the custom items. A default
 item can be edited, but not deleted; an edited default item is no longer updated by new
 versions of the server. Every change is applied at once and included in the review prompts.
 
@@ -103,7 +103,7 @@ of the **Checklists** page, which also exports the custom or edited items
 | `PUT` | `/api/v1/checklists/{domain}/{id}` | Edits an item |
 | `DELETE` | `/api/v1/checklists/{domain}/{id}` | Deletes a custom item |
 
-Every route needs the `rules.manage` permission.
+`GET` needs the `rules.read` permission, the other routes `rules.manage`.
 
 !!! warning "Trusted content"
     The text of the items is read by the agents during every review: like the rules, it is

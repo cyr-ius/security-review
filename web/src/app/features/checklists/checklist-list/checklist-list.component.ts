@@ -9,6 +9,7 @@ import { HelpLinkComponent } from '../../../shared/components/help-link/help-lin
 import { MarkdownFieldComponent } from '../../../shared/components/markdown-field/markdown-field.component';
 import { ChecklistItem, ChecklistItemWrite } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import {
   PackFile,
   PackFileError,
@@ -58,9 +59,12 @@ type ChecklistSortKey = 'domain' | 'title';
 })
 export class ChecklistListComponent {
   private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
   private readonly editorDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editorDialog');
 
+  /** False for a user who may only read the checklists (rules.read). */
+  readonly canManage = computed(() => this.auth.can('rules.manage'));
   readonly catalog = rxResource({ stream: () => this.api.checklistItems() });
   readonly domainFilter = signal('');
   readonly search = signal('');

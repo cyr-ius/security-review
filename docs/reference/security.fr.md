@@ -30,11 +30,12 @@
   (`mcp`, `api`, `admin`, `ci`, `metrics`). Un jeton `api` ne porte que des droits du contrôle
   d'accès, lus à chaque requête : ceux de son utilisateur (jeton personnel, supprimé avec
   l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
-  l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir
-  chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
+  l'utilisateur) ou ceux de son rôle et ses droits par projet sur ses projets (jeton de rôle,
+  dont le créateur doit détenir chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
   accède à tous les outils MCP et à tous les projets ; un jeton `mcp` personnel atteint les
   projets que son utilisateur peut lire à l'instant, aucun quand l'utilisateur n'en a pas (jamais
-  tous les projets par défaut), et s'arrête quand l'utilisateur est supprimé ou doit changer un mot
+  tous les projets par défaut), n'enregistre de rapport ni ne propose de statut que sur ceux de
+  `reports.write` (lire un projet ne permet jamais à un agent d'y écrire), et s'arrête quand l'utilisateur est supprimé ou doit changer un mot
   de passe défini par un administrateur. Un utilisateur web
   détient au plus `SECREVIEW_PERSONAL_TOKENS_PER_USER` jetons personnels de chaque rôle (1 par
   défaut).
@@ -65,8 +66,8 @@
   l'autorisation. Autoriser un client exige une session web et est refusé, comme toute
   autorisation et tout jeton `mcp` ou `ci` personnel, avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false` ; un jeton
   agit comme un jeton `mcp` personnel de son utilisateur, sur le serveur MCP seulement, et est
-  supprimé avec l'utilisateur ; un serveur Controller démarré avec la connexion désactivée révoque
-  toutes les autorisations (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).
+  supprimé avec l'utilisateur ; tant que la connexion est désactivée, les autorisations sont
+  conservées mais leurs jetons sont refusés (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
   renouvellements et révocations de jetons et les demandes de projet sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,
@@ -81,8 +82,8 @@
   [métriques Prometheus](metrics.md)).
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
   ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun) ; un jeton `ci`
-  personnel atteint les projets que son utilisateur peut lire à l'instant, comme un jeton `mcp`
-  personnel, qui n'atteint jamais les routes de pipeline (un usage par jeton). Il ne lit que le
+  personnel atteint les projets que son utilisateur peut lire à l'instant et n'enregistre de scan
+  que sur ceux de `reports.write`, comme un jeton `mcp` personnel, qui n'atteint jamais les routes de pipeline (un usage par jeton). Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du serveur Controller, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
   ([`security-review-ci`](../advanced/architecture/ci.md)) n'ouvre
@@ -95,11 +96,12 @@
   créé pour un client. Avec un jeton, `request_project` ne crée un nouveau projet que pour un
   utilisateur portant `projects.create` (jamais un projet existant) ; sinon la demande reste
   **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` la valide sur le
-  serveur Controller, ce qui ajoute l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
-  au groupe de projet, créé pour un nouveau projet. Pour un projet existant, la demande est une
+  serveur Controller, ce qui donne à l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
+  la lecture et l'écriture du projet, créé s'il est nouveau. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
   porte aussi `users.manage`, sauf pour un utilisateur portant `projects.autojoin`, qui le
-  rejoint aussitôt en lecture si son adhésion automatique n'est pas bloquée (cet utilisateur
+  rejoint aussitôt (lecture et écriture) si son adhésion automatique n'est pas bloquée et qu'il
+  ne le lit pas déjà (cet utilisateur
   apprend quels projets existent). Pour les autres, la réponse est la même que le projet existe ou
   non. Les demandes sont bornées (20 demandes en attente, une par utilisateur et par projet, 5
   par utilisateur ou jeton et par heure), et
@@ -240,17 +242,18 @@
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
-  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou OIDC (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
+  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou OIDC (par ses rôles ou une correspondance OIDC), ne peut être ni supprimé ni rétrogradé, pas même par une connexion OIDC qui ne nomme plus son groupe. Le mot de passe
   du compte `admin` initial apparaît une fois dans les journaux du serveur Controller : protégez-les et
   changez-le dès la première connexion.
 - **Connexion OIDC (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
-  viennent des [groupes](../usage/access-control.md#groupes) du compte : ceux donnés par un
-  administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
-  groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
-  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
+  viennent des [rôles](../usage/access-control.md#roles) du compte : ceux donnés par un
+  administrateur et ceux des correspondances OIDC dont la valeur est exactement une valeur du claim
+  des rôles (les autres valeurs sont ignorées ; les permissions par projet des rôles ne
+  s'appliquent qu'aux projets du compte, un projet d'une correspondance doit exister et n'est jamais
+  créé) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
   sa première connexion (uniques en base), jamais par un nom : un nom changé chez le fournisseur
   garde le compte. Il est nommé à sa création par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas

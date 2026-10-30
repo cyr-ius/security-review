@@ -31,7 +31,14 @@ sont dans le même commit que lui.
 - `tests/conftest.py` fournit à chaque test une base SQLite en mémoire et un registre de règles
   vide : n'utilisez jamais la base réelle. La fixture `import_pack` importe des règles internes
   (pack TOML), `triage` enregistre une décision comme le ferait une personne, `tmp_path` accueille
-  les fichiers.
+  les fichiers. La base est marquée à la dernière révision : `outdated_schema` la marque une
+  révision en arrière, et `legacy_database` la remplace par une base de la version 1.x (sans
+  révision), pour les tests de migration.
+- `make_user` crée un compte avec `role` (`reader`, `reviewer` (lecture et écriture) et `triager`
+  valent leurs droits par projet, `admin` le rôle intégré avec tous les droits par projet) sur ses projets (tous les projets sans aucun),
+  des rôles `role_ids` et des projets `read_only` qu'il ne fait que lire ; `known_projects` rend
+  des projets connus et `map_claim` ajoute une correspondance OIDC de la même façon ; la base
+  contient le rôle intégré `admin`.
 - `tests/conftest.py` hache les mots de passe avec un coût scrypt minime ; un test qui vérifie le
   coût de production est marqué `@pytest.mark.real_password_hashing`.
 - Pas de réseau, pas de `sleep`, pas de dépendance à l'ordre des tests. Les clés et jetons sont
