@@ -1077,7 +1077,7 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
     """Settle ``project`` for the web user ``owner`` whose token already reaches every project:
     an unknown project is created as by request_project when the user holds
     ``projects.create``, given to the user to review only, so that the user keeps reaching it
-    without every project.
+    without every project. A creation counts in the rate limit of the project requests.
 
     Returns:
         ``project`` and ``status`` (``created`` or ``accessible``), with ``next_steps`` when
@@ -1085,6 +1085,7 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
 
     Raises:
         ValueError: Invalid project name.
+        EnrollmentThrottled: Too many project requests from this user.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
     with session_scope() as session:
@@ -1094,6 +1095,8 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
             and not project_exists(session, cleaned)
             and allows(user_grants(session, user.id), Permission.PROJECTS_CREATE)  # type: ignore[arg-type]
         ):
+            if _enrollment_limit.hit(owner) > MAX_ENROLLMENTS_PER_REQUESTER:
+                raise EnrollmentThrottled("Too many project requests; retry later")
             _create_project(session, user.id, cleaned, actor)  # type: ignore[arg-type]
             return {
                 "project": cleaned,

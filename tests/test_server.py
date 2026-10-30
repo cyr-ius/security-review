@@ -735,6 +735,17 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     ]
     _, text = dave.call("request_project", {"project": "intranet"})
     assert json.loads(text) == {"project": "intranet", "status": "accessible"}
+    # A token that writes on every project creates it too, within the limit of the requests
+    erin = McpOverHttp(
+        http_app, personal_token("erin", ["projects.create", "reports.read", "reports.write"])
+    )
+    assert json.loads(erin.call("request_project", {"project": "extranet"})[1])["status"] == (
+        "created"
+    )
+    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 1)
+    is_error, text = erin.call("request_project", {"project": "wiki"})
+    assert is_error and "retry later" in text
+    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 5)
 
     # Without it: a new project and an existing one get the same answer, and no review is saved
     alice = McpOverHttp(http_app, personal_token("alice"))
@@ -755,6 +766,13 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     monkeypatch.setattr(get_settings(), "enrollment", False)
     is_error, text = alice.call("request_project", {"project": "crm"})
     assert is_error and "Project requests are disabled" in text
+    # Nor does a token that reaches every project create one
+    from security_review_mcp.storage.database import session_scope
+
+    _, text = erin.call("request_project", {"project": "crm"})
+    assert json.loads(text) == {"project": "crm", "status": "accessible"}
+    with session_scope() as session:
+        assert not access_control.project_exists(session, "crm")
 
 
 async def test_tools_normalize_the_project_name():
