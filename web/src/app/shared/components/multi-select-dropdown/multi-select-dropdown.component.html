@@ -1,18 +1,21 @@
 <div class="dropdown">
   <button
+    #button
     type="button"
     class="form-select form-select-sm text-start text-truncate"
     [id]="id()"
     [attr.aria-expanded]="open()"
     [attr.aria-controls]="id() + '-menu'"
-    (click)="open.set(!open())"
+    (click)="toggleOpen()"
   >
     <span class="visually-hidden">{{ label() }}, </span>{{ summary() }}
   </button>
   @if (open()) {
     <div
+      #menu
       class="dropdown-menu show px-3 py-2"
       role="group"
+      [style]="menuStyle()"
       [id]="id() + '-menu'"
       [attr.aria-label]="label()"
     >

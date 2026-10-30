@@ -1,6 +1,21 @@
-import { Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+
+/** Largest height of the menu, in rem (it scrolls beyond). */
+const MENU_MAX_HEIGHT_REM = 20;
+/** Space kept between the menu and the edge of the window, in pixels. */
+const VIEWPORT_MARGIN_PX = 8;
 
 export interface MultiSelectOption {
   value: string;
@@ -37,6 +52,34 @@ export class MultiSelectDropdownComponent {
   readonly selectedChange = output<string[]>();
 
   readonly open = signal(false);
+  /**
+   * Fixed position of the menu, computed from the button: an absolute menu would be cut by a
+   * scrolling container (a table, a list of limited height).
+   */
+  readonly menuStyle = signal<Record<string, string>>({});
+
+  private readonly button = viewChild.required<ElementRef<HTMLButtonElement>>('button');
+  private readonly menu = viewChild<ElementRef<HTMLElement>>('menu');
+
+  constructor() {
+    // A scroll does not bubble: listen in the capture phase to follow any scrolling container.
+    const onScroll = (event: Event): void => {
+      if (this.open() && !this.menu()?.nativeElement.contains(event.target as Node)) {
+        this.position();
+      }
+    };
+    const onResize = (): void => {
+      if (this.open()) {
+        this.position();
+      }
+    };
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    inject(DestroyRef).onDestroy(() => {
+      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    });
+  }
 
   readonly summary = computed(() => {
     const selected = this.selected();
@@ -70,6 +113,37 @@ export class MultiSelectDropdownComponent {
 
   clear(): void {
     this.selectedChange.emit([]);
+  }
+
+  toggleOpen(): void {
+    if (this.open()) {
+      this.close();
+      return;
+    }
+    this.position();
+    this.open.set(true);
+  }
+
+  /** Place the menu under the button, or above it when the window lacks room below. */
+  private position(): void {
+    const rect = this.button().nativeElement.getBoundingClientRect();
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const wanted = MENU_MAX_HEIGHT_REM * rem;
+    const below = window.innerHeight - rect.bottom - VIEWPORT_MARGIN_PX;
+    const above = rect.top - VIEWPORT_MARGIN_PX;
+    const upward = below < wanted && above > below;
+    const style: Record<string, string> = {
+      position: 'fixed',
+      left: `${rect.left}px`,
+      'min-width': `${rect.width}px`,
+      'max-height': `${Math.max(Math.min(wanted, upward ? above : below), 0)}px`,
+    };
+    if (upward) {
+      style['bottom'] = `${window.innerHeight - rect.top}px`;
+    } else {
+      style['top'] = `${rect.bottom}px`;
+    }
+    this.menuStyle.set(style);
   }
 
   close(): void {
