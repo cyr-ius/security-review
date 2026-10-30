@@ -61,7 +61,9 @@ project `billing` with **Read the reports** and **Triage the findings**, and no 
 
 A project not created yet is ignored until it is, never created by the identity provider. Each
 value of the **Administration groups** gets a mapping to `admin`, with the reading, the writing and
-the triage of every project, at the first login of a user who holds it; a mapping changed afterwards is kept.
+the triage of every project, at each login of a user who holds it while no mapping names it: a
+mapping changed afterwards is kept, a deleted one comes back. To withdraw `admin` from a group
+for good, remove its value from `SECREVIEW_OIDC_ADMIN_GROUPS`, or map it to another role.
 
 ## Project read access
 

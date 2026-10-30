@@ -4,7 +4,7 @@ roles, the members of the projects, the OIDC mappings and the OIDC settings."""
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
@@ -45,6 +45,28 @@ UsernamePath = Annotated[str, APIPath(min_length=1, max_length=web_users.MAX_USE
 def _conflict(exc: ValueError) -> HTTPException:
     """409 answer for a deletion refused by a service (a role in use, last admin)."""
     return HTTPException(status.HTTP_409_CONFLICT, str(exc))
+
+
+def _etag(version: str) -> str:
+    """ETag header of a list that a PUT replaces (see _if_match)."""
+    return f'"{version}"'
+
+
+def _if_match(value: str | None) -> str | None:
+    """Version of the If-Match header of a PUT (None: absent or ``*``, the list is replaced
+    whatever it holds); a proxy that compresses the answer may make the ETag weak (``W/``)."""
+    if value is None or value.strip() == "*":
+        return None
+    return value.strip().removeprefix("W/").strip('"')
+
+
+def _stale(exc: access_control.StaleVersion) -> HTTPException:
+    """412 answer for a replacement of a list changed since the caller read it."""
+    return HTTPException(status.HTTP_412_PRECONDITION_FAILED, str(exc))
+
+
+# Version of the list the caller read, from the ETag of its GET (optional)
+IfMatch = Annotated[str | None, Header(max_length=100)]
 
 
 # ── Permissions and roles ────────────────────────────────────────────────────
@@ -133,32 +155,42 @@ async def known_projects(
 
 @router.get("/access/projects/{project}/members")
 async def project_members(
-    project: Annotated[ProjectName, APIPath()], identity: UsersManager
+    project: Annotated[ProjectName, APIPath()], response: Response, identity: UsersManager
 ) -> list[ProjectMember]:
-    """List the users who have a project (not those who have every project)."""
+    """List the users who have a project (not those who have every project), with their version
+    in the ETag header, to send back in If-Match when replacing them."""
     try:
-        return await run_in_threadpool(access_control.list_project_members, project)
+        members = await run_in_threadpool(access_control.list_project_members, project)
     except ValueError as exc:
         raise unprocessable(exc) from exc
+    response.headers["ETag"] = _etag(access_control.project_members_version(members))
+    return members
 
 
 @router.put("/access/projects/{project}/members")
 async def set_project_members(
     project: Annotated[ProjectName, APIPath()],
     body: ProjectMembersUpdate,
+    response: Response,
     identity: UsersManager,
+    if_match: IfMatch = None,
 ) -> list[ProjectMember]:
-    """Replace the users who have a project (applies to their sessions at once)."""
+    """Replace the users who have a project (applies to their sessions at once); with If-Match,
+    refused (412) when they changed since the GET that gave this ETag."""
     try:
         members = await run_in_threadpool(
             access_control.set_project_members,
             project,
             [(item.user_id, item.permissions) for item in body.members],
             actor_of(identity),
+            _if_match(if_match),
         )
+    except access_control.StaleVersion as exc:
+        raise _stale(exc) from exc
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Members of project %s changed by %s", project, identity.client)
+    response.headers["ETag"] = _etag(access_control.project_members_version(members))
     return members
 
 
@@ -166,25 +198,35 @@ async def set_project_members(
 
 
 @router.get("/oidc/mappings", tags=["sso"])
-async def oidc_mappings(request: Request, identity: UsersManager) -> OidcMappingCatalog:
-    """List the OIDC mappings, and the OIDC settings that use them."""
+async def oidc_mappings(
+    request: Request, response: Response, identity: UsersManager
+) -> OidcMappingCatalog:
+    """List the OIDC mappings, and the OIDC settings that use them, with the version of the
+    mappings in the ETag header, to send back in If-Match when replacing them."""
     settings = await run_in_threadpool(app_settings.effective_settings)
+    mappings = await run_in_threadpool(access_control.list_oidc_mappings)
+    response.headers["ETag"] = _etag(access_control.oidc_mappings_version(mappings))
     return OidcMappingCatalog.model_validate(
         {
             "oidc_enabled": await current_oidc(request) is not None,
             "roles_claim": settings.oidc_roles_claim,
             "admin_groups": sorted(access_control.parse_groups(settings.oidc_admin_groups)),
-            "mappings": await run_in_threadpool(access_control.list_oidc_mappings),
+            "mappings": mappings,
         }
     )
 
 
 @router.put("/oidc/mappings", tags=["sso"])
 async def set_oidc_mappings(
-    request: Request, body: OidcMappingsUpdate, identity: UsersManager
+    request: Request,
+    body: OidcMappingsUpdate,
+    response: Response,
+    identity: UsersManager,
+    if_match: IfMatch = None,
 ) -> OidcMappingCatalog:
     """Replace the OIDC mappings (applies at once to the OIDC users, by their claims of the last
-    login); a change that removes the last holder of users.manage is refused."""
+    login); a change that removes the last holder of users.manage is refused, and with
+    If-Match, a change made since the GET that gave this ETag (412)."""
     try:
         await run_in_threadpool(
             access_control.set_oidc_mappings,
@@ -198,11 +240,14 @@ async def set_oidc_mappings(
                 for item in body.mappings
             ],
             actor_of(identity),
+            _if_match(if_match),
         )
+    except access_control.StaleVersion as exc:
+        raise _stale(exc) from exc
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("OIDC mappings changed by %s", identity.client)
-    return await oidc_mappings(request, identity)
+    return await oidc_mappings(request, response, identity)
 
 
 # ── OIDC settings ─────────────────────────────────────────────────────────────

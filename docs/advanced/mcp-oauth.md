@@ -41,6 +41,7 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http on loca
 Whatever the method used, the MCP server picks up the changes (within 30 seconds).
 Enabled without the URL of the MCP endpoint, the login is suspended: the Controller server starts, logs a warning, and the **Tokens** page asks for the URL, which turns the login on once saved.
 When you turn the MCP OAuth login off, the grants are suspended: the MCP server refuses the tokens already issued at once, and accepts them again when the login is turned back on (a client whose refresh token has expired in the meantime must log in again). To cut every client for good, use **Revoke all** (see [Administration](#administration)).
+A grant is bound to the URL of the MCP endpoint it was issued for: when you change this URL, the tokens already issued are refused, and every client must log in again.
 
 Behind a reverse proxy, publish these public paths:
 
@@ -52,13 +53,21 @@ Behind a reverse proxy, publish these public paths:
 The issuer must be in `https`: the Controller server refuses to start with an `http` URL outside localhost.
 
 By default, a client may only send the browser back to the loopback interface of the workstation (`127.0.0.1`,
-`localhost`, `::1`, in http or https). When the callback address is not on the loopback interface
-(for example `https://vscode.dev/redirect`), its host names can be listed in `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS`.
-The return scheme may also be neither http nor https, for example **cursor**://localhost/redirect:
-such schemes are listed in `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`.
+`localhost`, `::1`, in http or https). Any other site never receives a code: otherwise, anyone
+could register a client that sends the browser back to their own site, and receive the code of a
+user who follows their link to `/authorize`.
+
+A refused address is dropped, not the client: VS Code also registers `https://vscode.dev/redirect`
+next to its loopback address, which is kept, so VS Code and Claude Code need nothing listed. A
+client is refused (`invalid_redirect_uri`) only when none of its addresses is accepted.
+
+For a client that only comes back through a website, list its host names in
+`SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https only). List only trusted hosts: every path of a listed
+host is accepted. The return scheme may also be neither http nor https, for example
+**cursor**://localhost/redirect: such schemes are listed in `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES`.
 
 ```bash
-SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=vscode.dev     # https only
+SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS=mcp-client.example.com     # https only
 SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES=cursor
 ```
 
@@ -99,7 +108,8 @@ A request left without an answer expires after 10 minutes.
 
 An access token acts as a [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) of
 the user who approved the client: the projects the user may read, with reports and proposals
-saved only on those of `reports.write`. The rights are read again at each request.
+saved only on those of `reports.write`. The rights are read again at each request. It only
+reaches the MCP server: neither the REST API nor the pipeline routes of the Controller server.
 
 Approving a client needs a web session (a Bearer token never approves a client), and is refused
 (`403`) while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, like creating a personal MCP token.

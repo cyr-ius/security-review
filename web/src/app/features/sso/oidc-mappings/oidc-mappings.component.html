@@ -3,7 +3,7 @@
     <i class="bi bi-diagram-3 me-2" aria-hidden="true"></i>{{ 'mappings.title' | t }}
     <app-help-link topic="oidcMappings" />
   </h2>
-  @if (catalog.value(); as data) {
+  @if (stored(); as data) {
     @if (!data.oidc_enabled) {
       <div class="alert alert-info py-2" role="status">
         <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
@@ -28,7 +28,7 @@
 
   @if (catalog.error()) {
     <div class="alert alert-danger" role="alert">{{ 'mappings.loadError' | t }}</div>
-  } @else if ((catalog.value()?.mappings ?? []).length) {
+  } @else if ((stored()?.mappings ?? []).length) {
     <div class="table-responsive">
       <table class="table table-hover align-middle">
         <thead>
@@ -41,7 +41,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (mapping of catalog.value()?.mappings ?? []; track mapping.id) {
+          @for (mapping of stored()?.mappings ?? []; track mapping.id) {
             <tr>
               <td class="font-monospace access-name">{{ mapping.claim }}</td>
               <td>{{ mapping.roles.join(', ') || '—' }}</td>

@@ -22,7 +22,7 @@ In VS Code (`.vscode/`):
 
 | `launch.json` configuration | Role |
 |---|---|
-| **Controller (debug: FastAPI + Angular)** | Controller server on port 8080 and `ng serve` on port 4200 under the debugger, then Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints; hot reload of the page, restart of the Controller server on each save of `src/` (`scripts/dev_reload.py`), migrates the database and shows the password of the initial `admin` account at first start |
+| **Controller (debug: FastAPI + Angular)** | Controller server on port 8080 and `ng serve` on port 4200 under the debugger, then Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints; hot reload of the page, restart of the Controller server on each save of `src/` (`scripts/dev_reload.py`), migrates the database and shows the password of the initial `admin` account at first start. To stay logged in across the restarts, set `SECREVIEW_SECRET_KEY` in your `.env` (ignored by git), for example to the output of `openssl rand -hex 32` |
 | **MCP server (debug, port 8000)** | Runs the **Database upgrade** task, then the HTTP MCP server under the debugger |
 | **Controller CLI (prompt for arguments)** | A Controller server command (`db status`, `token list`…) under the debugger |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` with live reload, opens the site in the browser |

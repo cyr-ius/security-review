@@ -681,6 +681,30 @@ def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monke
     assert grants_of(joe["id"])["reports.read"] == frozenset({"shop", "vault"})
 
 
+def test_an_autojoin_counts_the_projects_once_added_with_those_of_the_oidc_mappings(monkeypatch):
+    """A join made meanwhile (a concurrent request) and the projects of the OIDC mappings are
+    counted: the join is refused rather than leaving the account beyond MAX_SESSION_PROJECTS."""
+    known_projects("mapped", "crm", "shop")
+    role = access_control.create_role("Joiner", [Permission.PROJECTS_AUTOJOIN])
+    joe = web_users.create_user("joe", None, auth_source="oidc")
+    web_users.update_user(joe["id"], [role["id"]])
+    map_claim("devs", "reader", ["mapped"])
+    with session_scope() as session:
+        access_control.sync_oidc_claims(session, joe["id"], {"devs"}, _settings())
+    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    add = access_control.add_user_project
+
+    def concurrent_join(session, user_id, project, actor=None):
+        add(session, user_id, "crm", actor)
+        add(session, user_id, project, actor)
+
+    monkeypatch.setattr(access_control, "add_user_project", concurrent_join)
+
+    with pytest.raises(ValueError, match="already reads 2 projects"):
+        access_control.request_project("shop", "joe")
+    assert grants_of(joe["id"])["reports.read"] == frozenset({"mapped"})
+
+
 def test_creating_a_project_settles_its_pending_request():
     carol = creator()
     access_control.request_project("mobile-app")

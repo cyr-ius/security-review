@@ -27,7 +27,7 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `settings.manage` | Modifier les réglages généraux, le proxy sortant et la base OSV | |
 | `users.manage` | Gérer les utilisateurs et leurs rôles, les rôles, les correspondances OIDC et la connexion OIDC | |
 | `audit.read` | Lire le journal d'audit | |
-| `projects.create` | [Créer un projet](projects.md#creation-dun-projet), valider les projets demandés par les agents et [bloquer l'adhésion automatique](projects.md#blocage-de-ladhesion-automatique) d'un projet qu'il lit | |
+| `projects.create` | [Créer un projet](projects.md#creation-dun-projet) et valider les projets demandés par les agents | |
 | `projects.delete` | [Supprimer un projet](projects.md#suppression-dun-projet) | |
 | `projects.autojoin` | [Rejoindre un projet existant](projects.md#rejoindre-un-projet) aussitôt, avec `reports.read` et `reports.write`, quand l'agent le demande, sauf si [son adhésion automatique est bloquée](projects.md#blocage-de-ladhesion-automatique) | |
 

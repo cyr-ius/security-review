@@ -60,6 +60,7 @@ from pydantic import AnyUrl
 from sqlalchemy import delete, update
 from sqlmodel import Session, col, func, or_, select
 
+from .. import app_settings
 from ..config import Settings, get_settings, redirect_hosts, redirect_schemes
 from ..observability import audit
 from ..observability.audit import AuditAction
@@ -408,7 +409,10 @@ class OAuthProvider:
                 logger.warning("Replaced OAuth refresh token reused: grant %s revoked", grant.id)
                 _revoke(session, grant, AuditAction.OAUTH_REFRESH_REUSED, audit.ANONYMOUS_ACTOR)
                 return None
-            if _user_ok(session, grant.user_id) is None:
+            # Issued for another URL of the MCP endpoint: the client logs in again
+            if _user_ok(session, grant.user_id) is None or not app_settings.mcp_oauth_accepts(
+                session, grant.resource
+            ):
                 return None
             return RefreshToken(
                 token=token,

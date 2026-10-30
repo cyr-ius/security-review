@@ -22,9 +22,9 @@ of a user (`projects[].permissions`, at least one) and with every project
 
 `users.manage` also covers the OIDC settings, since they decide who gets which role. The
 `admin` role, with the reading, the writing and the triage of every project, is also given by a mapping
-created at the first login of a user who holds a value of `SECREVIEW_OIDC_ADMIN_GROUPS`
-([OIDC](oidc.md)); a mapping that already names this value is left as an administrator changed
-it. The values of the roles claim that no mapping names are ignored.
+created at the login of a user who holds a value of `SECREVIEW_OIDC_ADMIN_GROUPS`
+([OIDC](oidc.md)) while no mapping names it; a mapping that already names this value is left as
+an administrator changed it, a deleted one is created again. The values of the roles claim that no mapping names are ignored.
 
 ## Roles and users
 
@@ -60,6 +60,20 @@ the users and the OIDC mappings that give it (a role used by a token cannot be d
 curl -X PUT https://secreview.example.com/api/v1/access/projects/billing/members \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"members": [{"user_id": 7}, {"user_id": 9, "permissions": ["reports.read", "findings.triage"]}]}'
+```
+
+The `GET` of the members of a project and of the OIDC mappings returns the version of the list in
+the `ETag` header. Send it back in `If-Match` with the `PUT` that replaces the list: when another
+administrator changed it since, the `PUT` is refused (`412`) instead of silently undoing that
+change; reload the list and try again. Without `If-Match` (or with `*`), the list is replaced
+whatever it holds. The web interface always sends it.
+
+```bash
+etag=$(curl -s -o /dev/null -D - https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | awk 'tolower($1) == "etag:" {print $2}' | tr -d '\r')
+curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -H "If-Match: $etag" -d '{"mappings": [{"claim": "secops", "role_ids": [2]}]}'
 ```
 
 Every change is written to the [audit log](audit-log.md) (`role.*`, `user.roles_changed`,
@@ -129,7 +143,7 @@ A user holding `projects.autojoin` joins an existing project through the `reques
 tool of its agent: the Controller server adds the project to the account with `reports.read`
 and `reports.write`, settles its pending request of the project and writes `project.joined` to the audit log. A
 user who already reads 200 projects is refused. `PUT /api/v1/projects/{project}/autojoin`
-blocks (`true`) or allows again (`false`) this autojoin, with `projects.create`, from a session
+blocks (`true`) or allows again (`false`) this autojoin, with `users.manage`, from a session
 of the web interface only, for a project the caller reads (another one is `404`). A blocked
 project shows `"autojoin_blocked": true` in `GET /api/v1/projects`; the users who already
 joined it keep their access. Each change is written to the audit log

@@ -22,6 +22,7 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
+from mcp.shared.auth_utils import check_resource_allowed
 from pydantic import SecretStr
 from sqlmodel import Session, select
 
@@ -209,10 +210,15 @@ def mcp_oauth_resource() -> str | None:
         return row.value if row is not None else None
 
 
-def mcp_oauth_on(session: Session) -> bool:
-    """Whether the controller serves the OAuth login of the MCP clients (MCP_OAUTH_RESOURCE
-    stored). While it is off, the grants are kept but their access tokens are refused."""
-    return session.get(AppSetting, MCP_OAUTH_RESOURCE) is not None
+def mcp_oauth_accepts(session: Session, resource: str | None) -> bool:
+    """Whether the tokens of a grant issued for this resource (RFC 8707) are valid now: the
+    OAuth login is on and the resource is the stored MCP endpoint or below it, so a grant issued
+    for another URL of the endpoint needs a new login. While the login is off, the grants are
+    kept but their tokens are refused."""
+    row = session.get(AppSetting, MCP_OAUTH_RESOURCE)
+    if row is None:
+        return False
+    return resource is None or check_resource_allowed(resource, row.value)
 
 
 def _mcp_oauth_overrides(stored: dict[str, str]) -> dict[str, Any]:

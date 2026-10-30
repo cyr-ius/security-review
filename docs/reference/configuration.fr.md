@@ -96,7 +96,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | URL publique de `/api/v1/auth/oidc/callback`, déclarée chez le fournisseur |
 | `SECREVIEW_OIDC_SCOPE` | `openid profile email` | Scopes demandés (doit contenir `openid`) |
 | `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) ; ses valeurs sont comparées aux [correspondances OIDC](../advanced/oidc.md#correspondances-oidc) |
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Valeurs du claim des rôles, séparées par des virgules, associées à `admin`, avec la lecture, l'écriture et le triage de tous les projets, à la première connexion d'un utilisateur qui en porte une, quand aucune correspondance ne les nomme encore (premier administrateur) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Valeurs du claim des rôles, séparées par des virgules, associées à `admin`, avec la lecture, l'écriture et le triage de tous les projets, à la connexion d'un utilisateur qui en porte une, quand aucune correspondance ne les nomme (premier administrateur) ; une correspondance supprimée revient à la connexion suivante d'un tel utilisateur |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim qui nomme le [compte OIDC](../advanced/oidc.md#comptes-oidc) (comparaison exacte, sans repli) ; label de session `oidc:<valeur>` |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le compte OIDC à sa première connexion si ses correspondances OIDC lui donnent une permission ; à `false`, un administrateur crée chaque compte OIDC dans **Utilisateurs** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Nom affiché sur le bouton de connexion (40 caractères au plus) |
@@ -112,7 +112,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Durée d'un jeton d'accès (5 à 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Durée d'un jeton de rafraîchissement (1 à 365 jours), prolongée à chaque rafraîchissement ; `SECREVIEW_TOKEN_MAX_DAYS`, s'il est défini, borne toute l'autorisation depuis son approbation |
 | `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients enregistrés à la fois ; un client que personne n'a autorisé dans la journée est supprimé |
-| `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` | — | Hôtes joints en https acceptés comme URI de redirection d'un client, séparés par des virgules (`vscode.dev`) ; vide : l'interface loopback seulement |
+| `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` | — | Hôtes joints en https acceptés comme URI de redirection d'un client, séparés par des virgules (`mcp-client.example.com`), hôtes de confiance seulement (tous les chemins sont acceptés) ; vide : l'interface loopback seulement |
 | `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` | — | Schémas d'URI personnalisés acceptés comme URI de redirection, séparés par des virgules (`cursor`) ; vide : aucun |
 
 ### Proxy sortant

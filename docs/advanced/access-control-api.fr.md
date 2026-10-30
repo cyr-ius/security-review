@@ -23,9 +23,10 @@ utilisateur (`projects[].permissions`, au moins un) et avec tous les projets
 
 `users.manage` couvre aussi les réglages OIDC, puisqu'ils décident qui reçoit quel rôle. Le rôle
 `admin`, avec la lecture, l'écriture et le triage de tous les projets, est aussi donné par une correspondance
-créée à la première connexion d'un utilisateur qui porte une valeur de
-`SECREVIEW_OIDC_ADMIN_GROUPS` ([OIDC](oidc.md)) ; une correspondance qui nomme déjà cette valeur
-est laissée telle qu'un administrateur l'a modifiée. Les valeurs du claim des rôles qu'aucune
+créée à la connexion d'un utilisateur qui porte une valeur de
+`SECREVIEW_OIDC_ADMIN_GROUPS` ([OIDC](oidc.md)) tant qu'aucune correspondance ne la nomme ; une
+correspondance qui nomme déjà cette valeur est laissée telle qu'un administrateur l'a modifiée,
+une correspondance supprimée est recréée. Les valeurs du claim des rôles qu'aucune
 correspondance ne nomme sont ignorées.
 
 ## Rôles et utilisateurs
@@ -63,6 +64,20 @@ utilisateurs et des correspondances OIDC qui le donnent (un rôle utilisé par u
 curl -X PUT https://secreview.example.com/api/v1/access/projects/billing/members \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"members": [{"user_id": 7}, {"user_id": 9, "permissions": ["reports.read", "findings.triage"]}]}'
+```
+
+Le `GET` des membres d'un projet et des correspondances OIDC renvoie la version de la liste dans
+l'en-tête `ETag`. Renvoyez-la dans `If-Match` avec le `PUT` qui remplace la liste : si un autre
+administrateur l'a modifiée entre-temps, le `PUT` est refusé (`412`) au lieu d'annuler sans le
+dire ce changement ; rechargez la liste et recommencez. Sans `If-Match` (ou avec `*`), la liste
+est remplacée quel que soit son contenu. L'interface web l'envoie toujours.
+
+```bash
+etag=$(curl -s -o /dev/null -D - https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | awk 'tolower($1) == "etag:" {print $2}' | tr -d '\r')
+curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -H "If-Match: $etag" -d '{"mappings": [{"claim": "secops", "role_ids": [2]}]}'
 ```
 
 Chaque changement est écrit dans le [journal d'audit](audit-log.md) (`role.*`,
@@ -132,7 +147,7 @@ Un utilisateur doté de `projects.autojoin` rejoint un projet existant par l'out
 `request_project` de son agent : le serveur Controller ajoute le projet au compte avec
 `reports.read` et `reports.write`, règle sa demande en attente pour ce projet et écrit `project.joined` dans le journal d'audit. Un
 utilisateur qui lit déjà 200 projets est refusé. `PUT /api/v1/projects/{project}/autojoin` bloque
-(`true`) ou autorise de nouveau (`false`) cette adhésion automatique, avec `projects.create`,
+(`true`) ou autorise de nouveau (`false`) cette adhésion automatique, avec `users.manage`,
 depuis une session de l'interface web uniquement, pour un projet que l'appelant lit (un autre
 donne `404`). Un projet bloqué affiche `"autojoin_blocked": true` dans `GET /api/v1/projects` ;
 les utilisateurs qui l'ont déjà rejoint gardent leur accès. Chaque changement est écrit dans le

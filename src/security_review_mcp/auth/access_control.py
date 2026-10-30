@@ -35,9 +35,9 @@ users.
   saves reports there. A project already known (see storage.projects) is refused: the
   permission never grants the reading of an existing project.
 - A user with ``projects.autojoin`` whose MCP agent requests a project that already exists
-  joins it at once (see request_project), with its review. A user with ``projects.create``
+  joins it at once (see request_project), with its review. A user with ``users.manage``
   who reads a project may block this autojoin on it (see set_autojoin_blocked): the requests
-  then wait for an approval as the others do.
+  then wait for an approval as the others do. ``projects.create`` never blocks nor allows it.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
   delete_project): its reports, findings and comments, the project of the users, of the mappings
   and of the tokens (a token left without project is revoked). The audit log keeps its events.
@@ -58,6 +58,7 @@ token the permissions of its role and its per-project permissions on its project
 (role_token_grants), both read at each request. A role used by a token cannot be deleted.
 """
 
+import hashlib
 import json
 import logging
 from collections.abc import Iterable, Mapping
@@ -187,6 +188,22 @@ class AccessGrantDenied(PermissionError):
 
 class EnrollmentThrottled(ValueError):
     """Too many project requests from one user or token."""
+
+
+class StaleVersion(ValueError):
+    """The list changed since the caller read it: replacing it would undo a change it did not
+    see (see set_project_members, set_oidc_mappings)."""
+
+
+def _version(items: Any) -> str:
+    """Version of a stored list, for a caller to replace it only as it read it."""
+    return hashlib.sha256(json.dumps(items, sort_keys=True).encode()).hexdigest()[:32]
+
+
+def _check_version(current: str, expected: str | None) -> None:
+    """Refuse a replacement read from another ``current`` version (None: not checked)."""
+    if expected is not None and expected != current:
+        raise StaleVersion("The list changed since it was read: reload it and try again")
 
 
 # What a user may do: each permission, with its projects (None: every project)
@@ -788,8 +805,17 @@ def set_user_roles(
 
 
 def _check_reach(session: Session, user_id: int) -> None:
-    """Refuse a user with more than MAX_SESSION_PROJECTS projects."""
+    """Refuse a user with more than MAX_SESSION_PROJECTS projects.
+
+    The row of the user stays locked until the end of the transaction (PostgreSQL; SQLite
+    serializes the writers): two concurrent additions to one user are counted one after the
+    other, never both against the projects read before either. FOR NO KEY UPDATE: it does not
+    wait for the key share locks of the rows just added (no deadlock between two additions).
+    """
     session.flush()
+    session.exec(
+        select(WebUser.id).where(WebUser.id == user_id).with_for_update(key_share=True)
+    ).first()
     reached = session.exec(
         select(func.count()).select_from(UserProject).where(UserProject.user_id == user_id)
     ).one()
@@ -964,14 +990,24 @@ def _members_public(session: Session, project: Project) -> list[dict[str, Any]]:
     ]
 
 
+def project_members_version(members: list[dict[str, Any]]) -> str:
+    """Version of the members of a project (list_project_members), for set_project_members."""
+    return _version(sorted((item["user_id"], item["permissions"]) for item in members))
+
+
 def set_project_members(
-    project: str, members: Iterable[tuple[int, Iterable[str]]], actor: str | None = None
+    project: str,
+    members: Iterable[tuple[int, Iterable[str]]],
+    actor: str | None = None,
+    expected_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """Replace the users who have ``project``: ``members`` holds (user id, per-project
-    permissions).
+    permissions). With ``expected_version`` (project_members_version of the members the caller
+    read), a change made since then is not undone: the replacement is refused.
 
     Raises:
         NotFoundError: Unknown project or user.
+        StaleVersion: The members changed since ``expected_version``.
         ValueError: Invalid project or permission, more than MAX_PROJECT_MEMBERS members, or a
             user who would have more than MAX_SESSION_PROJECTS projects.
     """
@@ -983,6 +1019,7 @@ def set_project_members(
         raise ValueError(f"At most {MAX_PROJECT_MEMBERS} members can be set at once")
     with session_scope() as session:
         row = _get_project(session, project)
+        _check_version(project_members_version(_members_public(session, row)), expected_version)
         for user_id in wanted:
             if session.get(WebUser, user_id) is None:
                 raise NotFoundError(f"Web user {user_id} not found")
@@ -1077,7 +1114,7 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
     """Settle ``project`` for the web user ``owner`` whose token already reaches every project:
     an unknown project is created as by request_project when the user holds
     ``projects.create``, given to the user to review only, so that the user keeps reaching it
-    without every project.
+    without every project. A creation counts in the rate limit of the project requests.
 
     Returns:
         ``project`` and ``status`` (``created`` or ``accessible``), with ``next_steps`` when
@@ -1085,6 +1122,7 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
 
     Raises:
         ValueError: Invalid project name.
+        EnrollmentThrottled: Too many project requests from this user.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
     with session_scope() as session:
@@ -1094,6 +1132,8 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
             and not project_exists(session, cleaned)
             and allows(user_grants(session, user.id), Permission.PROJECTS_CREATE)  # type: ignore[arg-type]
         ):
+            if _enrollment_limit.hit(owner) > MAX_ENROLLMENTS_PER_REQUESTER:
+                raise EnrollmentThrottled("Too many project requests; retry later")
             _create_project(session, user.id, cleaned, actor)  # type: ignore[arg-type]
             return {
                 "project": cleaned,
@@ -1269,13 +1309,16 @@ def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -
     Raises:
         ValueError: The user already reads MAX_SESSION_PROJECTS projects.
     """
-    reached = scope(user_grants(session, user_id), Permission.REPORTS_READ)
-    if reached is not None and len(reached) >= MAX_SESSION_PROJECTS:
+    # Counted once added, the user locked (_check_reach), with the projects of its OIDC
+    # mappings: a concurrent join is seen, and the transaction is rolled back
+    try:
+        add_user_project(session, user_id, project, actor)
+        user_grants(session, user_id)
+    except ValueError:
         raise ValueError(
             f"The user already reads {MAX_SESSION_PROJECTS} projects; ask an administrator "
             "for access"
-        )
-    add_user_project(session, user_id, project, actor)
+        ) from None
     for pending in session.exec(
         select(ProjectEnrollment).where(
             ProjectEnrollment.project == project, ProjectEnrollment.requested_by_user_id == user_id
@@ -1615,20 +1658,33 @@ def list_oidc_mappings() -> list[dict[str, Any]]:
         return _list_mappings(session)
 
 
+def oidc_mappings_version(mappings: list[dict[str, Any]]) -> str:
+    """Version of the OIDC mappings (list_oidc_mappings), for set_oidc_mappings."""
+    return _version(
+        [
+            [item["claim"], item["role_ids"], item["all_projects_permissions"], item["projects"]]
+            for item in sorted(mappings, key=lambda item: item["claim"])
+        ]
+    )
+
+
 def set_oidc_mappings(
     mappings: Iterable[
         tuple[str, Iterable[int], Iterable[str], Iterable[tuple[str, Iterable[str]]]]
     ],
     actor: str | None = None,
+    expected_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """Replace the OIDC mappings: ``mappings`` holds (claim value, role ids, per-project
     permissions on every project, (project, per-project permissions) pairs). A project not known
     yet is kept and ignored until it is created. The change applies at once to the OIDC users
     (their claims of the last login); a change that removes the last holder of ``users.manage``
-    is refused.
+    is refused. With ``expected_version`` (oidc_mappings_version of the mappings the caller
+    read), a change made since then is not undone: the replacement is refused.
 
     Raises:
         NotFoundError: Unknown role.
+        StaleVersion: The mappings changed since ``expected_version``.
         ValueError: Invalid claim, project or permission, a claim given twice, a mapping that
             gives nothing, more than MAX_PROJECTS_PER_TOKEN projects or MAX_ROLES roles in a
             mapping, or more than MAX_OIDC_MAPPINGS mappings.
@@ -1637,6 +1693,7 @@ def set_oidc_mappings(
     if len(items) > MAX_OIDC_MAPPINGS:
         raise ValueError(f"At most {MAX_OIDC_MAPPINGS} OIDC mappings can be stored")
     with session_scope() as session:
+        _check_version(oidc_mappings_version(_list_mappings(session)), expected_version)
         cleaned: dict[str, tuple[list[int], list[str], list[dict[str, Any]]]] = {}
         for claim, role_ids, every, projects in items:
             value = clean_claim(claim)

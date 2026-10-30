@@ -43,7 +43,7 @@ export class ProjectMembersComponent {
 
   /** Rows being edited, reset from the stored members. */
   readonly drafts = linkedSignal<MemberDraft[]>(() =>
-    (this.members.value() ?? []).map((item) => ({
+    (this.members.value()?.data ?? []).map((item) => ({
       userId: item.user_id,
       permissions: item.permissions,
     })),
@@ -80,7 +80,7 @@ export class ProjectMembersComponent {
         .map((item) => `${item.userId}:${item.permissions.join('+')}`)
         .sort()
         .join(',');
-    const stored = (this.members.value() ?? []).map((item) => ({
+    const stored = (this.members.value()?.data ?? []).map((item) => ({
       userId: item.user_id,
       permissions: item.permissions,
     }));
@@ -141,6 +141,7 @@ export class ProjectMembersComponent {
         this.api.setProjectMembers(
           this.project(),
           this.drafts().map((item) => ({ user_id: item.userId, permissions: item.permissions })),
+          this.members.value()?.version ?? null,
         ),
       );
       this.message.set(msg('projectMembers.saved'));

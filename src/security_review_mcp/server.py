@@ -994,8 +994,9 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     label = state.get("auth_client")
     actor = audit.token_actor(label) if label is not None else None
     if allowed is None:
-        # A token of a user that reaches every project still creates the project
-        if state.get("auth_owner") is None:
+        # A token of a user that reaches every project still creates the project, unless the
+        # project requests are disabled
+        if state.get("auth_owner") is None or not get_settings().enrollment:
             return {"project": project, "status": "accessible"}
         adopted = access_control.adopt_project(project, state["auth_owner"], actor)
         logger.info("Project %s %s by %s", adopted["project"], adopted["status"], label)

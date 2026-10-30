@@ -8,6 +8,8 @@ export const access = defineMessages({
     'access.lastManager':
       'At least one user must keep the users.manage permission: change refused.',
     'access.notFound': 'This role, user or project no longer exists.',
+    'access.stale':
+      'Another administrator changed this list since it was loaded: it has been reloaded, check it and save again.',
     'access.failed': 'The management of the access failed.',
     'roles.subtitle':
       'Named sets of permissions on the whole Controller server, given to users and by the OIDC mappings',
@@ -124,6 +126,8 @@ export const access = defineMessages({
     'access.lastManager':
       'Au moins un utilisateur doit garder la permission users.manage : modification refusée.',
     'access.notFound': "Ce rôle, cet utilisateur ou ce projet n'existe plus.",
+    'access.stale':
+      'Un autre administrateur a modifié cette liste depuis son chargement : elle a été rechargée, vérifiez-la puis enregistrez de nouveau.',
     'access.failed': 'La gestion des accès a échoué.',
     'roles.subtitle':
       'Ensembles nommés de droits sur tout le serveur Controller, donnés aux utilisateurs et par les correspondances OIDC',
@@ -241,6 +245,8 @@ export const access = defineMessages({
     'access.lastManager':
       'Al menos un usuario debe conservar el permiso users.manage: cambio rechazado.',
     'access.notFound': 'Este rol, usuario o proyecto ya no existe.',
+    'access.stale':
+      'Otro administrador modificó esta lista desde que se cargó: se ha recargado, revísela y guarde de nuevo.',
     'access.failed': 'La gestión de los accesos falló.',
     'roles.subtitle':
       'Conjuntos nombrados de permisos sobre todo el servidor Controller, asignados a usuarios y por las correspondencias OIDC',

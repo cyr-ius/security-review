@@ -54,6 +54,8 @@ export class OidcMappingsComponent {
   private readonly i18n = inject(I18nService);
 
   readonly catalog = rxResource({ stream: () => this.api.oidcMappings() });
+  /** The stored mappings and the OIDC settings, as read with the version of the mappings. */
+  readonly stored = computed(() => this.catalog.value()?.data);
   readonly roles = rxResource({ stream: () => this.api.roles() });
 
   readonly mappingModel = signal<MappingFormModel>({ ...EMPTY_MAPPING });
@@ -155,7 +157,7 @@ export class OidcMappingsComponent {
 
   /** The stored mappings, as sent back to the API. */
   private current(): OidcRoleMappingWrite[] {
-    return (this.catalog.value()?.mappings ?? []).map((item) => ({
+    return (this.stored()?.mappings ?? []).map((item) => ({
       claim: item.claim,
       role_ids: item.role_ids,
       all_projects_permissions: item.all_projects_permissions,
@@ -169,7 +171,9 @@ export class OidcMappingsComponent {
     this.error.set(null);
     this.message.set(null);
     try {
-      await firstValueFrom(this.api.setOidcMappings(mappings));
+      await firstValueFrom(
+        this.api.setOidcMappings(mappings, this.catalog.value()?.version ?? null),
+      );
       this.message.set(done);
       return true;
     } catch (error: unknown) {

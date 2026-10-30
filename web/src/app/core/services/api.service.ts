@@ -1,6 +1,6 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import {
   About,
   AccessRole,
@@ -80,6 +80,7 @@ import {
   OidcMappingCatalog,
   OidcRoleMappingWrite,
   ProjectMember,
+  Versioned,
 } from '../models/api.models';
 
 /** Base path of the REST API (served by the same origin as the application). */
@@ -183,21 +184,26 @@ export class ApiService {
     return this.http.get<KnownProject[]>(`${API_URL}/access/projects`, { params });
   }
 
-  /** Users who have a project (users.manage). */
-  projectMembers(project: string): Observable<ProjectMember[]> {
-    return this.http.get<ProjectMember[]>(
-      `${API_URL}/access/projects/${encodeURIComponent(project)}/members`,
-    );
+  /** Users who have a project (users.manage), with their version. */
+  projectMembers(project: string): Observable<Versioned<ProjectMember[]>> {
+    return this.http
+      .get<ProjectMember[]>(`${API_URL}/access/projects/${encodeURIComponent(project)}/members`, {
+        observe: 'response',
+      })
+      .pipe(map(versioned));
   }
 
-  /** Replace the users who have a project (users.manage). */
+  /** Replace the users who have a project (users.manage); refused (412) when they changed
+   * since ``version`` was read. */
   setProjectMembers(
     project: string,
     members: { user_id: number; permissions: Permission[] }[],
+    version: string | null,
   ): Observable<ProjectMember[]> {
     return this.http.put<ProjectMember[]>(
       `${API_URL}/access/projects/${encodeURIComponent(project)}/members`,
       { members },
+      { headers: ifMatch(version) },
     );
   }
 
@@ -723,15 +729,36 @@ export class ApiService {
     return this.http.delete<void>(`${API_URL}/roles/${id}`);
   }
 
-  /** The OIDC mappings of the roles claim, with the OIDC settings that use them. */
-  oidcMappings(): Observable<OidcMappingCatalog> {
-    return this.http.get<OidcMappingCatalog>(`${API_URL}/oidc/mappings`);
+  /** The OIDC mappings of the roles claim, with the OIDC settings that use them and the
+   * version of the mappings. */
+  oidcMappings(): Observable<Versioned<OidcMappingCatalog>> {
+    return this.http
+      .get<OidcMappingCatalog>(`${API_URL}/oidc/mappings`, { observe: 'response' })
+      .pipe(map(versioned));
   }
 
-  /** Replace every OIDC mapping (applies at once to the OIDC users). */
-  setOidcMappings(mappings: OidcRoleMappingWrite[]): Observable<OidcMappingCatalog> {
-    return this.http.put<OidcMappingCatalog>(`${API_URL}/oidc/mappings`, { mappings });
+  /** Replace every OIDC mapping (applies at once to the OIDC users); refused (412) when they
+   * changed since ``version`` was read. */
+  setOidcMappings(
+    mappings: OidcRoleMappingWrite[],
+    version: string | null,
+  ): Observable<OidcMappingCatalog> {
+    return this.http.put<OidcMappingCatalog>(
+      `${API_URL}/oidc/mappings`,
+      { mappings },
+      { headers: ifMatch(version) },
+    );
   }
+}
+
+/** The body of a GET with its version (ETag header). */
+function versioned<T>(response: HttpResponse<T>): Versioned<T> {
+  return { data: response.body as T, version: response.headers.get('ETag') };
+}
+
+/** If-Match header of a PUT that replaces a list read at ``version`` (none when unknown). */
+function ifMatch(version: string | null): HttpHeaders {
+  return version ? new HttpHeaders({ 'If-Match': version }) : new HttpHeaders();
 }
 
 /** Save a downloaded blob as a file (the API needs the bearer header, so no plain link). */

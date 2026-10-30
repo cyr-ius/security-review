@@ -22,8 +22,7 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "SECREVIEW_LOG_LEVEL": "DEBUG",
-        "SECREVIEW_SECRET_KEY": "my-secret-key-must-have--at-least-32-bytes"
+        "SECREVIEW_LOG_LEVEL": "DEBUG"
       },
       "console": "integratedTerminal",
       "justMyCode": false,

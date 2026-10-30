@@ -19,7 +19,7 @@ leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
 | Moyen | Qui | Résultat |
 |---|---|---|
 | Bouton **Nouveau projet** de la page **Projets** | Une personne qui a `projects.create` | Créé aussitôt ([création d'un projet](#creation-dun-projet)) |
-| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt, lu par le développeur, s'il peut créer des projets (même si son jeton atteint déjà tous les projets) ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
+| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt, lu par le développeur, s'il peut créer des projets (même si son jeton atteint déjà tous les projets, sauf avec `SECREVIEW_ENROLLMENT=false`) ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | Premier rapport enregistré pour lui | Un jeton qui l'atteint (pipeline, jeton pour **Tous les projets**) | Le projet apparaît avec son premier rapport |
 
 Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première revue.
@@ -77,8 +77,9 @@ faut pour cela `projects.create`.
 
 ## Blocage de l'adhésion automatique
 
-Avec la permission `projects.create`, un bouton cadenas apparaît sur chaque ligne de la page
-**Projets**, pour les projets que vous lisez. Il **bloque l'adhésion automatique** au projet : les
+Avec la permission `users.manage`, un bouton cadenas apparaît sur chaque ligne de la page
+**Projets**, pour les projets que vous lisez : `projects.create` seule ne bloque ni n'autorise
+l'adhésion automatique. Il **bloque l'adhésion automatique** au projet : les
 titulaires de `projects.autojoin` déposent alors une demande qui attend une validation, comme les
 autres. Le projet affiche le badge **Adhésion automatique bloquée** ; le bouton cadenas ouvert
 autorise de nouveau l'adhésion automatique. Les utilisateurs qui ont déjà rejoint le projet

@@ -284,6 +284,26 @@ def test_a_tokens_manager_revokes_every_grant_even_while_the_login_is_suspended(
     assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
 
 
+def test_a_grant_issued_for_another_url_of_the_mcp_endpoint_is_refused(controller, monkeypatch):
+    client_id = register(controller).json()["client_id"]
+    access = log_in(controller, client_id, session(controller))
+    refresh = "r" * 43
+    with session_scope() as db:
+        grant = db.exec(select(OAuthGrant)).one()
+        grant.refresh_token_hash = oauth_server.digest(refresh)
+        db.add(grant)
+
+    monkeypatch.setattr(get_settings(), "mcp_url", "http://127.0.0.1:9000/mcp")
+    app_settings.sync_mcp_oauth()
+
+    assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
+    renewed = token(
+        controller, grant_type="refresh_token", refresh_token=refresh, client_id=client_id
+    )
+    assert renewed.status_code == 400
+    assert renewed.json()["error"] == "invalid_grant"
+
+
 def test_personal_tokens_disabled_refuses_the_oauth_login(controller, monkeypatch):
     client_id = register(controller).json()["client_id"]
     headers = session(controller)

@@ -29,11 +29,10 @@ exists exactly when the change was committed.
 | `oidc.mappings_changed` | An administrator replaces the [OIDC mappings](../usage/sso.md#oidc-mappings) (claims added and removed), a login maps a value of `SECREVIEW_OIDC_ADMIN_GROUPS` (actor `oidc`), or the deletion of a project changes them |
 | `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (the user id and its `reports.read` and `reports.write` permissions in the details) |
 | `project.joined` | A user with `projects.autojoin` joins an existing project through `request_project` (actor: the token) (the user id and its `reports.read` and `reports.write` permissions in the details) |
-| `project.autojoin_changed` | A user with `projects.create` [blocks or allows again the autojoin](../usage/projects.md#blocking-the-autojoin) of a project (`blocked` in the details) |
+| `project.autojoin_changed` | A user with `users.manage` [blocks or allows again the autojoin](../usage/projects.md#blocking-the-autojoin) of a project (`blocked` in the details) |
 | `project.deleted` | A user with `projects.delete` [deletes a project](../usage/projects.md#deleting-a-project) (counts of reports, findings, members and tokens, OIDC mappings changed in the details) |
-| `user.roles_changed` | An administrator replaces the roles of an account (added and removed role ids); a login keeps the OIDC claims of the last holder of `users.manage` (actor `oidc`) |
+| `user.roles_changed` | An administrator replaces the roles of an account (added and removed role ids); a login keeps the OIDC claims of the last holder of `users.manage` (actor `oidc`). Events of older versions (`roles`: `role` or `role:project,project`, former direct roles) stay in the history |
 | `user.projects_changed` | An administrator replaces the projects of an account (or its permissions on every project), or the [members](../usage/projects.md#members) of a project, or a project request adds a project with its reading and writing (`project=permissions` of each project, projects removed) |
-| `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
 | `user.logout` | A web user logs out with **Log out** (address) |

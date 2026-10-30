@@ -75,7 +75,7 @@ export class StandardListComponent {
   private readonly editorDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editorDialog');
   private readonly viewerDialog = viewChild.required<ElementRef<HTMLDialogElement>>('viewerDialog');
 
-  readonly isAdmin = computed(() => this.auth.can('standards.manage'));
+  readonly canManage = computed(() => this.auth.can('standards.manage'));
   readonly catalog = rxResource({ stream: () => this.api.devStandards() });
   readonly query = signal('');
   readonly sort = new TableSort<StandardSortKey>(
