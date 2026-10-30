@@ -69,9 +69,10 @@
         },
         "background": {
           "activeBegin": true,
-          // The debugger gives up after 5 s without a begin or end event: match the first
-          // "Building..." line too, not only the rebuilds
-          "beginsPattern": "Building\\.\\.\\.|Changes detected",
+          // The debugger gives up after 5 s without a begin or end event, and ng serve no longer
+          // prints a "Building..." line (only an ANSI spinner): match the "> ng serve" line npm
+          // prints at once
+          "beginsPattern": "^> ng serve|Building\\.\\.\\.|Changes detected",
           "endsPattern": "Application bundle generation (complete|failed)"
         }
       }
