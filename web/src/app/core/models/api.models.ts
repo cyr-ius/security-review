@@ -1112,6 +1112,13 @@ export interface AccessRoleWrite {
 /** A known project given to a web user (body of the users routes). */
 export type UserProjectBinding = UserProjectItem;
 
+/** A list replaced whole by a PUT, with its version (ETag of the GET, sent back in If-Match
+ * so that the PUT does not undo a change made since). */
+export interface Versioned<T> {
+  data: T;
+  version: string | null;
+}
+
 /** A web user who has a project (GET/PUT /api/v1/access/projects/{project}/members). */
 export interface ProjectMember {
   user_id: number;

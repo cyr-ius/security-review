@@ -66,6 +66,20 @@ curl -X PUT https://secreview.example.com/api/v1/access/projects/billing/members
   -d '{"members": [{"user_id": 7}, {"user_id": 9, "permissions": ["reports.read", "findings.triage"]}]}'
 ```
 
+Le `GET` des membres d'un projet et des correspondances OIDC renvoie la version de la liste dans
+l'en-tête `ETag`. Renvoyez-la dans `If-Match` avec le `PUT` qui remplace la liste : si un autre
+administrateur l'a modifiée entre-temps, le `PUT` est refusé (`412`) au lieu d'annuler sans le
+dire ce changement ; rechargez la liste et recommencez. Sans `If-Match` (ou avec `*`), la liste
+est remplacée quel que soit son contenu. L'interface web l'envoie toujours.
+
+```bash
+etag=$(curl -s -o /dev/null -D - https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | awk 'tolower($1) == "etag:" {print $2}' | tr -d '\r')
+curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -H "If-Match: $etag" -d '{"mappings": [{"claim": "secops", "role_ids": [2]}]}'
+```
+
 Chaque changement est écrit dans le [journal d'audit](audit-log.md) (`role.*`,
 `user.roles_changed`, `user.projects_changed`, `oidc.mappings_changed`). En CLI,
 `security-review-controller user set-access` change les rôles et projets d'un compte, et

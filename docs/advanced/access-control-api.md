@@ -62,6 +62,20 @@ curl -X PUT https://secreview.example.com/api/v1/access/projects/billing/members
   -d '{"members": [{"user_id": 7}, {"user_id": 9, "permissions": ["reports.read", "findings.triage"]}]}'
 ```
 
+The `GET` of the members of a project and of the OIDC mappings returns the version of the list in
+the `ETag` header. Send it back in `If-Match` with the `PUT` that replaces the list: when another
+administrator changed it since, the `PUT` is refused (`412`) instead of silently undoing that
+change; reload the list and try again. Without `If-Match` (or with `*`), the list is replaced
+whatever it holds. The web interface always sends it.
+
+```bash
+etag=$(curl -s -o /dev/null -D - https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | awk 'tolower($1) == "etag:" {print $2}' | tr -d '\r')
+curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -H "If-Match: $etag" -d '{"mappings": [{"claim": "secops", "role_ids": [2]}]}'
+```
+
 Every change is written to the [audit log](audit-log.md) (`role.*`, `user.roles_changed`,
 `user.projects_changed`, `oidc.mappings_changed`). From the CLI,
 `security-review-controller user set-access` changes the roles and projects of an account, and

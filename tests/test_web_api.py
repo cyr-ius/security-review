@@ -1091,6 +1091,40 @@ def test_project_members_and_oidc_mappings_are_managed_with_users_manage(
     assert secured.get(url, headers=admin).json()["mappings"] == listed["mappings"]
 
 
+def test_a_stale_page_does_not_undo_a_change_of_members_or_oidc_mappings(secured):
+    admin = auth("admin")
+    known_projects("billing")
+    alice = web_users.create_user("alice", USER_PASSWORD)
+    bob = web_users.create_user("bob", USER_PASSWORD)
+    alice_member = {"user_id": alice["id"], "permissions": ["reports.read"]}
+    bob_member = {"user_id": bob["id"], "permissions": ["reports.read"]}
+    url = "/api/v1/access/projects/billing/members"
+    stale = secured.get(url, headers=admin).headers["ETag"]
+    # Another administrator gives the project to alice, then this page adds bob to what it read
+    assert secured.put(url, json={"members": [alice_member]}, headers=admin).status_code == 200
+    response = secured.put(url, json={"members": [bob_member]}, headers=admin | {"If-Match": stale})
+    assert response.status_code == 412
+    assert [m["username"] for m in secured.get(url, headers=admin).json()] == ["alice"]
+    # The current version (made weak by a compressing proxy) is accepted
+    current = "W/" + secured.get(url, headers=admin).headers["ETag"]
+    body = {"members": [alice_member, bob_member]}
+    response = secured.put(url, json=body, headers=admin | {"If-Match": current})
+    assert response.status_code == 200
+    assert response.headers["ETag"] == secured.get(url, headers=admin).headers["ETag"]
+
+    url = "/api/v1/oidc/mappings"
+    stale = secured.get(url, headers=admin).headers["ETag"]
+    devs = {"claim": "devs", "projects": [{"project": "billing"}]}
+    assert secured.put(url, json={"mappings": [devs]}, headers=admin).status_code == 200
+    # Removing nothing from a stale copy would delete the mapping added since
+    response = secured.put(url, json={"mappings": []}, headers=admin | {"If-Match": stale})
+    assert response.status_code == 412
+    assert [m["claim"] for m in secured.get(url, headers=admin).json()["mappings"]] == ["devs"]
+    current = secured.get(url, headers=admin).headers["ETag"]
+    response = secured.put(url, json={"mappings": []}, headers=admin | {"If-Match": current})
+    assert response.status_code == 200
+
+
 def test_a_custom_role_opens_only_its_routes(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     auditor = access_control.create_role("Auditor", ["audit.read"])

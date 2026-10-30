@@ -11,6 +11,9 @@ export function describeAccessError(error: unknown): Message {
     if (error.status === 404) {
       return msg('access.notFound');
     }
+    if (error.status === 412) {
+      return msg('access.stale');
+    }
     if (error.status === 409 || error.status === 422) {
       return detail ? msg('common.refusedDetail', { detail }) : msg('common.refused');
     }

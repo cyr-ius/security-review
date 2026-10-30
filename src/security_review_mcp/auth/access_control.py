@@ -58,6 +58,7 @@ token the permissions of its role and its per-project permissions on its project
 (role_token_grants), both read at each request. A role used by a token cannot be deleted.
 """
 
+import hashlib
 import json
 import logging
 from collections.abc import Iterable, Mapping
@@ -187,6 +188,22 @@ class AccessGrantDenied(PermissionError):
 
 class EnrollmentThrottled(ValueError):
     """Too many project requests from one user or token."""
+
+
+class StaleVersion(ValueError):
+    """The list changed since the caller read it: replacing it would undo a change it did not
+    see (see set_project_members, set_oidc_mappings)."""
+
+
+def _version(items: Any) -> str:
+    """Version of a stored list, for a caller to replace it only as it read it."""
+    return hashlib.sha256(json.dumps(items, sort_keys=True).encode()).hexdigest()[:32]
+
+
+def _check_version(current: str, expected: str | None) -> None:
+    """Refuse a replacement read from another ``current`` version (None: not checked)."""
+    if expected is not None and expected != current:
+        raise StaleVersion("The list changed since it was read: reload it and try again")
 
 
 # What a user may do: each permission, with its projects (None: every project)
@@ -964,14 +981,24 @@ def _members_public(session: Session, project: Project) -> list[dict[str, Any]]:
     ]
 
 
+def project_members_version(members: list[dict[str, Any]]) -> str:
+    """Version of the members of a project (list_project_members), for set_project_members."""
+    return _version(sorted((item["user_id"], item["permissions"]) for item in members))
+
+
 def set_project_members(
-    project: str, members: Iterable[tuple[int, Iterable[str]]], actor: str | None = None
+    project: str,
+    members: Iterable[tuple[int, Iterable[str]]],
+    actor: str | None = None,
+    expected_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """Replace the users who have ``project``: ``members`` holds (user id, per-project
-    permissions).
+    permissions). With ``expected_version`` (project_members_version of the members the caller
+    read), a change made since then is not undone: the replacement is refused.
 
     Raises:
         NotFoundError: Unknown project or user.
+        StaleVersion: The members changed since ``expected_version``.
         ValueError: Invalid project or permission, more than MAX_PROJECT_MEMBERS members, or a
             user who would have more than MAX_SESSION_PROJECTS projects.
     """
@@ -983,6 +1010,7 @@ def set_project_members(
         raise ValueError(f"At most {MAX_PROJECT_MEMBERS} members can be set at once")
     with session_scope() as session:
         row = _get_project(session, project)
+        _check_version(project_members_version(_members_public(session, row)), expected_version)
         for user_id in wanted:
             if session.get(WebUser, user_id) is None:
                 raise NotFoundError(f"Web user {user_id} not found")
@@ -1618,20 +1646,33 @@ def list_oidc_mappings() -> list[dict[str, Any]]:
         return _list_mappings(session)
 
 
+def oidc_mappings_version(mappings: list[dict[str, Any]]) -> str:
+    """Version of the OIDC mappings (list_oidc_mappings), for set_oidc_mappings."""
+    return _version(
+        [
+            [item["claim"], item["role_ids"], item["all_projects_permissions"], item["projects"]]
+            for item in sorted(mappings, key=lambda item: item["claim"])
+        ]
+    )
+
+
 def set_oidc_mappings(
     mappings: Iterable[
         tuple[str, Iterable[int], Iterable[str], Iterable[tuple[str, Iterable[str]]]]
     ],
     actor: str | None = None,
+    expected_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """Replace the OIDC mappings: ``mappings`` holds (claim value, role ids, per-project
     permissions on every project, (project, per-project permissions) pairs). A project not known
     yet is kept and ignored until it is created. The change applies at once to the OIDC users
     (their claims of the last login); a change that removes the last holder of ``users.manage``
-    is refused.
+    is refused. With ``expected_version`` (oidc_mappings_version of the mappings the caller
+    read), a change made since then is not undone: the replacement is refused.
 
     Raises:
         NotFoundError: Unknown role.
+        StaleVersion: The mappings changed since ``expected_version``.
         ValueError: Invalid claim, project or permission, a claim given twice, a mapping that
             gives nothing, more than MAX_PROJECTS_PER_TOKEN projects or MAX_ROLES roles in a
             mapping, or more than MAX_OIDC_MAPPINGS mappings.
@@ -1640,6 +1681,7 @@ def set_oidc_mappings(
     if len(items) > MAX_OIDC_MAPPINGS:
         raise ValueError(f"At most {MAX_OIDC_MAPPINGS} OIDC mappings can be stored")
     with session_scope() as session:
+        _check_version(oidc_mappings_version(_list_mappings(session)), expected_version)
         cleaned: dict[str, tuple[list[int], list[str], list[dict[str, Any]]]] = {}
         for claim, role_ids, every, projects in items:
             value = clean_claim(claim)
