@@ -35,9 +35,9 @@ users.
   saves reports there. A project already known (see storage.projects) is refused: the
   permission never grants the reading of an existing project.
 - A user with ``projects.autojoin`` whose MCP agent requests a project that already exists
-  joins it at once (see request_project), with its review. A user with ``projects.create``
+  joins it at once (see request_project), with its review. A user with ``users.manage``
   who reads a project may block this autojoin on it (see set_autojoin_blocked): the requests
-  then wait for an approval as the others do.
+  then wait for an approval as the others do. ``projects.create`` never blocks nor allows it.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
   delete_project): its reports, findings and comments, the project of the users, of the mappings
   and of the tokens (a token left without project is revoked). The audit log keeps its events.
@@ -805,8 +805,17 @@ def set_user_roles(
 
 
 def _check_reach(session: Session, user_id: int) -> None:
-    """Refuse a user with more than MAX_SESSION_PROJECTS projects."""
+    """Refuse a user with more than MAX_SESSION_PROJECTS projects.
+
+    The row of the user stays locked until the end of the transaction (PostgreSQL; SQLite
+    serializes the writers): two concurrent additions to one user are counted one after the
+    other, never both against the projects read before either. FOR NO KEY UPDATE: it does not
+    wait for the key share locks of the rows just added (no deadlock between two additions).
+    """
     session.flush()
+    session.exec(
+        select(WebUser.id).where(WebUser.id == user_id).with_for_update(key_share=True)
+    ).first()
     reached = session.exec(
         select(func.count()).select_from(UserProject).where(UserProject.user_id == user_id)
     ).one()
@@ -1300,13 +1309,16 @@ def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -
     Raises:
         ValueError: The user already reads MAX_SESSION_PROJECTS projects.
     """
-    reached = scope(user_grants(session, user_id), Permission.REPORTS_READ)
-    if reached is not None and len(reached) >= MAX_SESSION_PROJECTS:
+    # Counted once added, the user locked (_check_reach), with the projects of its OIDC
+    # mappings: a concurrent join is seen, and the transaction is rolled back
+    try:
+        add_user_project(session, user_id, project, actor)
+        user_grants(session, user_id)
+    except ValueError:
         raise ValueError(
             f"The user already reads {MAX_SESSION_PROJECTS} projects; ask an administrator "
             "for access"
-        )
-    add_user_project(session, user_id, project, actor)
+        ) from None
     for pending in session.exec(
         select(ProjectEnrollment).where(
             ProjectEnrollment.project == project, ProjectEnrollment.requested_by_user_id == user_id
