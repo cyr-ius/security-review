@@ -43,6 +43,8 @@ export const oauth = defineMessages({
       'Enter the public address of your MCP server (e.g. https://mcp.example.com/mcp).',
     'oauth.off':
       'The OAuth login is off: the MCP clients without a token are sent to the enrollment server.',
+    'oauth.loginSuspended':
+      'The OAuth login is enabled but suspended: enter the public address of the MCP server to turn it on.',
     'oauth.confirmOff':
       'Turn the OAuth login off? The approved clients are suspended at once and work again when it is turned back on. To cut them for good, use Revoke all.',
     'oauth.turnedOn': 'OAuth login enabled.',
@@ -115,6 +117,8 @@ export const oauth = defineMessages({
       'Saisissez l’adresse publique de votre serveur MCP (ex. https://mcp.example.com/mcp).',
     'oauth.off':
       'La connexion OAuth est désactivée : les clients MCP sans jeton sont orientés vers le serveur d’enrôlement.',
+    'oauth.loginSuspended':
+      'La connexion OAuth est activée mais suspendue : saisissez l’adresse publique du serveur MCP pour la mettre en service.',
     'oauth.confirmOff':
       'Désactiver la connexion OAuth ? Les clients autorisés sont suspendus immédiatement et fonctionnent de nouveau à sa réactivation. Pour les couper définitivement, utilisez Tout révoquer.',
     'oauth.turnedOn': 'Connexion OAuth activée.',
@@ -187,6 +191,8 @@ export const oauth = defineMessages({
       'Introduzca la dirección pública de su servidor MCP (p. ej. https://mcp.example.com/mcp).',
     'oauth.off':
       'El inicio de sesión OAuth está desactivado: los clientes MCP sin token se envían al servidor de inscripción.',
+    'oauth.loginSuspended':
+      'El inicio de sesión OAuth está activado pero suspendido: introduzca la dirección pública del servidor MCP para ponerlo en servicio.',
     'oauth.confirmOff':
       '¿Desactivar el inicio de sesión OAuth? Los clientes autorizados quedan suspendidos de inmediato y vuelven a funcionar al reactivarlo. Para cortarlos definitivamente, use Revocar todo.',
     'oauth.turnedOn': 'Inicio de sesión OAuth activado.',

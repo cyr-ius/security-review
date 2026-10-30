@@ -48,7 +48,11 @@
         }
       }
 
-      @if (!data.enabled) {
+      @if (!data.enabled && settings.enabled.effective) {
+        <div class="alert alert-warning py-2 small" role="status">
+          {{ 'oauth.loginSuspended' | t }}
+        </div>
+      } @else if (!data.enabled) {
         <p class="text-body-secondary small mb-3">{{ 'oauth.off' | t }}</p>
       }
 

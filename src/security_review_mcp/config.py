@@ -234,7 +234,8 @@ class Settings(BaseSettings):
     # SECREVIEW_PUBLIC_URL, its issuer. An MCP client without a token then gets a 401 that
     # starts the login in the browser instead of the enrollment server, and receives tokens that
     # act as a personal MCP token of the user who approved the client. Needs mcp_url and the
-    # controller URL (variable or web interface); the controller stores mcp_url in the database
+    # controller URL (variable or web interface); without mcp_url the login is only suspended
+    # (see app_settings.effective_settings). The controller stores mcp_url in the database
     # at start, where the MCP server reads it (it needs no variable). Disabled by default. Unset,
     # an administrator may turn it on and set mcp_url in the web interface (Tokens screen).
     mcp_oauth_enabled: bool = False
@@ -523,13 +524,6 @@ class Settings(BaseSettings):
     def _check_redirect_schemes(cls, value: str) -> str:
         """Accept a comma-separated list of custom URI schemes."""
         return ",".join(redirect_schemes(value))
-
-    @model_validator(mode="after")
-    def _check_mcp_oauth(self) -> Self:
-        """OAuth needs the URL of the MCP endpoint, the resource of its tokens."""
-        if self.mcp_oauth_enabled and not self.mcp_url:
-            raise ValueError("SECREVIEW_MCP_OAUTH_ENABLED needs SECREVIEW_MCP_URL")
-        return self
 
     @field_validator("forwarded_allow_ips")
     @classmethod

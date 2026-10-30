@@ -39,6 +39,7 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http on loca
 ```
 
 Whatever the method used, the MCP server picks up the changes (within 30 seconds).
+Enabled without the URL of the MCP endpoint, the login is suspended: the Controller server starts, logs a warning, and the **Tokens** page asks for the URL, which turns the login on once saved.
 When you turn the MCP OAuth login off, the grants are suspended: the MCP server refuses the tokens already issued at once, and accepts them again when the login is turned back on (a client whose refresh token has expired in the meantime must log in again). To cut every client for good, use **Revoke all** (see [Administration](#administration)).
 
 Behind a reverse proxy, publish these public paths:
@@ -161,6 +162,7 @@ Registrations (`oauth.client_registered`), approvals (`oauth.grant_approved`), r
 | Symptom | Cause |
 |---|---|
 | The host still shows the enrollment server | OAuth off on the Controller server, or the MCP server has not read the setting yet (30 seconds) |
+| **Tokens** says the OAuth login is suspended (warning `OAuth login of the MCP clients suspended` in the logs) | `SECREVIEW_MCP_URL` missing: set it, or enter the URL on the **Tokens** page |
 | The Controller server does not start: `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` missing |
 | The Controller server does not start: `Issuer URL must be HTTPS` | Controller server URL in `http://` outside localhost |
 | `invalid_redirect_uri` at registration, or VS Code asks for a client ID ("Dynamic client registration not supported") | no redirect URI on the loopback interface: add its host to `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) or its scheme to `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |

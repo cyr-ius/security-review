@@ -108,7 +108,7 @@ Lues par `security-review-controller` uniquement.
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Active la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : le serveur Controller devient leur serveur d'autorisation (routes `/authorize`, `/token`, `/register`, `/revoke` à la racine de `SECREVIEW_PUBLIC_URL`, qui doit être défini, en https hors localhost) et le serveur MCP y envoie un client sans jeton. Non définie, un administrateur peut l'activer dans l'interface web (page **Jetons**) |
-| `SECREVIEW_MCP_URL` | — | URL publique du point d'accès MCP (`https://…/mcp`, en ASCII : punycode pour un hôte non ASCII), obligatoire avec OAuth : la ressource des jetons. Enregistrée en base au démarrage, où le serveur MCP la lit. Non définie, elle peut être saisie dans l'interface web (page **Jetons**) |
+| `SECREVIEW_MCP_URL` | — | URL publique du point d'accès MCP (`https://…/mcp`, en ASCII : punycode pour un hôte non ASCII), obligatoire avec OAuth (la connexion reste suspendue sans elle) : la ressource des jetons. Enregistrée en base au démarrage, où le serveur MCP la lit. Non définie, elle peut être saisie dans l'interface web (page **Jetons**) |
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Durée d'un jeton d'accès (5 à 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Durée d'un jeton de rafraîchissement (1 à 365 jours), prolongée à chaque rafraîchissement ; `SECREVIEW_TOKEN_MAX_DAYS`, s'il est défini, borne toute l'autorisation depuis son approbation |
 | `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients enregistrés à la fois ; un client que personne n'a autorisé dans la journée est supprimé |

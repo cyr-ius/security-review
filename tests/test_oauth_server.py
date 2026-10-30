@@ -12,7 +12,7 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import app_settings, http_server, web_api
 from security_review_mcp.auth import oauth_server, oidc, token_store, web_users
-from security_review_mcp.config import check_mcp_url, get_settings
+from security_review_mcp.config import Settings, check_mcp_url, get_settings
 from security_review_mcp.http_server import Role, hash_token
 from security_review_mcp.observability import audit
 from security_review_mcp.storage.database import session_scope
@@ -371,6 +371,25 @@ def test_the_oauth_login_set_by_its_variable_cannot_be_changed_in_the_web_interf
     assert refused.status_code == 422
     assert "SECREVIEW_MCP_OAUTH_ENABLED" in refused.json()["detail"]
     assert register(controller).status_code == 201
+
+
+def test_the_login_is_suspended_until_the_url_of_the_mcp_endpoint_is_set(monkeypatch):
+    # SECREVIEW_MCP_OAUTH_ENABLED without SECREVIEW_MCP_URL no longer stops the controller
+    monkeypatch.setenv("SECREVIEW_MCP_OAUTH_ENABLED", "true")
+    assert Settings().mcp_oauth_enabled is True
+    monkeypatch.setattr(get_settings(), "mcp_oauth_enabled", True)
+    app_settings.set_controller_url(CONTROLLER, "test")
+    app_settings.sync_mcp_oauth()
+    client = controller_app()
+    admin = {"Authorization": f"Bearer {token_store.create_token('ops', Role.ADMIN)['token']}"}
+    assert app_settings.mcp_oauth_resource() is None
+    assert register(client).status_code == 404
+
+    saved = client.put("/api/v1/oauth/settings", json={"mcp_url": MCP_URL}, headers=admin)
+
+    assert saved.status_code == 200, saved.text
+    assert app_settings.mcp_oauth_resource() == MCP_URL
+    assert register(client).status_code == 201
 
 
 def test_a_tokens_manager_lists_revokes_and_deletes_every_client(controller):

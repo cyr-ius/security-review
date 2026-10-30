@@ -38,6 +38,7 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http sur loc
 ```
 
 Quelle que soit la méthode employée, le serveur MCP prend en compte les modifications (sous 30 secondes).
+Activée sans l'URL du point d'accès MCP, la connexion est suspendue : le serveur Controller démarre, journalise un avertissement, et la page **Jetons** demande l'URL, dont l'enregistrement met la connexion en service.
 Si vous désactivez la connexion OAuth des clients MCP, les autorisations sont suspendues : le serveur MCP refuse aussitôt les jetons déjà émis, et les accepte de nouveau à la réactivation (un client dont le jeton de rafraîchissement a expiré entre-temps doit se reconnecter). Pour couper définitivement tous les clients, utilisez **Tout révoquer** (voir [Administration](#administration)).
 
 Derrière un reverse proxy, publiez ces chemins publics :
@@ -164,6 +165,7 @@ avec un jeton.
 | Symptôme | Cause |
 |---|---|
 | L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le serveur Controller, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
+| **Jetons** indique que la connexion OAuth est suspendue (avertissement `OAuth login of the MCP clients suspended` dans les journaux) | `SECREVIEW_MCP_URL` manquant : définissez-le, ou saisissez l'URL sur la page **Jetons** |
 | Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` manquant |
 | Le serveur Controller ne démarre pas : `Issuer URL must be HTTPS` | URL du serveur Controller en `http://` hors localhost |
 | `invalid_redirect_uri` à l'enregistrement, ou VS Code demande un ID client (« Enregistrement client dynamique non pris en charge ») | aucune URI de redirection sur l'interface loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |

@@ -478,7 +478,11 @@ def effective_settings(settings: Settings | None = None) -> Settings:
     connectors.connections)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored(), settings)
-    return settings.model_copy(update=overrides) if overrides else settings
+    effective = settings.model_copy(update=overrides) if overrides else settings
+    if effective.mcp_oauth_enabled and not effective.mcp_url:
+        # The OAuth login is suspended until the URL of the MCP endpoint is set
+        effective = effective.model_copy(update={"mcp_oauth_enabled": False})
+    return effective
 
 
 # ── Single sign-on (OIDC) ────────────────────────────────────────────────────

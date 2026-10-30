@@ -108,7 +108,7 @@ Read by `security-review-controller` only.
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Enables the [OAuth login of the MCP clients](../advanced/mcp-oauth.md): the Controller server becomes their authorization server (routes `/authorize`, `/token`, `/register`, `/revoke` at the root of `SECREVIEW_PUBLIC_URL`, which must be set, in https outside localhost) and the MCP server sends a client without a token to it. Unset, an administrator may turn it on in the web interface (**Tokens** page) |
-| `SECREVIEW_MCP_URL` | — | Public URL of the MCP endpoint (`https://…/mcp`, ASCII: punycode for a non-ASCII host), required with OAuth: the resource of the tokens. Stored in the database at start, where the MCP server reads it. Unset, it may be entered in the web interface (**Tokens** page) |
+| `SECREVIEW_MCP_URL` | — | Public URL of the MCP endpoint (`https://…/mcp`, ASCII: punycode for a non-ASCII host), required with OAuth (the login stays suspended without it): the resource of the tokens. Stored in the database at start, where the MCP server reads it. Unset, it may be entered in the web interface (**Tokens** page) |
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Lifetime of an access token (5 to 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Lifetime of a refresh token (1 to 365 days), extended at each refresh; `SECREVIEW_TOKEN_MAX_DAYS`, when set, bounds the whole grant from its approval |
 | `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients registered at once; a client nobody approved within a day is deleted |
