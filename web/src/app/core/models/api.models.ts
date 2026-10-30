@@ -98,7 +98,9 @@ export type SeverityCounts = Record<Severity, number>;
 export type Permission =
   | 'reports.read'
   | 'findings.triage'
+  | 'rules.read'
   | 'rules.manage'
+  | 'standards.read'
   | 'standards.manage'
   | 'tokens.manage'
   | 'settings.manage'

@@ -6,14 +6,17 @@
   <div class="d-flex flex-wrap gap-2">
     <app-pack-transfer
       [busy]="transferring()"
+      [importable]="canManage()"
       (exportRequested)="exportPack()"
       (fileChosen)="importPack($event)"
       (fileRejected)="onPackRejected($event)"
     />
-    <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
-      <i class="bi bi-plus-lg" aria-hidden="true"></i>
-      {{ 'checklists.new' | t }}
-    </button>
+    @if (canManage()) {
+      <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        {{ 'checklists.new' | t }}
+      </button>
+    }
   </div>
 </div>
 
@@ -65,7 +68,9 @@
               </th>
               <th scope="col">CWE</th>
               <th scope="col">{{ 'rules.origin' | t }}</th>
-              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+              @if (canManage()) {
+                <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -89,30 +94,32 @@
                     <span class="badge text-bg-light border">{{ 'rules.builtin' | t }}</span>
                   }
                 </td>
-                <td class="text-end text-nowrap">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary action-button"
-                    [attr.aria-label]="'rules.editRule' | t: { id: item.domain + '/' + item.id }"
-                    [title]="'common.edit' | t"
-                    (click)="startEdit(item)"
-                  >
-                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                  </button>
-                  @if (item.origin === 'custom') {
+                @if (canManage()) {
+                  <td class="text-end text-nowrap">
                     <button
                       type="button"
-                      class="btn btn-sm btn-outline-danger action-button ms-1"
-                      [attr.aria-label]="
-                        'rules.deleteRule' | t: { id: item.domain + '/' + item.id }
-                      "
-                      [title]="'common.delete' | t"
-                      (click)="remove(item)"
+                      class="btn btn-sm btn-outline-secondary action-button"
+                      [attr.aria-label]="'rules.editRule' | t: { id: item.domain + '/' + item.id }"
+                      [title]="'common.edit' | t"
+                      (click)="startEdit(item)"
                     >
-                      <i class="bi bi-trash" aria-hidden="true"></i>
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
                     </button>
-                  }
-                </td>
+                    @if (item.origin === 'custom') {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger action-button ms-1"
+                        [attr.aria-label]="
+                          'rules.deleteRule' | t: { id: item.domain + '/' + item.id }
+                        "
+                        [title]="'common.delete' | t"
+                        (click)="remove(item)"
+                      >
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                      </button>
+                    }
+                  </td>
+                }
               </tr>
             }
           </tbody>

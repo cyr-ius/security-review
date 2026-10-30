@@ -85,18 +85,18 @@ export class LayoutComponent {
 
   /** What the reviews rely on: scan rules, checklists and development standards. */
   private readonly referenceItems: readonly NavItem[] = [
-    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.manage' },
+    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.read' },
     {
       path: '/checklists',
       label: 'layout.checklists',
       icon: 'bi-list-check',
-      permission: 'rules.manage',
+      permission: 'rules.read',
     },
     {
       path: '/standards',
       label: 'layout.standards',
       icon: 'bi-journal-code',
-      permission: 'standards.manage',
+      permission: 'standards.read',
     },
   ];
 

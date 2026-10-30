@@ -18,8 +18,10 @@ machines keep a fixed role ([tokens](tokens.md)).
 |---|---|---|
 | `reports.read` | Read the projects, reports and findings | ✅ |
 | `findings.triage` | [Triage](triage.md) the findings | ✅ |
-| `rules.manage` | Edit the scan rules and the checklists | |
-| `standards.manage` | Edit the development standards | |
+| `rules.read` | Read the scan rules and the checklists, and export them | |
+| `rules.manage` | Edit the scan rules and the checklists (includes `rules.read`) | |
+| `standards.read` | Read the development standards, and export them | |
+| `standards.manage` | Edit the development standards (includes `standards.read`) | |
 | `tokens.manage` | Manage the project tokens | |
 | `settings.manage` | Change the general settings, the outgoing proxy and the OSV database | |
 | `users.manage` | Manage the users and their roles, the roles, the OIDC mappings and the OIDC login | |

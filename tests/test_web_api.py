@@ -1259,7 +1259,11 @@ def test_a_manager_without_reports_read_reads_no_project(accounts, reports):
     assert accounts.get(f"/api/v1/reports/{reports[0]}", headers=headers).status_code == 404
     root = session_headers(accounts, "root")
     users = {user["username"]: user for user in accounts.get("/api/v1/users", headers=root).json()}
-    assert set(users["toto"]["permissions"]) == {"standards.manage", "tokens.manage"}
+    assert set(users["toto"]["permissions"]) == {
+        "standards.manage",
+        "standards.read",
+        "tokens.manage",
+    }
 
 
 def test_a_token_never_grants_more_than_its_creator(accounts, reports):
@@ -2255,6 +2259,20 @@ def test_sessions_follow_the_stored_user(accounts):
     assert accounts.get("/api/v1/me", headers=headers).status_code == 401
     web_users.delete_user(alice["id"])
     assert accounts.get("/api/v1/me", headers=headers).status_code == 401
+
+
+def test_rules_and_standards_can_be_read_without_managing_them(accounts):
+    viewer = access_control.create_role("Viewer", ["rules.read", "standards.read"])
+    make_user("alice", USER_PASSWORD, "reader")
+    web_users.update_user(web_users.find_user("alice")["id"], [viewer["id"]])
+    headers = session_headers(accounts, "alice")
+
+    for url in ("/api/v1/rules", "/api/v1/checklists", "/api/v1/standards", "/api/v1/packs/rules"):
+        assert accounts.get(url, headers=headers).status_code == 200, url
+    rule = {"id": "ACME-001", "title": "t", "severity": "low", "pattern": "x", "languages": []}
+    assert accounts.post("/api/v1/rules", json=rule, headers=headers).status_code == 403
+    standard = {"slug": "acme", "title": "Acme", "content": "x"}
+    assert accounts.post("/api/v1/standards", json=standard, headers=headers).status_code == 403
 
 
 def test_users_are_managed_by_administrators(accounts, caplog):

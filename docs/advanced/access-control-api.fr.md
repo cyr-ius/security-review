@@ -75,7 +75,9 @@ OIDC (voir [CLI](../reference/cli.md#security-review-controller)).
 
 `GET /api/v1/me` renvoie les permissions de l'appelant, chacune avec ses projets (`null` : tous
 les projets), et `role` vaut toujours `user` pour une session web (le rôle du jeton sinon). Un
-utilisateur qui ne gère que les jetons et les normes ne lit aucun projet. Une session web ne passe
+utilisateur qui ne gère que les jetons et les normes ne lit aucun projet. Une permission détenue
+donne aussi celles qu'elle comprend : `rules.manage` donne `rules.read`, `standards.manage` donne
+`standards.read`. Une session web ne passe
 jamais pour un jeton `admin`, même avec toutes les permissions : les routes réservées aux jetons
 (`/metrics`, les scans de pipeline) la refusent.
 

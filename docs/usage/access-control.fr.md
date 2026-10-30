@@ -18,8 +18,10 @@ gardent un rôle fixe ([jetons](tokens.md)).
 |---|---|---|
 | `reports.read` | Lire les projets, rapports et findings | ✅ |
 | `findings.triage` | [Trier](triage.md) les findings | ✅ |
-| `rules.manage` | Modifier les règles de scan et les checklists | |
-| `standards.manage` | Modifier les normes de développement | |
+| `rules.read` | Lire les règles de scan et les checklists, et les exporter | |
+| `rules.manage` | Modifier les règles de scan et les checklists (comprend `rules.read`) | |
+| `standards.read` | Lire les normes de développement, et les exporter | |
+| `standards.manage` | Modifier les normes de développement (comprend `standards.read`) | |
 | `tokens.manage` | Gérer les jetons de projet | |
 | `settings.manage` | Modifier les réglages généraux, le proxy sortant et la base OSV | |
 | `users.manage` | Gérer les utilisateurs et leurs rôles, les rôles, les correspondances OIDC et la connexion OIDC | |

@@ -87,7 +87,9 @@ export const TOKEN_ROLE_LABELS: Record<TokenRole, MessageKey> = {
 export const PERMISSION_META: Record<Permission, { label: MessageKey; help: MessageKey }> = {
   'reports.read': { label: 'permission.reportsRead', help: 'permission.reportsReadHelp' },
   'findings.triage': { label: 'permission.findingsTriage', help: 'permission.findingsTriageHelp' },
+  'rules.read': { label: 'permission.rulesRead', help: 'permission.rulesReadHelp' },
   'rules.manage': { label: 'permission.rulesManage', help: 'permission.rulesManageHelp' },
+  'standards.read': { label: 'permission.standardsRead', help: 'permission.standardsReadHelp' },
   'standards.manage': {
     label: 'permission.standardsManage',
     help: 'permission.standardsManageHelp',

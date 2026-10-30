@@ -190,7 +190,8 @@ def test_a_role_change_applies_to_its_users_at_once():
     assert listed["Auditor"]["users"] == 1
 
     access_control.update_role(role["id"], ["audit.read", "rules.manage"])
-    assert grants_of(user["id"]) == {"audit.read": None, "rules.manage": None}
+    # Who manages the rules also reads them
+    assert grants_of(user["id"]) == {"audit.read": None, "rules.manage": None, "rules.read": None}
     access_control.delete_role(role["id"])
     assert grants_of(user["id"]) == {}
     assert web_users.find_user("alice")["roles"] == []

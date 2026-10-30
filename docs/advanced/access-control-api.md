@@ -72,7 +72,9 @@ Every change is written to the [audit log](audit-log.md) (`role.*`, `user.roles_
 
 `GET /api/v1/me` returns the permissions of the caller, each with its projects (`null`: every
 project), and `role` is always `user` for a web session (the role of the token otherwise). A
-user who only manages the tokens and the standards reads no project. A web session never passes
+user who only manages the tokens and the standards reads no project. A permission held also
+gives the ones it includes: `rules.manage` gives `rules.read`, `standards.manage` gives
+`standards.read`. A web session never passes
 for an `admin` token, even with every permission: the routes reserved to tokens (`/metrics`, the
 pipeline scans) refuse it.
 

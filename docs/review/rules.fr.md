@@ -73,8 +73,8 @@ security-review-controller rules list --custom                        # vérifie
 
 ## Import et export dans l'interface web
 
-Les pages **Règles** et **Checklists** ont des boutons **Exporter** et **Importer** (permission
-`rules.manage`) :
+Les pages **Règles** et **Checklists** ont des boutons **Exporter** (permission `rules.read`) et
+**Importer** (permission `rules.manage`) :
 
 - **Exporter** télécharge un pack TOML de ce qui diffère des valeurs par défaut, comme
   `rules export` : `security-review-rules.toml` (règles personnalisées ou modifiées, règles
@@ -89,7 +89,7 @@ Les pages **Règles** et **Checklists** ont des boutons **Exporter** et **Import
 
 | Méthode | Route | Rôle |
 |---|---|---|
-| `GET` | `/api/v1/packs/rules[?sections=rules\|checklist]` | `rules.manage` : pack TOML (les deux sections par défaut) |
+| `GET` | `/api/v1/packs/rules[?sections=rules\|checklist]` | `rules.read` : pack TOML (les deux sections par défaut) |
 | `POST` | `/api/v1/packs/rules` | `rules.manage` : corps `{"name": "acme.toml", "content": "<TOML>"}` ; `422` avec les erreurs si le pack est invalide |
 
 ```bash

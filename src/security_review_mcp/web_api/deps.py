@@ -216,7 +216,9 @@ def web_user_id(request: Request) -> int:
 
 
 Triager = Annotated[Identity, Depends(require(Permission.FINDINGS_TRIAGE))]
+RulesReader = Annotated[Identity, Depends(require(Permission.RULES_READ))]
 RulesManager = Annotated[Identity, Depends(require(Permission.RULES_MANAGE))]
+StandardsReader = Annotated[Identity, Depends(require(Permission.STANDARDS_READ))]
 StandardsManager = Annotated[Identity, Depends(require(Permission.STANDARDS_MANAGE))]
 TokensManager = Annotated[Identity, Depends(require(Permission.TOKENS_MANAGE))]
 SettingsManager = Annotated[Identity, Depends(require(Permission.SETTINGS_MANAGE))]

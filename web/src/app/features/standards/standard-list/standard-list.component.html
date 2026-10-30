@@ -5,20 +5,21 @@
       {{ 'standards.subtitle' | t }} <code>development-standards</code>).
     </p>
   </div>
-  @if (isAdmin()) {
-    <div class="d-flex flex-wrap gap-2">
-      <app-pack-transfer
-        [busy]="transferring()"
-        (exportRequested)="exportPack()"
-        (fileChosen)="importPack($event)"
-        (fileRejected)="onPackRejected($event)"
-      />
+  <div class="d-flex flex-wrap gap-2">
+    <app-pack-transfer
+      [busy]="transferring()"
+      [importable]="isAdmin()"
+      (exportRequested)="exportPack()"
+      (fileChosen)="importPack($event)"
+      (fileRejected)="onPackRejected($event)"
+    />
+    @if (isAdmin()) {
       <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
         {{ 'standards.new' | t }}
       </button>
-    </div>
-  }
+    }
+  </div>
 </div>
 
 @if (error(); as message) {

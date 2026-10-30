@@ -18,6 +18,7 @@ import {
   Severity,
 } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import {
   PackFile,
   PackFileError,
@@ -76,10 +77,13 @@ type RuleSortKey = 'id' | 'severity' | 'updated';
 })
 export class RuleListComponent {
   private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
   /** Modal dialog hosting the create / edit form. */
   private readonly editorDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editorDialog');
 
+  /** False for a user who may only read the rules (rules.read). */
+  readonly canManage = computed(() => this.auth.can('rules.manage'));
   readonly severities = SEVERITIES;
   readonly severityMeta = SEVERITY_META;
   readonly catalog = rxResource({ stream: () => this.api.customRules() });

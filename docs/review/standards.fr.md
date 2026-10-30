@@ -58,19 +58,19 @@ projet : tout client autorisé sur `/mcp` les lit.
 ## Gestion (interface web et API REST)
 
 La page **Normes** de l'interface web liste les normes avec leurs technologies et motifs de
-fichiers, et permet de rechercher et de lire chacune, avec son rendu Markdown. Comme les règles
-et les checklists, il est réservé aux administrateurs, qui les créent, les modifient, les
+fichiers, et permet de rechercher et de lire chacune, avec son rendu Markdown (permission
+`standards.read`). Les utilisateurs avec `standards.manage` les créent, les modifient, les
 désactivent ou les suppriment. Le champ du contenu s'ouvre en plein écran, à côté de son aperçu
 Markdown. Les assistants IA, eux, reçoivent les normes actives par le serveur MCP (prompt et
 outils ci-dessus), quel que soit le rôle web de l'utilisateur.
 
 | Méthode | Route | Rôle requis |
 |---|---|---|
-| `GET` | `/api/v1/standards` | `admin` (normes désactivées comprises) |
-| `GET` | `/api/v1/standards/{slug}` | `admin` |
-| `POST` | `/api/v1/standards` | `admin` (`409` si l'identifiant existe déjà) |
-| `PUT` | `/api/v1/standards/{slug}` | `admin` (l'identifiant ne change pas) |
-| `DELETE` | `/api/v1/standards/{slug}` | `admin` |
+| `GET` | `/api/v1/standards` | `standards.read` (normes désactivées comprises) |
+| `GET` | `/api/v1/standards/{slug}` | `standards.read` |
+| `POST` | `/api/v1/standards` | `standards.manage` (`409` si l'identifiant existe déjà) |
+| `PUT` | `/api/v1/standards/{slug}` | `standards.manage` (l'identifiant ne change pas) |
+| `DELETE` | `/api/v1/standards/{slug}` | `standards.manage` |
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/standards \
@@ -103,7 +103,7 @@ content = """
 
 | Méthode | Route | Rôle |
 |---|---|---|
-| `GET` | `/api/v1/packs/standards` | `standards.manage` : fichier TOML de toutes les normes |
+| `GET` | `/api/v1/packs/standards` | `standards.read` : fichier TOML de toutes les normes |
 | `POST` | `/api/v1/packs/standards` | `standards.manage` : corps `{"name": "standards.toml", "content": "<TOML>"}` ; renvoie les identifiants créés (`created`) et remplacés (`updated`), `422` avec les erreurs si le fichier est invalide |
 
 ## Limites

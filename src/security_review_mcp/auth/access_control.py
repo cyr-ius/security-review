@@ -103,8 +103,12 @@ class Permission(StrEnum):
     REPORTS_READ = "reports.read"
     # Change the status of a finding, reject the proposal of an agent
     FINDINGS_TRIAGE = "findings.triage"
+    # Read the scan rules and checklists
+    RULES_READ = "rules.read"
     # Scan rules and checklists
     RULES_MANAGE = "rules.manage"
+    # Read the development standards
+    STANDARDS_READ = "standards.read"
     # Development standards
     STANDARDS_MANAGE = "standards.manage"
     # Project tokens
@@ -131,6 +135,11 @@ SITE_PERMISSIONS = ALL_PERMISSIONS - SCOPED_PERMISSIONS
 # The built-in role, which the code relies on
 ADMIN_ROLE = "admin"
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {ADMIN_ROLE: SITE_PERMISSIONS}
+# A permission that holds another one (see combine): who manages the rules also reads them
+IMPLIED_PERMISSIONS: dict[Permission, Permission] = {
+    Permission.RULES_MANAGE: Permission.RULES_READ,
+    Permission.STANDARDS_MANAGE: Permission.STANDARDS_READ,
+}
 
 MAX_ROLES = 100
 MAX_ROLE_NAME_CHARS = 64
@@ -170,15 +179,12 @@ class EnrollmentThrottled(ValueError):
 Grants = Mapping[str, frozenset[str] | None]
 
 
-# What a user may do: each permission, with its projects (None: every project)
-Grants = Mapping[str, frozenset[str] | None]
-
-
 # ── Grants ───────────────────────────────────────────────────────────────────
 
 
 def combine(bindings: Iterable[tuple[Iterable[str], Iterable[str] | None]]) -> dict[str, Any]:
-    """Merge bindings (permissions, projects or None for every project) into grants.
+    """Merge bindings (permissions, projects or None for every project) into grants, with the
+    permissions they imply (IMPLIED_PERMISSIONS).
 
     Raises:
         ValueError: If a permission reaches more than MAX_SESSION_PROJECTS projects.
@@ -193,6 +199,9 @@ def combine(bindings: Iterable[tuple[Iterable[str], Iterable[str] | None]]) -> d
                 grants[permission] = names
             elif grants[permission] is not None:
                 grants[permission] = grants[permission] | names
+    for permission, implied in IMPLIED_PERMISSIONS.items():
+        if permission in grants:
+            grants[implied] = None
     for permission, projects in grants.items():
         if projects is not None and len(projects) > MAX_SESSION_PROJECTS:
             raise ValueError(

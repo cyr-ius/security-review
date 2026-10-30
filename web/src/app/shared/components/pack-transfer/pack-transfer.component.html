@@ -9,16 +9,18 @@
     <i class="bi bi-download" aria-hidden="true"></i>
     {{ 'pack.export' | t }}
   </button>
-  <button
-    type="button"
-    class="btn btn-outline-secondary"
-    [disabled]="busy()"
-    [title]="'pack.importHint' | t"
-    (click)="chooseFile()"
-  >
-    <i class="bi bi-upload" aria-hidden="true"></i>
-    {{ 'pack.import' | t }}
-  </button>
+  @if (importable()) {
+    <button
+      type="button"
+      class="btn btn-outline-secondary"
+      [disabled]="busy()"
+      [title]="'pack.importHint' | t"
+      (click)="chooseFile()"
+    >
+      <i class="bi bi-upload" aria-hidden="true"></i>
+      {{ 'pack.import' | t }}
+    </button>
+  }
 </div>
 <input
   #fileInput

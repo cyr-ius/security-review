@@ -97,14 +97,14 @@ export const routes: Routes = [
       {
         path: 'rules',
         title: 'layout.rules',
-        canActivate: [permissionGuard('rules.manage')],
+        canActivate: [permissionGuard('rules.read')],
         loadComponent: () =>
           import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
       },
       {
         path: 'checklists',
         title: 'layout.checklists',
-        canActivate: [permissionGuard('rules.manage')],
+        canActivate: [permissionGuard('rules.read')],
         loadComponent: () =>
           import('./features/checklists/checklist-list/checklist-list.component').then(
             (m) => m.ChecklistListComponent,
@@ -112,7 +112,7 @@ export const routes: Routes = [
       },
       {
         path: 'standards',
-        canActivate: [permissionGuard('standards.manage')],
+        canActivate: [permissionGuard('standards.read')],
         title: 'layout.standards',
         loadComponent: () =>
           import('./features/standards/standard-list/standard-list.component').then(
