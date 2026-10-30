@@ -1,7 +1,7 @@
 @if (overview.value(); as data) {
   @let settings = data.settings;
   @let editable = canManage();
-  @if (data.enabled || editable) {
+  @if (data.enabled || editable || data.grants.length || data.clients.length) {
     <section class="card card-body mt-4" aria-labelledby="oauth-clients-title">
       <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <h2 id="oauth-clients-title" class="h5 mb-0 me-auto">
@@ -123,8 +123,24 @@
         }
       </dl>
 
-      @if (data.enabled) {
-        <h3 class="h6">{{ 'oauth.grantsAdminTitle' | t }}</h3>
+      @if (data.enabled || data.grants.length || data.clients.length) {
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <h3 class="h6 mb-0 me-auto">{{ 'oauth.grantsAdminTitle' | t }}</h3>
+          @if (data.grants.length) {
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              [disabled]="busy()"
+              (click)="revokeAll()"
+            >
+              <i class="bi bi-x-octagon" aria-hidden="true"></i>
+              {{ 'oauth.revokeAll' | t }}
+            </button>
+          }
+        </div>
+        @if (!data.enabled && data.grants.length) {
+          <p class="text-body-secondary small">{{ 'oauth.suspended' | t }}</p>
+        }
         @if (data.grants.length) {
           <div class="table-responsive mb-3">
             <table class="table table-hover align-middle">

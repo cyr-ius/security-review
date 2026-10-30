@@ -868,13 +868,19 @@ class OAuthSettingsUpdate(BaseModel):
     A field left out is unchanged, ``null`` (or an empty URL) removes the stored value. A value
     whose variable is set (SECREVIEW_MCP_OAUTH_ENABLED, SECREVIEW_MCP_URL) is refused: the
     variable takes precedence. The login needs the URL of the MCP endpoint and that of the
-    controller; turning it off revokes every grant.
+    controller; turning it off suspends the grants without revoking them.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool | None = None
     mcp_url: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)
+
+
+class OAuthGrantsRevoked(BaseModel):
+    """Outcome of DELETE /oauth/grants: how many grants were revoked."""
+
+    revoked: int
 
 
 class OAuthOverview(BaseModel):

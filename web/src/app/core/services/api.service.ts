@@ -438,6 +438,11 @@ export class ApiService {
     return this.http.put<OAuthSettings>(`${API_URL}/oauth/settings`, values);
   }
 
+  /** Revoke the grants of every user, even while the OAuth login is suspended. */
+  revokeAllOAuthGrants(): Observable<{ revoked: number }> {
+    return this.http.delete<{ revoked: number }>(`${API_URL}/oauth/grants`);
+  }
+
   revokeOAuthGrant(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/oauth/grants/${encodeURIComponent(id)}`);
   }

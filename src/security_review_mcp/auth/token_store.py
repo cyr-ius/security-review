@@ -56,7 +56,8 @@ Every creation, rotation, revocation and change of projects is written to the au
 
 The access tokens of the OAuth login of the MCP clients (``OAuthGrant``, see oauth_server) are
 checked here too, after the stored tokens: one acts as a personal ``mcp`` token of the user who
-approved its client, on the MCP server only (not the pipeline routes).
+approved its client, on the MCP server only (not the pipeline routes). They are refused while the
+OAuth login is off, and accepted again once it is turned on (the grants are kept).
 """
 
 import hmac
@@ -327,14 +328,15 @@ OAUTH_LAST_USED_RESOLUTION = timedelta(minutes=5)
 def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
     """Identity of an OAuth access token (see oauth_server): the projects the user who approved
     the client may read now, as a personal ``mcp`` token without the pipeline routes. None when
-    unknown, when the user is gone or must change its password, or while
-    SECREVIEW_PERSONAL_TOKENS_ENABLED is false; an expired one is marked ``expired``."""
+    unknown, when the user is gone or must change its password, while the OAuth login is off
+    (the grant is kept for when it is turned on again) or while SECREVIEW_PERSONAL_TOKENS_ENABLED
+    is false; an expired one is marked ``expired``."""
     grant = session.exec(
         select(OAuthGrant).where(OAuthGrant.access_token_hash == digest.hex())
     ).first()
     if grant is None or not hmac.compare_digest(bytes.fromhex(grant.access_token_hash), digest):
         return None
-    if not app_settings.personal_tokens_enabled(session):
+    if not app_settings.mcp_oauth_on(session) or not app_settings.personal_tokens_enabled(session):
         return None
     user = session.get(WebUser, grant.user_id)
     if user is None or user.must_change_password:

@@ -41,9 +41,9 @@ exists exactly when the change was committed.
 | `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** page, or copied from `SECREVIEW_PUBLIC_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** page |
-| `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, by the client (`/revoke`), or with its user |
+| `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, on the **Tokens** page (one or all), by the client (`/revoke`), or with its user |
 | `oauth.refresh_reused` | A refresh token already replaced is presented again: the grant is revoked |
-| `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface (turning it off also records the revocation of each grant) |
+| `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `project` and its name), the project when there is one, and details as JSON. The actor

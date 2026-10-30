@@ -28,6 +28,7 @@ from .deps import (
 )
 from .schemas import (
     OAuthGrantPublic,
+    OAuthGrantsRevoked,
     OAuthOverview,
     OAuthPendingRequest,
     OAuthRedirect,
@@ -129,8 +130,9 @@ async def set_oauth_settings(body: OAuthSettingsUpdate, identity: SettingsManage
     (applied by the controller at the next OAuth request, by the MCP server within a minute).
 
     Refused (422) for a value whose variable is set, or for a login on without the URL of the MCP
-    endpoint or of the controller. Turning the login off revokes every grant. The change is
-    recorded in the audit log.
+    endpoint or of the controller. Turning the login off suspends the grants (their tokens are
+    refused until it is turned on again) without revoking them. The change is recorded in the
+    audit log.
     """
     from . import oauth_routes_of  # the package imports this module
 
@@ -148,6 +150,15 @@ async def set_oauth_settings(body: OAuthSettingsUpdate, identity: SettingsManage
         ", ".join(sorted(values)),
     )
     return OAuthSettings(**await run_in_threadpool(app_settings.describe_mcp_oauth))
+
+
+@router.delete("/oauth/grants")
+async def revoke_every_oauth_grant(identity: TokensManager) -> OAuthGrantsRevoked:
+    """Revoke the grants of every user, whether the login is on or suspended: the tokens stop
+    for good and each client must be approved again."""
+    revoked = await run_in_threadpool(oauth_server.revoke_all_grants, actor_of(identity))
+    logger.info("%d OAuth grants revoked by %s", revoked, identity.client)
+    return OAuthGrantsRevoked(revoked=revoked)
 
 
 @router.delete("/oauth/grants/{grant_id}", status_code=status.HTTP_204_NO_CONTENT)

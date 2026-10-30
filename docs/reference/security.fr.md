@@ -65,8 +65,8 @@
   l'autorisation. Autoriser un client exige une session web et est refusé, comme toute
   autorisation et tout jeton `mcp` ou `ci` personnel, avec `SECREVIEW_PERSONAL_TOKENS_ENABLED=false` ; un jeton
   agit comme un jeton `mcp` personnel de son utilisateur, sur le serveur MCP seulement, et est
-  supprimé avec l'utilisateur ; un serveur Controller démarré avec la connexion désactivée révoque
-  toutes les autorisations (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).
+  supprimé avec l'utilisateur ; tant que la connexion est désactivée, les autorisations sont
+  conservées mais leurs jetons sont refusés (voir [Connexion OAuth des clients MCP](../advanced/mcp-oauth.md)).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
   renouvellements et révocations de jetons et les demandes de projet sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,

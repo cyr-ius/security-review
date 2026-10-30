@@ -24,7 +24,7 @@ publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de la 
 
 L'URL publique du serveur Controller est aussi nécessaire via le réglage sur la page **Général**.
 
-Le changement s'applique aussitôt, sans redémarrage. La désactivation demande une confirmation et révoque toutes les autorisations.
+Le changement s'applique aussitôt, sans redémarrage. La désactivation demande une confirmation et suspend les autorisations sans les révoquer.
 Chaque changement est enregistré dans le journal d'audit (`mcp_oauth.changed`).
 
 Les routes OAuth suivent les réglages à chaque requête. Un changement de l'URL du serveur Controller dans **Général** change l'issuer sans redémarrage.
@@ -38,7 +38,7 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http sur loc
 ```
 
 Quelle que soit la méthode employée, le serveur MCP prend en compte les modifications (sous 30 secondes).
-Si vous désactivez la connexion OAuth des clients MCP, le serveur révoque alors toutes les autorisations, pour que les jetons déjà émis cessent aussitôt de fonctionner.
+Si vous désactivez la connexion OAuth des clients MCP, les autorisations sont suspendues : le serveur MCP refuse aussitôt les jetons déjà émis, et les accepte de nouveau à la réactivation (un client dont le jeton de rafraîchissement a expiré entre-temps doit se reconnecter). Pour couper définitivement tous les clients, utilisez **Tout révoquer** (voir [Administration](#administration)).
 
 Derrière un reverse proxy, publiez ces chemins publics :
 
@@ -126,7 +126,11 @@ Avec la permission `tokens.manage`, la page **Jetons** affiche une section **Cli
 
  - **Révoquer** coupe un utilisateur d'un client.
 
+ - **Tout révoquer** coupe tous les utilisateurs de tous les clients : chaque client devra être autorisé de nouveau.
+
  - **Supprimer** retire un client avec toutes ses autorisations, et le client devra se réenregistrer.
+
+La section reste disponible quand la connexion est désactivée : les autorisations, alors suspendues, peuvent toujours être révoquées.
 
 
 ## Clients enregistrés

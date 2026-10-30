@@ -266,11 +266,21 @@ def test_a_denied_client_gets_access_denied_and_a_deleted_user_loses_its_clients
     assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
 
 
-def test_a_controller_started_with_the_oauth_login_off_revokes_every_grant(controller):
+def test_a_tokens_manager_revokes_every_grant_even_while_the_login_is_suspended(
+    controller, monkeypatch
+):
     access = log_in(controller, register(controller).json()["client_id"], session(controller))
+    admin = {"Authorization": f"Bearer {token_store.create_token('ops', Role.ADMIN)['token']}"}
+    monkeypatch.setattr(get_settings(), "mcp_oauth_enabled", False)
+    app_settings.sync_mcp_oauth()
 
-    assert oauth_server.revoke_all_grants("environment") == 1
+    revoked = controller.delete("/api/v1/oauth/grants", headers=admin)
 
+    assert revoked.status_code == 200, revoked.text
+    assert revoked.json() == {"revoked": 1}
+    assert controller.get("/api/v1/oauth/clients", headers=admin).json()["grants"] == []
+    monkeypatch.setattr(get_settings(), "mcp_oauth_enabled", True)
+    app_settings.sync_mcp_oauth()
     assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
 
 
@@ -339,14 +349,18 @@ def test_an_administrator_turns_the_oauth_login_on_and_off_in_the_web_interface(
     assert client.get("/api/v1/me", headers=session(client)).json()["mcp_oauth"] is True
     access = log_in(client, register(client).json()["client_id"], session(client))
 
+    # Off suspends the grants: refused, still listed, accepted again once back on
     off = client.put("/api/v1/oauth/settings", json={"enabled": False}, headers=admin)
     assert off.status_code == 200, off.text
     assert app_settings.mcp_oauth_resource() is None
     assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
     assert register(client).status_code == 404
+    assert len(client.get("/api/v1/oauth/clients", headers=admin).json()["grants"]) == 1
+    assert client.put("/api/v1/oauth/settings", json={"enabled": True}, headers=admin).is_success
+    assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is not None
     assert [event["action"] for event in audit.list_events()["events"]].count(
         "mcp_oauth.changed"
-    ) == 2
+    ) == 3
 
 
 def test_the_oauth_login_set_by_its_variable_cannot_be_changed_in_the_web_interface(controller):

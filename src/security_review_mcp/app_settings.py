@@ -209,6 +209,12 @@ def mcp_oauth_resource() -> str | None:
         return row.value if row is not None else None
 
 
+def mcp_oauth_on(session: Session) -> bool:
+    """Whether the controller serves the OAuth login of the MCP clients (MCP_OAUTH_RESOURCE
+    stored). While it is off, the grants are kept but their access tokens are refused."""
+    return session.get(AppSetting, MCP_OAUTH_RESOURCE) is not None
+
+
 def _mcp_oauth_overrides(stored: dict[str, str]) -> dict[str, Any]:
     """Stored settings of the OAuth login, keyed by Settings field."""
     overrides: dict[str, Any] = {}
@@ -260,9 +266,10 @@ def set_mcp_oauth(
     """Store the settings of the OAuth login of the MCP clients: ``enabled`` (bool) and
     ``mcp_url`` (URL of the MCP endpoint); None (or an empty URL) removes the stored value, the
     names left out are unchanged. The URL published for the MCP server follows, and the change is
-    recorded in the audit log, in the same transaction. Turning the login off revokes every grant,
-    as a controller start with the login off does. ``check`` (the controller) is called with the
-    issuer and the effective settings before a login turned on is stored.
+    recorded in the audit log, in the same transaction. Turning the login off suspends the grants
+    without revoking them: their access tokens are refused until it is turned on again (see
+    oauth_server.revoke_all_grants to revoke them). ``check`` (the controller) is called with
+    the issuer and the effective settings before a login turned on is stored.
 
     Return whether the login is on afterwards.
 
@@ -311,10 +318,6 @@ def set_mcp_oauth(
             "mcp_oauth",
             details={key.removeprefix("mcp_oauth_"): value for key, value in changes.items()},
         )
-    if not effective.mcp_oauth_enabled:
-        from .auth.oauth_server import revoke_all_grants  # controller only
-
-        revoke_all_grants(actor)
     return effective.mcp_oauth_enabled
 
 

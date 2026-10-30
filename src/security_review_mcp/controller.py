@@ -13,7 +13,7 @@ import logging
 import sys
 
 from . import __version__, app_settings, cli, connectors, http_server, web_api
-from .auth import oauth_server, oidc, token_store, web_users
+from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
 from .observability import audit_syslog
@@ -85,8 +85,6 @@ def serve(argv: list[str]) -> None:
         app_settings.sync_personal_mcp_tokens(settings)
         # SECREVIEW_MCP_OAUTH_ENABLED, or the value stored in the web interface
         oauth_enabled = app_settings.effective_settings(settings).mcp_oauth_enabled
-        if not oauth_enabled and (revoked := oauth_server.revoke_all_grants("environment")):
-            logger.warning("OAuth login of the MCP clients off: %d grants revoked", revoked)
         if not settings.personal_tokens_enabled:
             logger.warning(
                 "SECREVIEW_PERSONAL_TOKENS_ENABLED=false: the personal MCP and CI tokens and the "
