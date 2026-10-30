@@ -84,13 +84,5 @@
         "action": "openExternally"
       }
     }
-  ],
-  "inputs": [
-    {
-      "id": "controllerArgs",
-      "type": "promptString",
-      "description": "security-review-controller arguments",
-      "default": "db status"
-    }
   ]
 }
