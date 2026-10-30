@@ -1,5 +1,21 @@
 # Changelog
 
+## [10.0.1](https://github.com/cyr-ius/security-review/compare/v10.0.0...v10.0.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* bind OAuth grants to the MCP endpoint they were issued for ([05bf6e4](https://github.com/cyr-ius/security-review/commit/05bf6e42b2d7e735c58fa58678733299c7171cae))
+* count the projects of an automatic join once added, the user locked ([c83476f](https://github.com/cyr-ius/security-review/commit/c83476f97db864cf5b96842a2ec023f41a67df3a))
+* limit and gate the project creations of tokens that reach every project ([5e83281](https://github.com/cyr-ius/security-review/commit/5e83281139fb1d3a88d17f3021a9edf9b0547824))
+* refuse a replacement of project members or OIDC mappings from a stale page ([805be4b](https://github.com/cyr-ius/security-review/commit/805be4b499d71688e9ef33cdb546d229ca985c11))
+* require users.manage to block or allow the autojoin of a project ([d0112b4](https://github.com/cyr-ius/security-review/commit/d0112b40a423875ba10ae59ecb0b79f3e3946bd8))
+
+
+### Documentation
+
+* fix the findings left in the docs, docstrings and launch configuration ([8eb6a7c](https://github.com/cyr-ius/security-review/commit/8eb6a7cf58a351cbc8b8408602cdd8aa54729be6))
+
 ## [10.0.0](https://github.com/cyr-ius/security-review/compare/v9.0.0...v10.0.0) (2026-10-30)
 
 
