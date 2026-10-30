@@ -40,6 +40,7 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http sur loc
 Quelle que soit la méthode employée, le serveur MCP prend en compte les modifications (sous 30 secondes).
 Activée sans l'URL du point d'accès MCP, la connexion est suspendue : le serveur Controller démarre, journalise un avertissement, et la page **Jetons** demande l'URL, dont l'enregistrement met la connexion en service.
 Si vous désactivez la connexion OAuth des clients MCP, les autorisations sont suspendues : le serveur MCP refuse aussitôt les jetons déjà émis, et les accepte de nouveau à la réactivation (un client dont le jeton de rafraîchissement a expiré entre-temps doit se reconnecter). Pour couper définitivement tous les clients, utilisez **Tout révoquer** (voir [Administration](#administration)).
+Une autorisation est liée à l'URL du point d'accès MCP pour laquelle elle a été émise : si vous changez cette URL, les jetons déjà émis sont refusés et chaque client doit se reconnecter.
 
 Derrière un reverse proxy, publiez ces chemins publics :
 

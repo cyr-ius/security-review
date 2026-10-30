@@ -63,7 +63,9 @@
   revokes the grant. Approving a client needs a web session and is refused, like every grant and
   personal `mcp` or `ci` token, while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`; a token
   acts as a personal `mcp` token of its user, on the MCP server only, and is deleted with the
-  user; while the login is off, the grants are kept but their tokens are refused (see
+  user; a grant only works for the URL of the MCP endpoint it was issued for (RFC 8707
+  resource): after a change of this URL, its tokens are refused and the client logs in again;
+  while the login is off, the grants are kept but their tokens are refused (see
   [OAuth login of MCP clients](../advanced/mcp-oauth.md)).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens and project requests are written in the same transaction as the change,

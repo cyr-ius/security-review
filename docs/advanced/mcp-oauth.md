@@ -41,6 +41,7 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http on loca
 Whatever the method used, the MCP server picks up the changes (within 30 seconds).
 Enabled without the URL of the MCP endpoint, the login is suspended: the Controller server starts, logs a warning, and the **Tokens** page asks for the URL, which turns the login on once saved.
 When you turn the MCP OAuth login off, the grants are suspended: the MCP server refuses the tokens already issued at once, and accepts them again when the login is turned back on (a client whose refresh token has expired in the meantime must log in again). To cut every client for good, use **Revoke all** (see [Administration](#administration)).
+A grant is bound to the URL of the MCP endpoint it was issued for: when you change this URL, the tokens already issued are refused, and every client must log in again.
 
 Behind a reverse proxy, publish these public paths:
 
