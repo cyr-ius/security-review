@@ -34,7 +34,8 @@
   dont le créateur doit détenir chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
   accède à tous les outils MCP et à tous les projets ; un jeton `mcp` personnel atteint les
   projets que son utilisateur peut lire à l'instant, aucun quand l'utilisateur n'en a pas (jamais
-  tous les projets par défaut), et s'arrête quand l'utilisateur est supprimé ou doit changer un mot
+  tous les projets par défaut), n'enregistre de rapport ni ne propose de statut que sur ceux de
+  `reports.write` (lire un projet ne permet jamais à un agent d'y écrire), et s'arrête quand l'utilisateur est supprimé ou doit changer un mot
   de passe défini par un administrateur. Un utilisateur web
   détient au plus `SECREVIEW_PERSONAL_TOKENS_PER_USER` jetons personnels de chaque rôle (1 par
   défaut).
@@ -81,8 +82,8 @@
   [métriques Prometheus](metrics.md)).
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
   ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun) ; un jeton `ci`
-  personnel atteint les projets que son utilisateur peut lire à l'instant, comme un jeton `mcp`
-  personnel, qui n'atteint jamais les routes de pipeline (un usage par jeton). Il ne lit que le
+  personnel atteint les projets que son utilisateur peut lire à l'instant et n'enregistre de scan
+  que sur ceux de `reports.write`, comme un jeton `mcp` personnel, qui n'atteint jamais les routes de pipeline (un usage par jeton). Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du serveur Controller, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
   ([`security-review-ci`](../advanced/architecture/ci.md)) n'ouvre
@@ -96,10 +97,11 @@
   utilisateur portant `projects.create` (jamais un projet existant) ; sinon la demande reste
   **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` la valide sur le
   serveur Controller, ce qui donne à l'utilisateur demandeur (authentifié par le jeton, jamais déclaré)
-  la lecture du projet, créé s'il est nouveau. Pour un projet existant, la demande est une
+  la lecture et l'écriture du projet, créé s'il est nouveau. Pour un projet existant, la demande est une
   demande d'accès, jamais accordée immédiatement, et validée seulement par un utilisateur qui
   porte aussi `users.manage`, sauf pour un utilisateur portant `projects.autojoin`, qui le
-  rejoint aussitôt en lecture si son adhésion automatique n'est pas bloquée (cet utilisateur
+  rejoint aussitôt (lecture et écriture) si son adhésion automatique n'est pas bloquée et qu'il
+  ne le lit pas déjà (cet utilisateur
   apprend quels projets existent). Pour les autres, la réponse est la même que le projet existe ou
   non. Les demandes sont bornées (20 demandes en attente, une par utilisateur et par projet, 5
   par utilisateur ou jeton et par heure), et

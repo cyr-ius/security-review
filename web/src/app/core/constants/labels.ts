@@ -86,6 +86,7 @@ export const TOKEN_ROLE_LABELS: Record<TokenRole, MessageKey> = {
 /** Message keys of the name and of the description of each permission, in display order. */
 export const PERMISSION_META: Record<Permission, { label: MessageKey; help: MessageKey }> = {
   'reports.read': { label: 'permission.reportsRead', help: 'permission.reportsReadHelp' },
+  'reports.write': { label: 'permission.reportsWrite', help: 'permission.reportsWriteHelp' },
   'findings.triage': { label: 'permission.findingsTriage', help: 'permission.findingsTriageHelp' },
   'rules.read': { label: 'permission.rulesRead', help: 'permission.rulesReadHelp' },
   'rules.manage': { label: 'permission.rulesManage', help: 'permission.rulesManageHelp' },
@@ -115,5 +116,6 @@ export const PERMISSION_META: Record<Permission, { label: MessageKey; help: Mess
 /** Permissions limited to projects (the others concern the whole controller). */
 export const SCOPED_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'reports.read',
+  'reports.write',
   'findings.triage',
 ]);

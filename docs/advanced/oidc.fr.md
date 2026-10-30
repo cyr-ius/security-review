@@ -180,7 +180,7 @@ s'ajoutent aux rôles et projets donnés au compte (voir
 
 | Réglage | Effet |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Valeurs du claim, séparées par des virgules, qui ont le rôle `admin` : une telle valeur, sans aucune correspondance à la connexion d'un utilisateur qui la porte, reçoit une correspondance vers `admin` avec la lecture et le triage de tous les projets. Une correspondance qui la nomme déjà reste telle que les administrateurs l'ont modifiée. Sert à nommer le premier administrateur |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Valeurs du claim, séparées par des virgules, qui ont le rôle `admin` : une telle valeur, sans aucune correspondance à la connexion d'un utilisateur qui la porte, reçoit une correspondance vers `admin` avec la lecture, l'écriture et le triage de tous les projets. Une correspondance qui la nomme déjà reste telle que les administrateurs l'ont modifiée. Sert à nommer le premier administrateur |
 
 ```bash
 # Toutes les correspondances OIDC, remplacées d'un bloc

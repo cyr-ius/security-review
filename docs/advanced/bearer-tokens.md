@@ -164,7 +164,8 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 
 A token never grants more than its creator holds: creating a token, changing its projects,
 rotating its secret or revoking it needs `reports.read` on every project of the token, before
-and after a change of its projects, and, for a role `api` token, each permission of its role and
+and after a change of its projects, `reports.write` there for an `mcp` or `ci` token (it saves
+reports), and, for a role `api` token, each permission of its role and
 each of its per-project permissions on these projects. The **Tokens** page only lists the tokens of the projects the user reads. Its
 **Validity** goes from 30 days to 1 year, or the default of the server
 (`SECREVIEW_TOKEN_MAX_DAYS`).
@@ -183,8 +184,11 @@ rules:
 Every account may create a personal `mcp` or `ci` token, unless
 `SECREVIEW_PERSONAL_TOKENS_ENABLED=false` (`422`): the tokens already created are then refused
 (`401`) by the MCP server and the Controller server, but kept, and work again once it is `true`.
-It reaches the projects of `reports.read` of the roles of the account:
-every project when one of its roles reads every project, none when it has none. When the
+It reaches the projects of `reports.read` of the account: every project when it reads every
+project, none when it has none. It saves reports and proposes a status only on the projects of
+`reports.write` (`save_security_report` and `propose_finding_status` answer with an error, a
+scan with `save` gets a `403` elsewhere), so that an account that only reads a project cannot
+write to it through its agent. When the
 server refuses it (unknown, revoked or expired), the agent receives a `401` that tells the user
 to sign in again and create a new one.
 

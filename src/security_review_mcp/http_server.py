@@ -134,6 +134,9 @@ class TokenInfo:
     """Identity attached to a token: a label for the logs and a role.
 
     ``projects`` lists the projects a restricted token reaches (None: every project).
+    ``write_projects`` further limits where it saves reports and proposes a status (see
+    write_scope): a personal token writes only to the projects of ``reports.write`` of its user;
+    None for the other tokens, which write wherever they reach.
     ``expired`` marks a token past its expiry date: it grants no access either.
     ``user_id`` and ``auth_source`` (``local`` or ``oidc``) are set for the session of a web
     user (see web_users), None for a token. ``owner`` is the username of the web user who owns
@@ -146,6 +149,7 @@ class TokenInfo:
     label: str
     role: Role = DEFAULT_ROLE
     projects: frozenset[str] | None = None
+    write_projects: frozenset[str] | None = None
     token_id: str | None = None
     expired: bool = False
     user_id: int | None = None
@@ -156,6 +160,16 @@ class TokenInfo:
     )
     # A web user whose password was set by someone else: it may only change it
     must_change_password: bool = False
+
+
+def write_scope(state: Mapping[str, Any]) -> frozenset[str] | None:
+    """Projects the caller of a request may save reports to and propose a status on: those it
+    reaches (``auth_projects``), limited by ``auth_write_projects`` (None: every project, as with
+    stdio)."""
+    projects, writable = state.get("auth_projects"), state.get("auth_write_projects")
+    if projects is None or writable is None:
+        return writable if projects is None else projects
+    return projects & writable
 
 
 @dataclass(frozen=True)
@@ -279,7 +293,8 @@ class BearerAuthMiddleware:
 
     Pure ASGI (no response buffering) so that streamed MCP responses are not affected.
     The label, role, projects and id of the accepted token are stored in ``scope["state"]``
-    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``, and ``auth_user_id``
+    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_write_projects``,
+    ``auth_token_id``, and ``auth_user_id``
     and ``auth_source`` for the session of a web user).
 
     With ``web=False`` (MCP server) every path needs an MCP role, except ``public_paths``.
@@ -441,6 +456,7 @@ class BearerAuthMiddleware:
         state["auth_client"] = info.label
         state["auth_role"] = info.role
         state["auth_projects"] = info.projects
+        state["auth_write_projects"] = info.write_projects
         state["auth_token_id"] = info.token_id
         state["auth_user_id"] = info.user_id
         state["auth_owner"] = info.owner

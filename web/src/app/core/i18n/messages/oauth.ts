@@ -5,7 +5,7 @@ export const oauth = defineMessages({
   en: {
     'oauth.title': 'Connect an MCP client',
     'oauth.lead':
-      '{client} asks to use the Security Review MCP server on your behalf: it will reach the projects you may read, review them and save reports, without changing any finding status.',
+      '{client} asks to use the Security Review MCP server on your behalf: it will reach the projects you may read and save reports on those you may write to, without changing any finding status.',
     'oauth.unnamed': 'An MCP client',
     'oauth.signedInAs': 'Signed in as {user}',
     'oauth.redirect': 'After your answer, the browser goes back to {host}.',
@@ -79,7 +79,7 @@ export const oauth = defineMessages({
   fr: {
     'oauth.title': 'Connecter un client MCP',
     'oauth.lead':
-      '{client} demande à utiliser le serveur MCP Security Review en votre nom : il accédera aux projets que vous pouvez lire, pourra les relire et enregistrer des rapports, sans changer le statut d’aucun finding.',
+      '{client} demande à utiliser le serveur MCP Security Review en votre nom : il accédera aux projets que vous pouvez lire et enregistrera des rapports sur ceux où vous pouvez écrire, sans changer le statut d’aucun finding.',
     'oauth.unnamed': 'Un client MCP',
     'oauth.signedInAs': 'Connecté en tant que {user}',
     'oauth.redirect': 'Après votre réponse, le navigateur revient vers {host}.',
@@ -153,7 +153,7 @@ export const oauth = defineMessages({
   es: {
     'oauth.title': 'Conectar un cliente MCP',
     'oauth.lead':
-      '{client} solicita usar el servidor MCP Security Review en su nombre: accederá a los proyectos que usted puede leer, podrá revisarlos y guardar informes, sin cambiar el estado de ningún hallazgo.',
+      '{client} solicita usar el servidor MCP Security Review en su nombre: accederá a los proyectos que usted puede leer y guardará informes en aquellos donde puede escribir, sin cambiar el estado de ningún hallazgo.',
     'oauth.unnamed': 'Un cliente MCP',
     'oauth.signedInAs': 'Conectado como {user}',
     'oauth.redirect': 'Tras su respuesta, el navegador vuelve a {host}.',

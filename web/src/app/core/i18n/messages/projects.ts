@@ -21,7 +21,7 @@ export const projects = defineMessages({
     'projects.createFailed': 'Could not create the project.',
     'projects.pending': 'Pending projects',
     'projects.pendingHelp':
-      'Projects requested by the MCP agent of a user who may not create projects, and requests to access an existing project. Check the requester: approving gives the requester the reader role on the project (created for a new project); a request not approved before its expiry is deleted.',
+      'Projects requested by the MCP agent of a user who may not create projects, and requests to access an existing project. Check the requester: approving gives the requester the reading and writing of the reports of the project (created for a new project); a request not approved before its expiry is deleted.',
     'projects.requester': 'Requested by',
     'projects.address': 'Address',
     'projects.requestedAt': 'Requested on',
@@ -122,7 +122,7 @@ export const projects = defineMessages({
     'projects.createFailed': 'Impossible de créer le projet.',
     'projects.pending': 'Projets en attente',
     'projects.pendingHelp':
-      "Projets demandés par l'agent MCP d'un utilisateur qui ne peut pas créer de projet, et demandes d'accès à un projet existant. Vérifiez le demandeur : valider lui donne le rôle reader sur le projet (créé pour un nouveau projet) ; une demande non validée avant son expiration est supprimée.",
+      "Projets demandés par l'agent MCP d'un utilisateur qui ne peut pas créer de projet, et demandes d'accès à un projet existant. Vérifiez le demandeur : valider lui donne la lecture et l'écriture des rapports du projet (créé pour un nouveau projet) ; une demande non validée avant son expiration est supprimée.",
     'projects.requester': 'Demandé par',
     'projects.address': 'Adresse',
     'projects.requestedAt': 'Demandé le',
@@ -223,7 +223,7 @@ export const projects = defineMessages({
     'projects.createFailed': 'No se pudo crear el proyecto.',
     'projects.pending': 'Proyectos pendientes',
     'projects.pendingHelp':
-      'Proyectos solicitados por el agente MCP de un usuario que no puede crear proyectos, y solicitudes de acceso a un proyecto existente. Compruebe el solicitante: aprobar le da el rol reader en el proyecto (creado para un proyecto nuevo); una solicitud no aprobada antes de su caducidad se elimina.',
+      'Proyectos solicitados por el agente MCP de un usuario que no puede crear proyectos, y solicitudes de acceso a un proyecto existente. Compruebe el solicitante: aprobar le da la lectura y la escritura de los informes del proyecto (creado para un proyecto nuevo); una solicitud no aprobada antes de su caducidad se elimina.',
     'projects.requester': 'Solicitado por',
     'projects.address': 'Dirección',
     'projects.requestedAt': 'Solicitado el',

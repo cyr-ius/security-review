@@ -3,7 +3,7 @@
 What a [user account](user-accounts.md) may do comes only from its **roles** and its
 **projects**. A role holds permissions on the whole Controller server (rules, tokens, users,
 audit...). Each project of an account holds its own **per-project permissions** (reading,
-triage), as does **All projects**. An OIDC account also holds the roles and projects of the
+writing, triage), as does **All projects**. An OIDC account also holds the roles and projects of the
 [OIDC mappings](sso.md#oidc-mappings) of its identity provider groups. Administrators manage all
 this in the **Users**, **Roles** and **Sign-in** pages, and on the page of each project
 ([members](projects.md#members)).
@@ -17,6 +17,7 @@ machines keep a fixed role ([tokens](tokens.md)).
 | Permission | Allows | Per project |
 |---|---|---|
 | `reports.read` | Read the projects, reports and findings | ✅ |
+| `reports.write` | Save reports and propose a status for a finding with a [personal MCP or CI token](tokens.md#personal-mcp-and-ci-tokens) or an MCP client logged in with OAuth (includes `reports.read`) | ✅ |
 | `findings.triage` | [Triage](triage.md) the findings | ✅ |
 | `rules.read` | Read the scan rules and the checklists, and export them | |
 | `rules.manage` | Edit the scan rules and the checklists (includes `rules.read`) | |
@@ -28,21 +29,23 @@ machines keep a fixed role ([tokens](tokens.md)).
 | `audit.read` | Read the audit log | |
 | `projects.create` | [Create a project](projects.md#creating-a-project), approve the projects requested by the agents and [block the autojoin](projects.md#blocking-the-autojoin) of a project it reads | |
 | `projects.delete` | [Delete a project](projects.md#deleting-a-project) | |
-| `projects.autojoin` | [Join an existing project](projects.md#joining-a-project) at once, with its reading only, when the agent requests it, unless [its autojoin is blocked](projects.md#blocking-the-autojoin) | |
+| `projects.autojoin` | [Join an existing project](projects.md#joining-a-project) at once, with `reports.read` and `reports.write`, when the agent requests it, unless [its autojoin is blocked](projects.md#blocking-the-autojoin) | |
 
 A permission marked **per project** is given with a project (or with every project), never by a
 role; the others are given by the roles and apply to the whole Controller server. No permission is needed for the
 [personal MCP and CI tokens](tokens.md#personal-mcp-and-ci-tokens): every account may create
-them, unless `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`.
+them, unless `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`. They read the projects of `reports.read`
+and save reports or propose a status only on those of `reports.write`: an account that only
+reads a project cannot write to it through its agent.
 
 ## Roles
 
 | Role | Permissions | Note |
 |---|---|---|
-| `admin` | Every permission on the whole Controller server, including those of later versions | Built in, cannot be changed: the role of the first administrator, who also reads and triages every project |
+| `admin` | Every permission on the whole Controller server, including those of later versions | Built in, cannot be changed: the role of the first administrator, who also reads, writes and triages every project |
 
 Administrators create other roles, for example an *Auditor* role with `audit.read`. A role never
-holds `reports.read` nor `findings.triage`.
+holds `reports.read`, `reports.write` nor `findings.triage`.
 
 ## Roles and projects of an account
 
@@ -59,7 +62,9 @@ reports** and **Triage the findings** on `crm` reads the audit log, reads both p
 triages `crm` only. An account without any permission sees nothing and cannot log in.
 
 A project that an account creates, joins or obtains by the approval of a request of its agent is
-added with its reading only, never more.
+added with `reports.read` and `reports.write`, never more, so that its agent reviews it. An
+account that reads a project without `reports.write` asks for it through its agent like a new
+access: `projects.autojoin` never adds it.
 
 **My account** and the **Users** page show the permissions of each account. A change of the
 roles or projects of an account, of a role or of an OIDC mapping applies at once to the open

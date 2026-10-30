@@ -1135,7 +1135,11 @@ def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
         "autojoin_blocked": False,
     }
     me = accounts.get("/api/v1/me", headers=headers).json()
-    assert me["permissions"] == {"projects.create": None, "reports.read": ["mobile-app"]}
+    assert me["permissions"] == {
+        "projects.create": None,
+        "reports.read": ["mobile-app"],
+        "reports.write": ["mobile-app"],
+    }
     listed = accounts.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in listed] == ["mobile-app"]
     # An administrator sees it too, after the projects that have reports
@@ -1269,9 +1273,16 @@ def test_a_manager_without_reports_read_reads_no_project(accounts, reports):
 def test_a_token_never_grants_more_than_its_creator(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     keeper = access_control.create_role("Token keeper", ["tokens.manage"])
-    make_user("kim", USER_PASSWORD, "reader", ["shop-api"], role_ids=[keeper["id"]])
-    headers = session_headers(accounts, "kim")
+    make_user("lou", USER_PASSWORD, "reader", ["shop-api"], role_ids=[keeper["id"]])
+    make_user("kim", USER_PASSWORD, "reviewer", ["shop-api"], role_ids=[keeper["id"]])
     url = "/api/v1/project-tokens"
+    # A reader gives no mcp or ci token, which would save reports where it may not
+    reader = session_headers(accounts, "lou")
+    for role in ("mcp", "ci"):
+        body = {"label": f"lou-{role}", "projects": ["shop-api"], "role": role}
+        refused = accounts.post(url, json=body, headers=reader)
+        assert refused.status_code == 403 and "reports.write" in refused.json()["detail"]
+    headers = session_headers(accounts, "kim")
 
     for body in (
         {"label": "other", "projects": ["billing"]},
@@ -2303,7 +2314,7 @@ def test_users_are_managed_by_administrators(accounts, caplog):
         f"/api/v1/users/{bob['id']}",
         json={
             "role_ids": [role_id("admin")],
-            "all_projects_permissions": ["findings.triage", "reports.read"],
+            "all_projects_permissions": ["findings.triage", "reports.read", "reports.write"],
         },
         headers=admin,
     )
@@ -3175,7 +3186,7 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
 
 
 def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
-    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+    make_user("alice", USER_PASSWORD, "reviewer", ["shop-api"])
     headers = session_headers(secured, "alice")
     # One usage per token: a personal mcp token is an MCP agent token only
     agent = secured.post(
@@ -3199,6 +3210,12 @@ def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
         "alice:laptop",
         "alice",
     )
+    # A reader's token scans the project but saves nothing there (reports.write)
+    bob = make_user("bob", USER_PASSWORD, "reader", ["shop-api"])
+    reader = _bearer(token_store.create_personal_token(bob["id"], "laptop", role="ci")["token"])
+    assert secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=reader).is_success
+    refused = secured.post("/api/v1/ci/scan/code", json=body, headers=reader)
+    assert refused.status_code == 403 and "reports.write" in refused.json()["detail"]
     # Only the projects its user may read, and only the pipeline routes
     other = secured.post("/api/v1/ci/scan/code", json=code_scan_body("billing"), headers=token)
     assert other.status_code == 404

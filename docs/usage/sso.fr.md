@@ -66,14 +66,15 @@ donnés au compte.
 
 Un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur
 d'identité. Chaque valeur des **Groupes administration** reçoit une correspondance vers `admin`,
-avec la lecture et le triage de tous les projets, à la première connexion d'un utilisateur qui la
+avec la lecture, l'écriture et le triage de tous les projets, à la première connexion d'un utilisateur qui la
 porte ; une correspondance modifiée ensuite est conservée.
 
 ## Lecture du projet
 
 Pour qu'un développeur lise un projet, donnez ce projet à son compte OIDC dans **Utilisateurs** ou
-dans les [membres](projects.md#membres) du projet (lecture par défaut), faites
-correspondre l'un de ses groupes, ou validez la demande d'accès de son agent dans **Projets**.
+dans les [membres](projects.md#membres) du projet (lecture par défaut ; ajoutez **Écrire les
+rapports** pour que son agent y enregistre ses revues), faites correspondre l'un de ses groupes,
+ou validez la demande d'accès de son agent dans **Projets** (lecture et écriture).
 Donner un projet à un compte exige qu'il existe : le développeur s'est connecté une fois
 (création automatique), ou un administrateur l'a créé dans **Utilisateurs**.
 

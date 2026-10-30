@@ -64,7 +64,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
-| `request_project` | Called before a review with `project`: `accessible` when the token reaches it, `created` for a new project when the user holds `projects.create` (the user becomes its member), `joined` for an existing project when the user holds `projects.autojoin` (the user reads it), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
+| `request_project` | Called before a review with `project`: `accessible` when the token may save reports on it, `created` for a new project when the user holds `projects.create` (the user becomes its member), `joined` for an existing project the user does not read yet when the user holds `projects.autojoin` (the user reads and writes it), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |
 | `list_rules` / `reload_rules` | Active rules ([default and custom](rules.md), stored in the database), loading errors, immediate reload |
 
@@ -72,8 +72,9 @@ On the HTTP transport, a restricted token can only use the report tools on its a
 projects; `reload_rules` is refused to it (see
 [tokens restricted to a project](../advanced/bearer-tokens.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them. A
-[personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) reaches the projects of its user: for
-another project, `request_project` creates it or requests it.
+[personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) reaches the projects of its user, and
+`save_security_report` and `propose_finding_status` only those where the user holds
+`reports.write`: for another project, `request_project` creates it or requests it.
 
 ### Enrollment server
 

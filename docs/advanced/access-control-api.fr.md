@@ -16,13 +16,13 @@ OIDC).
 | Membres définis d'un coup sur un projet | 500 au plus |
 | Correspondances OIDC | 500 au plus, une par valeur du claim (200 caractères au plus), chacune de 100 rôles et 50 projets au plus |
 
-Un rôle ne porte que des droits sur tout le serveur Controller : un rôle avec `reports.read` ou
-`findings.triage` est refusé (`422`). Ces droits par projet se donnent avec chaque projet d'un
+Un rôle ne porte que des droits sur tout le serveur Controller : un rôle avec `reports.read`,
+`reports.write` ou `findings.triage` est refusé (`422`). Ces droits par projet se donnent avec chaque projet d'un
 utilisateur (`projects[].permissions`, au moins un) et avec tous les projets
 (`all_projects_permissions`). Seul un projet connu peut être donné (`404` sinon).
 
 `users.manage` couvre aussi les réglages OIDC, puisqu'ils décident qui reçoit quel rôle. Le rôle
-`admin`, avec la lecture et le triage de tous les projets, est aussi donné par une correspondance
+`admin`, avec la lecture, l'écriture et le triage de tous les projets, est aussi donné par une correspondance
 créée à la première connexion d'un utilisateur qui porte une valeur de
 `SECREVIEW_OIDC_ADMIN_GROUPS` ([OIDC](oidc.md)) ; une correspondance qui nomme déjà cette valeur
 est laissée telle qu'un administrateur l'a modifiée. Les valeurs du claim des rôles qu'aucune
@@ -104,7 +104,7 @@ un projet connu.
 
 La validation d'un projet demandé par un agent
 ([enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) l'ajoute
-aux projets de l'utilisateur demandeur avec sa seule lecture (en créant le projet s'il est nouveau ;
+aux projets de l'utilisateur demandeur avec `reports.read` et `reports.write`, jamais plus (en créant le projet s'il est nouveau ;
 pour un projet existant, la demande est une demande d'accès, que seul un utilisateur doté de
 `users.manage` valide), et créer un projet l'ajoute de la même façon à son créateur. Voir aussi
 [lecture du projet](../usage/sso.md#lecture-du-projet).
@@ -113,8 +113,8 @@ pour un projet existant, la demande est une demande d'accès, que seul un utilis
 
 `POST /api/v1/projects` crée un projet, depuis une session de l'interface web uniquement. Le seul
 jeton qui crée un projet est le jeton MCP personnel d'un utilisateur doté de `projects.create`,
-par l'outil `request_project` de son agent. Le serveur Controller ajoute le projet au compte avec sa
-lecture.
+par l'outil `request_project` de son agent. Le serveur Controller ajoute le projet au compte avec
+`reports.read` et `reports.write`.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -129,9 +129,8 @@ d'accès). Chaque création est écrite dans le journal d'audit (`project.create
 ### Adhésion automatique à un projet
 
 Un utilisateur doté de `projects.autojoin` rejoint un projet existant par l'outil
-`request_project` de son agent : le serveur Controller ajoute le projet au compte avec sa
-lecture,
-règle sa demande en attente pour ce projet et écrit `project.joined` dans le journal d'audit. Un
+`request_project` de son agent : le serveur Controller ajoute le projet au compte avec
+`reports.read` et `reports.write`, règle sa demande en attente pour ce projet et écrit `project.joined` dans le journal d'audit. Un
 utilisateur qui lit déjà 200 projets est refusé. `PUT /api/v1/projects/{project}/autojoin` bloque
 (`true`) ou autorise de nouveau (`false`) cette adhésion automatique, avec `projects.create`,
 depuis une session de l'interface web uniquement, pour un projet que l'appelant lit (un autre

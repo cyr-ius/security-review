@@ -60,14 +60,15 @@ project `billing` with **Read the reports** and **Triage the findings**, and no 
 `staff`. The user then reads and triages `billing`, and keeps the projects given to the account.
 
 A project not created yet is ignored until it is, never created by the identity provider. Each
-value of the **Administration groups** gets a mapping to `admin`, with the reading and the triage
-of every project, at the first login of a user who holds it; a mapping changed afterwards is kept.
+value of the **Administration groups** gets a mapping to `admin`, with the reading, the writing and
+the triage of every project, at the first login of a user who holds it; a mapping changed afterwards is kept.
 
 ## Project read access
 
 To let a developer read a project, give it to their OIDC account in **Users** or in the
-[members](projects.md#members) of the project (reading by default), map one
-of their groups, or approve the access request of their agent in **Projects**. Giving a project
+[members](projects.md#members) of the project (reading by default; add **Write the reports** so
+that their agent saves its reviews), map one of their groups, or approve the access request of
+their agent in **Projects** (reading and writing). Giving a project
 to an account needs it to exist first: the developer has logged in once (automatic creation), or
 an administrator has created it in **Users**.
 

@@ -98,8 +98,8 @@ A request left without an answer expires after 10 minutes.
 ## What a token gives
 
 An access token acts as a [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) of
-the user who approved the client: the projects the user may read.
-The rights are read again at each request.
+the user who approved the client: the projects the user may read, with reports and proposals
+saved only on those of `reports.write`. The rights are read again at each request.
 
 Approving a client needs a web session (a Bearer token never approves a client), and is refused
 (`403`) while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, like creating a personal MCP token.

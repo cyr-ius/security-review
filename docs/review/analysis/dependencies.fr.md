@@ -172,7 +172,8 @@ Mise en place pas à pas, avec la revue par un agent : [Hooks de commit](../../g
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
 [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
-**Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
+**Mon compte** : il atteint les projets que le développeur peut lire (et n'enregistre de scan
+que sur ceux de `reports.write`), et les fichiers sont
 envoyés au serveur Controller exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
 Python : installez le client avec uv (voir [Installation](../../advanced/architecture/ci.md#installation)).
 

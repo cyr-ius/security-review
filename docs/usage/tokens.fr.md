@@ -32,8 +32,9 @@ Dans la page **Jetons**, un administrateur choisit :
   projets** (y compris ceux revus plus tard, jamais pour un jeton CI/CD) ou certains projets ;
 - la **Validité** : de 30 jours à 1 an.
 
-Un jeton ne donne jamais plus que ce que détient son créateur, et la page ne liste que les jetons
-des projets que vous lisez. **Projets** change les projets d'un jeton sans changer son secret ;
+Un jeton ne donne jamais plus que ce que détient son créateur : un jeton **MCP** ou **Pipeline
+CI/CD** enregistre des rapports sur ses projets, son créateur doit donc y avoir **Écrire les
+rapports** (`reports.write`). La page ne liste que les jetons des projets que vous lisez. **Projets** change les projets d'un jeton sans changer son secret ;
 **Renouveler** remplace son secret.
 
 ## Jetons API
@@ -56,8 +57,8 @@ Un utilisateur crée ses propres jetons dans **Mon compte** > **Jetons personnel
 | Usage | Pour |
 |---|---|
 | **API REST — Swagger et scripts** | L'API REST, avec les droits du compte |
-| **MCP — votre agent MCP** | Votre agent MCP, sur les projets que votre compte peut lire |
-| **CI — security-review-ci sur votre poste** | `security-review-ci` (scans, gate, hooks de commit), sur les projets que votre compte peut lire |
+| **MCP — votre agent MCP** | Votre agent MCP, sur les projets que votre compte peut lire ; il enregistre des rapports et propose des statuts sur ceux où il peut écrire |
+| **CI — security-review-ci sur votre poste** | `security-review-ci` (scans, gate, hooks de commit), sur les projets que votre compte peut lire ; il enregistre les scans sur ceux où il peut écrire |
 
 Chaque jeton a un seul usage : un jeton MCP n'atteint pas les routes de pipeline, un jeton CI
 n'atteint pas le serveur MCP.
@@ -78,7 +79,9 @@ désactive aussi la connexion et saisit son point d'accès MCP.
 Le jeton personnel **MCP** connecte votre agent MCP, le jeton personnel **CI**
 `security-review-ci`. Tout compte peut les créer, sauf si un administrateur les a désactivés
 (`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, voir plus bas). Il atteint les
-projets que votre compte peut lire, affichés dans la colonne **Projets**.
+projets que votre compte peut lire, affichés dans la colonne **Projets**, et n'enregistre de
+rapport ni ne propose de statut que sur ceux où votre compte a **Écrire les rapports**
+(`reports.write`).
 
 Pour un projet qu'il n'atteint pas encore : un administrateur vous en donne l'accès, vous le
 créez depuis **Projets** s'il est nouveau et que vous le pouvez, ou votre agent le demande

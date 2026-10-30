@@ -27,13 +27,13 @@ Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première re
 ## Membres
 
 Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets, chacun avec ses droits
-par projet ici (lecture, triage). Son créateur, ou le développeur dont la demande a été validée,
-n'en reçoit que la lecture.
+par projet ici (lecture, écriture, triage). Son créateur, ou le développeur dont la demande a été
+validée, en reçoit la lecture et l'écriture (`reports.read` et `reports.write`), jamais le tri.
 
 Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet,
 qu'ouvre aussi le bouton en forme de personnes de sa ligne sur la page **Projets** :
 recherchez des comptes, cochez-les et ajoutez-les (avec la lecture), choisissez les droits de
-chaque membre ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans
+chaque membre (**Écrire les rapports** pour ceux dont l'agent enregistre des revues) ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans
 **Utilisateurs** ([rôles et projets d'un compte](access-control.md#roles-et-projets-dun-compte)),
 ou en validant la **Demande d'accès** déposée par un agent dans **Projets**. Les comptes qui ont
 tous les projets et ceux des [correspondances OIDC](sso.md#correspondances-oidc) n'y sont pas
@@ -42,8 +42,8 @@ listés.
 ## Création d'un projet
 
 Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur la page
-**Projets**. Créer un projet l'ajoute à vos projets avec sa lecture : vous le lisez aussitôt, et
-votre agent peut y enregistrer ses revues.
+**Projets**. Créer un projet l'ajoute à vos projets avec sa lecture et son écriture : vous le
+lisez aussitôt, et votre agent peut y enregistrer ses revues.
 
 ## Suppression d'un projet
 
@@ -69,8 +69,10 @@ demande ; une personne dotée de `users.manage` peut aussi donner le projet à l
 ([membres](#membres)).
 
 Avec la permission `projects.autojoin`, le développeur **rejoint aussitôt le projet**, sans
-demande : la requête de son agent ajoute le projet aux siens avec sa lecture, pour qu'il le lise
-(jamais plus : pas de tri) et que la revue continue. Cette permission ne crée pas de nouveau projet : il
+demande : la requête de son agent ajoute le projet aux siens avec sa lecture et son écriture, pour
+que son agent enregistre sa revue (jamais plus : pas de tri). Un développeur qui lit déjà le
+projet sans **Écrire les rapports** dépose une demande à la place : l'adhésion automatique
+n'élargit jamais ce qu'un administrateur a donné. Cette permission ne crée pas de nouveau projet : il
 faut pour cela `projects.create`.
 
 ## Blocage de l'adhésion automatique

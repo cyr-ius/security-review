@@ -222,12 +222,16 @@ def test_user_grants_become_sso_web_users(empty_engine):
     alice = users["alice"]
     assert (alice["auth_source"], alice["created_by"]) == ("oidc", "admin")
     # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role,
-    # 0018 into the groups of its projects and 0039 into these projects, with their reading
-    assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
+    # 0018 into the groups of its projects and 0039 into these projects, with their reading, to
+    # which 0040 adds reports.write
+    assert alice["permissions"] == {
+        "reports.read": ["billing", "shop-api"],
+        "reports.write": ["billing", "shop-api"],
+    }
     assert alice["roles"] == []
     assert [(item["project"], item["permissions"]) for item in alice["projects"]] == [
-        ("billing", ["reports.read"]),
-        ("shop-api", ["reports.read"]),
+        ("billing", ["reports.read", "reports.write"]),
+        ("shop-api", ["reports.read", "reports.write"]),
     ]
     assert (users["bob"]["auth_source"], users["bob"]["permissions"]) == ("local", ADMIN_GRANTS)
 
@@ -1116,21 +1120,30 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
     users = {user["username"]: user for user in web_users.list_users()}
     assert users["root"]["permissions"] == ADMIN_GRANTS
     # The roles of its groups keep their permissions on the whole controller, the per-project
-    # ones move to the projects; triager is removed
-    assert users["dev"]["permissions"] == {"audit.read": None, "reports.read": ["crm", "shop"]}
+    # ones move to the projects; triager is removed. Revision 0040 adds reports.write wherever
+    # reports.read is held
+    assert users["dev"]["permissions"] == {
+        "audit.read": None,
+        "reports.read": ["crm", "shop"],
+        "reports.write": ["crm", "shop"],
+    }
     assert [role["name"] for role in users["dev"]["roles"]] == ["auditor"]
     assert [item["project"] for item in users["dev"]["projects"]] == ["crm", "shop"]
     # Roles on different projects: exactly the same rights
     assert users["lea"]["permissions"] == {
         "findings.triage": ["crm"],
         "reports.read": ["crm", "shop"],
+        "reports.write": ["crm", "shop"],
     }
     assert {item["project"]: item["permissions"] for item in users["lea"]["projects"]} == {
-        "crm": ["findings.triage", "reports.read"],
-        "shop": ["reports.read"],
+        "crm": ["findings.triage", "reports.read", "reports.write"],
+        "shop": ["reports.read", "reports.write"],
     }
     # The OIDC user keeps the rights of its OIDC group until its next login
-    assert users["carol"]["permissions"] == {"reports.read": ["crm", "shop"]}
+    assert users["carol"]["permissions"] == {
+        "reports.read": ["crm", "shop"],
+        "reports.write": ["crm", "shop"],
+    }
     (mapping,) = access_control.list_oidc_mappings()
     assert (mapping["claim"], mapping["roles"], mapping["all_projects_permissions"]) == (
         "devs",
@@ -1138,11 +1151,12 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
         [],
     )
     assert mapping["projects"] == [
-        {"project": "crm", "permissions": ["reports.read"]},
-        {"project": "shop", "permissions": ["reports.read"]},
+        {"project": "crm", "permissions": ["reports.read", "reports.write"]},
+        {"project": "shop", "permissions": ["reports.read", "reports.write"]},
     ]
     # A role keeps its permissions on the whole controller; a role token keeps its role and gets
-    # its per-project permissions; a role left empty goes, unless a token uses it
+    # its per-project permissions (0040 leaves them: it saves no report); a role left empty
+    # goes, unless a token uses it
     assert tuple(token) == (roles["lead"], '["findings.triage", "reports.read"]')
     listed = {role["name"]: role["permissions"] for role in access_control.list_roles()}
     assert listed == {"admin": listed["admin"], "auditor": ["audit.read"], "lead": []}

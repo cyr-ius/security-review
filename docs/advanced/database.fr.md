@@ -55,6 +55,9 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
   des utilisateurs, des correspondances et des jetons de rôle, et le rôle intégré `reader`
   disparaît. Elle supprime les rôles `triager` et `mcp-user` (les jetons API de ces rôles sont
   révoqués). Elle **ne peut pas être rétrogradée** : sauvegardez la base avant la mise à niveau.
+  La révision `0040` ajoute ensuite `reports.write` partout où `reports.read` est accordé
+  (comptes, leurs projets, correspondances OIDC), pour que les agents continuent d'enregistrer
+  leurs rapports : retirez-le des comptes qui ne doivent que lire.
 
 ### Tâche de migration dédiée
 

@@ -38,12 +38,12 @@ An ``api`` token reaches the REST API (Swagger, scripts) with the rights of the 
 
 A web user may also create a **personal** ``mcp`` token for its MCP agent, or a **personal**
 ``ci`` token for ``security-review-ci`` on its workstation (code and dependency scans, gate):
-it reaches the projects the user may read (``reports.read`` of its roles), read at each
-request, so that a project granted to or removed from the user applies at once. It has no
-project rows and no change of projects: an administrator grants the project to the user
-instead. Each personal token has one usage: an ``mcp`` token only reaches the MCP server, a
-``ci`` token only the pipeline routes. A web user holds at most
-SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role. With
+it reaches the projects the user may read (``reports.read``) and saves reports and proposals
+only to those of ``reports.write``, both read at each request, so that a project granted to or
+removed from the user applies at once. It has no project rows and no change of projects: an
+administrator grants the project to the user instead. Each personal token has one usage: an
+``mcp`` token only reaches the MCP server, a ``ci`` token only the pipeline routes. A web user
+holds at most SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role. With
 SECREVIEW_PERSONAL_MCP_TOKENS=false (MCP clients logged in with OAuth, see oauth_server), no
 personal ``mcp`` token is created and the controller revokes those left at start. With
 SECREVIEW_PERSONAL_TOKENS_ENABLED=false (see app_settings.personal_tokens_enabled), no personal
@@ -282,8 +282,11 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
     )
 
 
-def _user_projects(session: Session, user_id: int) -> frozenset[str] | None:
-    """Projects a web user may read now (None: every project, empty: none).
+def _user_projects(
+    session: Session, user_id: int
+) -> tuple[frozenset[str] | None, frozenset[str] | None]:
+    """Projects a web user may read now, and those it may write to (``reports.write``): None for
+    every project, empty for none.
 
     Raises:
         ValueError: If the user is gone or its grants are too large.
@@ -293,11 +296,15 @@ def _user_projects(session: Session, user_id: int) -> frozenset[str] | None:
     if session.get(WebUser, user_id) is None:
         raise ValueError(f"User {user_id} not found")
     grants = access_control.user_grants(session, user_id)
-    return access_control.scope(grants, access_control.Permission.REPORTS_READ)
+    return (
+        access_control.scope(grants, access_control.Permission.REPORTS_READ),
+        access_control.scope(grants, access_control.Permission.REPORTS_WRITE),
+    )
 
 
 def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | None:
-    """Identity of a personal ``mcp`` or ``ci`` token: the projects its user may read now. None
+    """Identity of a personal ``mcp`` or ``ci`` token: the projects its user may read now, and
+    those it may write to. None
     when the user is gone, must change a password set by an administrator (as its api tokens,
     see web_api.deps), its grants cannot be read, the role is not a scoped personal one or
     SECREVIEW_PERSONAL_TOKENS_ENABLED is false (fail closed); a user without any project gets a
@@ -308,13 +315,14 @@ def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> T
     if user is None or user.must_change_password:
         return None
     try:
-        projects = _user_projects(session, user.id)  # type: ignore[arg-type]
+        projects, writable = _user_projects(session, user.id)  # type: ignore[arg-type]
     except ValueError:
         return None
     return TokenInfo(
         info.label,
         info.role,
         projects=projects,
+        write_projects=writable,
         token_id=info.token_id,
         expired=info.expired,
         owner=user.username,
@@ -327,10 +335,10 @@ OAUTH_LAST_USED_RESOLUTION = timedelta(minutes=5)
 
 def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
     """Identity of an OAuth access token (see oauth_server): the projects the user who approved
-    the client may read now, as a personal ``mcp`` token without the pipeline routes. None when
-    unknown, when the user is gone or must change its password, while the OAuth login is off
-    (the grant is kept for when it is turned on again) or while SECREVIEW_PERSONAL_TOKENS_ENABLED
-    is false; an expired one is marked ``expired``."""
+    the client may read and write to now, as a personal ``mcp`` token without the pipeline
+    routes. None when unknown, when the user is gone or must change its password, while the
+    OAuth login is off (the grant is kept for when it is turned on again) or while
+    SECREVIEW_PERSONAL_TOKENS_ENABLED is false; an expired one is marked ``expired``."""
     grant = session.exec(
         select(OAuthGrant).where(OAuthGrant.access_token_hash == digest.hex())
     ).first()
@@ -342,7 +350,7 @@ def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
     if user is None or user.must_change_password:
         return None
     try:
-        projects = _user_projects(session, grant.user_id)
+        projects, writable = _user_projects(session, grant.user_id)
     except ValueError:
         return None
     now = utcnow()
@@ -353,6 +361,7 @@ def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
         f"{user.username}:oauth:{grant.client_id[:8]}",
         Role.MCP,
         projects=projects,
+        write_projects=writable,
         expired=as_utc(grant.access_expires_at) <= now,
         owner=user.username,
     )
@@ -919,7 +928,7 @@ def _personal_public(session: Session, row: ApiToken) -> dict[str, Any]:
     public = _public(row, [])
     if row.role in SCOPED_PERSONAL_ROLES and row.user_id is not None:
         try:
-            projects = _user_projects(session, row.user_id)
+            projects = _user_projects(session, row.user_id)[0]
         except ValueError:
             projects = frozenset()
         public["projects"] = None if projects is None else sorted(projects)

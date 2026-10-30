@@ -183,12 +183,14 @@ def triage():
 READER_GRANTS = {"reports.read": None}
 TRIAGER_GRANTS = {"findings.triage": None, "reports.read": None}
 ADMIN_GRANTS = {permission.value: None for permission in Permission}
-# Per-project permissions of the former roles reader and triager, which make_user and map_claim
-# still accept as a ``role``; admin is the built-in role, with every per-project permission
+# Per-project permissions of the former roles reader and triager, and of a reviewer (its MCP
+# agent saves reports), which make_user and map_claim accept as a ``role``; admin is the built-in
+# role, with every per-project permission
 ROLE_PERMISSIONS = {
     "reader": ["reports.read"],
+    "reviewer": ["reports.read", "reports.write"],
     "triager": ["findings.triage", "reports.read"],
-    "admin": ["findings.triage", "reports.read"],
+    "admin": ["findings.triage", "reports.read", "reports.write"],
 }
 
 
@@ -210,12 +212,12 @@ def known_projects(*names: str) -> None:
 
 
 def _access(role: str | None) -> tuple[list[int], list[str]]:
-    """Role ids and per-project permissions of ``role``: reader and triager are per-project
-    permissions, admin the built-in role with every per-project permission, any other name a
-    role."""
+    """Role ids and per-project permissions of ``role``: reader, reviewer and triager are
+    per-project permissions, admin the built-in role with every per-project permission, any other
+    name a role."""
     if role is None:
         return [], []
-    if role in ("reader", "triager"):
+    if role in ("reader", "reviewer", "triager"):
         return [], ROLE_PERMISSIONS[role]
     return [role_id(role)], ROLE_PERMISSIONS.get(role, [])
 

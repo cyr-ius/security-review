@@ -32,8 +32,9 @@ On the **Tokens** page, an administrator chooses:
   (including the projects reviewed later, never for a CI/CD token) or some projects;
 - the **Validity**: from 30 days to 1 year.
 
-A token never grants more than its creator holds, and the page only lists the tokens of the
-projects you read. **Projects** changes the projects of a token without changing its secret;
+A token never grants more than its creator holds: an **MCP** or **CI/CD pipeline** token saves
+reports on its projects, so its creator needs **Write the reports** (`reports.write`) there. The
+page only lists the tokens of the projects you read. **Projects** changes the projects of a token without changing its secret;
 **Rotate** replaces its secret.
 
 ## API tokens
@@ -56,8 +57,8 @@ A user creates their own tokens in **My account** > **Personal tokens**:
 | Usage | For |
 |---|---|
 | **REST API — Swagger and scripts** | The REST API, with the rights of the account |
-| **MCP — your MCP agent** | Your MCP agent, on the projects your account may read |
-| **CI — security-review-ci on your workstation** | `security-review-ci` (scans, gate, commit hooks), on the projects your account may read |
+| **MCP — your MCP agent** | Your MCP agent, on the projects your account may read; it saves reports and proposes statuses on those it may write to |
+| **CI — security-review-ci on your workstation** | `security-review-ci` (scans, gate, commit hooks), on the projects your account may read; it saves scans on those it may write to |
 
 Each token has one usage: an MCP token does not reach the pipeline routes, a CI token does not
 reach the MCP server.
@@ -78,7 +79,8 @@ endpoint set.
 The personal **MCP** token connects your MCP agent, the personal **CI** token
 `security-review-ci`. Every account may create them, unless an administrator turned them off
 (`SECREVIEW_PERSONAL_TOKENS_ENABLED=false`, see below). It reaches the
-projects your account may read, shown in the **Projects** column.
+projects your account may read, shown in the **Projects** column, and saves reports or proposes
+a status only on those where your account holds **Write the reports** (`reports.write`).
 
 For a project it does not reach yet: an administrator gives you access to it, you create it
 from **Projects** if it is new and you may, or your agent asks for it itself before a review;

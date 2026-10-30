@@ -22,6 +22,7 @@ from ..http_server import (
     METRICS_ROLES,
     SCAN_ROUTE_ROLES,
     Role,
+    write_scope,
 )
 from ..observability import audit
 from ..reports import services
@@ -160,11 +161,18 @@ def token_owner(request: Request) -> str | None:
     return (request.scope.get("state") or {}).get("auth_owner")
 
 
+def token_write_projects(request: Request) -> frozenset[str] | None:
+    """Projects the token of the request may save reports to: a personal token only those of
+    ``reports.write`` of its user (see http_server.write_scope)."""
+    return write_scope(request.scope.get("state") or {})
+
+
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
 PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
 ScanIdentity = Annotated[Identity, Depends(scan_identity)]
 MetricsIdentity = Annotated[Identity, Depends(metrics_identity)]
 TokenOwner = Annotated[str | None, Depends(token_owner)]
+WriteProjects = Annotated[frozenset[str] | None, Depends(token_write_projects)]
 
 
 def has_permission(identity: Identity, permission: Permission, project: str | None = None) -> bool:
@@ -243,6 +251,15 @@ def scoped_project(identity: Identity, requested: str) -> str:
     if not in_scope(identity, project):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     return project
+
+
+def ensure_write_scope(writable: frozenset[str] | None, project: str) -> None:
+    """Refuse (403) to save a report on a project the token reads but may not write to."""
+    if writable is not None and project not in writable:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This token cannot save reports on this project (reports.write)",
+        )
 
 
 def ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> None:

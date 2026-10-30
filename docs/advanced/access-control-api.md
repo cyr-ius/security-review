@@ -15,13 +15,13 @@ the roles and projects of the users, the members of the projects and the OIDC ma
 | Members set at once on a project | 500 at most |
 | OIDC mappings | 500 at most, one per value of the claim (200 characters at most), each with 100 roles and 50 projects at most |
 
-A role only holds permissions on the whole Controller server: a role with `reports.read` or
-`findings.triage` is refused (`422`). These per-project permissions are given with each project
+A role only holds permissions on the whole Controller server: a role with `reports.read`,
+`reports.write` or `findings.triage` is refused (`422`). These per-project permissions are given with each project
 of a user (`projects[].permissions`, at least one) and with every project
 (`all_projects_permissions`). Only a known project may be given (`404` otherwise).
 
 `users.manage` also covers the OIDC settings, since they decide who gets which role. The
-`admin` role, with the reading and the triage of every project, is also given by a mapping
+`admin` role, with the reading, the writing and the triage of every project, is also given by a mapping
 created at the first login of a user who holds a value of `SECREVIEW_OIDC_ADMIN_GROUPS`
 ([OIDC](oidc.md)); a mapping that already names this value is left as an administrator changed
 it. The values of the roles claim that no mapping names are ignored.
@@ -101,7 +101,7 @@ project known.
 
 The approval of a project requested by an agent
 ([enrollment](architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) adds
-it to the projects of the requesting user with its reading only (creating the project when new; for an
+it to the projects of the requesting user with `reports.read` and `reports.write`, never more (creating the project when new; for an
 existing project, the request is an access request, which only a user holding `users.manage`
 approves), and creating a project adds it to its creator the same way. See also
 [project read access](../usage/sso.md#project-read-access).
@@ -111,7 +111,7 @@ approves), and creating a project adds it to its creator the same way. See also
 `POST /api/v1/projects` creates a project, from a session of the web interface only. The only
 token that creates a project is the personal MCP token of a user holding `projects.create`,
 through the `request_project` tool of its agent. The Controller server adds the project to the
-account with its reading.
+account with `reports.read` and `reports.write`.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -126,8 +126,8 @@ creation is written to the audit log (`project.created`).
 ### Autojoin of a project
 
 A user holding `projects.autojoin` joins an existing project through the `request_project`
-tool of its agent: the Controller server adds the project to the account with its reading,
-settles its pending request of the project and writes `project.joined` to the audit log. A
+tool of its agent: the Controller server adds the project to the account with `reports.read`
+and `reports.write`, settles its pending request of the project and writes `project.joined` to the audit log. A
 user who already reads 200 projects is refused. `PUT /api/v1/projects/{project}/autojoin`
 blocks (`true`) or allows again (`false`) this autojoin, with `projects.create`, from a session
 of the web interface only, for a project the caller reads (another one is `404`). A blocked

@@ -1,9 +1,11 @@
 """Access control of the web interface: permissions, roles, and the roles and projects of the
 users.
 
-- A **permission** (Permission) allows one kind of action. ``reports.read`` and
-  ``findings.triage`` are *per project* (SCOPED_PERMISSIONS): they are given with a project, or
-  with every project. The other permissions concern the whole controller (SITE_PERMISSIONS).
+- A **permission** (Permission) allows one kind of action. ``reports.read``, ``reports.write``
+  and ``findings.triage`` are *per project* (SCOPED_PERMISSIONS): they are given with a project,
+  or with every project. The other permissions concern the whole controller (SITE_PERMISSIONS).
+  ``reports.write`` lets the tokens of a user save reports and propose a status for a finding
+  on the project (MCP agent, pipeline scans); it implies ``reports.read`` there.
 - A **role** (AccessRole) is a named set of permissions on the whole controller: a role holds
   no per-project permission. The built-in role ``admin`` (every permission on the whole
   controller) can be neither changed nor deleted, because the code relies on it: it is given to
@@ -25,21 +27,23 @@ users.
   request_project): a new project is created at once for a user with ``projects.create``;
   otherwise, and always for a project that already exists, the request waits
   (``ProjectEnrollment``) until a user with ``projects.create`` approves it, which gives the
-  requesting user the reading of the project (created for a new project), or rejects it; a
+  requesting user the review of the project (``reports.read`` and ``reports.write``, created
+  for a new project), or rejects it; a
   request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.
 - A user with ``projects.create`` may create a **new** project (see create_project): the
-  controller creates it and gives its reading to the user, so that its personal ``mcp`` token
-  reaches it. A project already known (see storage.projects) is refused: the permission never
-  grants the reading of an existing project.
+  controller creates it and gives its review to the user, so that its personal ``mcp`` token
+  saves reports there. A project already known (see storage.projects) is refused: the
+  permission never grants the reading of an existing project.
 - A user with ``projects.autojoin`` whose MCP agent requests a project that already exists
-  joins it at once (see request_project), with its reading only. A user with ``projects.create``
+  joins it at once (see request_project), with its review. A user with ``projects.create``
   who reads a project may block this autojoin on it (see set_autojoin_blocked): the requests
   then wait for an approval as the others do.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
   delete_project): its reports, findings and comments, the project of the users, of the mappings
   and of the tokens (a token left without project is revoked). The audit log keeps its events.
 - No permission gives the personal ``mcp`` and ``ci`` tokens: every web user may create them
-  while SECREVIEW_PERSONAL_TOKENS_ENABLED is true (see token_store).
+  while SECREVIEW_PERSONAL_TOKENS_ENABLED is true (see token_store). They read the projects of
+  ``reports.read`` and write only to those of ``reports.write``.
 
 The grants of a user (see user_grants) are the permissions of all its roles (its own and those
 of its mappings) on the whole controller, with its per-project permissions on every project and
@@ -101,6 +105,8 @@ class Permission(StrEnum):
 
     # Projects, reports, findings, posture, trend and SARIF
     REPORTS_READ = "reports.read"
+    # Save reports and propose a status for a finding, with a personal token (MCP agent, scans)
+    REPORTS_WRITE = "reports.write"
     # Change the status of a finding, reject the proposal of an agent
     FINDINGS_TRIAGE = "findings.triage"
     # Read the scan rules and checklists
@@ -123,23 +129,31 @@ class Permission(StrEnum):
     PROJECTS_CREATE = "projects.create"
     # Delete a project with its reports, findings and references (see delete_project)
     PROJECTS_DELETE = "projects.delete"
-    # Join an existing project, as a reader, when the MCP agent requests it (see request_project)
+    # Join an existing project, to review it, when the MCP agent requests it (see request_project)
     PROJECTS_AUTOJOIN = "projects.autojoin"
 
 
 # Per-project permissions: given with a project (or every project), never by a role; the others
 # concern the whole controller and are given by the roles
-SCOPED_PERMISSIONS = frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE})
+SCOPED_PERMISSIONS = frozenset(
+    {Permission.REPORTS_READ, Permission.REPORTS_WRITE, Permission.FINDINGS_TRIAGE}
+)
 ALL_PERMISSIONS = frozenset(Permission)
 SITE_PERMISSIONS = ALL_PERMISSIONS - SCOPED_PERMISSIONS
 # The built-in role, which the code relies on
 ADMIN_ROLE = "admin"
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {ADMIN_ROLE: SITE_PERMISSIONS}
-# A permission that holds another one (see combine): who manages the rules also reads them
+# A permission that holds another one, on the same projects (see combine): who manages the
+# rules also reads them
 IMPLIED_PERMISSIONS: dict[Permission, Permission] = {
+    Permission.REPORTS_WRITE: Permission.REPORTS_READ,
     Permission.RULES_MANAGE: Permission.RULES_READ,
     Permission.STANDARDS_MANAGE: Permission.STANDARDS_READ,
 }
+
+# What a user gets on a project it creates, joins or is given by an approval: its MCP agent
+# reviews it (see add_user_project)
+REVIEW_PERMISSIONS = frozenset({Permission.REPORTS_READ.value, Permission.REPORTS_WRITE.value})
 
 MAX_ROLES = 100
 MAX_ROLE_NAME_CHARS = 64
@@ -200,8 +214,11 @@ def combine(bindings: Iterable[tuple[Iterable[str], Iterable[str] | None]]) -> d
             elif grants[permission] is not None:
                 grants[permission] = grants[permission] | names
     for permission, implied in IMPLIED_PERMISSIONS.items():
-        if permission in grants:
-            grants[implied] = None
+        if permission not in grants:
+            continue
+        # Never wider than the implying permission: a per-project one stays on its projects
+        held, already = grants[permission], grants.get(implied, frozenset())
+        grants[implied] = None if held is None or already is None else already | held
     for permission, projects in grants.items():
         if projects is not None and len(projects) > MAX_SESSION_PROJECTS:
             raise ValueError(
@@ -869,9 +886,10 @@ def set_user_projects(
 def add_user_project(
     session: Session, user_id: int, project: str, actor: str | None = None
 ) -> None:
-    """Give the reading of the known ``project`` (cleaned) to a user, nothing more: added with
-    ``reports.read`` alone, or ``reports.read`` added to the permissions the user already holds
-    there (no change when it reads it already); audited as ``user.projects_changed``.
+    """Give the review of the known ``project`` (cleaned) to a user, nothing more: added with
+    REVIEW_PERMISSIONS (``reports.read`` and ``reports.write``), or those added to the
+    permissions the user already holds there (no change when it holds them already); audited as
+    ``user.projects_changed``.
 
     Raises:
         ValueError: The user would have more than MAX_SESSION_PROJECTS projects.
@@ -880,19 +898,18 @@ def add_user_project(
     current = session.exec(
         select(UserProject).where(UserProject.user_id == user_id, UserProject.project_id == row.id)
     ).first()
-    reading = Permission.REPORTS_READ.value
     if current is not None:
-        held = json.loads(current.permissions)
-        if reading in held:
+        held = set(json.loads(current.permissions))
+        if REVIEW_PERMISSIONS <= held:
             return
-        current.permissions = json.dumps(sorted([*held, reading]))
+        current.permissions = json.dumps(sorted(held | REVIEW_PERMISSIONS))
         session.add(current)
     else:
         session.add(
             UserProject(
                 user_id=user_id,
                 project_id=row.id,  # type: ignore[arg-type]
-                permissions=json.dumps([reading]),
+                permissions=json.dumps(sorted(REVIEW_PERMISSIONS)),
                 created_by=actor,
             )
         )
@@ -904,7 +921,11 @@ def add_user_project(
         "user",
         user_id,
         project,
-        {"projects": [f"{project}={reading}"], "removed": [], "all_projects_permissions": None},
+        {
+            "projects": [f"{project}={','.join(sorted(REVIEW_PERMISSIONS))}"],
+            "removed": [],
+            "all_projects_permissions": None,
+        },
     )
 
 
@@ -1035,8 +1056,8 @@ def project_exists(session: Session, project: str) -> bool:
 
 def create_project(user_id: int, project: str, actor: str | None = None) -> dict[str, Any]:
     """Create a new project for the web user ``user_id`` (``projects.create``): the user gets
-    the ``reader`` role on it, so that it reads the project and its personal ``mcp`` token
-    reaches it.
+    its review (REVIEW_PERMISSIONS), so that it reads the project and its personal ``mcp`` token
+    saves reports there.
 
     Raises:
         ValueError: Invalid name, project already known (see project_exists: the permission
@@ -1055,7 +1076,7 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
 def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[str, Any]:
     """Settle ``project`` for the web user ``owner`` whose token already reaches every project:
     an unknown project is created as by request_project when the user holds
-    ``projects.create``, given to the user in reading only, so that the user keeps reading it
+    ``projects.create``, given to the user to review only, so that the user keeps reaching it
     without every project.
 
     Returns:
@@ -1077,7 +1098,7 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
             return {
                 "project": cleaned,
                 "status": "created",
-                "next_steps": f"Project '{cleaned}' was created and the user reads it: the "
+                "next_steps": f"Project '{cleaned}' was created and the user may review it: the "
                 "review can go on.",
             }
     return {"project": cleaned, "status": "accessible"}
@@ -1086,7 +1107,7 @@ def adopt_project(project: str, owner: str, actor: str | None = None) -> dict[st
 def _create_project(
     session: Session, user_id: int, project: str, actor: str | None
 ) -> dict[str, Any]:
-    """Create the unknown ``project`` (cleaned), read by ``user_id`` (reading only)."""
+    """Create the unknown ``project`` (cleaned), reviewed by ``user_id`` (REVIEW_PERMISSIONS)."""
     project_store.ensure_project(session, project, actor)
     add_user_project(session, user_id, project, actor)
     # The request of this user, or without a user, is settled; the others now ask for an access
@@ -1107,7 +1128,7 @@ def _create_project(
         "project",
         project,
         project,
-        {"user_id": user_id, "permissions": [Permission.REPORTS_READ.value]},
+        {"user_id": user_id, "permissions": sorted(REVIEW_PERMISSIONS)},
     )
     return {"project": project}
 
@@ -1242,7 +1263,7 @@ def set_autojoin_blocked(project: str, blocked: bool, actor: str | None = None) 
 
 
 def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -> None:
-    """Give the known ``project`` (cleaned) to ``user_id`` in reading only and settle its request
+    """Give the review of the known ``project`` (cleaned) to ``user_id`` and settle its request
     of that project.
 
     Raises:
@@ -1268,7 +1289,7 @@ def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -
         "project",
         project,
         project,
-        {"user_id": user_id, "permissions": [Permission.REPORTS_READ.value]},
+        {"user_id": user_id, "permissions": sorted(REVIEW_PERMISSIONS)},
     )
 
 
@@ -1342,13 +1363,14 @@ def request_project(
     user). An unknown project is created at once, with that user as its first member, when the
     user holds ``projects.create``; otherwise the request waits for a user with
     ``projects.create`` (see approve_enrollment), which gives the requesting user access to the
-    project. A known project is joined at once, as a reader, by a user who holds
-    ``projects.autojoin`` unless its autojoin is blocked (see set_autojoin_blocked); otherwise
-    the user asks for an access to it the same way, and the answer is the same as for a new
-    project, so that it does not tell whether a project exists. A user has one request per
-    project; nothing is recorded for a known project without a user to give access to, or that
-    the user already reaches. Every request is audited (``actor``: the token of the caller),
-    with the user and the client address ``requested_from``.
+    project. A known project the user does not read is joined at once, to review it, by a user
+    who holds ``projects.autojoin`` unless its autojoin is blocked (see set_autojoin_blocked);
+    otherwise, and for a project the user reads without ``reports.write`` (autojoin never
+    widens what an administrator gave), the user asks for an access to it the same way, and the
+    answer is the same as for a new project, so that it does not tell whether a project exists.
+    A user has one request per project; nothing is recorded for a known project without a user
+    to give access to, or that the user already reviews. Every request is audited (``actor``:
+    the token of the caller), with the user and the client address ``requested_from``.
 
     Returns:
         ``project``, ``status`` (``created``, ``joined`` or ``requested``) and ``next_steps``,
@@ -1382,7 +1404,7 @@ def request_project(
             return {
                 "project": cleaned,
                 "status": "created",
-                "next_steps": f"Project '{cleaned}' was created and the user reads it: the "
+                "next_steps": f"Project '{cleaned}' was created and the user may review it: the "
                 "review can go on.",
             }
         user_id = user.id if user is not None else None
@@ -1397,8 +1419,7 @@ def request_project(
             return {
                 "project": cleaned,
                 "status": "joined",
-                "next_steps": f"The user joined project '{cleaned}' as a reader: the review can "
-                "go on.",
+                "next_steps": f"The user joined project '{cleaned}': the review can go on.",
             }
         pending = session.exec(
             select(ProjectEnrollment).where(
@@ -1408,10 +1429,10 @@ def request_project(
                 else ProjectEnrollment.requested_by_user_id == user_id,
             )
         ).first()
-        # A known project: there must be a user who does not reach it yet to give access to
+        # A known project: there must be a user who does not review it yet to give access to
         useless = known and (
             user_id is None
-            or allows(user_grants(session, user_id), Permission.REPORTS_READ, cleaned)
+            or allows(user_grants(session, user_id), Permission.REPORTS_WRITE, cleaned)
         )
         requested = pending is None and not useless
         # Checked before knowing whether a row is added, so that a full queue does not tell
@@ -1503,7 +1524,8 @@ def approve_enrollment(
     enrollment_id: int, actor: str | None = None, *, may_grant_access: bool = False
 ) -> dict[str, Any]:
     """Approve a pending project: the user who requested it (none for a token without a user,
-    or a user deleted since) gets the ``reader`` role on the project, created when missing. For
+    or a user deleted since) gets the review of the project (REVIEW_PERMISSIONS), created when
+    missing. For
     a known project, only an approver who manages the users may give that access
     (``may_grant_access``): ``projects.create`` alone never opens an existing project, not even
     to its holder.

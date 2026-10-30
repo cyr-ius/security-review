@@ -4,7 +4,8 @@ Scoped to the projects of the token; a ci token reaches nothing else. The gate, 
 only read. The scans (``/scan/code``, ``/scan/deps``) receive the content of the files of a
 pipeline, scan it with the rules or the advisory database of the controller and, with ``save``,
 store the result as a report: they need a ``ci`` or ``admin`` token (see deps.scan_identity),
-and their body is bounded by http_server.BodyLimit (see body_limit) before it is parsed.
+a personal one saving only on the projects of ``reports.write`` of its user, and their body is
+bounded by http_server.BodyLimit (see body_limit) before it is parsed.
 """
 
 import logging
@@ -22,7 +23,9 @@ from .deps import (
     PipelineIdentity,
     ScanIdentity,
     TokenOwner,
+    WriteProjects,
     check_report_scope,
+    ensure_write_scope,
     pipeline_identity,
     scoped_project,
     unprocessable,
@@ -156,7 +159,7 @@ def _dependency_scan(request: DependencyScanRequest, client: str, owner: str | N
 
 @router.post("/scan/code")
 async def ci_code_scan(
-    request: CodeScanRequest, identity: ScanIdentity, owner: TokenOwner
+    request: CodeScanRequest, identity: ScanIdentity, owner: TokenOwner, writable: WriteProjects
 ) -> CodeScanResult:
     """Pattern-scan the files of a codebase sent by ``security-review-ci scan-code``.
 
@@ -165,6 +168,8 @@ async def ci_code_scan(
     returns them as a SARIF 2.1.0 log. Files above SECREVIEW_MAX_SCAN_FILE_CHARS are skipped.
     """
     project = scoped_project(identity, request.project)
+    if request.save:
+        ensure_write_scope(writable, project)
     try:
         result = await run_in_threadpool(_code_scan, request, identity.client, owner)
     except ValueError as exc:
@@ -182,7 +187,10 @@ async def ci_code_scan(
 
 @router.post("/scan/deps")
 async def ci_dependency_scan(
-    request: DependencyScanRequest, identity: ScanIdentity, owner: TokenOwner
+    request: DependencyScanRequest,
+    identity: ScanIdentity,
+    owner: TokenOwner,
+    writable: WriteProjects,
 ) -> DependencyScanResult:
     """Scan the manifests and lockfiles sent by ``security-review-ci scan-deps``.
 
@@ -191,6 +199,8 @@ async def ci_dependency_scan(
     ``require_database`` refuses the scan (422) when the vulnerability check cannot run.
     """
     project = scoped_project(identity, request.project)
+    if request.save:
+        ensure_write_scope(writable, project)
     try:
         result = await run_in_threadpool(_dependency_scan, request, identity.client, owner)
     except ValueError as exc:

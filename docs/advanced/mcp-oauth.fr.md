@@ -98,7 +98,8 @@ Une demande restée sans réponse expire au bout de 10 minutes.
 ## Ce que donne un jeton
 
 Un jeton d'accès agit comme un [jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)
-de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire.
+de l'utilisateur qui a autorisé le client : les projets que l'utilisateur peut lire, les
+rapports et propositions n'étant enregistrés que sur ceux de `reports.write`.
 Les droits sont relus à chaque requête.
 
 Autoriser un client exige une session web (un jeton Bearer n'autorise jamais un client), et est

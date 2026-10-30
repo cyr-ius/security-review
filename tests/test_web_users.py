@@ -390,7 +390,9 @@ def test_sso_login_maps_the_admin_groups_of_the_settings():
         for m in access_control.list_oidc_mappings()
     ]
     # Mapped only when a user who holds it logs in
-    assert mappings == [("sec-admins", ["admin"], ["findings.triage", "reports.read"])]
+    assert mappings == [
+        ("sec-admins", ["admin"], ["findings.triage", "reports.read", "reports.write"])
+    ]
     # A mapping changed by an administrator is left as it is
     make_user("root", PASSWORD, "admin")
     access_control.set_oidc_mappings([("sec-admins", [], ["reports.read"], [])])
@@ -684,7 +686,10 @@ def test_user_cli_creates_an_sso_user(capsys):
     assert (created["auth_source"], created["roles"]) == ("oidc", [])
     assert "password" not in created
     code, updated = run_cli(capsys, "set-access", "alice@example.com", "--all-projects")
-    assert (code, updated["permissions"]) == (cli.EXIT_PASSED, TRIAGER_GRANTS)
+    assert (code, updated["permissions"]) == (
+        cli.EXIT_PASSED,
+        TRIAGER_GRANTS | {"reports.write": None},
+    )
     # An unknown role or project is refused; an OIDC user never has a password
     assert cli.run(["user", "create", "bob", "--role", "nope"]) == cli.EXIT_ERROR
     assert cli.run(["user", "create", "bob", "--project", "nowhere"]) == cli.EXIT_ERROR

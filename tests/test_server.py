@@ -649,7 +649,7 @@ def test_unrestricted_token_reaches_every_project(http_app, two_projects):
 def test_a_personal_token_saves_its_user_as_the_author(http_app):
     from conftest import make_user
 
-    user = make_user("alice", "Correct horse battery 9", "reader")
+    user = make_user("alice", "Correct horse battery 9", "reviewer")
     token = token_store.create_personal_token(user["id"], "agent", role="mcp")["token"]
     client = McpOverHttp(http_app, token)
 
@@ -660,6 +660,37 @@ def test_a_personal_token_saves_its_user_as_the_author(http_app):
         # The authenticated owner wins over a declared author
         saved = services.get_report(json.loads(text)["report_id"])
         assert (saved.author, saved.submitted_by) == ("alice", "alice:agent")
+
+
+def test_a_personal_token_writes_only_where_its_user_holds_reports_write(http_app, two_projects):
+    """A user who only reads a project neither saves a report nor proposes a status there with
+    its token: reports.write is needed, not reports.read."""
+    from conftest import make_user
+
+    from security_review_mcp.storage.database import session_scope
+
+    user = make_user("bob", "Correct horse battery 9", "reader", ["shop-api"])
+    reader = McpOverHttp(
+        http_app, token_store.create_personal_token(user["id"], "agent", role="mcp")["token"]
+    )
+    shop = two_projects["shop-api"]
+    proposal = {"finding_id": finding_id_of(shop), "status": "fixed", "reason": "Bound query"}
+
+    assert reader.call("get_security_report", {"report_id": shop["report_id"]})[0] is False
+    is_error, text = reader.call(
+        "save_security_report", {"project": "shop-api", "summary": "Review", "findings": []}
+    )
+    assert is_error and "only save reports for no project yet" in text
+    is_error, text = reader.call("propose_finding_status", proposal)
+    assert is_error and "reports.write" in text
+    # The reader asks for the review of the project instead of reaching it
+    _, text = reader.call("request_project", {"project": "shop-api"})
+    assert json.loads(text)["status"] == "requested"
+
+    # Given reports.write, the same token writes at once
+    with session_scope() as session:
+        access_control.set_user_projects(session, user["id"], [("shop-api", ["reports.write"])])
+    assert reader.call("propose_finding_status", proposal)[0] is False
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────
@@ -693,14 +724,14 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     assert json.loads(text) == {"project": "mobile-app", "status": "accessible"}
     assert carol.call("save_security_report", {"project": "mobile-app", **review})[0] is False
 
-    # A token that reaches every project still creates the project, read by its user
+    # A token that reads every project still creates the project, reviewed by its user
     dave = McpOverHttp(http_app, personal_token("dave", ["projects.create", "reports.read"]))
     assert json.loads(dave.call("request_project", {"project": "intranet"})[1])["status"] == (
         "created"
     )
     members = access_control.list_project_members("intranet")
     assert [(member["username"], member["permissions"]) for member in members] == [
-        ("dave", ["reports.read"])
+        ("dave", ["reports.read", "reports.write"])
     ]
     _, text = dave.call("request_project", {"project": "intranet"})
     assert json.loads(text) == {"project": "intranet", "status": "accessible"}

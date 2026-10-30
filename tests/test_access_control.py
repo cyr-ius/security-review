@@ -349,7 +349,7 @@ def test_project_permissions_are_on_the_whole_controller(permission):
     }
 
 
-def test_a_created_project_is_read_by_its_creator_only():
+def test_a_created_project_is_reviewed_by_its_creator_only():
     carol = creator()
     other = web_users.create_user("dave", PASSWORD)
 
@@ -359,6 +359,7 @@ def test_a_created_project_is_read_by_its_creator_only():
     assert grants_of(carol["id"]) == {
         "projects.create": None,
         "reports.read": frozenset({"mobile-app"}),
+        "reports.write": frozenset({"mobile-app"}),
     }
     assert grants_of(other["id"]) == {}
     (event,) = audit.list_events(action="project.created")["events"]
@@ -367,7 +368,10 @@ def test_a_created_project_is_read_by_its_creator_only():
         "mobile-app",
         "mobile-app",
     )
-    assert event["details"] == {"permissions": ["reports.read"], "user_id": carol["id"]}
+    assert event["details"] == {
+        "permissions": ["reports.read", "reports.write"],
+        "user_id": carol["id"],
+    }
 
 
 def test_creating_a_project_never_opens_an_existing_one():
@@ -552,20 +556,23 @@ def test_a_creator_gets_a_new_requested_project_at_once():
 
 def test_a_user_asks_to_join_an_existing_project():
     """An existing project is requested like a new one, once per user, and its approval gives
-    the user the reader role on it; nothing is recorded for a user who already reaches it."""
+    the user its review; a reader without reports.write asks too, nothing is recorded for a user
+    who already reviews it."""
     from security_review_mcp.reports import services
 
     alice = web_users.create_user("alice", PASSWORD)
     dave = web_users.create_user("dave", PASSWORD)
     services.save_report("shop", "Review", [])
-    make_user("bob", PASSWORD, "reader", ["shop"])
+    bob = make_user("bob", PASSWORD, "reader", ["shop"])
+    make_user("erin", PASSWORD, "reviewer", ["shop"])
 
-    for owner in ("alice", "alice", "dave", "bob", None):
+    for owner in ("alice", "alice", "dave", "bob", "erin", None):
         assert access_control.request_project("shop", owner)["status"] == "requested"
     pending = access_control.list_enrollments()
     assert [(item["requested_by"], item["existing"]) for item in pending] == [
         ("alice", True),
         ("dave", True),
+        ("bob", True),
     ]
 
     # projects.create alone never opens an existing project
@@ -576,8 +583,11 @@ def test_a_user_asks_to_join_an_existing_project():
     )
 
     assert approved["granted_to"] == "alice"
-    assert grants_of(alice["id"])["reports.read"] == frozenset({"shop"})
+    assert grants_of(alice["id"])["reports.write"] == frozenset({"shop"})
     assert grants_of(dave["id"]) == {}
+    # The reader is given reports.write too
+    access_control.approve_enrollment(pending[2]["id"], "user:root", may_grant_access=True)
+    assert grants_of(bob["id"])["reports.write"] == frozenset({"shop"})
     assert [item["requested_by"] for item in access_control.list_enrollments()] == ["dave"]
 
 
@@ -681,17 +691,20 @@ def test_creating_a_project_settles_its_pending_request():
     assert grants_of(carol["id"])["reports.read"] == frozenset({"mobile-app"})
 
 
-def test_giving_a_project_in_reading_only_is_audited_once():
+def test_giving_the_review_of_a_project_is_audited_once():
     alice = web_users.create_user("alice", PASSWORD)
     known_projects("shop")
     for _ in range(2):
         with session_scope() as session:
             access_control.add_user_project(session, alice["id"], "shop", "user:root")
 
-    assert grants_of(alice["id"]) == {"reports.read": frozenset({"shop"})}
+    assert grants_of(alice["id"]) == {
+        "reports.read": frozenset({"shop"}),
+        "reports.write": frozenset({"shop"}),
+    }
     (event,) = audit.list_events(action="user.projects_changed")["events"]
     assert (event["actor"], event["target_id"]) == ("user:root", str(alice["id"]))
-    assert event["details"]["projects"] == ["shop=reports.read"]
+    assert event["details"]["projects"] == ["shop=reports.read,reports.write"]
 
 
 # ── The last holder of users.manage ──────────────────────────────────────────

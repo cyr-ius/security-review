@@ -33,7 +33,8 @@
   projects (role token, whose creator must hold each permission). A token never creates another personal token. An `mcp`
   token without a project reaches every MCP tool and every project; a personal `mcp` token
   reaches the projects its user may read now, none when the user has none (never every project
-  by default), and stops when the user is deleted or must change a password set by an
+  by default), and saves reports or proposes a status only on those of `reports.write`: reading
+  a project never lets an agent write to it, and stops when the user is deleted or must change a password set by an
   administrator. A web user holds at most
   `SECREVIEW_PERSONAL_TOKENS_PER_USER` personal tokens of each role (1 by default).
 - **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`), and
@@ -76,8 +77,8 @@
   [Prometheus metrics](metrics.md)).
 - **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
   cannot be created, and one found without a project reaches none); a personal `ci` token
-  reaches the projects its user may read now, like a personal `mcp` token, which never reaches
-  the pipeline routes (one usage per token). It only reads the gate, the
+  reaches the projects its user may read now and saves scans only on those of `reports.write`,
+  like a personal `mcp` token, which never reaches the pipeline routes (one usage per token). It only reads the gate, the
   SARIF log and the trend of its projects; the other routes of the Controller server, `/mcp` and the
   web interface answer `403`, the other projects `404`. The pipeline client
   ([`security-review-ci`](../advanced/architecture/ci.md)) opens no
@@ -90,11 +91,12 @@
   client. With a token, `request_project` creates a new project only for a user holding
   `projects.create` (never an existing project); otherwise the request is **pending** until a
   user with `projects.create` approves it on the Controller server, which gives the requesting user
-  (authenticated by the token, never declared) the reading of the project, created when new.
+  (authenticated by the token, never declared) the reading and writing of the project, created
+  when new.
   For an existing project, the request is an access request, never granted at once, and only
   approved by a user who also holds `users.manage`, except for a user holding
-  `projects.autojoin`, who joins it at once as a reader unless its autojoin is blocked (this
-  user learns which projects exist). For the others, the
+  `projects.autojoin`, who joins it at once (reading and writing) unless its autojoin is blocked
+  or the user already reads it (this user learns which projects exist). For the others, the
   answer is the same whether the project existed or not. The requests are bounded (20 pending
   requests, one per user and project, 5 per user or token and per hour), and a request nobody approved within
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted: check the requester before approving.

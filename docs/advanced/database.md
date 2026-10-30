@@ -53,7 +53,9 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
   whole Controller server, their per-project permissions move to the projects of the users, of
   the mappings and of the role tokens, and the built-in `reader` role goes. It deletes the
   `triager` and `mcp-user` roles (the API tokens of these roles are revoked). It **cannot be downgraded**: back up the database
-  before upgrading.
+  before upgrading. Revision `0040` then adds `reports.write` wherever `reports.read` is held
+  (accounts, their projects, OIDC mappings), so that the agents keep saving reports: remove it
+  from the accounts that should only read.
 
 ### Dedicated migration job
 

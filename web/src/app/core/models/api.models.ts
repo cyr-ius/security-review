@@ -97,6 +97,7 @@ export type SeverityCounts = Record<Severity, number>;
 /** Permission a role may hold (access_control.Permission on the server). */
 export type Permission =
   | 'reports.read'
+  | 'reports.write'
   | 'findings.triage'
   | 'rules.read'
   | 'rules.manage'

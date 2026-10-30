@@ -32,6 +32,9 @@ export const access = defineMessages({
     'roles.deleted': 'Role “{role}” deleted.',
     'permission.reportsRead': 'Read the reports',
     'permission.reportsReadHelp': 'Projects, reports, findings, posture, trend and SARIF.',
+    'permission.reportsWrite': 'Write the reports',
+    'permission.reportsWriteHelp':
+      'Save reports and propose a status for a finding with a personal token (MCP agent, CI scans). Includes reading.',
     'permission.findingsTriage': 'Triage the findings',
     'permission.findingsTriageHelp':
       'Change the status of a finding, reject the proposal of an agent.',
@@ -60,7 +63,7 @@ export const access = defineMessages({
       'A project with its reports, findings, and its place in the users, OIDC mappings and tokens.',
     'permission.projectsAutojoin': 'Join projects',
     'permission.projectsAutojoinHelp':
-      'An existing project, as a reader, when its MCP agent requests it, unless the autojoin of the project is blocked.',
+      'An existing project, to review it (reading and writing), when its MCP agent requests it, unless the autojoin of the project is blocked.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (all projects)',
     'access.project': 'Project',
@@ -145,6 +148,9 @@ export const access = defineMessages({
     'roles.deleted': 'Rôle « {role} » supprimé.',
     'permission.reportsRead': 'Lire les rapports',
     'permission.reportsReadHelp': 'Projets, rapports, findings, posture, tendance et SARIF.',
+    'permission.reportsWrite': 'Écrire les rapports',
+    'permission.reportsWriteHelp':
+      "Enregistrer des rapports et proposer le statut d'un finding avec un jeton personnel (agent MCP, scans CI). Inclut la lecture.",
     'permission.findingsTriage': 'Trier les findings',
     'permission.findingsTriageHelp':
       "Changer le statut d'un finding, rejeter la proposition d'un agent.",
@@ -173,7 +179,7 @@ export const access = defineMessages({
       'Un projet avec ses rapports, findings, et sa place chez les utilisateurs, dans les correspondances OIDC et les jetons.',
     'permission.projectsAutojoin': 'Rejoindre des projets',
     'permission.projectsAutojoinHelp':
-      "Un projet existant, en lecture, quand son agent MCP le demande, sauf si l'adhésion automatique du projet est bloquée.",
+      "Un projet existant, pour le relire (lecture et écriture), quand son agent MCP le demande, sauf si l'adhésion automatique du projet est bloquée.",
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (tous les projets)',
     'access.project': 'Projet',
@@ -259,6 +265,9 @@ export const access = defineMessages({
     'roles.deleted': 'Rol «{role}» eliminado.',
     'permission.reportsRead': 'Leer los informes',
     'permission.reportsReadHelp': 'Proyectos, informes, hallazgos, postura, tendencia y SARIF.',
+    'permission.reportsWrite': 'Escribir los informes',
+    'permission.reportsWriteHelp':
+      'Guardar informes y proponer el estado de un hallazgo con un token personal (agente MCP, escaneos CI). Incluye la lectura.',
     'permission.findingsTriage': 'Clasificar los hallazgos',
     'permission.findingsTriageHelp':
       'Cambiar el estado de un hallazgo, rechazar la propuesta de un agente.',
@@ -287,7 +296,7 @@ export const access = defineMessages({
       'Un proyecto con sus informes, hallazgos, y su lugar en los usuarios, las correspondencias OIDC y los tokens.',
     'permission.projectsAutojoin': 'Unirse a proyectos',
     'permission.projectsAutojoinHelp':
-      'Un proyecto existente, en lectura, cuando su agente MCP lo solicita, salvo si la adhesión automática del proyecto está bloqueada.',
+      'Un proyecto existente, para revisarlo (lectura y escritura), cuando su agente MCP lo solicita, salvo si la adhesión automática del proyecto está bloqueada.',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (todos los proyectos)',
     'access.project': 'Proyecto',
