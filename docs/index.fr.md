@@ -75,6 +75,7 @@ Il fournit aux administrateurs et analystes en cybersécurité :
 via la commande `security-review-controller`
 
 Une **commande CI** pour l'injection dans les pipelines (tels que Jenkins, etc.) et permet :
+
  - **scan du dépôt** complet
  - **gate** de déploiement avec blocage si des findings sont ouverts
  - export SARIF et **rapport** de tendance
