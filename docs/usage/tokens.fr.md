@@ -2,9 +2,9 @@
 
 Les **jetons** sont destinés aux machines : agents MCP, pipelines CI/CD, Prometheus et scripts
 d'administration. Les **personnes** se connectent avec un [compte utilisateur](user-accounts.md),
-seul moyen d'ouvrir l'interface web, avec les droits de ses groupes
-([Rôles, groupes et permissions](access-control.md)). Il n'existe pas de jeton de
-lecture ou de triage : pour qu'une personne lise ou trie, ajoutez son compte à un groupe.
+seul moyen d'ouvrir l'interface web, avec les droits de ses rôles
+([Rôles et permissions](access-control.md)). Il n'existe pas de jeton de
+lecture ou de triage : pour qu'une personne lise ou trie, donnez un rôle à son compte.
 
 La ligne de commande, l'API REST et les limites sont dans [Jetons Bearer](../advanced/bearer-tokens.md).
 
@@ -28,8 +28,8 @@ connectée à l'interface le fait ([triage](triage.md)). Les agents ne font que 
 Dans la page **Jetons**, un administrateur choisit :
 
 - l'**Usage** : **MCP**, **Pipeline CI/CD** ou **API REST** (avec le **Rôle** qu'il porte) ;
-- les **Projets autorisés** : **Tous les projets** (y compris ceux revus plus tard, jamais pour
-  un jeton CI/CD) ou **Projets sélectionnés** ;
+- les **Projets autorisés**, cochés dans une liste déroulante avec recherche : **Tous les
+  projets** (y compris ceux revus plus tard, jamais pour un jeton CI/CD) ou certains projets ;
 - la **Validité** : de 30 jours à 1 an.
 
 Un jeton ne donne jamais plus que ce que détient son créateur, et la page ne liste que les jetons
@@ -45,9 +45,9 @@ deux sortes :
 - **Jeton personnel** : créé par un utilisateur pour lui-même (voir
   [jetons personnels](#jetons-personnels)). Il porte les droits actuels du compte : il n'atteint
   plus rien dès que le compte les perd.
-- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle**. Il
-  porte les permissions de ce rôle sur ses projets. Un rôle utilisé par un jeton ne peut pas être
-  supprimé.
+- **Jeton de rôle** : créé par un administrateur dans la page **Jetons**, avec un **Rôle** et des
+  **Droits par projet**. Il porte les droits de ce rôle sur tout le serveur Controller et ces
+  droits par projet sur ses projets. Un rôle utilisé par un jeton ne peut pas être supprimé.
 
 ## Jetons personnels
 

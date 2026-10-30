@@ -21,7 +21,6 @@ from security_review_mcp.server import (
     mcp,
     set_enrollment_web_url,
 )
-from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
 
 pytestmark = pytest.mark.anyio
@@ -667,16 +666,17 @@ def test_a_personal_token_saves_its_user_as_the_author(http_app):
 
 
 def personal_token(username: str, permissions: list[str] | None = None) -> str:
-    """A personal mcp token of a new web user whose only role holds ``permissions``."""
-    from conftest import make_user
+    """A personal mcp token of a new web user that holds ``permissions``: those on the whole
+    controller by a role, the per-project ones on every project."""
+    from security_review_mcp.auth import web_users
 
-    groups = []
-    if permissions:
-        role = access_control.create_role(f"role-{username}", permissions)
-        group = access_control.create_group(f"group-{username}")
-        access_control.set_group_roles(group["id"], [(role["id"], None)])
-        groups = [group["id"]]
-    user = make_user(username, "Correct horse battery 9", group_ids=groups)
+    site = [name for name in permissions or [] if name not in access_control.SCOPED_PERMISSIONS]
+    scoped = [name for name in permissions or [] if name in access_control.SCOPED_PERMISSIONS]
+    roles = [access_control.create_role(f"role-{username}", site)["id"]] if site else []
+    # An OIDC user: no password to change before its tokens work
+    user = web_users.create_user(
+        username, None, roles, auth_source="oidc", all_projects_permissions=scoped
+    )
     return token_store.create_personal_token(user["id"], "agent", role="mcp")["token"]
 
 
@@ -693,15 +693,15 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     assert json.loads(text) == {"project": "mobile-app", "status": "accessible"}
     assert carol.call("save_security_report", {"project": "mobile-app", **review})[0] is False
 
-    # A token that reaches every project still creates the project group, with its user in it
+    # A token that reaches every project still creates the project, read by its user
     dave = McpOverHttp(http_app, personal_token("dave", ["projects.create", "reports.read"]))
     assert json.loads(dave.call("request_project", {"project": "intranet"})[1])["status"] == (
         "created"
     )
-    with session_scope() as session:
-        group_id = access_control.find_project_group(session, "intranet").id
-    members = access_control.get_group(group_id)["members"]
-    assert [member["username"] for member in members] == ["dave"]
+    members = access_control.list_project_members("intranet")
+    assert [(member["username"], member["permissions"]) for member in members] == [
+        ("dave", ["reports.read"])
+    ]
     _, text = dave.call("request_project", {"project": "intranet"})
     assert json.loads(text) == {"project": "intranet", "status": "accessible"}
 

@@ -2,9 +2,6 @@
   <h1 class="h3 mb-0">{{ 'layout.sso' | t }} <app-help-link topic="sso" /></h1>
   <p class="text-body-secondary mb-0">{{ 'sso.subtitle' | t }}</p>
 </div>
-<p class="text-body-secondary small">
-  {{ 'sso.groupsBefore' | t }}
-  <a routerLink="/groups">{{ 'layout.groups' | t }}</a
-  >{{ 'sso.groupsAfter' | t }}
-</p>
+<p class="text-body-secondary small">{{ 'sso.mappingsIntro' | t }}</p>
 <app-sso-settings />
+<app-oidc-mappings />

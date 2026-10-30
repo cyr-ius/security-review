@@ -156,15 +156,8 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/audit/audit-log/audit-log.component').then((m) => m.AuditLogComponent),
       },
-      {
-        path: 'groups',
-        title: 'layout.groups',
-        canActivate: [permissionGuard('users.manage')],
-        loadComponent: () =>
-          import('./features/access/group-list/group-list.component').then(
-            (m) => m.GroupListComponent,
-          ),
-      },
+      // Former page of the groups, replaced by the roles of the users and the OIDC mappings
+      { path: 'groups', pathMatch: 'full', redirectTo: 'users' },
       // Former single settings page, split into the three pages below
       { path: 'settings', pathMatch: 'full', redirectTo: 'settings/general' },
       {

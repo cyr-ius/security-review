@@ -29,8 +29,8 @@
   Every token has a [role](../usage/tokens.md) (`mcp`, `api`, `admin`, `ci`,
   `metrics`). An `api` token only holds rights of the access control, read at each request: those
   of its user (personal token, deleted with the user, never rotated by someone else, whose new
-  secret would carry the rights of the user) or of its role on its projects (role token, whose
-  creator must hold each permission). A token never creates another personal token. An `mcp`
+  secret would carry the rights of the user) or of its role and its per-project permissions on its
+  projects (role token, whose creator must hold each permission). A token never creates another personal token. An `mcp`
   token without a project reaches every MCP tool and every project; a personal `mcp` token
   reaches the projects its user may read now, none when the user has none (never every project
   by default), and stops when the user is deleted or must change a password set by an
@@ -62,7 +62,7 @@
   revokes the grant. Approving a client needs a web session and is refused, like every grant and
   personal `mcp` or `ci` token, while `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`; a token
   acts as a personal `mcp` token of its user, on the MCP server only, and is deleted with the
-  user; a Controller server started with the login off revokes every grant (see
+  user; while the login is off, the grants are kept but their tokens are refused (see
   [OAuth login of MCP clients](../advanced/mcp-oauth.md)).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens and project requests are written in the same transaction as the change,
@@ -89,8 +89,8 @@
   MCP server serves no other public route than `/healthz`. No token is ever created for a
   client. With a token, `request_project` creates a new project only for a user holding
   `projects.create` (never an existing project); otherwise the request is **pending** until a
-  user with `projects.create` approves it on the Controller server, which adds the requesting user
-  (authenticated by the token, never declared) to the project group, created for a new project.
+  user with `projects.create` approves it on the Controller server, which gives the requesting user
+  (authenticated by the token, never declared) the reading of the project, created when new.
   For an existing project, the request is an access request, never granted at once, and only
   approved by a user who also holds `users.manage`, except for a user holding
   `projects.autojoin`, who joins it at once as a reader unless its autojoin is blocked (this
@@ -222,16 +222,18 @@
   immediately, and a password change draws a new random session version that invalidates every
   previous session. The session must also carry the identifier of the account: it never opens
   an account created again under the same internal number. The last administrator, local or
-  OIDC (by its role or the role of its groups), can be neither deleted nor demoted. The password
+  OIDC (by its roles or an OIDC mapping), can be neither deleted nor demoted, not even by an OIDC
+  login that no longer names its group. The password
   of the initial `admin` account appears once in the logs of the Controller server: protect them and
   change it at the first login.
 - **OIDC login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
   never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
-  [groups](../usage/access-control.md#groups) of the account: those given by an administrator and the
-  groups open to OIDC whose name is exactly a value of the groups claim (other values are
-  ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
+  [roles](../usage/access-control.md#roles) of the account: those given by an administrator and those
+  of the OIDC mappings whose value is exactly a value of the roles claim (other values are
+  ignored; the per-project permissions of the roles apply to the projects of the account only,
+  a project of a mapping must exist and is never created); an OIDC session never
   opens `/mcp`. The account is identified by the issuer and the `sub` of its first login (unique
   in the database), never by a name: a name changed at the provider keeps the account. It is
   named at its creation by the exact identifier of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no

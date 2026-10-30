@@ -1,8 +1,8 @@
 # Comptes utilisateurs
 
 Un compte utilisateur permet à une **personne** d'ouvrir l'interface web. Ce qu'il peut faire
-vient uniquement de ses **groupes** : leurs rôles donnent ses
-[permissions](access-control.md#ce-quun-utilisateur-peut-faire). Les machines
+vient uniquement de ses **rôles** et de ses **projets** : ils donnent ses
+[permissions](access-control.md#roles-et-projets-dun-compte). Les machines
 utilisent des [jetons](tokens.md).
 
 La ligne de commande, l'API REST et les réglages sont dans
@@ -13,8 +13,15 @@ La ligne de commande, l'API REST et les réglages sont dans
 | **Local** | Identifiant et mot de passe | Par un administrateur, dans la page **Utilisateurs** |
 | **OIDC** | Connexion d'entreprise ([fournisseur d'identité](sso.md#comptes-oidc)), sans mot de passe | Par un administrateur, ou à la première connexion quand le serveur le permet |
 
-Un compte OIDC rejoint aussi, à chaque connexion, les groupes que nomme son fournisseur
-d'identité (voir [groupes du fournisseur d'identité](sso.md#groupes-du-fournisseur-didentite)).
+Un compte OIDC porte aussi les rôles et projets des
+[correspondances OIDC](sso.md#correspondances-oidc) des groupes que nomme son fournisseur
+d'identité à chaque connexion.
+
+Sur la page **Utilisateurs**, le formulaire d'un compte donne ses **Rôles** (droits sur tout le
+serveur Controller, choisis dans une liste) et ses **Projets** (dans la liste **Rechercher les
+projets**, recherchez-les et cochez-les, **Tous les projets** compris, ajoutez-les, puis
+choisissez les droits par projet de chacun) ; il affiche ceux de ses correspondances OIDC, en
+lecture seule.
 
 ## Mot de passe
 
@@ -34,7 +41,7 @@ Un compte OIDC n'a pas de mot de passe : il est géré par le fournisseur d'iden
   **Se reconnecter** vous ramène à la même page.
 - **Se déconnecter** ferme les sessions du compte dans tous les onglets et navigateurs ; un
   nouveau mot de passe ou la suppression du compte aussi.
-- Un changement de groupes ou de rôles s'applique aussitôt, sans se reconnecter.
+- Un changement de rôles ou de projets s'applique aussitôt, sans se reconnecter.
 
 ## Points d'attention
 

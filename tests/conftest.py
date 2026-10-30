@@ -4,16 +4,16 @@ import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from alembic import command
 from sqlalchemy import Engine
-from sqlmodel import Session, SQLModel, StaticPool, create_engine
+from sqlmodel import SQLModel, StaticPool, create_engine
 
 from security_review_mcp.auth import access_control, web_users
 from security_review_mcp.auth.access_control import Permission
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.reports.services import update_finding_status
 from security_review_mcp.rules import registry, rule_store
-from security_review_mcp.storage import models
-from security_review_mcp.storage.database import set_engine
+from security_review_mcp.storage.database import alembic_config, set_engine
 from security_review_mcp.storage.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 
 # The tests ignore the configuration of the machine running them: the developer's .env file and
@@ -34,19 +34,6 @@ def _memory_engine() -> Engine:
     )
 
 
-def _add_ordinary_roles(engine: Engine) -> None:
-    """Create the ordinary ``triager`` role, as migration 0021 does on a real database."""
-    with Session(engine) as session:
-        session.add(
-            models.AccessRole(
-                name="triager",
-                permissions='["findings.triage", "reports.read"]',
-                created_by="migration",
-            )
-        )
-        session.commit()
-
-
 @pytest.fixture(scope="session")
 def seeded_template():
     """Build the schema and seed the default rules once, in a template database.
@@ -55,10 +42,12 @@ def seeded_template():
     """
     engine = _memory_engine()
     SQLModel.metadata.create_all(engine)
+    # The schema of the models is the latest revision: a command that migrates finds nothing to do
+    with engine.begin() as connection:
+        command.stamp(alembic_config(connection), "head")
     set_engine(engine)
     rule_store.seed_defaults()
     access_control.ensure_system_roles()
-    _add_ordinary_roles(engine)
     set_engine(None)
     yield engine
     engine.dispose()
@@ -81,6 +70,34 @@ def database(seeded_template):
     set_engine(engine)
     yield engine
     set_engine(None)
+    engine.dispose()
+
+
+@pytest.fixture
+def outdated_schema(database):
+    """Mark the test database as one revision behind the latest (``db upgrade`` has work to
+    do, ``db status`` reports it)."""
+    from security_review_mcp.storage.database import head_revision
+
+    with database.begin() as connection:
+        command.stamp(alembic_config(connection), "0038")
+    assert head_revision() != "0038"
+    return database
+
+
+@pytest.fixture
+def legacy_database(database):
+    """Replace the test database by a database of version 1.x: the tables of the baseline
+    revision, without any revision."""
+    from sqlalchemy import text
+
+    engine = _memory_engine()
+    with engine.begin() as connection:
+        command.upgrade(alembic_config(connection), "0001")
+        connection.execute(text("DROP TABLE alembic_version"))
+    set_engine(engine)
+    yield engine
+    set_engine(database)
     engine.dispose()
 
 
@@ -162,29 +179,66 @@ def triage():
     return _triage
 
 
-# Permissions of a user who holds a built-in role on every project (see group_for)
+# Permissions of a user who reads or triages every project, or of the admin (see make_user)
 READER_GRANTS = {"reports.read": None}
 TRIAGER_GRANTS = {"findings.triage": None, "reports.read": None}
 ADMIN_GRANTS = {permission.value: None for permission in Permission}
+# Per-project permissions of the former roles reader and triager, which make_user and map_claim
+# still accept as a ``role``; admin is the built-in role, with every per-project permission
+ROLE_PERMISSIONS = {
+    "reader": ["reports.read"],
+    "triager": ["findings.triage", "reports.read"],
+    "admin": ["findings.triage", "reports.read"],
+}
 
 
-def group_for(
-    role: str, projects: list[str] | None = None, name: str | None = None, sso: bool = False
-) -> int:
-    """Id of a group that has the system role ``role`` on ``projects`` (created when missing).
-
-    Named ``name``, or after the role and its projects (``reader:shop,billing``).
-    """
+def role_id(name: str) -> int:
+    """Id of the role ``name``."""
     from security_review_mcp.auth import access_control
 
-    group_name = name or ":".join([role, ",".join(projects)] if projects else [role])
-    existing = {group["name"]: group["id"] for group in access_control.list_groups()}
-    if group_name in existing:
-        return existing[group_name]
-    roles = {item["name"]: item["id"] for item in access_control.list_roles()}
-    group = access_control.create_group(group_name, sso=sso)
-    access_control.set_group_roles(group["id"], [(roles[role], projects)])
-    return group["id"]
+    return {item["name"]: item["id"] for item in access_control.list_roles()}[name]
+
+
+def known_projects(*names: str) -> None:
+    """Make the projects ``names`` known (as a first report would)."""
+    from security_review_mcp.storage.database import session_scope
+    from security_review_mcp.storage.projects import ensure_project
+
+    with session_scope() as session:
+        for name in names:
+            ensure_project(session, name)
+
+
+def _access(role: str | None) -> tuple[list[int], list[str]]:
+    """Role ids and per-project permissions of ``role``: reader and triager are per-project
+    permissions, admin the built-in role with every per-project permission, any other name a
+    role."""
+    if role is None:
+        return [], []
+    if role in ("reader", "triager"):
+        return [], ROLE_PERMISSIONS[role]
+    return [role_id(role)], ROLE_PERMISSIONS.get(role, [])
+
+
+def map_claim(claim: str, role: str | None = None, projects: list[str] | None = None) -> None:
+    """Add an OIDC mapping: the value ``claim`` of the roles claim gives ``role`` (see _access)
+    on every project, or on ``projects`` (a project not known yet is ignored until it is
+    created)."""
+    from security_review_mcp.auth import access_control
+
+    current = [
+        (
+            item["claim"],
+            item["role_ids"],
+            item["all_projects_permissions"],
+            [(entry["project"], entry["permissions"]) for entry in item["projects"]],
+        )
+        for item in access_control.list_oidc_mappings()
+    ]
+    roles, permissions = _access(role)
+    every = permissions if projects is None else []
+    given = [(name, permissions) for name in projects or []] if permissions else []
+    access_control.set_oidc_mappings([*current, (claim, roles, every, given)])
 
 
 def make_user(
@@ -195,20 +249,34 @@ def make_user(
     created_by: str | None = None,
     auth_source: str = "local",
     must_change: bool = False,
-    group_ids: list[int] | None = None,
+    role_ids: list[int] | None = None,
+    read_only: list[str] | None = None,
 ) -> dict:
-    """Create a web user that holds the system role ``role`` on ``projects`` (see group_for).
+    """Create a web user with ``role`` (see _access) on ``projects`` (made known first), or on
+    every project without any, the roles ``role_ids`` and the reading of ``read_only``.
 
     A local user created by an administrator must change its password at its first login; it
-    is created as if it had already done it, unless ``must_change``. ``group_ids`` gives
-    groups of its own instead of the one of ``role``.
+    is created as if it had already done it, unless ``must_change``.
     """
     from security_review_mcp.auth import web_users
     from security_review_mcp.storage.database import session_scope
     from security_review_mcp.storage.models import WebUser
 
-    groups = group_ids if group_ids is not None else [group_for(role, projects)] if role else []
-    created = web_users.create_user(username, password, groups, created_by, auth_source)
+    roles, permissions = _access(role)
+    roles += role_ids or []
+    known_projects(*(projects or []), *(read_only or []))
+    bindings = [(name, permissions or ["reports.read"]) for name in projects or []]
+    bindings += [(name, ["reports.read"]) for name in read_only or []]
+    every = permissions if not projects else []
+    created = web_users.create_user(
+        username,
+        password,
+        roles,
+        bindings,
+        created_by,
+        auth_source,
+        all_projects_permissions=every,
+    )
     if not must_change and created["must_change_password"]:
         with session_scope() as session:
             row = session.get(WebUser, created["id"])

@@ -450,9 +450,11 @@ class ApiToken(SQLModel, table=True):
     previous_token_hash: str | None = Field(default=None, index=True, max_length=64)
     previous_expires_at: datetime | None = Field(default=None)
     # ``api`` token: the web user of a personal token (it holds the current rights of the user),
-    # or the role of a role token (it holds the permissions of the role on its projects)
+    # or the role of a role token (it holds the permissions of the role, and the per-project
+    # permissions of ``project_permissions``, JSON list, on its projects)
     user_id: int | None = Field(default=None, foreign_key="webuser.id", index=True)
     access_role_id: int | None = Field(default=None, foreign_key="accessrole.id", index=True)
+    project_permissions: str = Field(default="[]")
 
 
 class ApiTokenProject(SQLModel, table=True):
@@ -526,9 +528,10 @@ class ProjectEnrollment(SQLModel, table=True):
     """A project requested by the MCP agent of a user (request_project), waiting for an
     administrator: a new project, or the access to a project that already exists.
 
-    It gives no access: an approval creates the project group when missing and adds the
-    requesting user to it, a rejection or the expiry (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS)
-    deletes the row. A user has at most one request per project.
+    It gives no access: an approval creates the project when missing and gives the requesting
+    user the ``reader`` role on it, a rejection or the expiry
+    (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS) deletes the row. A user has at most one request per
+    project.
     """
 
     __table_args__ = (UniqueConstraint("project", "requested_by_user_id"),)
@@ -537,7 +540,7 @@ class ProjectEnrollment(SQLModel, table=True):
     project: str = Field(index=True, max_length=200)
     # Who asked (username of the owner of the token), from which address, with which token
     requested_by: str | None = Field(default=None, max_length=200)
-    # The web user who asked, added to the project group by the approval (None: a token without
+    # The web user who asked, given the reader role by the approval (None: a token without
     # a user, or a user deleted since)
     requested_by_user_id: int | None = Field(default=None, foreign_key="webuser.id", index=True)
     requested_from: str | None = Field(default=None, max_length=64)
@@ -545,15 +548,20 @@ class ProjectEnrollment(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow, index=True)
 
 
-class ProjectAutojoinBlock(SQLModel, table=True):
-    """A project that the holders of ``projects.autojoin`` may not join at once (see
-    access_control.set_autojoin_blocked): their requests wait for an approval as the others do.
-    Deleted with its project."""
+class Project(SQLModel, table=True):
+    """A known project: created by its first report, a token, a role or a creation in the web
+    interface (see storage.projects.ensure_project), deleted with everything that refers to it
+    (see access_control.delete_project).
+
+    With ``autojoin_blocked``, the holders of ``projects.autojoin`` may not join it at once:
+    their requests wait for an approval as the others do (see access_control.request_project).
+    """
 
     id: int | None = Field(default=None, primary_key=True)
-    project: str = Field(unique=True, index=True, max_length=200)
-    blocked_by: str = Field(max_length=200)
+    name: str = Field(unique=True, index=True, max_length=200)
+    autojoin_blocked: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=200)
 
 
 # ── Audit log (see audit) ────────────────────────────────────────────────────
@@ -692,11 +700,12 @@ class WebUser(SQLModel, table=True):
     """Account of the web interface: a local account (username and password) or an OIDC one.
 
     ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
-    or ``oidc`` (OpenID Connect login, no password). What a user may do comes only from the
-    roles of its groups (``GroupMember``, see access_control). ``oidc_subject`` and
-    ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first OIDC login: an
-    account is identified by both, so that another identity provider cannot reuse a subject, and
-    no two users share them (unique index).
+    or ``oidc`` (OpenID Connect login, no password). What a user may do comes only from its
+    roles (``UserRole``) and its projects (``UserProject``, ``all_projects_permissions``) and, for
+    an OIDC user, from the mappings of its roles claim (``UserOidcClaim``, see access_control).
+    ``oidc_subject`` and ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first
+    OIDC login: an account is identified by both, so that another identity provider cannot reuse
+    a subject, and no two users share them (unique index).
     ``session_version`` is drawn at random at creation and at each password change: the sessions
     issued with another version are refused.
     """
@@ -722,6 +731,8 @@ class WebUser(SQLModel, table=True):
     created_by: str | None = Field(default=None, max_length=64)
     # Theme of the web interface chosen by the user: light, dark or auto (system preference)
     theme: str = Field(default="auto", max_length=10)
+    # Per-project permissions (JSON list) the user holds on every project (see access_control)
+    all_projects_permissions: str = Field(default="[]")
 
 
 # ── Rate limiting (see rate_limit) ───────────────────────────────────────────
@@ -739,11 +750,11 @@ class RateLimitCounter(SQLModel, table=True):
     hits: int = Field(default=0)
 
 
-# ── Access control: roles, groups and members (see access_control) ───────────
+# ── Access control: roles of the users and OIDC mappings (see access_control) ─
 
 
 class AccessRole(SQLModel, table=True):
-    """Role of the web interface: a named set of permissions, given to groups.
+    """Role of the web interface: a named set of permissions, given to users.
 
     ``permissions`` is the JSON list of the permission names (access_control.Permission). A
     ``system`` (built-in) role, ``reader`` or ``admin``, can be neither changed nor deleted: its
@@ -760,51 +771,67 @@ class AccessRole(SQLModel, table=True):
     created_by: str | None = Field(default=None, max_length=64)
 
 
-class UserGroup(SQLModel, table=True):
-    """Group of web users; its roles apply to every member.
+class UserRole(SQLModel, table=True):
+    """Role of a web user: its permissions apply to the whole controller (a role holds no
+    permission limited to projects, see access_control).
 
-    With ``sso``, the OIDC users whose groups claim holds ``name`` are members too: their
-    membership is recomputed at each login. Without it, only the members an administrator added
-    belong to the group.
+    Its table is ``webuserrole``: ``userrole`` was the name of an older table (revision 0014).
     """
 
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(unique=True, index=True, max_length=200)
-    description: str = Field(default="", max_length=500)
-    sso: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
-    created_by: str | None = Field(default=None, max_length=64)
-
-
-class GroupRole(SQLModel, table=True):
-    """Role given to a group, on every project or on the projects listed in ``projects``.
-
-    ``projects`` is a JSON list; empty means every project. Only a role whose permissions are
-    all scoped to projects (reading reports, triaging findings) may list projects.
-    """
-
-    __table_args__ = (UniqueConstraint("group_id", "role_id"),)
+    __tablename__ = "webuserrole"
+    __table_args__ = (UniqueConstraint("user_id", "role_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
-    group_id: int = Field(foreign_key="usergroup.id", index=True)
-    role_id: int = Field(foreign_key="accessrole.id", index=True)
-    projects: str = Field(default="[]")
-
-
-class GroupMember(SQLModel, table=True):
-    """Membership of a web user in a group.
-
-    ``source`` is ``local`` (added by an administrator) or ``oidc`` (found in the groups claim
-    at the last OIDC login, replaced at each login).
-    """
-
-    __table_args__ = (UniqueConstraint("group_id", "user_id", "source"),)
-
-    id: int | None = Field(default=None, primary_key=True)
-    group_id: int = Field(foreign_key="usergroup.id", index=True)
     user_id: int = Field(foreign_key="webuser.id", index=True)
-    source: str = Field(default="local", max_length=20)
+    role_id: int = Field(foreign_key="accessrole.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=200)
+
+
+class UserProject(SQLModel, table=True):
+    """A project of a web user, with the per-project permissions it holds there
+    (``permissions``, JSON list of access_control.SCOPED_PERMISSIONS)."""
+
+    __table_args__ = (UniqueConstraint("user_id", "project_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="webuser.id", index=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    permissions: str = Field(default="[]")
+    created_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=200)
+
+
+class OidcRoleMapping(SQLModel, table=True):
+    """A value of the OIDC roles claim that gives roles (``role_ids``, JSON list), per-project
+    permissions on every project (``all_projects_permissions``, JSON list) and projects with their
+    permissions (``projects``, JSON list of ``{"project", "permissions"}``; a project not known yet
+    is ignored until it is created). They add up with those given to the user.
+
+    Its table is ``oidcclaimmapping``: ``oidcrolemapping`` was the name of an older table
+    (dropped by revision 0013).
+    """
+
+    __tablename__ = "oidcclaimmapping"
+
+    id: int | None = Field(default=None, primary_key=True)
+    claim: str = Field(unique=True, index=True, max_length=200)
+    role_ids: str = Field(default="[]")
+    all_projects_permissions: str = Field(default="[]")
+    projects: str = Field(default="[]")
+    created_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=200)
+
+
+class UserOidcClaim(SQLModel, table=True):
+    """A value of the roles claim of an OIDC user at its last login, named by a mapping:
+    replaced at each login (see access_control.sync_oidc_claims)."""
+
+    __table_args__ = (UniqueConstraint("user_id", "claim"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="webuser.id", index=True)
+    claim: str = Field(index=True, max_length=200)
     created_at: datetime = Field(default_factory=utcnow)
 
 

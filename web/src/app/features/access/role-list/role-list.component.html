@@ -47,7 +47,7 @@
     <fieldset class="col-12">
       <legend class="form-label">{{ 'roles.permissions' | t }}</legend>
       <div class="row g-2">
-        @for (permission of permissions.value() ?? []; track permission.name) {
+        @for (permission of sitePermissions(); track permission.name) {
           <div class="col-md-6">
             <div class="form-check">
               <input
@@ -60,20 +60,13 @@
               <label class="form-check-label" [for]="'role-permission-' + permission.name">
                 {{ permissionMeta[permission.name].label | t }}
                 <code class="small ms-1">{{ permission.name }}</code>
-                @if (permission.scoped) {
-                  <span class="badge text-bg-light border ms-1">{{ 'roles.scoped' | t }}</span>
-                }
               </label>
               <div class="form-text mt-0">{{ permissionMeta[permission.name].help | t }}</div>
             </div>
           </div>
         }
       </div>
-      @if (selected().length) {
-        <div class="form-text">
-          {{ (scoped() ? 'roles.scopedHelp' : 'roles.globalHelp') | t }}
-        </div>
-      }
+      <div class="form-text">{{ 'roles.siteOnlyHelp' | t }}</div>
     </fieldset>
     <div class="col-12 d-flex flex-wrap gap-2">
       <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
@@ -117,8 +110,8 @@
               <th scope="col" [appSortHeader]="tableSort" sortKey="permissions">
                 {{ 'roles.permissions' | t }}
               </th>
-              <th scope="col" [appSortHeader]="tableSort" sortKey="groups">
-                {{ 'layout.groups' | t }}
+              <th scope="col" [appSortHeader]="tableSort" sortKey="usage">
+                {{ 'roles.givenTo' | t }}
               </th>
               <th scope="col">{{ 'rules.origin' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
@@ -145,7 +138,16 @@
                     }
                   </div>
                 </td>
-                <td>{{ role.groups }}</td>
+                <td class="small text-nowrap">
+                  {{
+                    'roles.usage'
+                      | t
+                        : {
+                            users: role.users,
+                            mappings: role.mappings,
+                          }
+                  }}
+                </td>
                 <td class="small">
                   {{ role.created_by ?? '—' }}
                   <span class="text-body-secondary">

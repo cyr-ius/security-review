@@ -13,6 +13,7 @@ from pydantic import StringConstraints
 from ..auth import access_control
 from ..reports import services, trends
 from ..reports.sarif import build_sarif
+from ..storage import projects as project_store
 from ..storage.database import session_scope
 from ..storage.models import (
     DISMISSED_STATUSES,
@@ -91,14 +92,14 @@ async def project_trend(project: str, days: int, granularity: Granularity) -> di
 
 
 def _known_projects() -> list[dict]:
-    """Projects with reports, then those without any report that a role of a group names,
-    with whether their autojoin is blocked."""
+    """Projects with reports, then the known projects without any report, with whether their
+    autojoin is blocked."""
     with session_scope() as session:
-        bound = access_control.bound_projects(session)
+        known = project_store.known_projects(session)
         blocked = access_control.autojoin_blocked_projects(session)
     return [
         item | {"autojoin_blocked": item["project"] in blocked}
-        for item in services.list_projects(bound)
+        for item in services.list_projects(known)
     ]
 
 
@@ -115,8 +116,8 @@ async def create_project(
     request: Request, body: ProjectCreate, identity: ProjectCreator
 ) -> ProjectSummary:
     """Create a new project (``projects.create``, logged-in web user only): the controller
-    creates its project group and adds the caller to it, so that the caller reads the project
-    and its personal ``mcp`` token reaches it. A project already known is refused (409): the
+    creates it and gives the caller the ``reader`` role on it, so that the caller reads the
+    project and its personal ``mcp`` token reaches it. A project already known is refused (409): the
     permission never opens an existing project."""
     user_id = web_user_id(request)
     try:
@@ -150,9 +151,9 @@ async def pending_projects(identity: ProjectCreator) -> list[PendingProject]:
 async def approve_pending_project(
     enrollment_id: EnrollmentIdPath, identity: ProjectCreator
 ) -> PendingProjectApproved:
-    """Approve a requested project (``projects.create``): the requesting user joins its project
-    group, created for a new project; the caller gains no access. Giving access to an existing
-    project also takes ``users.manage``, as adding a member to a group does."""
+    """Approve a requested project (``projects.create``): the requesting user gets the
+    ``reader`` role on it, created for a new project; the caller gains no access. Giving access
+    to an existing project also takes ``users.manage``, as giving a role does."""
     try:
         approved = await run_in_threadpool(
             access_control.approve_enrollment,
@@ -220,8 +221,8 @@ async def delete_project(
     request: Request, project: Annotated[ProjectName, Path()], identity: ProjectDeleter
 ) -> ProjectDeleted:
     """Delete a project and everything that refers to it (``projects.delete``, logged-in web
-    user only): its reports, findings and comments, its project group, the project in the
-    roles of the other groups and in the tokens (a token left without project is revoked)."""
+    user only): its reports, findings and comments, the roles of the users on it, the project
+    in the OIDC mappings and in the tokens (a token left without project is revoked)."""
     web_user_id(request)
     try:
         deleted = await run_in_threadpool(

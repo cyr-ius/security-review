@@ -21,7 +21,7 @@ export const projects = defineMessages({
     'projects.createFailed': 'Could not create the project.',
     'projects.pending': 'Pending projects',
     'projects.pendingHelp':
-      'Projects requested by the MCP agent of a user who may not create projects, and requests to access an existing project. Check the requester: approving gives the requester access to the project (group project:<project>, created for a new project); a request not approved before its expiry is deleted.',
+      'Projects requested by the MCP agent of a user who may not create projects, and requests to access an existing project. Check the requester: approving gives the requester the reader role on the project (created for a new project); a request not approved before its expiry is deleted.',
     'projects.requester': 'Requested by',
     'projects.address': 'Address',
     'projects.requestedAt': 'Requested on',
@@ -37,17 +37,16 @@ export const projects = defineMessages({
     'projects.confirmApprove': 'Create project “{project}”? Its requester gets access to it.',
     'projects.confirmApproveAccess': 'Give the requester access to project “{project}”?',
     'projects.confirmReject': 'Reject the request for project “{project}”?',
-    'projects.approved':
-      'Project {project} created: its requester is a member of the group project:{project}.',
-    'projects.approvedAccess':
-      'Access granted: the requester is a member of the group {group} of project {project}.',
+    'projects.approved': 'Project {project} created: {user} reads it.',
+    'projects.approvedAccess': 'Access granted: {user} reads project {project}.',
     'projects.rejected': 'Request for project {project} rejected.',
     'projects.pendingFailed': 'The request could not be handled.',
     'projects.pendingGone': 'This request no longer exists (already handled or expired).',
     'projects.pendingLoadError': 'Could not load the pending projects.',
     'projects.delete': 'Delete project {project}',
+    'projects.members': 'Members of project {project}',
     'projects.confirmDelete':
-      'Delete project {project}? Its reports, findings and comments, its project group and its place in the roles of the groups and in the tokens are deleted (a token left without project is revoked). This cannot be undone.',
+      'Delete project {project}? Its reports, findings and comments, the roles of the users on it and its place in the OIDC mappings and in the tokens are deleted (a token left without project is revoked). This cannot be undone.',
     'projects.deleted':
       'Project {project} deleted: {reports} report(s), {findings} finding(s), {tokens} token(s) revoked.',
     'projects.deleteFailed': 'Could not delete the project.',
@@ -102,6 +101,7 @@ export const projects = defineMessages({
     'projectFindings.loadError': 'Could not load the findings.',
     'projectFindings.notFound': 'This project does not exist or is outside your scope.',
     'projectFindings.none': 'No open findings: nothing to review.',
+    'projects.approvedNoUser': 'Project {project} approved (no user to give access to).',
   },
   fr: {
     'common.breadcrumb': "Fil d'Ariane",
@@ -122,7 +122,7 @@ export const projects = defineMessages({
     'projects.createFailed': 'Impossible de créer le projet.',
     'projects.pending': 'Projets en attente',
     'projects.pendingHelp':
-      "Projets demandés par l'agent MCP d'un utilisateur qui ne peut pas créer de projet, et demandes d'accès à un projet existant. Vérifiez le demandeur : valider donne accès au projet au demandeur (groupe project:<projet>, créé pour un nouveau projet) ; une demande non validée avant son expiration est supprimée.",
+      "Projets demandés par l'agent MCP d'un utilisateur qui ne peut pas créer de projet, et demandes d'accès à un projet existant. Vérifiez le demandeur : valider lui donne le rôle reader sur le projet (créé pour un nouveau projet) ; une demande non validée avant son expiration est supprimée.",
     'projects.requester': 'Demandé par',
     'projects.address': 'Adresse',
     'projects.requestedAt': 'Demandé le',
@@ -138,17 +138,16 @@ export const projects = defineMessages({
     'projects.confirmApprove': 'Créer le projet « {project} » ? Son demandeur y aura accès.',
     'projects.confirmApproveAccess': 'Donner au demandeur accès au projet « {project} » ?',
     'projects.confirmReject': 'Refuser la demande du projet « {project} » ?',
-    'projects.approved':
-      'Projet {project} créé : son demandeur est membre du groupe project:{project}.',
-    'projects.approvedAccess':
-      'Accès accordé : le demandeur est membre du groupe {group} du projet {project}.',
+    'projects.approved': 'Projet {project} créé : {user} le lit.',
+    'projects.approvedAccess': 'Accès accordé : {user} lit le projet {project}.',
     'projects.rejected': 'Demande du projet {project} refusée.',
     'projects.pendingFailed': "La demande n'a pas pu être traitée.",
     'projects.pendingGone': "Cette demande n'existe plus (déjà traitée ou expirée).",
     'projects.pendingLoadError': 'Impossible de charger les projets en attente.',
     'projects.delete': 'Supprimer le projet {project}',
+    'projects.members': 'Membres du projet {project}',
     'projects.confirmDelete':
-      'Supprimer le projet {project} ? Ses rapports, findings et commentaires, son groupe de projet et sa place dans les rôles des groupes et dans les jetons sont supprimés (un jeton qui n’a plus de projet est révoqué). Cette action est irréversible.',
+      'Supprimer le projet {project} ? Ses rapports, findings et commentaires, les rôles des utilisateurs sur ce projet et sa place dans les correspondances OIDC et dans les jetons sont supprimés (un jeton qui n’a plus de projet est révoqué). Cette action est irréversible.',
     'projects.deleted':
       'Projet {project} supprimé : {reports} rapport(s), {findings} finding(s), {tokens} jeton(s) révoqué(s).',
     'projects.deleteFailed': 'Impossible de supprimer le projet.',
@@ -203,6 +202,7 @@ export const projects = defineMessages({
     'projectFindings.loadError': 'Impossible de charger les findings.',
     'projectFindings.notFound': "Ce projet n'existe pas ou est hors de votre périmètre.",
     'projectFindings.none': 'Aucun finding ouvert : rien à revoir.',
+    'projects.approvedNoUser': 'Projet {project} validé (aucun utilisateur à qui donner accès).',
   },
   es: {
     'common.breadcrumb': 'Ruta de navegación',
@@ -223,7 +223,7 @@ export const projects = defineMessages({
     'projects.createFailed': 'No se pudo crear el proyecto.',
     'projects.pending': 'Proyectos pendientes',
     'projects.pendingHelp':
-      'Proyectos solicitados por el agente MCP de un usuario que no puede crear proyectos, y solicitudes de acceso a un proyecto existente. Compruebe el solicitante: aprobar da acceso al proyecto al solicitante (grupo project:<proyecto>, creado para un proyecto nuevo); una solicitud no aprobada antes de su caducidad se elimina.',
+      'Proyectos solicitados por el agente MCP de un usuario que no puede crear proyectos, y solicitudes de acceso a un proyecto existente. Compruebe el solicitante: aprobar le da el rol reader en el proyecto (creado para un proyecto nuevo); una solicitud no aprobada antes de su caducidad se elimina.',
     'projects.requester': 'Solicitado por',
     'projects.address': 'Dirección',
     'projects.requestedAt': 'Solicitado el',
@@ -239,17 +239,16 @@ export const projects = defineMessages({
     'projects.confirmApprove': '¿Crear el proyecto «{project}»? Su solicitante tendrá acceso.',
     'projects.confirmApproveAccess': '¿Dar al solicitante acceso al proyecto «{project}»?',
     'projects.confirmReject': '¿Rechazar la solicitud del proyecto «{project}»?',
-    'projects.approved':
-      'Proyecto {project} creado: su solicitante es miembro del grupo project:{project}.',
-    'projects.approvedAccess':
-      'Acceso concedido: el solicitante es miembro del grupo {group} del proyecto {project}.',
+    'projects.approved': 'Proyecto {project} creado: {user} lo lee.',
+    'projects.approvedAccess': 'Acceso concedido: {user} lee el proyecto {project}.',
     'projects.rejected': 'Solicitud del proyecto {project} rechazada.',
     'projects.pendingFailed': 'No se pudo procesar la solicitud.',
     'projects.pendingGone': 'Esta solicitud ya no existe (ya procesada o caducada).',
     'projects.pendingLoadError': 'No se pudieron cargar los proyectos pendientes.',
     'projects.delete': 'Eliminar el proyecto {project}',
+    'projects.members': 'Miembros del proyecto {project}',
     'projects.confirmDelete':
-      '¿Eliminar el proyecto {project}? Se eliminan sus informes, hallazgos y comentarios, su grupo de proyecto y su lugar en los roles de los grupos y en los tokens (un token que se queda sin proyecto se revoca). Esta acción no se puede deshacer.',
+      '¿Eliminar el proyecto {project}? Se eliminan sus informes, hallazgos y comentarios, los roles de los usuarios en él y su lugar en las correspondencias OIDC y en los tokens (un token que se queda sin proyecto se revoca). Esta acción no se puede deshacer.',
     'projects.deleted':
       'Proyecto {project} eliminado: {reports} informe(s), {findings} hallazgo(s), {tokens} token(s) revocado(s).',
     'projects.deleteFailed': 'No se pudo eliminar el proyecto.',
@@ -304,5 +303,6 @@ export const projects = defineMessages({
     'projectFindings.loadError': 'No se pudieron cargar los hallazgos.',
     'projectFindings.notFound': 'Este proyecto no existe o está fuera de su ámbito.',
     'projectFindings.none': 'No hay hallazgos abiertos: nada que revisar.',
+    'projects.approvedNoUser': 'Proyecto {project} aprobado (ningún usuario al que dar acceso).',
   },
 });

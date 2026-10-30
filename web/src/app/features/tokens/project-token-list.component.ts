@@ -4,12 +4,18 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
+import { PERMISSION_META, TOKEN_ROLE_LABELS } from '../../core/constants/labels';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 import {
+  MultiSelectDropdownComponent,
+  MultiSelectOption,
+} from '../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
+import { ProjectPermissionsComponent } from '../../shared/components/project-permissions/project-permissions.component';
+import {
+  Permission,
   ProjectToken,
   ProjectTokenRole,
   TokenRole,
@@ -37,8 +43,10 @@ type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
 @Component({
   selector: 'app-project-token-list',
   imports: [
+    ProjectPermissionsComponent,
     HelpLinkComponent,
     DatePipe,
+    MultiSelectDropdownComponent,
     FormField,
     OAuthClientsComponent,
     RefreshButtonComponent,
@@ -119,26 +127,36 @@ export class ProjectTokenListComponent {
     // The role only applies to an api token, which needs one
     required(path.accessRoleId, { when: ({ valueOf }) => valueOf(path.usage) === 'api' });
   });
-  /** The role chosen for a new api token (undefined: none, or another usage). */
-  readonly selectedRole = computed(() => {
-    const model = this.formModel();
-    return model.usage === 'api'
-      ? (this.tokenRoles.value() ?? []).find((role) => String(role.id) === model.accessRoleId)
-      : undefined;
-  });
-  /** A role with a permission on the whole controller: its token reaches every project. */
-  readonly wholeControllerRole = computed(() => this.selectedRole()?.scoped === false);
-  /** Every project (not offered for a CI/CD token), or only selectedProjects. */
-  readonly allProjects = signal(false);
+  /** Per-project permissions of a new api token on its projects: their reading by default. */
+  readonly projectPermissions = signal<Permission[]>(['reports.read']);
+  /** Projects ticked for a new token, or "All projects" alone (ALL_PROJECTS). */
   readonly selectedProjects = signal<string[]>([]);
-  /** A CI/CD token is always restricted to projects. */
-  readonly creationAllProjects = computed(
-    () => this.wholeControllerRole() || (this.allProjects() && this.formModel().usage !== 'ci'),
+  readonly creationSearch = signal('');
+  /** Ticked values, without "All projects" for a CI/CD token, always restricted to projects. */
+  readonly creationSelected = computed(() =>
+    this.formModel().usage === 'ci'
+      ? this.selectedProjects().filter((value) => value !== ALL_PROJECTS)
+      : this.selectedProjects(),
   );
+  readonly creationAllProjects = computed(() => this.creationSelected().includes(ALL_PROJECTS));
+  /** Projects of the new token: null for every project. */
+  readonly creationProjects = computed(() =>
+    this.creationAllProjects() ? null : this.creationSelected(),
+  );
+  readonly creationOptions = computed(() =>
+    this.projectOptions(
+      (this.projects.value() ?? []).map((item) => item.project),
+      this.creationSearch(),
+      this.formModel().usage !== 'ci',
+      this.creationSelected(),
+    ),
+  );
+  readonly creationNote = computed(() => this.projectNote(this.creationOptions()));
   /** Token whose projects are being changed in its row (null: none). */
   readonly editing = signal<ProjectToken | null>(null);
-  readonly editAllProjects = signal(false);
+  /** Projects ticked for the edited token, or "All projects" alone (ALL_PROJECTS). */
   readonly editSelected = signal<string[]>([]);
+  readonly editSearch = signal('');
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
@@ -170,7 +188,13 @@ export class ProjectTokenListComponent {
       return `${usage} · ${this.i18n.translate('tokens.personal')}`;
     }
     const role = this.roleOf(token);
-    return role ? `${usage} · ${role.name}` : usage;
+    if (!role) {
+      return usage;
+    }
+    const permissions = token.project_permissions.map((permission) =>
+      this.i18n.translate(PERMISSION_META[permission].label),
+    );
+    return [usage, role.name, ...permissions].join(' · ');
   }
 
   /** Role of an api token, when the caller may list the roles. */
@@ -179,13 +203,58 @@ export class ProjectTokenListComponent {
   }
 
   /** The projects of a token can be changed, except for a personal token (the rights of its
-   * user) and for an api token whose role reaches the whole controller. */
+   * user). */
   canEditProjects(token: ProjectToken): boolean {
-    return !token.personal && !(token.role === 'api' && this.roleOf(token)?.scoped === false);
+    return !token.personal;
   }
 
-  toggleProject(project: string, event: Event): void {
-    this.selectedProjects.update((selected) => toggled(selected, project, event));
+  /** Options of a choice of projects: "All projects" first when offered, then the projects
+   * matching the search and those ticked (the menu only keeps the ticked values it shows),
+   * which "All projects" already reaches when ticked. */
+  private projectOptions(
+    projects: string[],
+    search: string,
+    withAllProjects: boolean,
+    selected: string[],
+  ): MultiSelectOption[] {
+    const term = search.trim().toLowerCase();
+    const allPicked = selected.includes(ALL_PROJECTS);
+    return [
+      ...(withAllProjects
+        ? [
+            {
+              value: ALL_PROJECTS,
+              label: this.i18n.translate('reports.allProjects'),
+              strong: true,
+              divider: true,
+              standalone: true,
+            },
+          ]
+        : []),
+      ...projects
+        .filter((project) => project.toLowerCase().includes(term) || selected.includes(project))
+        .map((project) => ({
+          value: project,
+          label: project,
+          monospace: true,
+          disabled: allPicked,
+        })),
+    ];
+  }
+
+  /** Text under the projects: loading, or no project found. */
+  private projectNote(options: MultiSelectOption[]): string | null {
+    if (this.projects.isLoading() && !this.projects.hasValue()) {
+      return this.i18n.translate('common.loading');
+    }
+    return options.some((option) => option.value !== ALL_PROJECTS)
+      ? null
+      : this.i18n.translate('access.noProjectFound');
+  }
+
+  /** Ticking "All projects" unticks the projects, which it already reaches. */
+  picked(values: string[]): string[] {
+    return values.includes(ALL_PROJECTS) ? [ALL_PROJECTS] : values;
   }
 
   /** Text of the projects of a token: their names, "All projects", or "No project" (a personal
@@ -203,11 +272,24 @@ export class ProjectTokenListComponent {
     return [...new Set([...known, ...(token.projects ?? [])])].sort();
   }
 
+  editOptions(token: ProjectToken): MultiSelectOption[] {
+    return this.projectOptions(
+      this.editChoices(token),
+      this.editSearch(),
+      token.role !== 'ci',
+      this.editSelected(),
+    );
+  }
+
+  editNote(token: ProjectToken): string | null {
+    return this.projectNote(this.editOptions(token));
+  }
+
   /** Open the change of the projects of a token in its row. */
   editProjects(token: ProjectToken): void {
     this.editing.set(token);
-    this.editAllProjects.set(token.projects === null);
-    this.editSelected.set(token.projects ?? []);
+    this.editSelected.set(token.projects ?? [ALL_PROJECTS]);
+    this.editSearch.set('');
     this.error.set(null);
     this.message.set(null);
   }
@@ -216,15 +298,11 @@ export class ProjectTokenListComponent {
     this.editing.set(null);
   }
 
-  toggleEditProject(project: string, event: Event): void {
-    this.editSelected.update((selected) => toggled(selected, project, event));
-  }
-
   /** Save the projects of the edited token; giving every project asks for a confirmation. */
   async saveProjects(): Promise<void> {
     const token = this.editing();
-    const all = this.editAllProjects() && token?.role !== 'ci';
-    const projects = all ? null : this.editSelected();
+    const all = this.editSelected().includes(ALL_PROJECTS) && token?.role !== 'ci';
+    const projects = all ? null : this.editSelected().filter((project) => project !== ALL_PROJECTS);
     if (!token || this.busy() || (projects !== null && !projects.length)) {
       return;
     }
@@ -258,7 +336,7 @@ export class ProjectTokenListComponent {
     const label = model.label.trim();
     const role: ProjectTokenRole = model.usage;
     const accessRoleId = role === 'api' ? Number(model.accessRoleId) : null;
-    const projects = this.creationAllProjects() ? null : this.selectedProjects();
+    const projects = this.creationProjects();
     if (this.tokenForm().invalid() || !label || projects?.length === 0 || this.busy()) {
       this.tokenForm().markAsTouched();
       return;
@@ -270,13 +348,21 @@ export class ProjectTokenListComponent {
     try {
       const days = model.validity ? Number(model.validity) : null;
       const created = await firstValueFrom(
-        this.api.createProjectToken(label, projects, role, days, accessRoleId),
+        this.api.createProjectToken(
+          label,
+          projects,
+          role,
+          days,
+          accessRoleId,
+          role === 'api' ? this.projectPermissions() : [],
+        ),
       );
       this.createdToken.set(created.token);
       this.formModel.set({ ...EMPTY_TOKEN });
       this.tokenForm().reset();
       this.selectedProjects.set([]);
-      this.allProjects.set(false);
+      this.creationSearch.set('');
+      this.projectPermissions.set(['reports.read']);
       this.message.set(
         msg('tokens.created', {
           label: created.label,
@@ -381,11 +467,8 @@ const VALIDITY_DAYS: readonly string[] = ['30', '90', '180', '365'];
 /** Grace periods offered for a rotation, in hours (at most 168 on the server). */
 const GRACE_HOURS: readonly number[] = [0, 1, 24, 168];
 
-/** The selection with a project added or removed, after a checkbox change. */
-function toggled(selected: string[], project: string, event: Event): string[] {
-  const checked = (event.target as HTMLInputElement).checked;
-  return checked ? [...selected, project] : selected.filter((item) => item !== project);
-}
+/** Value of "All projects" in a choice of projects (no project name holds a "*"). */
+const ALL_PROJECTS = '*';
 
 function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse && error.status === 422) {

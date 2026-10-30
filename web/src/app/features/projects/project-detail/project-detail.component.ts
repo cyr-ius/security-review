@@ -8,6 +8,8 @@ import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ProjectMembersComponent } from '../project-members/project-members.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
@@ -40,6 +42,7 @@ const TOP_OPEN_FINDINGS = 20;
     RouterLink,
     DatePipe,
     DecimalPipe,
+    ProjectMembersComponent,
     RefreshButtonComponent,
     SeverityBadgeComponent,
     SeverityCountsComponent,
@@ -51,6 +54,8 @@ const TOP_OPEN_FINDINGS = 20;
 })
 export class ProjectDetailComponent {
   private readonly api = inject(ApiService);
+  /** Gives the members of the project to a holder of users.manage. */
+  readonly auth = inject(AuthService);
 
   /** Route parameter :project */
   readonly project = input.required<string>();

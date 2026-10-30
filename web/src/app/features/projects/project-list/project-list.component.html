@@ -216,6 +216,17 @@
                 </td>
                 @if (hasActions()) {
                   <td class="text-end text-nowrap">
+                    @if (canManageMembers()) {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary action-button me-1"
+                        [attr.aria-label]="'projects.members' | t: { project: project.project }"
+                        [attr.title]="'projects.members' | t: { project: project.project }"
+                        (click)="openMembers(project.project)"
+                      >
+                        <i class="bi bi-people" aria-hidden="true"></i>
+                      </button>
+                    }
                     @if (canCreate()) {
                       <button
                         type="button"
@@ -327,5 +338,27 @@
         </button>
       </div>
     </form>
+  </dialog>
+}
+
+@if (canManageMembers()) {
+  <dialog
+    #membersDialog
+    class="members-dialog shadow"
+    aria-labelledby="project-members-title"
+    (close)="membersProject.set(null)"
+  >
+    @if (membersProject(); as project) {
+      <app-project-members [project]="project" [embedded]="true">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          [attr.aria-label]="'common.closeForm' | t"
+          (click)="closeMembers()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </app-project-members>
+    }
   </dialog>
 }

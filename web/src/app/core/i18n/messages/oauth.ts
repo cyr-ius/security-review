@@ -43,9 +43,18 @@ export const oauth = defineMessages({
       'Enter the public address of your MCP server (e.g. https://mcp.example.com/mcp).',
     'oauth.off':
       'The OAuth login is off: the MCP clients without a token are sent to the enrollment server.',
-    'oauth.confirmOff': 'Turn the OAuth login off? Every approved client loses its access at once.',
+    'oauth.loginSuspended':
+      'The OAuth login is enabled but suspended: enter the public address of the MCP server to turn it on.',
+    'oauth.confirmOff':
+      'Turn the OAuth login off? The approved clients are suspended at once and work again when it is turned back on. To cut them for good, use Revoke all.',
     'oauth.turnedOn': 'OAuth login enabled.',
-    'oauth.turnedOff': 'OAuth login disabled: every access revoked.',
+    'oauth.turnedOff': 'OAuth login disabled: the approved clients are suspended.',
+    'oauth.suspended':
+      'Suspended: these clients are refused while the OAuth login is off, and work again when it is turned back on.',
+    'oauth.revokeAll': 'Revoke all',
+    'oauth.confirmRevokeAll':
+      'Revoke the access of every approved client? Each one will have to be approved again.',
+    'oauth.allRevoked': '{count} access(es) revoked.',
     'oauth.urlSaved': 'MCP endpoint saved.',
     'oauth.urlMissing': 'Enter the address of the MCP endpoint (http or https).',
     'oauth.redirects': 'Accepted redirects',
@@ -108,10 +117,18 @@ export const oauth = defineMessages({
       'Saisissez l’adresse publique de votre serveur MCP (ex. https://mcp.example.com/mcp).',
     'oauth.off':
       'La connexion OAuth est désactivée : les clients MCP sans jeton sont orientés vers le serveur d’enrôlement.',
+    'oauth.loginSuspended':
+      'La connexion OAuth est activée mais suspendue : saisissez l’adresse publique du serveur MCP pour la mettre en service.',
     'oauth.confirmOff':
-      'Désactiver la connexion OAuth ? Tous les clients autorisés perdent leur accès immédiatement.',
+      'Désactiver la connexion OAuth ? Les clients autorisés sont suspendus immédiatement et fonctionnent de nouveau à sa réactivation. Pour les couper définitivement, utilisez Tout révoquer.',
     'oauth.turnedOn': 'Connexion OAuth activée.',
-    'oauth.turnedOff': 'Connexion OAuth désactivée : tous les accès sont révoqués.',
+    'oauth.turnedOff': 'Connexion OAuth désactivée : les clients autorisés sont suspendus.',
+    'oauth.suspended':
+      'Suspendus : ces clients sont refusés tant que la connexion OAuth est désactivée, et fonctionnent de nouveau à sa réactivation.',
+    'oauth.revokeAll': 'Tout révoquer',
+    'oauth.confirmRevokeAll':
+      'Révoquer l’accès de tous les clients autorisés ? Chacun devra être autorisé de nouveau.',
+    'oauth.allRevoked': '{count} accès révoqué(s).',
     'oauth.urlSaved': 'Point d’accès MCP enregistré.',
     'oauth.urlMissing': 'Saisissez l’adresse du point d’accès MCP (http ou https).',
     'oauth.redirects': 'Redirections acceptées',
@@ -174,10 +191,19 @@ export const oauth = defineMessages({
       'Introduzca la dirección pública de su servidor MCP (p. ej. https://mcp.example.com/mcp).',
     'oauth.off':
       'El inicio de sesión OAuth está desactivado: los clientes MCP sin token se envían al servidor de inscripción.',
+    'oauth.loginSuspended':
+      'El inicio de sesión OAuth está activado pero suspendido: introduzca la dirección pública del servidor MCP para ponerlo en servicio.',
     'oauth.confirmOff':
-      '¿Desactivar el inicio de sesión OAuth? Todos los clientes autorizados pierden su acceso de inmediato.',
+      '¿Desactivar el inicio de sesión OAuth? Los clientes autorizados quedan suspendidos de inmediato y vuelven a funcionar al reactivarlo. Para cortarlos definitivamente, use Revocar todo.',
     'oauth.turnedOn': 'Inicio de sesión OAuth activado.',
-    'oauth.turnedOff': 'Inicio de sesión OAuth desactivado: todos los accesos revocados.',
+    'oauth.turnedOff':
+      'Inicio de sesión OAuth desactivado: los clientes autorizados quedan suspendidos.',
+    'oauth.suspended':
+      'Suspendidos: estos clientes se rechazan mientras el inicio de sesión OAuth está desactivado, y vuelven a funcionar al reactivarlo.',
+    'oauth.revokeAll': 'Revocar todo',
+    'oauth.confirmRevokeAll':
+      '¿Revocar el acceso de todos los clientes autorizados? Cada uno deberá autorizarse de nuevo.',
+    'oauth.allRevoked': '{count} acceso(s) revocado(s).',
     'oauth.urlSaved': 'Punto de acceso MCP guardado.',
     'oauth.urlMissing': 'Introduzca la dirección del punto de acceso MCP (http o https).',
     'oauth.redirects': 'Redirecciones aceptadas',

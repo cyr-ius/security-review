@@ -756,8 +756,8 @@ def delete_client(client_id: str, actor: str) -> None:
 
 
 def revoke_all_grants(actor: str) -> int:
-    """Revoke every grant (controller start with the OAuth login off): the access tokens already
-    issued stop at once instead of at their expiry. Return how many were revoked."""
+    """Revoke every grant (administration): the tokens already issued stop for good, even once
+    a suspended OAuth login is turned on again. Return how many were revoked."""
     with session_scope() as session:
         grants = session.exec(select(OAuthGrant)).all()
         for grant in grants:

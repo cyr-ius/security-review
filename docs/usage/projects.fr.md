@@ -19,26 +19,30 @@ leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
 | Moyen | Qui | Résultat |
 |---|---|---|
 | Bouton **Nouveau projet** de la page **Projets** | Une personne qui a `projects.create` | Créé aussitôt ([création d'un projet](#creation-dun-projet)) |
-| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt, avec son groupe de projet, si le développeur peut créer des projets (même si son jeton atteint déjà tous les projets) ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
+| L'agent d'un développeur le demande avant une revue | Un développeur avec un [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) | Créé aussitôt, lu par le développeur, s'il peut créer des projets (même si son jeton atteint déjà tous les projets) ; sinon listé dans **Projets en attente**, à valider ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | Premier rapport enregistré pour lui | Un jeton qui l'atteint (pipeline, jeton pour **Tous les projets**) | Le projet apparaît avec son premier rapport |
 
 Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première revue.
 
-## Groupe de projet
+## Membres
 
-Chaque projet a son **groupe de projet**, `project:<projet>`, qui donne la lecture de ce seul
-projet (rôle `reader`). Son créateur, ou le développeur dont la demande a été validée, en est le
-premier membre.
+Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets, chacun avec ses droits
+par projet ici (lecture, triage). Son créateur, ou le développeur dont la demande a été validée,
+n'en reçoit que la lecture.
 
-Pour qu'un collègue lise le projet (et que son agent le relise), ajoutez son compte à ce groupe
-dans **Groupes** ou **Utilisateurs**, ou validez la **Demande d'accès** déposée par son agent dans
-**Projets**. Pour qu'il trie, donnez-lui un groupe avec le rôle `triager` sur le projet
-([groupes](access-control.md#groupes)).
+Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet,
+qu'ouvre aussi le bouton en forme de personnes de sa ligne sur la page **Projets** :
+recherchez des comptes, cochez-les et ajoutez-les (avec la lecture), choisissez les droits de
+chaque membre ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans
+**Utilisateurs** ([rôles et projets d'un compte](access-control.md#roles-et-projets-dun-compte)),
+ou en validant la **Demande d'accès** déposée par un agent dans **Projets**. Les comptes qui ont
+tous les projets et ceux des [correspondances OIDC](sso.md#correspondances-oidc) n'y sont pas
+listés.
 
 ## Création d'un projet
 
 Si vous avez la permission `projects.create`, le bouton **Nouveau projet** apparaît sur la page
-**Projets**. Créer un projet vous rend membre de son groupe de projet : vous le lisez aussitôt, et
+**Projets**. Créer un projet l'ajoute à vos projets avec sa lecture : vous le lisez aussitôt, et
 votre agent peut y enregistrer ses revues.
 
 ## Suppression d'un projet
@@ -47,7 +51,8 @@ Avec la permission `projects.delete`, un bouton corbeille apparaît sur chaque l
 **Projets**. La suppression est **irréversible** et retire tout ce qui se rapporte au projet :
 
 - ses rapports, findings et commentaires ;
-- le projet dans les rôles des groupes ; son groupe de projet est supprimé ;
+- le projet dans les projets des utilisateurs et des correspondances OIDC (une correspondance qui
+  n'a plus de projet est supprimée) ;
 - le projet dans les jetons : un jeton qui n'atteignait que ce projet est **révoqué**, et un
   pipeline qui l'utilisait s'arrête.
 
@@ -60,12 +65,12 @@ L'agent d'un développeur peut demander à rejoindre un projet existant. Sa dema
 en attente de validation, dans **Projets en attente** sur la page **Projets**.
 
 Une personne dotée des permissions `projects.create` et `users.manage` peut valider cette
-demande ; une personne dotée de `users.manage` peut aussi ajouter l'utilisateur au groupe de
-projet.
+demande ; une personne dotée de `users.manage` peut aussi donner le projet à l'utilisateur
+([membres](#membres)).
 
 Avec la permission `projects.autojoin`, le développeur **rejoint aussitôt le projet**, sans
-demande : la requête de son agent l'ajoute au groupe de projet, pour qu'il lise le projet (jamais
-plus : pas de tri) et que la revue continue. Cette permission ne crée pas de nouveau projet : il
+demande : la requête de son agent ajoute le projet aux siens avec sa lecture, pour qu'il le lise
+(jamais plus : pas de tri) et que la revue continue. Cette permission ne crée pas de nouveau projet : il
 faut pour cela `projects.create`.
 
 ## Blocage de l'adhésion automatique
@@ -75,7 +80,7 @@ Avec la permission `projects.create`, un bouton cadenas apparaît sur chaque lig
 titulaires de `projects.autojoin` déposent alors une demande qui attend une validation, comme les
 autres. Le projet affiche le badge **Adhésion automatique bloquée** ; le bouton cadenas ouvert
 autorise de nouveau l'adhésion automatique. Les utilisateurs qui ont déjà rejoint le projet
-gardent leur accès : retirez-les de son groupe de projet si nécessaire.
+gardent leur accès : retirez-les de ses [membres](#membres) si nécessaire.
 
 ## Points d'attention
 

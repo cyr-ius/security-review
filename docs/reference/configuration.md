@@ -66,7 +66,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../advanced/architecture/controller.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../advanced/architecture/controller.md#first-administrator), created at the first start while no account exists (`admin` role, with the reading and the triage of every project), with a random password never logged: set it with `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; unset: a random secret at every start (sessions end at restart) |
 | `SECREVIEW_PUBLIC_URL` | — | Public root URL of the Controller server (`https://…`, without `/ui`), often the same address as `SECREVIEW_CONTROLLER_URL` of [`security-review-ci`](#clients). Copied to the database at each start; the MCP server reads it there (it ignores its own variable) and gives the address of the web interface (`/ui`) to the clients without a valid token (instructions and prompts of the enrollment server, `401` of `/mcp`), so that the user knows where to sign in and create a personal MCP token; the connectors use it for their links. Unset, it is set on the [**General**](../usage/index.md#pages) page; without any, no link is given. `SECREVIEW_CONTROLLER_URL`, its former name, is still read by the Controller server when it is not set, with a warning |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a web interface session (1 to 24 hours) |
@@ -95,11 +95,10 @@ Read by `security-review-controller` only.
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Secret of the client; empty for a public client (PKCE only) |
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | Public URL of `/api/v1/auth/oidc/callback`, declared at the provider |
 | `SECREVIEW_OIDC_SCOPE` | `openid profile email` | Requested scopes (must contain `openid`) |
-| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim of the groups or roles, dotted path accepted (`realm_access.roles`); its values are matched against the names of the [groups open to OIDC](../advanced/oidc.md#groups-of-the-identity-provider) |
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | OIDC groups, comma separated, created open to OIDC with the `admin` role at the first login of one of their members (first administrator) |
-| `SECREVIEW_OIDC_DEFAULT_GROUP` | — | Group every OIDC user joins at each login, whatever its claim (empty: none) |
+| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim of the groups or roles, dotted path accepted (`realm_access.roles`); its values are matched against the [OIDC mappings](../advanced/oidc.md#oidc-mappings) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Values of the roles claim, comma separated, mapped to `admin`, with the reading and the triage of every project, at the first login of a user who holds one, when no mapping names them yet (first administrator) |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim that names the [OIDC account](../advanced/oidc.md#oidc-accounts) (exact comparison, no fallback); session label `oidc:<value>` |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the OIDC account at its first login if its groups give it a role; when `false`, an administrator creates every OIDC account in **Users** |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the OIDC account at its first login if its OIDC mappings give it a permission; when `false`, an administrator creates every OIDC account in **Users** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Name shown on the login button (40 characters at most) |
 | `SECREVIEW_OIDC_CAFILE` | — | CA bundle to reach the provider (internal CA); the proxy is the one of `HTTPS_PROXY` |
 | `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/oidc.md#oidc-only)); a variable only, never changed in the interface |
@@ -109,7 +108,7 @@ Read by `security-review-controller` only.
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_MCP_OAUTH_ENABLED` | `false` | Enables the [OAuth login of the MCP clients](../advanced/mcp-oauth.md): the Controller server becomes their authorization server (routes `/authorize`, `/token`, `/register`, `/revoke` at the root of `SECREVIEW_PUBLIC_URL`, which must be set, in https outside localhost) and the MCP server sends a client without a token to it. Unset, an administrator may turn it on in the web interface (**Tokens** page) |
-| `SECREVIEW_MCP_URL` | — | Public URL of the MCP endpoint (`https://…/mcp`, ASCII: punycode for a non-ASCII host), required with OAuth: the resource of the tokens. Stored in the database at start, where the MCP server reads it. Unset, it may be entered in the web interface (**Tokens** page) |
+| `SECREVIEW_MCP_URL` | — | Public URL of the MCP endpoint (`https://…/mcp`, ASCII: punycode for a non-ASCII host), required with OAuth (the login stays suspended without it): the resource of the tokens. Stored in the database at start, where the MCP server reads it. Unset, it may be entered in the web interface (**Tokens** page) |
 | `SECREVIEW_MCP_OAUTH_ACCESS_MINUTES` | `60` | Lifetime of an access token (5 to 1440 minutes) |
 | `SECREVIEW_MCP_OAUTH_REFRESH_DAYS` | `30` | Lifetime of a refresh token (1 to 365 days), extended at each refresh; `SECREVIEW_TOKEN_MAX_DAYS`, when set, bounds the whole grant from its approval |
 | `SECREVIEW_MCP_OAUTH_MAX_CLIENTS` | `1000` | Clients registered at once; a client nobody approved within a day is deleted |

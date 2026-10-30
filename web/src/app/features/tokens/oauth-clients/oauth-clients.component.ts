@@ -21,9 +21,10 @@ type OAuthGrantAdmin = OAuthOverview['grants'][number];
 const MAX_URL_CHARS = 500;
 
 /**
- * OAuth login of the MCP clients (Tokens screen, tokens.manage): the settings in use, every
- * grant (revocable) and every registered client (deletable). The holders of settings.manage
- * turn the login on or off and set the URL of the MCP endpoint, unless their variable
+ * OAuth login of the MCP clients (Tokens page, tokens.manage): the settings in use, every
+ * grant (revocable, one by one or all at once) and every registered client (deletable), also
+ * while the login is off (the grants are then suspended). The holders of settings.manage turn
+ * the login on or off and set the URL of the MCP endpoint, unless their variable
  * (SECREVIEW_MCP_OAUTH_ENABLED, SECREVIEW_MCP_URL) is set.
  */
 @Component({
@@ -56,7 +57,7 @@ export class OAuthClientsComponent {
     return item.client_name || item.client_id;
   }
 
-  /** Turn the login on (with the URL of the form) or off (every grant is revoked). */
+  /** Turn the login on (with the URL of the form) or off (every grant is suspended). */
   async toggle(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const enabled = input.checked;
@@ -99,6 +100,13 @@ export class OAuthClientsComponent {
     );
   }
 
+  revokeAll(): Promise<void> {
+    return this.run(this.i18n.translate('oauth.confirmRevokeAll'), async () => {
+      const { revoked } = await firstValueFrom(this.api.revokeAllOAuthGrants());
+      this.message.set(msg('oauth.allRevoked', { count: revoked }));
+    });
+  }
+
   deleteClient(client: OAuthClientAdmin): Promise<void> {
     const name = this.name(client);
     return this.run(
@@ -129,7 +137,7 @@ export class OAuthClientsComponent {
     }
   }
 
-  private async run(question: string, action: () => Promise<void>, done: Message): Promise<void> {
+  private async run(question: string, action: () => Promise<void>, done?: Message): Promise<void> {
     if (this.busy() || !window.confirm(question)) {
       return;
     }
@@ -138,7 +146,9 @@ export class OAuthClientsComponent {
     this.message.set(null);
     try {
       await action();
-      this.message.set(done);
+      if (done) {
+        this.message.set(done);
+      }
       this.overview.reload();
     } catch {
       this.error.set(msg('oauth.revokeFailed'));

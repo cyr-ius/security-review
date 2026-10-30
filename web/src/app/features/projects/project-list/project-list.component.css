@@ -19,7 +19,17 @@
   color: var(--bs-body-color);
 }
 
-.project-dialog::backdrop {
+.members-dialog {
+  inline-size: min(48rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.project-dialog::backdrop,
+.members-dialog::backdrop {
   background: var(--app-backdrop);
 }
 

@@ -14,7 +14,8 @@ Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce 
 2. le fournisseur renvoie sur `GET /api/v1/auth/oidc/callback` ; le serveur Controller échange le code
    (appel serveur à serveur), vérifie l'ID token (signature par les clés JWKS du fournisseur,
    émetteur, audience, expiration, nonce), retrouve le [compte OIDC](#comptes-oidc) de
-   l'utilisateur (ou le crée) et enregistre les groupes nommés par son claim des groupes ;
+   l'utilisateur (ou le crée) et garde les valeurs de son claim des rôles qu'une
+   [correspondance OIDC](#correspondances-oidc) nomme ;
 3. il remet à l'interface un **jeton de session** signé, valable
    `SECREVIEW_SESSION_HOURS` heures, que l'onglet utilise comme un jeton Bearer.
 
@@ -50,7 +51,7 @@ le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou la page **G
 ## Configurer le OIDC dans l'interface
 
 Les mêmes réglages se modifient dans la page **Connexions** (permission `users.manage` : la
-configuration OIDC décide qui rejoint quel groupe), sans redémarrer le serveur Controller. Comme pour
+configuration OIDC décide qui reçoit quel rôle), sans redémarrer le serveur Controller. Comme pour
 le proxy de la page **Général**, **une variable `SECREVIEW_OIDC_*` définie est toujours
 prioritaire**, champ par champ ; une valeur enregistrée en base ne s'applique qu'aux champs dont
 la variable n'est pas définie :
@@ -110,9 +111,9 @@ cherchée par son identifiant :
 
 | Situation | Résultat |
 |---|---|
-| Compte lié à cet émetteur et à ce `sub` | Connexion, avec les permissions de ses groupes (ci-dessous), même si le claim d'identifiant a changé |
+| Compte lié à cet émetteur et à ce `sub` | Connexion, avec les permissions de ses rôles (ci-dessous), même si le claim d'identifiant a changé |
 | Compte OIDC de ce nom, pas encore lié (créé par un administrateur) | Le compte est **lié** à l'émetteur et au `sub`, puis connexion |
-| Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes lui donnent une permission ; sinon refus, sans création |
+| Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses correspondances lui donnent une permission ; sinon refus, sans création |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte OIDC |
 | Compte **local** du même nom | **Refus** : une connexion OIDC n'ouvre jamais un compte local |
 | Compte OIDC lié à un autre `sub` ou à un autre émetteur | **Refus** (voir ci-dessous) |
@@ -126,19 +127,19 @@ pourrait réutiliser le même `sub`) est refusée. Un compte lié quand seul le 
 enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'identifiant, supprimez
 puis recréez le compte.
 
-Ce qu'un compte OIDC peut faire vient de ses [groupes](../usage/access-control.md#groupes) : ceux qu'un
-administrateur lui a donnés (page **Utilisateurs** ou **Groupes**)
-et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
-(voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans
-aucune permission est refusé et ses sessions ouvertes se ferment. Un changement de ses groupes
-donnés s'applique aussitôt ; un changement de ses groupes chez le fournisseur, à la prochaine
+Ce qu'un compte OIDC peut faire vient de ses [rôles et projets](../usage/access-control.md) : ceux
+qu'un administrateur lui a donnés (page **Utilisateurs** ou membres d'un projet) et ceux des
+correspondances OIDC des valeurs de son claim des rôles, enregistrées à chaque connexion (voir
+[correspondances OIDC](#correspondances-oidc)). Un compte sans aucune permission est refusé et ses
+sessions ouvertes se ferment. Un changement de ses rôles, de ses projets ou des correspondances
+s'applique aussitôt ; un changement de ses groupes chez le fournisseur, à la prochaine
 connexion.
 
 **Supprimer un compte OIDC** (page **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
 identifiant et son identité (émetteur et `sub`) : une connexion OIDC ne le recrée plus, sous ce
 nom ni sous un autre (nom changé chez le fournisseur), même avec la création automatique et des
-groupes qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
+correspondances qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
 rendre l'accès, un administrateur recrée le compte,
 ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked/{identifiant}`) :
 le compte est alors recréé à sa prochaine connexion. `GET /api/v1/users/revoked` liste les
@@ -151,32 +152,51 @@ CLI.
 
 ```
 INFO security_review_mcp.web: OIDC web user alice created at its first login
-INFO security_review_mcp.web: OIDC login of oidc:alice with role reader through 1 OIDC group(s)
+INFO security_review_mcp.web: OIDC login of oidc:alice through 1 mapped claim(s)
 WARNING security_review_mcp.web: OIDC login of oidc:bob refused: no web user bob
 INFO security_review_mcp.web: Web user carol (oidc) deleted by admin
 WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user carol was deleted
 ```
 
-## Groupes du fournisseur d'identité
+## Correspondances OIDC
 
 Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
-comparées aux **noms des groupes** de la page **Groupes** : à chaque connexion, l'utilisateur
-rejoint chaque groupe **ouvert au OIDC** dont le nom est **exactement** l'une de ces valeurs (casse
-comprise), et quitte les groupes OIDC qu'il n'a plus. Les autres valeurs sont ignorées : créez un
-groupe du même nom pour en utiliser une. Les rôles du groupe, et leurs projets, s'appliquent alors
-(voir [Rôles, groupes et permissions](../usage/access-control.md)).
+comparées aux **correspondances OIDC** de la page **Connexions**. Une correspondance, une par
+valeur, donne des **rôles** (droits sur tout le serveur Controller), des droits par projet sur
+tous les projets et des **projets** avec leurs droits par projet aux utilisateurs dont le claim
+contient **exactement** sa valeur (casse comprise). À chaque connexion, les valeurs du claim
+nommées par une correspondance sont gardées pour le compte ; les autres valeurs sont ignorées. Ils
+s'ajoutent aux rôles et projets donnés au compte (voir
+[Rôles et permissions](../usage/access-control.md)).
+
+- Un changement des correspondances s'applique aussitôt, à chaque compte OIDC, par les valeurs de
+  sa dernière connexion ; une valeur qu'aucune correspondance ne nomme plus est oubliée.
+- Un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur
+  d'identité. Un projet supprimé est retiré des correspondances ; une correspondance qui ne donne
+  plus rien est supprimée.
+- Une connexion ne retire jamais le dernier détenteur de `users.manage` : les valeurs du claim qui
+  la lui donnaient sont gardées, avec un avertissement dans les journaux et un événement
+  `user.roles_changed`. Supprimer une telle correspondance dans l'interface est refusé.
 
 | Réglage | Effet |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Groupes séparés par des virgules qui ont le rôle `admin` : un tel groupe, absent à la connexion de l'un de ses membres, est créé ouvert au OIDC avec le rôle `admin`. Un groupe existant reste tel que les administrateurs l'ont modifié. Sert à nommer le premier administrateur |
-| `SECREVIEW_OIDC_DEFAULT_GROUP` | Nom d'un groupe que tout utilisateur OIDC rejoint à chaque connexion, quel que soit son claim (vide par défaut : aucun). Un groupe absent ne donne rien |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Valeurs du claim, séparées par des virgules, qui ont le rôle `admin` : une telle valeur, sans aucune correspondance à la connexion d'un utilisateur qui la porte, reçoit une correspondance vers `admin` avec la lecture et le triage de tous les projets. Une correspondance qui la nomme déjà reste telle que les administrateurs l'ont modifiée. Sert à nommer le premier administrateur |
 
-Un groupe **non ouvert au OIDC** (par exemple `administrators`) n'est jamais rejoint par le claim, même quand une valeur porte son nom. Une session
-restreinte se comporte comme un [jeton restreint à un projet](bearer-tokens.md#jetons-restreints-a-un-projet) :
-les autres projets, leurs rapports et leurs findings sont traités comme inexistants.
+```bash
+# Toutes les correspondances OIDC, remplacées d'un bloc
+curl -X PUT https://secreview.example.com/api/v1/oidc/mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"mappings": [{"claim": "secreview-admins", "role_ids": [1], "all_projects_permissions": ["reports.read", "findings.triage"]},
+                    {"claim": "payments-team", "projects": [{"project": "billing", "permissions": ["reports.read", "findings.triage"]}]}]}'
+```
 
-Exemple : avec le claim `["payments-team", "staff"]`, un groupe `payments-team` ouvert au OIDC avec
-le rôle `triager` sur `billing`, et aucun groupe `staff`, l'utilisateur ne trie que `billing`.
+Une session restreinte se comporte comme un
+[jeton restreint à un projet](bearer-tokens.md#jetons-restreints-a-un-projet) : les autres
+projets, leurs rapports et leurs findings sont traités comme inexistants.
+
+Exemple : avec le claim `["payments-team", "staff"]`, une correspondance de `payments-team` vers
+le projet `billing` avec la lecture et le triage, et aucune correspondance de `staff`,
+l'utilisateur lit et trie `billing` (et garde les projets donnés à son compte).
 
 Le label d'une session OIDC est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.
@@ -204,8 +224,8 @@ compte local (son mot de passe peut être défini avec
 
 - Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SECRET_KEY`
   (32 caractères au moins), comme celui des [comptes locaux](architecture/controller.md#connexion-et-sessions), et désigne
-  le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
-  rôles s'applique aussitôt. Toutes les répliques du serveur Controller doivent partager ce secret ; sans lui,
+  le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses rôles ou les
+  correspondances OIDC s'applique aussitôt. Toutes les répliques du serveur Controller doivent partager ce secret ; sans lui,
   un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage.
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
   couper toutes les sessions avant leur expiration, supprimez le compte, ou changez

@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import jwt
 import pytest
-from conftest import group_for, make_user
+from conftest import known_projects, make_user, map_claim
 from cryptography.hazmat.primitives.asymmetric import rsa
 from starlette.testclient import TestClient
 
@@ -97,8 +97,8 @@ class FakeProvider(oidc.OidcLogin):
 
 @pytest.fixture
 def provider() -> FakeProvider:
-    # The groups claim of the fake provider names "qa": a group of readers open to OIDC
-    group_for("reader", name="qa", sso=True)
+    # The groups claim of the fake provider names "qa": mapped to reader on every project
+    map_claim("qa", "reader")
     return FakeProvider(make_settings())
 
 
@@ -155,7 +155,6 @@ def test_from_settings_is_none_when_disabled():
         ({"oidc_redirect_uri": ""}, "SECREVIEW_OIDC_REDIRECT_URI is required"),
         ({"oidc_redirect_uri": "javascript:alert(1)"}, "SECREVIEW_OIDC_REDIRECT_URI must be"),
         ({"oidc_scope": "profile email"}, "must include openid"),
-        ({"oidc_default_group": "x" * 201}, "SECREVIEW_OIDC_DEFAULT_GROUP"),
         ({"oidc_cafile": "/nonexistent/ca.pem"}, "SECREVIEW_OIDC_CAFILE"),
         ({"oidc_display_name": " "}, "SECREVIEW_OIDC_DISPLAY_NAME"),
     ],
@@ -409,7 +408,7 @@ def test_admin_group_and_userinfo_groups(controller, provider):
 def test_sso_group_restricts_the_session_to_its_projects(controller, provider):
     for project in ("shop-api", "billing"):
         services.save_report(project, "Review", [])
-    group_for("triager", ["billing"], name="payments-team", sso=True)
+    map_claim("payments-team", "triager", ["billing"])
     provider.claims = {"preferred_username": "carol", "groups": ["payments-team"]}
     state = start_login(controller, provider)
     session = session_of(
@@ -429,7 +428,7 @@ def test_sso_user_created_by_an_administrator_reads_its_projects(controller, pro
     for project in ("shop-api", "billing"):
         services.save_report(project, "Review", [])
     make_user("dave", None, "reader", ["shop-api"], auth_source="oidc")
-    # No group of the claim of dave exists: only the groups given by an administrator apply
+    # No mapping names the claim of dave: only the roles given by an administrator apply
     provider.claims = {"preferred_username": "dave", "groups": ["unmapped"]}
     state = start_login(controller, provider)
     session = session_of(
@@ -454,7 +453,7 @@ def test_sso_user_created_by_an_administrator_reads_its_projects(controller, pro
 @pytest.mark.parametrize(
     ("claims", "error"),
     [
-        # Another name with the email of dave: a new user without any group
+        # Another name with the email of dave: a new user without any role
         ({"preferred_username": "mallory", "email": "dave"}, "forbidden"),
         # No fallback to email or sub: only the configured claim names the user
         ({"email": "dave"}, "username"),
@@ -477,8 +476,9 @@ def test_sso_user_of_another_name_does_not_apply(controller, provider, claims, e
 
 def test_login_granting_too_many_projects_is_refused(controller, provider, monkeypatch):
     monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
-    group_for("reader", ["a"], name="team-a", sso=True)
-    group_for("reader", ["b"], name="team-b", sso=True)
+    known_projects("a", "b")
+    map_claim("team-a", "reader", ["a"])
+    map_claim("team-b", "reader", ["b"])
     provider.claims = {"preferred_username": "alice", "groups": ["team-a", "team-b"]}
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})

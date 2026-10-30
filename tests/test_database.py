@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
-from conftest import ADMIN_GRANTS, TRIAGER_GRANTS
+from conftest import ADMIN_GRANTS
 from sqlalchemy import inspect
 from sqlmodel import SQLModel, StaticPool, create_engine
 
@@ -24,6 +24,39 @@ def empty_engine():
     database.set_engine(engine)
     yield engine
     engine.dispose()
+
+
+def _groups(connection) -> dict[str, dict]:
+    """The groups of a database before revision 0039: whether OIDC names them, their roles
+    (name, projects) and the usernames of their members."""
+    import json
+
+    from sqlalchemy import text
+
+    groups = {}
+    for group_id, name, sso in connection.execute(text("SELECT id, name, sso FROM usergroup")):
+        roles = {
+            (role, tuple(json.loads(projects)))
+            for role, projects in connection.execute(
+                text(
+                    "SELECT a.name, r.projects FROM grouprole r "
+                    "JOIN accessrole a ON a.id = r.role_id WHERE r.group_id = :group"
+                ),
+                {"group": group_id},
+            )
+        }
+        members = sorted(
+            row[0]
+            for row in connection.execute(
+                text(
+                    "SELECT w.username FROM groupmember m JOIN webuser w ON w.id = m.user_id "
+                    "WHERE m.group_id = :group"
+                ),
+                {"group": group_id},
+            )
+        )
+        groups[name] = {"sso": bool(sso), "roles": roles, "members": members}
+    return groups
 
 
 @pytest.fixture
@@ -106,8 +139,14 @@ def test_check_refuses_a_database_that_was_not_migrated(empty_engine):
     database.check_db()
 
 
-def test_check_refuses_a_legacy_database_until_it_is_upgraded():
-    # The test database has the tables (as created by version 1.x) but no revision
+def test_check_refuses_a_legacy_database_until_it_is_upgraded(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    # The tables of version 1.x (those of the baseline revision), but no revision
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0001")
+        connection.execute(text("DROP TABLE alembic_version"))
     assert inspect(database.get_engine()).has_table("securityreport")
     with pytest.raises(database.SchemaError, match="revision none"):
         database.check_db()
@@ -182,18 +221,20 @@ def test_user_grants_become_sso_web_users(empty_engine):
     assert set(users) == {"alice", "bob"}
     alice = users["alice"]
     assert (alice["auth_source"], alice["created_by"]) == ("oidc", "admin")
-    # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role
-    # and 0018 into the groups of its projects
+    # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role,
+    # 0018 into the groups of its projects and 0039 into these projects, with their reading
     assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
-    assert [group["name"] for group in alice["groups"]] == ["project:billing", "project:shop-api"]
+    assert alice["roles"] == []
+    assert [(item["project"], item["permissions"]) for item in alice["projects"]] == [
+        ("billing", ["reports.read"]),
+        ("shop-api", ["reports.read"]),
+    ]
     assert (users["bob"]["auth_source"], users["bob"]["permissions"]) == ("local", ADMIN_GRANTS)
 
 
 def test_roles_and_mappings_become_groups(empty_engine):
     from alembic import command
     from sqlalchemy import text
-
-    from security_review_mcp.auth import access_control
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0012")
@@ -230,33 +271,33 @@ def test_roles_and_mappings_become_groups(empty_engine):
                 ),
                 {"claim": claim, "role": role, "projects": projects, "now": now},
             )
-        command.upgrade(database.alembic_config(connection), "head")
+        # The last revision with groups: 0039 is not downgraded
+        command.upgrade(database.alembic_config(connection), "0038")
+        groups = _groups(connection)
+        roles = {
+            name: (bool(system), permissions)
+            for name, system, permissions in connection.execute(
+                text("SELECT name, system, permissions FROM accessrole")
+            )
+        }
 
     assert not inspect(empty_engine).has_table("oidcrolemapping")
     columns = {column["name"] for column in inspect(empty_engine).get_columns("webuser")}
     assert not columns & {"role", "projects", "sso_role", "sso_projects"}
-    groups = {group["name"]: group for group in access_control.list_groups()}
     # The personal group user:rita of revision 0013 became a direct role in revision 0014, then
     # the group of its project in revision 0018
     assert set(groups) == {"administrators", "triagers", "sec-team", "devs", "project:shop"}
-    assert [m["username"] for m in groups["administrators"]["members"]] == ["root"]
+    assert groups["administrators"]["members"] == ["root"]
     assert groups["administrators"]["sso"] is False
     assert groups["sec-team"]["sso"] is True and groups["sec-team"]["members"] == []
-    assert {(r["name"], tuple(r["projects"] or ())) for r in groups["devs"]["roles"]} == {
-        ("reader", ("shop", "crm")),
-        ("triager", ("shop",)),
-    }
-    users = {user["username"]: user for user in web_users.list_users()}
-    assert users["rita"]["permissions"] == {"reports.read": ["shop"]}
-    assert [group["name"] for group in users["rita"]["groups"]] == ["project:shop"]
-    assert users["tess"]["permissions"] == TRIAGER_GRANTS
+    assert groups["devs"]["roles"] == {("reader", ("shop", "crm")), ("triager", ("shop",))}
+    assert groups["project:shop"]["members"] == ["rita"]
+    assert groups["triagers"]["members"] == ["tess"]
     # The access given by the OIDC groups at the last login is computed again at the next one
-    assert users["sam"]["permissions"] == {}
-    roles = {role["name"]: role for role in access_control.list_roles()}
-    assert all(roles[name]["system"] for name in ("reader", "admin"))
+    assert all("sam" not in group["members"] for group in groups.values())
+    assert roles["reader"][0] and roles["admin"][0]
     # Revision 0021: triager is an ordinary role, with the permissions it had
-    assert not roles["triager"]["system"]
-    assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
+    assert roles["triager"] == (False, '["findings.triage", "reports.read"]')
 
     # Downgrading drops the access control tables
     with empty_engine.begin() as connection:
@@ -331,8 +372,6 @@ def test_direct_roles_become_groups(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.auth import access_control
-
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0017")
         now = "2026-10-01 10:00:00"
@@ -378,10 +417,11 @@ def test_direct_roles_become_groups(empty_engine):
                 text("INSERT INTO userrole (user_id, role_id, projects) VALUES (:u, :r, :p)"),
                 {"u": user_id, "r": roles[role], "p": projects},
             )
-        command.upgrade(database.alembic_config(connection), "head")
+        # The last revision with groups: 0039 is not downgraded
+        command.upgrade(database.alembic_config(connection), "0038")
+        groups = _groups(connection)
 
     assert not inspect(empty_engine).has_table("userrole")
-    groups = {group["name"]: group for group in access_control.list_groups()}
     # administrators (created by revision 0013) holds admin alone on every project: reused
     assert set(groups) == {
         "Shop team",
@@ -392,10 +432,8 @@ def test_direct_roles_become_groups(empty_engine):
         "role:triager",
     }
     assert all(group["sso"] is False for group in groups.values())
-    assert [(r["name"], r["projects"]) for r in groups["project:crm (2)"]["roles"]] == [
-        ("reader", ["crm"])
-    ]
-    members = {name: [m["username"] for m in group["members"]] for name, group in groups.items()}
+    assert groups["project:crm (2)"]["roles"] == {("reader", ("crm",))}
+    members = {name: group["members"] for name, group in groups.items()}
     assert members == {
         "Shop team": ["rita"],
         "project:crm": [],
@@ -404,15 +442,6 @@ def test_direct_roles_become_groups(empty_engine):
         "administrators": ["root"],
         "role:triager": ["sam"],
     }
-    # Nobody loses or gains any access, the last administrator included
-    users = {user["username"]: user for user in web_users.list_users()}
-    assert users["root"]["permissions"] == ADMIN_GRANTS
-    assert users["rita"]["permissions"] == {"reports.read": ["crm", "shop"]}
-    assert users["tess"]["permissions"] == {
-        "findings.triage": ["shop"],
-        "reports.read": ["crm", "shop"],
-    }
-    assert users["sam"]["permissions"] == {"findings.triage": None, "reports.read": None}
 
     # Downgrading creates the table again, empty, and keeps the groups
     with empty_engine.begin() as connection:
@@ -482,7 +511,8 @@ def test_the_osv_proxy_becomes_the_general_proxy(empty_engine, stored, expected)
                 ),
                 {"key": key, "value": value},
             )
-        command.upgrade(database.alembic_config(connection), "head")
+        # Revision 0039 is not downgraded
+        command.upgrade(database.alembic_config(connection), "0038")
         rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
     assert rows == ({} if expected is None else {"proxy": expected})
 
@@ -512,7 +542,8 @@ def test_the_reports_of_the_cli_scans_get_their_review_type(empty_engine):
                 ),
                 {"reviewer": reviewer},
             )
-        command.upgrade(database.alembic_config(connection), "head")
+        # Revision 0039 is not downgraded
+        command.upgrade(database.alembic_config(connection), "0038")
         rows = connection.execute(
             text("SELECT reviewer, review_type FROM securityreport ORDER BY id")
         ).all()
@@ -564,7 +595,6 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.auth import access_control, token_store
     from security_review_mcp.observability import audit
 
     with empty_engine.begin() as connection:
@@ -600,13 +630,14 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
                     ),
                     {"id": f"p{token_id}", "token": token_id, "project": project},
                 )
-        command.upgrade(database.alembic_config(connection), "head")
+        command.upgrade(database.alembic_config(connection), "0038")  # 0039 removes triager
         links = connection.execute(text("SELECT token_id FROM apitokenproject")).scalars().all()
+        labels = connection.execute(text("SELECT label FROM apitoken")).scalars().all()
+        triager = connection.execute(
+            text("SELECT system, permissions FROM accessrole WHERE name = 'triager'")
+        ).one()
 
-    assert sorted(token["label"] for token in token_store.list_tokens()) == [
-        "ci-token",
-        "mcp-token",
-    ]
+    assert sorted(labels) == ["ci-token", "mcp-token"]
     assert sorted(links) == ["t3", "t4"]
     events = audit.list_events(action="token.revoked")["events"]
     assert sorted((e["actor"], e["target_id"], e["details"]["role"]) for e in events) == [
@@ -614,9 +645,7 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
         ("migration", "t2", "triager"),
     ]
     assert events[0]["details"]["projects"] in (["shop"], None)
-    roles = {role["name"]: role for role in access_control.list_roles()}
-    assert not roles["triager"]["system"]
-    assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
+    assert tuple(triager) == (0, '["findings.triage", "reports.read"]')
 
     with empty_engine.begin() as connection:
         command.downgrade(database.alembic_config(connection), "0020")
@@ -626,15 +655,13 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
     assert system
 
 
-def test_a_new_database_gets_an_ordinary_triager_role(empty_engine):
+def test_a_new_database_gets_only_the_built_in_roles(empty_engine):
     from security_review_mcp.auth import access_control
 
     database.upgrade_db()
 
-    roles = {role["name"]: role for role in access_control.list_roles()}
-    assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
-    assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
-    assert "mcp-user" not in roles
+    roles = access_control.list_roles()
+    assert [(role["name"], role["system"]) for role in roles] == [("admin", True)]
 
 
 def test_the_mcp_tokens_create_permission_is_removed_from_every_role(empty_engine):
@@ -666,7 +693,7 @@ def test_the_mcp_tokens_create_permission_is_removed_from_every_role(empty_engin
             ),
             {"group": group_id, "role": mcp_user},
         )
-        command.upgrade(config, "head")
+        command.upgrade(config, "0038")  # 0039 is not downgraded
         roles = dict(connection.execute(text("SELECT name, permissions FROM accessrole")).all())
         bindings = connection.execute(
             text("SELECT COUNT(*) FROM grouprole WHERE group_id = :group"), {"group": group_id}
@@ -688,7 +715,8 @@ def test_downgrading_the_api_tokens_deletes_them(empty_engine):
     from sqlalchemy import text
 
     with empty_engine.begin() as connection:
-        command.upgrade(database.alembic_config(connection), "head")
+        # Revision 0039 is not downgraded
+        command.upgrade(database.alembic_config(connection), "0038")
         for token_id, role in (("t1", "api"), ("t2", "mcp")):
             connection.execute(
                 text(
@@ -735,7 +763,8 @@ def test_users_sharing_an_oidc_identity_keep_it_on_the_last_one(empty_engine):
                     "last_login": last_login,
                 },
             )
-        command.upgrade(database.alembic_config(connection), "head")
+        # Revision 0039 is not downgraded
+        command.upgrade(database.alembic_config(connection), "0038")
         rows = connection.execute(
             text("SELECT username, oidc_issuer, oidc_subject FROM webuser ORDER BY id")
         ).all()
@@ -907,3 +936,223 @@ def test_the_tickets_and_their_settings_move_to_the_connector_names(empty_engine
         "connector:jira:enabled": "true",
         "proxy": "http://proxy:3128",
     }
+
+
+def test_every_referred_project_becomes_a_known_project(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        config = database.alembic_config(connection)
+        command.upgrade(config, "0037")
+        connection.execute(
+            text(
+                "INSERT INTO securityreport (project, summary, risk_level, created_at) "
+                "VALUES ('shop', 'Summary', 'LOW', '2026-10-01 10:00:00')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "
+                "VALUES ('t1', 'ci-billing', 'ci', 'billing', :hash, '2026-10-01')"
+            ),
+            {"hash": "a" * 64},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO apitokenproject (id, token_id, project, created_at) "
+                "VALUES ('l1', 't1', 'billing', '2026-10-01')"
+            )
+        )
+        role = connection.execute(text("SELECT id FROM accessrole WHERE name = 'reader'"))
+        group = connection.execute(
+            text(
+                "INSERT INTO usergroup (name, description, sso, created_at, updated_at) "
+                "VALUES ('devs', '', 0, '2026-10-01', '2026-10-01') RETURNING id"
+            )
+        ).scalar_one()
+        connection.execute(
+            text("INSERT INTO grouprole (group_id, role_id, projects) VALUES (:g, :r, :p)"),
+            {"g": group, "r": role.scalar_one(), "p": '["crm"]'},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO projectautojoinblock (project, blocked_by, created_at) "
+                "VALUES ('vault', 'admin', '2026-10-01')"
+            )
+        )
+        command.upgrade(config, "0038")
+        projects = dict(
+            connection.execute(text("SELECT name, autojoin_blocked FROM project")).all()
+        )
+        # Downgrading gives the blocked project back
+        command.downgrade(config, "0037")
+        blocks = connection.execute(text("SELECT project FROM projectautojoinblock")).all()
+
+    assert projects == {"billing": 0, "crm": 0, "shop": 0, "vault": 1}
+    assert [tuple(row) for row in blocks] == [("vault",)]
+
+
+def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    from security_review_mcp.auth import access_control
+    from security_review_mcp.observability import audit
+
+    with empty_engine.begin() as connection:
+        config = database.alembic_config(connection)
+        command.upgrade(config, "0037")
+        now = "2026-10-01 10:00:00"
+        for user_id, name, source in (
+            (1, "root", "local"),
+            (2, "dev", "local"),
+            (3, "carol", "oidc"),
+            (4, "lea", "local"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO webuser (id, username, auth_source, created_at, updated_at, "
+                    "session_version, must_change_password) "
+                    "VALUES (:id, :name, :source, :now, :now, 1, 0)"
+                ),
+                {"id": user_id, "name": name, "source": source, "now": now},
+            )
+        connection.execute(
+            text(
+                "INSERT INTO accessrole (name, description, permissions, system, created_at, "
+                "updated_at) VALUES ('auditor', '', '[\"audit.read\"]', 0, :now, :now)"
+            ),
+            {"now": now},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO accessrole (name, description, permissions, system, created_at, "
+                "updated_at) VALUES ('lead', '', :permissions, 0, :now, :now)"
+            ),
+            {"now": now, "permissions": '["findings.triage", "reports.read"]'},
+        )
+        roles = dict(connection.execute(text("SELECT name, id FROM accessrole")).all())
+        administrators = connection.execute(
+            text("SELECT id FROM usergroup WHERE name = 'administrators'")
+        ).scalar_one()
+        groups = {"administrators": administrators}
+        for name, sso in (
+            ("project:shop", 0),
+            ("devs", 1),
+            ("triagers", 0),
+            ("auditors", 0),
+            ("crm-leads", 0),
+        ):
+            groups[name] = connection.execute(
+                text(
+                    "INSERT INTO usergroup (name, description, sso, created_at, updated_at) "
+                    "VALUES (:name, '', :sso, :now, :now) RETURNING id"
+                ),
+                {"name": name, "sso": sso, "now": now},
+            ).scalar_one()
+        for group, role, projects in (
+            ("project:shop", "reader", '["shop"]'),
+            ("devs", "reader", '["shop", "crm"]'),
+            ("triagers", "triager", "[]"),
+            ("auditors", "auditor", "[]"),
+            ("crm-leads", "lead", '["crm"]'),
+        ):
+            connection.execute(
+                text("INSERT INTO grouprole (group_id, role_id, projects) VALUES (:g, :r, :p)"),
+                {"g": groups[group], "r": roles[role], "p": projects},
+            )
+        for group, user_id, source in (
+            ("administrators", 1, "local"),
+            ("project:shop", 2, "local"),
+            ("devs", 2, "local"),
+            ("devs", 3, "oidc"),
+            ("triagers", 2, "local"),
+            ("auditors", 2, "local"),
+            ("project:shop", 4, "local"),
+            ("crm-leads", 4, "local"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO groupmember (group_id, user_id, source, created_at) "
+                    "VALUES (:g, :u, :s, :now)"
+                ),
+                {"g": groups[group], "u": user_id, "s": source, "now": now},
+            )
+        connection.execute(
+            text(
+                "INSERT INTO apitoken (id, label, role, token_hash, created_at, access_role_id) "
+                "VALUES ('t1', 'triage-bot', 'api', :digest, :now, :role)"
+            ),
+            {"digest": "b" * 64, "now": now, "role": roles["triager"]},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO appsetting (key, value, updated_at) "
+                "VALUES ('oidc_default_group', 'devs', :now)"
+            ),
+            {"now": now},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO apitoken (id, label, role, project, token_hash, created_at, "
+                "access_role_id) VALUES ('t2', 'crm-bot', 'api', 'crm', :digest, :now, :role)"
+            ),
+            {"digest": "c" * 64, "now": now, "role": roles["lead"]},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO apitokenproject (id, token_id, project, created_at) "
+                "VALUES ('l2', 't2', 'crm', :now)"
+            ),
+            {"now": now},
+        )
+        command.upgrade(config, "head")
+        token = connection.execute(
+            text("SELECT access_role_id, project_permissions FROM apitoken WHERE id = 't2'")
+        ).one()
+        settings = connection.execute(text("SELECT key FROM appsetting")).scalars().all()
+
+    users = {user["username"]: user for user in web_users.list_users()}
+    assert users["root"]["permissions"] == ADMIN_GRANTS
+    # The roles of its groups keep their permissions on the whole controller, the per-project
+    # ones move to the projects; triager is removed
+    assert users["dev"]["permissions"] == {"audit.read": None, "reports.read": ["crm", "shop"]}
+    assert [role["name"] for role in users["dev"]["roles"]] == ["auditor"]
+    assert [item["project"] for item in users["dev"]["projects"]] == ["crm", "shop"]
+    # Roles on different projects: exactly the same rights
+    assert users["lea"]["permissions"] == {
+        "findings.triage": ["crm"],
+        "reports.read": ["crm", "shop"],
+    }
+    assert {item["project"]: item["permissions"] for item in users["lea"]["projects"]} == {
+        "crm": ["findings.triage", "reports.read"],
+        "shop": ["reports.read"],
+    }
+    # The OIDC user keeps the rights of its OIDC group until its next login
+    assert users["carol"]["permissions"] == {"reports.read": ["crm", "shop"]}
+    (mapping,) = access_control.list_oidc_mappings()
+    assert (mapping["claim"], mapping["roles"], mapping["all_projects_permissions"]) == (
+        "devs",
+        [],
+        [],
+    )
+    assert mapping["projects"] == [
+        {"project": "crm", "permissions": ["reports.read"]},
+        {"project": "shop", "permissions": ["reports.read"]},
+    ]
+    # A role keeps its permissions on the whole controller; a role token keeps its role and gets
+    # its per-project permissions; a role left empty goes, unless a token uses it
+    assert tuple(token) == (roles["lead"], '["findings.triage", "reports.read"]')
+    listed = {role["name"]: role["permissions"] for role in access_control.list_roles()}
+    assert listed == {"admin": listed["admin"], "auditor": ["audit.read"], "lead": []}
+    revoked = audit.list_events(action="token.revoked")["events"]
+    assert [(event["actor"], event["target_id"]) for event in revoked] == [("migration", "t1")]
+    assert "oidc_default_group" not in settings
+    assert not inspect(empty_engine).has_table("usergroup")
+
+    with (
+        pytest.raises(RuntimeError, match="cannot be downgraded"),
+        empty_engine.begin() as connection,
+    ):
+        command.downgrade(database.alembic_config(connection), "0038")

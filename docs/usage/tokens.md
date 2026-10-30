@@ -2,9 +2,9 @@
 
 **Tokens** are for machines: the MCP agents, the CI/CD pipelines, Prometheus and the
 administration scripts. **People** sign in with a [user account](user-accounts.md), the only
-way to open the web interface, with the rights of its groups
-([Roles, groups and permissions](access-control.md)). There is no read-only or
-triage token: to let a person read or triage, add their account to a group.
+way to open the web interface, with the rights of its roles
+([Roles and permissions](access-control.md)). There is no read-only or
+triage token: to let a person read or triage, give their account a role.
 
 The command line, the REST API and the limits are in [Bearer tokens](../advanced/bearer-tokens.md).
 
@@ -28,8 +28,8 @@ the interface does it ([triage](triage.md)). The agents only propose a status.
 On the **Tokens** page, an administrator chooses:
 
 - the **Usage**: **MCP**, **CI/CD pipeline** or **REST API** (with the **Role** it holds);
-- the **Allowed projects**: **All projects** (including the projects reviewed later, never for
-  a CI/CD token) or **Selected projects**;
+- the **Allowed projects**, ticked in a drop-down list with a search: **All projects**
+  (including the projects reviewed later, never for a CI/CD token) or some projects;
 - the **Validity**: from 30 days to 1 year.
 
 A token never grants more than its creator holds, and the page only lists the tokens of the
@@ -44,8 +44,10 @@ are two kinds:
 
 - **Personal token**: created by a user for themselves (see [personal tokens](#personal-tokens)).
   It holds the current rights of the account: it reaches nothing once the account loses them.
-- **Role token**: created by an administrator on the **Tokens** page, with a **Role**. It
-  holds the permissions of that role on its projects. A role used by a token cannot be deleted.
+- **Role token**: created by an administrator on the **Tokens** page, with a **Role** and
+  **Per-project permissions**. It holds the permissions of that role on the whole Controller
+  server and these per-project permissions on its projects. A role used by a token cannot be
+  deleted.
 
 ## Personal tokens
 

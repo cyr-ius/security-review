@@ -10,7 +10,7 @@ flow with PKCE:
    (server to server), validates the ID token (signature from the provider JWKS, issuer,
    audience, expiry, nonce) and returns the identity it holds (OidcIdentity);
 3. web_users.oidc_login finds the OIDC web user of that identity (or creates it when
-   ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is set), records the groups of its groups claim
+   ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is set), records the values of its roles claim
    (see access_control) and issues a **session token**: a JWT signed with a key derived from
    ``SECREVIEW_SECRET_KEY``, valid ``SECREVIEW_SESSION_HOURS``, handed to the web application
    in the URL fragment of ``/ui/login``. The application sends it as a bearer token; the bearer
@@ -67,8 +67,6 @@ MIN_SECRET_KEY_CHARS = 32
 MAX_LABEL_CHARS = 64
 MAX_RETURN_URL_CHARS = 512
 MAX_DISPLAY_NAME_CHARS = 40
-# Same bound as the names of the groups (access_control.MAX_GROUP_NAME_CHARS)
-MAX_GROUP_NAME_CHARS = 200
 
 SESSION_ISSUER = "security-review-controller"
 SESSION_AUDIENCE = "secreview-web"
@@ -116,10 +114,6 @@ def validate_settings(settings: Settings) -> None:
     _check_url("SECREVIEW_OIDC_REDIRECT_URI", settings.oidc_redirect_uri)
     if "openid" not in settings.oidc_scope.split():
         raise ValueError("SECREVIEW_OIDC_SCOPE must include openid")
-    if len(settings.oidc_default_group.strip()) > MAX_GROUP_NAME_CHARS:
-        raise ValueError(
-            f"SECREVIEW_OIDC_DEFAULT_GROUP must hold at most {MAX_GROUP_NAME_CHARS} characters"
-        )
     if settings.oidc_cafile and not Path(settings.oidc_cafile).is_file():
         raise ValueError(f"SECREVIEW_OIDC_CAFILE: file not found: {settings.oidc_cafile}")
     if not settings.oidc_roles_claim.strip():

@@ -149,8 +149,8 @@ and written to the [audit log](audit-log.md) (`GET /api/v1/audit`, `audit.read`
 permission), with the actor `token:ops-script` or `user:<name>`.
 
 An `api` token reads the access control at each request: a personal one holds the rights of its
-user, a role one the permissions of its **Role** on its projects (every project, or a list when
-the role only holds permissions per project).
+user, a role one the permissions of its **Role** on the whole Controller server and its
+per-project permissions (`project_permissions`) on its projects (every project, or a list).
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -164,8 +164,8 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 
 A token never grants more than its creator holds: creating a token, changing its projects,
 rotating its secret or revoking it needs `reports.read` on every project of the token, before
-and after a change of its projects, and, for a role `api` token, each permission of its role on
-these projects. The **Tokens** page only lists the tokens of the projects the user reads. Its
+and after a change of its projects, and, for a role `api` token, each permission of its role and
+each of its per-project permissions on these projects. The **Tokens** page only lists the tokens of the projects the user reads. Its
 **Validity** goes from 30 days to 1 year, or the default of the server
 (`SECREVIEW_TOKEN_MAX_DAYS`).
 
@@ -183,8 +183,8 @@ rules:
 Every account may create a personal `mcp` or `ci` token, unless
 `SECREVIEW_PERSONAL_TOKENS_ENABLED=false` (`422`): the tokens already created are then refused
 (`401`) by the MCP server and the Controller server, but kept, and work again once it is `true`.
-It reaches the projects of `reports.read` of the groups of the account:
-every project when one of its groups reads every project, none when it has none. When the
+It reaches the projects of `reports.read` of the roles of the account:
+every project when one of its roles reads every project, none when it has none. When the
 server refuses it (unknown, revoked or expired), the agent receives a `401` that tells the user
 to sign in again and create a new one.
 

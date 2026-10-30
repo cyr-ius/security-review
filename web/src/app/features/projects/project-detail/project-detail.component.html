@@ -267,3 +267,7 @@
     <div class="card-body text-danger">{{ 'projectFindings.loadError' | t }}</div>
   }
 </div>
+
+@if (auth.can('users.manage')) {
+  <app-project-members [project]="project()" />
+}

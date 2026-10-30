@@ -979,7 +979,7 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     label = state.get("auth_client")
     actor = audit.token_actor(label) if label is not None else None
     if allowed is None:
-        # A token of a user that reaches every project still creates the project group
+        # A token of a user that reaches every project still creates the project
         if state.get("auth_owner") is None:
             return {"project": project, "status": "accessible"}
         adopted = access_control.adopt_project(project, state["auth_owner"], actor)

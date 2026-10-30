@@ -14,7 +14,7 @@ Every event, the API, the command line and the variables are in
 |---|---|
 | Findings | Triage decision, agent proposal, comment, raised severity, sending through a connector |
 | Tokens | Creation, rotation, revocation, change of projects |
-| Accounts and rights | Logins and failed logins, logouts, roles, groups and their members |
+| Accounts and rights | Logins and failed logins, logouts, roles, roles of the accounts, OIDC mappings |
 | Projects | Request by an agent, approval, refusal, creation, deletion |
 | Settings | Syslog server, Controller server address, connectors |
 
