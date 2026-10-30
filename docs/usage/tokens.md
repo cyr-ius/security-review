@@ -28,8 +28,8 @@ the interface does it ([triage](triage.md)). The agents only propose a status.
 On the **Tokens** page, an administrator chooses:
 
 - the **Usage**: **MCP**, **CI/CD pipeline** or **REST API** (with the **Role** it holds);
-- the **Allowed projects**: **All projects** (including the projects reviewed later, never for
-  a CI/CD token) or **Selected projects**;
+- the **Allowed projects**, ticked in a drop-down list with a search: **All projects**
+  (including the projects reviewed later, never for a CI/CD token) or some projects;
 - the **Validity**: from 30 days to 1 year.
 
 A token never grants more than its creator holds, and the page only lists the tokens of the

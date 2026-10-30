@@ -28,8 +28,8 @@ connectée à l'interface le fait ([triage](triage.md)). Les agents ne font que 
 Dans la page **Jetons**, un administrateur choisit :
 
 - l'**Usage** : **MCP**, **Pipeline CI/CD** ou **API REST** (avec le **Rôle** qu'il porte) ;
-- les **Projets autorisés** : **Tous les projets** (y compris ceux revus plus tard, jamais pour
-  un jeton CI/CD) ou **Projets sélectionnés** ;
+- les **Projets autorisés**, cochés dans une liste déroulante avec recherche : **Tous les
+  projets** (y compris ceux revus plus tard, jamais pour un jeton CI/CD) ou certains projets ;
 - la **Validité** : de 30 jours à 1 an.
 
 Un jeton ne donne jamais plus que ce que détient son créateur, et la page ne liste que les jetons
