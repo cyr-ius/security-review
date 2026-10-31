@@ -4,7 +4,7 @@
 # credentials: it is not published on the host (VS Code forwards it, see forwardPorts).
 # Its data lives in the secreview-dev-pg volume, kept across container rebuilds.
 
-name: security-review-mcp-dev
+name: security-review-dev
 
 services:
   app:
@@ -12,7 +12,7 @@ services:
     # Keep the container running: VS Code attaches to it
     command: sleep infinity
     volumes:
-      - ..:/workspaces/security-review-mcp:cached
+      - ..:/workspaces/security-review:cached
       - ${HOME}/.claude:/home/vscode/.claude:cached
     environment:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview # secreview:ignore GEN-007 local dev database
