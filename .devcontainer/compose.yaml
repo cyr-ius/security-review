@@ -4,7 +4,7 @@
 # credentials: it is not published on the host (VS Code forwards it, see forwardPorts).
 # Its data lives in the secreview-dev-pg volume, kept across container rebuilds.
 
-name: security-review-mcp-dev
+name: security-review-dev
 
 services:
   app:
