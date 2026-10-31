@@ -1,11 +1,11 @@
-# Default scan rules and checklists of security-review-mcp.
+# Default scan rules and checklists of Security Review.
 #
 # This file seeds the database on the first run (see rule_store.seed_defaults) and is the
 # fallback when the database is unavailable. A newer version of a default entry replaces the
 # stored one at startup only if an administrator has not modified it.
 #
 # Never reuse or renumber an id: users cite them in `secreview:ignore` and disabled_rules.
-# Same format as the packs of `security-review-mcp rules import`.
+# Same format as the packs of `security-review-controller rules import`.
 
 [[rules]]
 id = "GEN-001"

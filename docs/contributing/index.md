@@ -66,7 +66,7 @@ without leaving the container.
 ## Building the image
 
 ```bash
-docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
+docker build -t security-review .   # SQLite and PostgreSQL (driver included)
 ```
 
 The build also compiles the [web interface](../usage/index.md) (Node.js stage); the

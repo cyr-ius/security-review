@@ -126,7 +126,7 @@ Good to know:
   the `controller` service, then run `docker compose up -d`. Follow the import with
   `docker compose logs -f controller`. Without Internet access, import an archive with
   `advisories import` (see [Dependencies](../../review/analysis/dependencies.md#manual-import)).
-- **Hardening.** The containers of security-review-mcp run with a read-only file system and
+- **Hardening.** The containers of Security Review run with a read-only file system and
   without any Linux capability.
 - **Data.** The `secreview-pg` volume holds the reports, the accounts and the tokens: back it up
   (see [Backing up PostgreSQL](../database.md#backing-up-postgresql)). It is mounted on `/var/lib/postgresql`,

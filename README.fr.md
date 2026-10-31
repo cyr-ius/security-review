@@ -1,6 +1,6 @@
-![Security Review MCP : un finding signalé dans le code](https://raw.githubusercontent.com/cyr-ius/security-review/master/docs/assets/banner.svg)
+![Security Review : un finding signalé dans le code](https://raw.githubusercontent.com/cyr-ius/security-review/master/docs/assets/banner.svg)
 
-# Security Review MCP
+# Security Review
 
 ![licence] ![Python] ![Angular] [![ci::status]][ci::github] [![pypi::version]][pypi::web] [![docker::pulls]][docker::hub] [![documentation::badge]][documentation::web]
 

@@ -310,7 +310,7 @@ def create_app(
     configured = ui_dir if ui_dir is not None else settings.web_ui_dir
     swagger = settings.swagger_enabled if swagger is None else swagger
     app = FastAPI(
-        title="security-review-mcp",
+        title="Security Review",
         version=__version__,
         # Served below, with the application icon instead of the FastAPI one
         docs_url=None,

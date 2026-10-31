@@ -90,7 +90,7 @@ import {
 /** Base path of the REST API (served by the same origin as the application). */
 export const API_URL = '/api/v1';
 
-/** Typed access to the REST API of security-review-mcp. */
+/** Typed access to the REST API of Security Review. */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);

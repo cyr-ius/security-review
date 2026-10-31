@@ -1,4 +1,4 @@
-# security-review-mcp on Kubernetes: the MCP server and the controller in two Deployments
+# Security Review on Kubernetes: the MCP server and the controller in two Deployments
 # sharing a PostgreSQL database (not included: examples/kubernetes/postgres.yaml deploys the
 # official image, or use your managed or operator-backed instance).
 #
@@ -59,7 +59,7 @@ kind: Deployment
 metadata:
   name: secreview-controller
   labels:
-    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/name: secreview
     app.kubernetes.io/component: controller
 spec:
   replicas: 1
@@ -67,12 +67,12 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app.kubernetes.io/name: security-review-mcp
+      app.kubernetes.io/name: secreview
       app.kubernetes.io/component: controller
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: security-review-mcp
+        app.kubernetes.io/name: secreview
         app.kubernetes.io/component: controller
     spec:
       securityContext:
@@ -155,7 +155,7 @@ metadata:
   name: secreview-controller
 spec:
   selector:
-    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/name: secreview
     app.kubernetes.io/component: controller
   ports:
     - name: http
@@ -167,7 +167,7 @@ kind: Deployment
 metadata:
   name: secreview-mcp
   labels:
-    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/name: secreview
     app.kubernetes.io/component: mcp
 spec:
   # MCP sessions live in the memory of a pod: before adding replicas, make the Ingress route
@@ -175,12 +175,12 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: security-review-mcp
+      app.kubernetes.io/name: secreview
       app.kubernetes.io/component: mcp
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: security-review-mcp
+        app.kubernetes.io/name: secreview
         app.kubernetes.io/component: mcp
     spec:
       securityContext:
@@ -234,7 +234,7 @@ metadata:
   name: secreview-mcp
 spec:
   selector:
-    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/name: secreview
     app.kubernetes.io/component: mcp
   ports:
     - name: http
@@ -251,7 +251,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: security-review-mcp
+      app.kubernetes.io/name: secreview
       app.kubernetes.io/component: controller
   policyTypes: ["Ingress"]
   ingress:

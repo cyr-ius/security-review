@@ -1,25 +1,25 @@
 # syntax=docker/dockerfile:1
 #
-# Image of security-review-mcp: one image, two processes sharing the database.
+# Image of security-review: one image, two processes sharing the database.
 #
-#   docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
-#   docker build --target opengrep -t security-review-mcp:opengrep .   # plus the OpenGrep engine
+#   docker build -t security-review .   # SQLite and PostgreSQL (driver included)
+#   docker build --target opengrep -t security-review:opengrep .   # plus the OpenGrep engine
 #
 # The first argument chooses the process (scripts/docker-entrypoint.sh): `mcp` (default) or
 # `controller`, followed by their own arguments.
 #
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -e SECREVIEW_TRANSPORT=stdio -v secreview-data:/var/lib/secreview \
-#       security-review-mcp mcp
+#       security-review mcp
 #
 # Shared server (see docker-compose.yml): the MCP server (MCP on /mcp) and the controller (REST
 # API on /api/v1, web interface on /ui, administration commands) run in two containers. Enable
 # TLS (SECREVIEW_TLS_CERTFILE, SECREVIEW_TLS_KEYFILE) or put them behind a reverse proxy that
 # enforces it:
 #   docker run -d -p 127.0.0.1:8080:8000 -v secreview-data:/var/lib/secreview \
-#       security-review-mcp controller
+#       security-review controller
 #   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/var/lib/secreview \
-#       security-review-mcp mcp
+#       security-review mcp
 # Both processes listen on every interface of the container (SECREVIEW_HOST=0.0.0.0): the address
 # of the host they are reachable on is chosen when publishing the port (-p 127.0.0.1:...).
 # (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)

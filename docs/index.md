@@ -83,7 +83,7 @@ block starts everything (PostgreSQL, Controller server, MCP server), resets the 
 account and creates a token for your agent:
 
 ```bash
-mkdir security-review-mcp && cd security-review-mcp
+mkdir secreview && cd secreview
 curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait

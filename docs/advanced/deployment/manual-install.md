@@ -1,6 +1,6 @@
 # Manual installation (without containers)
 
-This page installs security-review-mcp **all-in-one** on a single Linux server, without Docker:
+This page installs Security Review **all-in-one** on a single Linux server, without Docker:
 the **Controller server**, the **MCP server** and their **SQLite database** run on the same machine,
 as the same user. It suits a test, a small team or a server where containers are not allowed.
 
@@ -19,7 +19,7 @@ or [Kubernetes](kubernetes.md): PostgreSQL is included, and the services restart
 Python 3.14 or later, with [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```bash
-uv venv /opt/security-review-mcp && source /opt/security-review-mcp/bin/activate
+uv venv /opt/secreview && source /opt/secreview/bin/activate
 uv pip install security-review
 ```
 

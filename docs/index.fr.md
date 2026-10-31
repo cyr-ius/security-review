@@ -90,7 +90,7 @@ bloc démarre tout (PostgreSQL, serveur Controller, serveur MCP), réinitialise 
 `admin` et crée un jeton pour votre agent :
 
 ```bash
-mkdir security-review-mcp && cd security-review-mcp
+mkdir secreview && cd secreview
 curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait

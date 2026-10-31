@@ -160,7 +160,7 @@ def test_download_streams_the_archive(tmp_path):
     size = advisory_sync.download_export(fake, url_of("PyPI"), tmp_path / "a.zip", len(body))
 
     assert size == len(body) and (tmp_path / "a.zip").read_bytes() == body
-    assert fake.requests[0].get_header("User-agent").startswith("security-review-mcp/")
+    assert fake.requests[0].get_header("User-agent").startswith("secreview/")
 
 
 @pytest.mark.parametrize("length", [None, "", "10"])

@@ -4,7 +4,7 @@ Ce fichier est la **référence unique** pour tout agent (Claude, Copilot, Codex
 qui modifie ce dépôt. `CLAUDE.md` et `.github/copilot-instructions.md` ne font qu'y renvoyer :
 modifiez les règles ici, pas là-bas.
 
-`security-review-mcp` est un serveur MCP de revue de code orientée sécurité : prompts,
+**Security Review** (petit nom `secreview`) est un serveur MCP de revue de code orientée sécurité : prompts,
 checklists, scan par motifs, analyse de dépendances, rapports persistés (SQLModel, migrations
 Alembic), CLI pour la CI/CD (gate, SARIF, tendances) et transport HTTP avec jetons Bearer / TLS.
 
@@ -377,6 +377,12 @@ essentielles.
   commandes, identifiants et clés (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`,
   `settings.controllerUrlTitle`...) ne changent pas, ni les noms des configurations de
   `.vscode/launch.json`.
+- Le produit s'appelle **Security Review** dans le texte (doc, README, interface, messages) et
+  `secreview` quand il faut un nom court technique (labels, répertoires, `User-Agent`). Les noms
+  des commandes (`security-review-mcp`, `security-review-controller`, `security-review-ci`), du
+  paquet Python `security_review_mcp`, de l'image `security-review` et du projet Compose ne
+  changent pas, ni les identifiants dont dépendent des données existantes (répertoire de la base
+  SQLite locale, nom de l'outil SARIF, projet `security-review-mcp` des rapports).
 - Une vue de l'interface web s'appelle une **page** (**page** en anglais, **página** en espagnol),
   jamais un « écran » / « screen » / « pantalla » (sauf « plein écran », « full screen »).
 - L'interface web est traduite (anglais, français, espagnol) : chaque version de la doc cite les

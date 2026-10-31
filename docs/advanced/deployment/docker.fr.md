@@ -130,7 +130,7 @@ Bon à savoir :
   `SECREVIEW_OSV_ECOSYSTEMS`) dans le service `controller`, puis lancez `docker compose up -d`.
   Suivez l'import avec `docker compose logs -f controller`. Sans accès Internet, importez une
   archive avec `advisories import` (voir [Dépendances](../../review/analysis/dependencies.md#import-manuel)).
-- **Durcissement.** Les conteneurs de security-review-mcp tournent en système de fichiers en
+- **Durcissement.** Les conteneurs de Security Review tournent en système de fichiers en
   lecture seule, sans capacité Linux.
 - **Données.** Le volume `secreview-pg` contient les rapports, les comptes et les jetons :
   sauvegardez-le (voir [Sauvegarde de PostgreSQL](../database.md#sauvegarde-de-postgresql)). Il est monté sur

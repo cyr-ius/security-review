@@ -1,4 +1,4 @@
-# Single-instance PostgreSQL for security-review-mcp, with the official image (postgres:18-alpine).
+# Single-instance PostgreSQL for Security Review, with the official image (postgres:18-alpine).
 # For production, prefer a managed database or an operator (CloudNativePG...) that handles
 # replication, backups and upgrades.
 #
@@ -17,19 +17,19 @@ metadata:
   name: secreview-postgres
   labels:
     app.kubernetes.io/name: postgresql
-    app.kubernetes.io/part-of: security-review-mcp
+    app.kubernetes.io/part-of: secreview
 spec:
   serviceName: secreview-postgres
   replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: postgresql
-      app.kubernetes.io/part-of: security-review-mcp
+      app.kubernetes.io/part-of: secreview
   template:
     metadata:
       labels:
         app.kubernetes.io/name: postgresql
-        app.kubernetes.io/part-of: security-review-mcp
+        app.kubernetes.io/part-of: secreview
     spec:
       # uid and gid of the postgres user of the Alpine image
       securityContext:
@@ -101,13 +101,13 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/name: postgresql
-    app.kubernetes.io/part-of: security-review-mcp
+    app.kubernetes.io/part-of: secreview
   ports:
     - name: postgres
       port: 5432
       targetPort: postgres
 ---
-# Only the pods of security-review-mcp (controller, MCP server) reach the database
+# Only the pods of Security Review (controller, MCP server) reach the database
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -116,12 +116,12 @@ spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: postgresql
-      app.kubernetes.io/part-of: security-review-mcp
+      app.kubernetes.io/part-of: secreview
   policyTypes: ["Ingress"]
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: security-review-mcp
+              app.kubernetes.io/name: secreview
       ports:
         - port: 5432

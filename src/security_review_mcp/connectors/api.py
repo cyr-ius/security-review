@@ -136,7 +136,7 @@ class FindingContent:
         lines = [f"{name}: {value}" for name, value in self.facts]
         for title, text in self.sections:
             lines += ["", f"{title}:", text]
-        lines += ["", f"Sent by security-review-mcp (finding {self.finding_id})."]
+        lines += ["", f"Sent by Security Review (finding {self.finding_id})."]
         description = "\n".join(lines)
         if len(description) > limit:
             description = description[: limit - 20] + "\n[truncated]"
