@@ -131,9 +131,7 @@ def download_export(
     opener: urllib.request.OpenerDirector, url: str, target: Path, max_bytes: int
 ) -> int:
     """Stream ``url`` into ``target`` and return its size; refuse more than ``max_bytes``."""
-    request = urllib.request.Request(
-        url, headers={"User-Agent": f"security-review-mcp/{__version__}"}
-    )
+    request = urllib.request.Request(url, headers={"User-Agent": f"secreview/{__version__}"})
     with opener.open(request, timeout=DOWNLOAD_TIMEOUT) as response, target.open("wb") as output:
         declared = response.headers.get("Content-Length")
         if declared and declared.isdigit() and int(declared) > max_bytes:

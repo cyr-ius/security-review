@@ -74,7 +74,7 @@ def fetch_latest(settings: Settings) -> tuple[str, str]:
         LATEST_RELEASE_URL,
         headers={
             "Accept": "application/vnd.github+json",
-            "User-Agent": f"security-review-mcp/{__version__}",
+            "User-Agent": f"secreview/{__version__}",
         },
     )
     try:

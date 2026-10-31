@@ -51,7 +51,7 @@ Read by `security-review-mcp` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (shared mode) or `stdio` (local mode) |
+| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` or `http` (shared mode), or `stdio` (local mode), whatever the case; mode of the `mcp` command of the [Docker image](../advanced/deployment/docker.md#choosing-the-process) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/bearer-tokens.md)); only for tests on an isolated network |
 | `SECREVIEW_ENROLLMENT` | `true` | [Enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests): a client without a token reaches a restricted MCP server, without any tool, that tells the user to create a personal MCP token in the web interface; with a token, `request_project` creates a new project for a user holding `projects.create`, else requests it for a user with `projects.create` to approve. `false`: `401` without a token, and no project request |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Report language](../review/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen on the [**Report language**](../usage/index.md#pages) page |
@@ -176,6 +176,20 @@ Read by `security-review-controller` only.
 | `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Maximum size of a request of [`security-review-ci scan-code` or `scan-deps`](../review/analysis/code-scan.md#limits-of-the-controller-server) (`413` beyond) |
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Maximum number of files of a scan request (`422` beyond) |
 | `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Size beyond which a file sent by `scan-code` is not scanned (listed as skipped) |
+
+### OpenGrep engine
+
+Engine of the Controller server for `scan-code`, enabled by default and skipped while no rule is installed (binary shipped in the `-opengrep` Docker image, disabled in the default image), see [OpenGrep](../review/analysis/opengrep.md).
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_OPENGREP_ENABLED` | `true` | Also run OpenGrep on the files of `scan-code` |
+| `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
+| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory of the OpenGrep YAML rules |
+| `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one scan (1 to 7200) |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans running at the same time in one Controller server process (`503` beyond) |
+| `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one scan |
+| `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one scan (`0`: no limit) |
 
 ## Clients
 

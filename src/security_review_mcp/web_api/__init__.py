@@ -59,6 +59,7 @@ from . import (
     ci_routes,
     connector_routes,
     oauth_routes,
+    opengrep_routes,
     report_routes,
     rule_routes,
     token_routes,
@@ -133,6 +134,7 @@ for _domain in (
     account_routes,
     report_routes,
     rule_routes,
+    opengrep_routes,
     token_routes,
     admin_routes,
     access_routes,
@@ -308,7 +310,7 @@ def create_app(
     configured = ui_dir if ui_dir is not None else settings.web_ui_dir
     swagger = settings.swagger_enabled if swagger is None else swagger
     app = FastAPI(
-        title="security-review-mcp",
+        title="Security Review",
         version=__version__,
         # Served below, with the application icon instead of the FastAPI one
         docs_url=None,

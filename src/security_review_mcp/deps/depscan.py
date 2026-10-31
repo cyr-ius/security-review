@@ -2,7 +2,7 @@
 
 Used by the ``scan_dependencies`` MCP tool and by the controller for the files sent by
 ``security-review-ci scan-deps`` (``POST /api/v1/ci/scan/deps``, see scan_files and save).
-``security-review-mcp scan-deps --save`` builds its report with report_content.
+``security-review-ci scan-deps --save`` builds its report with report_content.
 """
 
 from collections.abc import Sequence
@@ -227,7 +227,7 @@ def blocking_count(results: Sequence[dict], fail_on: Severity) -> int:
 def report_content(results: Sequence[dict], reviewer: str = REVIEWER) -> dict:
     """Summary, findings, scope, reviewer and review type of the report of the scans.
 
-    Shared by ``save`` (controller) and ``security-review-mcp scan-deps --save``, which sends
+    Shared by ``save`` (controller) and ``security-review-ci scan-deps --save``, which sends
     them to the ``save_security_report`` tool of a shared MCP server.
     """
     vulnerabilities = sum(r["vulnerabilities_count"] for r in results)

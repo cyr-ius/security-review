@@ -11,11 +11,12 @@ bounded by http_server.BodyLimit (see body_limit) before it is parsed.
 import logging
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
 from ..deps import depscan
+from ..engines.opengrep import OpenGrepBusyError, OpenGrepError
 from ..reports import services, trends
 from ..rules import codescan
 from ..storage.models import Severity
@@ -174,6 +175,10 @@ async def ci_code_scan(
         result = await run_in_threadpool(_code_scan, request, identity.client, owner)
     except ValueError as exc:
         raise unprocessable(exc) from exc
+    except OpenGrepError as exc:
+        # Generic messages, never the output of OpenGrep; a busy engine can be retried
+        headers = {"Retry-After": "60"} if isinstance(exc, OpenGrepBusyError) else None
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc), headers) from exc
     logger.info(
         "Code scan of %r by %s: %d file(s), %d match(es), report %s",
         project,

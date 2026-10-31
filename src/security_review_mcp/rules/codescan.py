@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 from ..ci_client import detect_language
 from ..config import get_settings
+from ..engines import opengrep
 from ..reports import sarif, services
 from ..storage.models import (
     SEVERITY_RANK,
@@ -92,6 +93,25 @@ def scan_files(
             }
         )
 
+    # OpenGrep runs once per codebase, not once per fragment, and only when explicitly enabled.
+    if settings.opengrep_enabled:
+        opengrep_matches = opengrep.scan_files(
+            [
+                (source.path, source.content)
+                for source in files
+                if len(source.content) <= settings.max_scan_file_chars
+                and detect_language(source.path) is not None
+            ]
+        )
+        by_path = {entry["file"]: entry for entry in results}
+        for path, matches in opengrep_matches.items():
+            entry = by_path.get(path)
+            if entry is None:
+                continue
+            remaining = max(0, MAX_MATCHES_PER_FILE - len(entry["matches"]))
+            entry["matches"].extend(matches[:remaining])
+            entry["truncated"] = entry["truncated"] or len(matches) > remaining
+
     by_severity = {s.value: 0 for s in Severity}
     for entry in results:
         for match in entry["matches"]:
@@ -148,10 +168,11 @@ def to_findings(result: dict) -> list[FindingCreate]:
                     cwe=match["cwe"] or None,
                     file_path=entry["file"],
                     line_start=match["line"],
-                    line_end=match["line"],
-                    description=(
+                    line_end=match.get("line_end", match["line"]),
+                    description=match.get(
+                        "description",
                         f"{match['title']}: pattern match found by the codebase scan. "
-                        "It is a lead: confirm it by reading the surrounding code."
+                        "It is a lead: confirm it by reading the surrounding code.",
                     ),
                     evidence=match["excerpt"],
                     recommendation=match["advice"],

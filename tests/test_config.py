@@ -2,6 +2,9 @@
 
 import os
 
+import pytest
+from pydantic import ValidationError
+
 from security_review_mcp.config import Settings
 
 
@@ -43,3 +46,16 @@ def test_the_former_name_of_the_public_url_is_read_when_it_is_not_set(monkeypatc
         "https://new.example",
         None,
     )
+
+
+def test_the_transport_accepts_http_and_any_case(monkeypatch):
+    # SECREVIEW_TRANSPORT chooses the mode of the MCP server of the Docker image
+    for value, expected in [("HTTP", "streamable-http"), ("Streamable-HTTP", "streamable-http")]:
+        monkeypatch.setenv("SECREVIEW_TRANSPORT", value)
+        assert Settings().transport == expected
+    monkeypatch.setenv("SECREVIEW_TRANSPORT", " STDIO ")
+    assert Settings().transport == "stdio"
+
+    monkeypatch.setenv("SECREVIEW_TRANSPORT", "sse")
+    with pytest.raises(ValidationError, match="transport"):
+        Settings()

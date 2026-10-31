@@ -1,7 +1,7 @@
 [project]
 name = "secreview-acme-connector"
 version = "0.1.0"
-description = "Example connector for security-review-mcp: findings as Acme risks"
+description = "Example connector for Security Review: findings as Acme risks"
 requires-python = ">=3.14"
 dependencies = ["security-review"]
 

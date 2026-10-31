@@ -43,6 +43,11 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
   anglais et **serveur Controller** en français : « Controller » garde sa forme anglaise et sa
   majuscule, et n'est jamais employé seul. Les commandes, noms de fichiers et identifiants
   (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`) ne changent pas.
+- Le produit s'appelle **Security Review** dans le texte, présenté d'abord comme le **serveur
+  MCP de revue de code sécurité assistée par l'IA**, et `secreview` quand il faut un nom
+  court technique (labels, répertoires). Les commandes (`security-review-mcp`,
+  `security-review-controller`, `security-review-ci`) et l'image `security-review` gardent
+  leur nom.
 - Une vue de l'interface web s'appelle une **page** (la page **Jetons**), jamais un « écran »,
   sauf dans « plein écran ».
 - Les exemples sont copiables tels quels : options, noms de variables et sorties correspondent au

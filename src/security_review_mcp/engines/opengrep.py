@@ -1,0 +1,256 @@
+"""OpenGrep adapter for controller-side whole-codebase scans.
+
+The adapter writes the already bounded source payload to a private temporary workspace,
+executes OpenGrep without a shell, and returns normalized matches. It never executes scanned
+source files. Rule packs are supplied by the operator in the configured rules directory.
+"""
+
+import json
+import logging
+import os
+import re
+import shutil
+import signal
+import subprocess
+import tempfile
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+from ..config import get_settings
+from ..rules.scanner import redact_secrets
+
+logger = logging.getLogger(__name__)
+
+_SEVERITY = {
+    "ERROR": "high",
+    "WARNING": "medium",
+    "INFO": "low",
+    "INVENTORY": "info",
+}
+_CWE = re.compile(r"CWE-?([0-9]+)", re.IGNORECASE)
+# Scans running in this process, bounded by SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS
+_running = 0
+_running_lock = threading.Lock()
+
+
+class OpenGrepError(RuntimeError):
+    """OpenGrep could not complete a scan or returned invalid output."""
+
+
+class OpenGrepBusyError(OpenGrepError):
+    """Every OpenGrep scan slot is taken: the caller should retry later."""
+
+
+def subprocess_env(home: str) -> dict[str, str]:
+    """Minimal environment of an OpenGrep process, with a private ``HOME``.
+
+    ``XDG_CACHE_HOME`` is kept: the self-extracting release binary unpacks its bundle there,
+    once, instead of at every run in ``HOME`` (the Docker image runs the bundle extracted at
+    build time, without the launcher).
+    """
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+        "HOME": home,
+        "NO_COLOR": "1",
+    }
+    if cache := os.environ.get("XDG_CACHE_HOME"):
+        env["XDG_CACHE_HOME"] = cache
+    return env
+
+
+@contextmanager
+def _scan_slot(limit: int) -> Iterator[None]:
+    """Hold one of the ``limit`` scan slots, refusing the scan when none is free."""
+    global _running
+    with _running_lock:
+        if _running >= limit:
+            raise OpenGrepBusyError("OpenGrep is busy with other scans; retry later")
+        _running += 1
+    try:
+        yield
+    finally:
+        with _running_lock:
+            _running -= 1
+
+
+def _run(
+    command: list[str], *, cwd: Path, env: dict[str, str], timeout: int
+) -> subprocess.CompletedProcess[str]:
+    """Run OpenGrep in its own process group, killing the whole group on timeout.
+
+    OpenGrep forks workers (``--jobs``): killing only the main process would leave them running.
+    """
+    with subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        start_new_session=True,
+    ) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # The group may already be gone if OpenGrep ended right at the deadline
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate()
+            raise
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
+def _safe_relative_path(value: str) -> PurePosixPath:
+    """Validate a client-provided source path before writing it into the workspace."""
+    path = PurePosixPath(value.replace("\\", "/"))
+    if path.is_absolute() or not path.parts or any(part in ("", ".", "..") for part in path.parts):
+        raise ValueError("Invalid source path in code scan")
+    if path.parts[0].endswith(":"):
+        raise ValueError("Invalid source path in code scan")
+    return path
+
+
+def _cwe(metadata: Any) -> str | None:
+    """Extract one CWE identifier from OpenGrep rule metadata."""
+    if not isinstance(metadata, dict):
+        return None
+    value = metadata.get("cwe")
+    values = value if isinstance(value, list) else [value]
+    for item in values:
+        if isinstance(item, str):
+            match = _CWE.search(item)
+            if match:
+                return f"CWE-{match.group(1)}"
+    return None
+
+
+def _normalize_result(item: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    """Convert one OpenGrep JSON result to the internal per-file match format."""
+    path = item.get("path")
+    extra = item.get("extra")
+    start = item.get("start")
+    end = item.get("end")
+    if not isinstance(path, str) or not isinstance(extra, dict) or not isinstance(start, dict):
+        return None
+    line = start.get("line")
+    if not isinstance(line, int) or line < 1:
+        return None
+    message = extra.get("message")
+    check_id = item.get("check_id")
+    if not isinstance(message, str) or not isinstance(check_id, str):
+        return None
+    severity_name = str(extra.get("severity", "WARNING")).upper()
+    severity = _SEVERITY.get(severity_name, "medium")
+    metadata = extra.get("metadata")
+    lines = extra.get("lines")
+    evidence = redact_secrets(lines) if isinstance(lines, str) else ""
+    end_line = end.get("line") if isinstance(end, dict) else line
+    if not isinstance(end_line, int) or end_line < line:
+        end_line = line
+    return path, {
+        "title": message[:200],
+        "description": message,
+        "severity": severity,
+        "rule_id": f"OPENGREP:{check_id}"[:60],
+        "cwe": _cwe(metadata),
+        "line": line,
+        "line_end": end_line,
+        "excerpt": evidence[:2000],
+        "advice": (
+            "Review the matched code and apply the remediation described by the OpenGrep rule."
+        ),
+    }
+
+
+def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
+    """Run OpenGrep on bounded source files and return matches indexed by relative path.
+
+    Without any YAML rule installed there is nothing to run: the engine is skipped, so that it
+    can be enabled by default before an administrator adds rules.
+
+    Raises:
+        OpenGrepError: If rules are installed but the executable or scan output is unavailable.
+    """
+    settings = get_settings()
+    if not settings.opengrep_enabled:
+        return {}
+    rules_dir = Path(settings.opengrep_rules_dir).resolve()
+    if not rules_dir.is_dir() or not any(rules_dir.rglob("*.y*ml")):
+        return {}
+    binary = shutil.which(settings.opengrep_binary)
+    if not binary or not Path(binary).is_file():
+        raise OpenGrepError("OpenGrep rules are installed but its executable is unavailable")
+
+    matches: dict[str, list[dict[str, Any]]] = {}
+    try:
+        with (
+            _scan_slot(settings.opengrep_max_concurrent_scans),
+            tempfile.TemporaryDirectory(prefix="secreview-opengrep-") as temporary,
+        ):
+            workspace = Path(temporary) / "source"
+            workspace.mkdir(mode=0o700)
+            for name, content in files:
+                relative = _safe_relative_path(name)
+                destination = workspace.joinpath(*relative.parts)
+                destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                destination.write_text(content, encoding="utf-8", errors="replace")
+            command = [
+                binary,
+                "scan",
+                "--json",
+                "--config",
+                str(rules_dir),
+                "--jobs",
+                str(settings.opengrep_jobs),
+                "--max-memory",
+                str(settings.opengrep_max_memory_mb),
+                str(workspace),
+            ]
+            try:
+                process = _run(
+                    command,
+                    cwd=workspace,
+                    timeout=settings.opengrep_timeout_seconds,
+                    env=subprocess_env(temporary),
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise OpenGrepError("OpenGrep scan exceeded its configured time limit") from exc
+            if process.returncode not in (0, 1):
+                logger.warning("OpenGrep exited with status %s", process.returncode)
+                raise OpenGrepError("OpenGrep scan failed; see controller logs")
+            try:
+                payload = json.loads(process.stdout)
+            except json.JSONDecodeError as exc:
+                raise OpenGrepError("OpenGrep returned invalid JSON") from exc
+            results = payload.get("results") if isinstance(payload, dict) else None
+            if not isinstance(results, list):
+                raise OpenGrepError("OpenGrep JSON output has no results list")
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+                normalized = _normalize_result(item)
+                if normalized is None:
+                    continue
+                result_path, finding = normalized
+                absolute = Path(result_path)
+                try:
+                    if absolute.is_absolute():
+                        relative_path = (
+                            absolute.resolve().relative_to(workspace.resolve()).as_posix()
+                        )
+                    else:
+                        relative_path = _safe_relative_path(result_path).as_posix()
+                        if not workspace.joinpath(*PurePosixPath(relative_path).parts).is_file():
+                            continue
+                except OSError, ValueError:
+                    continue
+                matches.setdefault(relative_path, []).append(finding)
+    except (OSError, ValueError) as exc:
+        raise OpenGrepError("Could not prepare the OpenGrep scan workspace") from exc
+    return matches

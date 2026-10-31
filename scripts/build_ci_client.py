@@ -22,7 +22,7 @@ DOCUMENTATION = (
     "https://cyr-ius.github.io/security-review/review/gate/#pipeline-client-security-review-ci"
 )
 DESCRIPTION = (
-    "Pipeline and workstation client of the security-review-mcp controller: gate, SARIF, "
+    "Pipeline and workstation client of the Security Review controller: gate, SARIF, "
     "trends, code and dependency scans, read guard of coding agents"
 )
 
@@ -56,7 +56,7 @@ py-modules = ["{module}"]
 README = """\
 # security-review-ci
 
-Client of the [security-review-mcp]({repository}) controller for pipelines and developer
+Client of the [Security Review]({repository}) controller for pipelines and developer
 workstations: deployment gate, SARIF export, trend report, code and dependency scans, through
 the REST API with a `ci` token, and an offline read guard for the hooks of coding agents. It
 only uses the Python standard library.

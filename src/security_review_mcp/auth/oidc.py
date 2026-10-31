@@ -397,7 +397,7 @@ class OidcLogin:
             data=body,
             headers={
                 "Accept": "application/json",
-                "User-Agent": f"security-review-mcp/{__version__}",
+                "User-Agent": f"secreview/{__version__}",
                 **(headers or {}),
             },
         )

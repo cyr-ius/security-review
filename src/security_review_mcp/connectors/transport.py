@@ -124,7 +124,7 @@ class ConnectionClient:
             raise ConnectorError("invalid", f"{self.name}: method {method} not allowed")
         headers = {
             "Accept": "application/json",
-            "User-Agent": f"security-review-mcp/{__version__}",
+            "User-Agent": f"secreview/{__version__}",
             **self.headers,
         }
         data = None

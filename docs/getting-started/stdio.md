@@ -26,14 +26,14 @@ The server is published on PyPI as the `security-review` package (Python 3.14). 
 mode does not need. Install it in a dedicated virtual environment:
 
 ```bash
-uv venv --python 3.14 /opt/security-review-mcp/venv
-uv pip install --python /opt/security-review-mcp/venv security-review
+uv venv --python 3.14 /opt/secreview/venv
+uv pip install --python /opt/secreview/venv security-review
 ```
 
 !!! note "Formerly `security-review-mcp`"
     Up to version 2.0.0, the package was published on PyPI as `security-review-mcp`. Both
     packages install the same commands and the same Python module: uninstall the old one first
-    (`uv pip uninstall --python /opt/security-review-mcp/venv security-review-mcp`), then install
+    (`uv pip uninstall --python /opt/secreview/venv security-review-mcp`), then install
     `security-review`. The commands, the settings and the database stay the same.
 
 Without Internet access, or from the sources: see [Installation: other cases](../advanced/deployment/installation.md).
@@ -82,4 +82,5 @@ repository:
 }
 ```
 
-To run the server from a container, see [Docker](../advanced/deployment/docker.md).
+To run the server from a container (`mcp` command with `SECREVIEW_TRANSPORT=stdio`), see
+[Docker: choosing the process](../advanced/deployment/docker.md#choosing-the-process).

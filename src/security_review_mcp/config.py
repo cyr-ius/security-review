@@ -154,6 +154,10 @@ def default_database_url() -> SecretStr:
     return SecretStr(f"sqlite:///{base / 'security-review-mcp' / 'security_reports.db'}")
 
 
+# Short names of the MCP transports (SECREVIEW_TRANSPORT)
+TRANSPORT_ALIASES = {"http": "streamable-http"}
+
+
 class Settings(BaseSettings):
     """Server settings (prefix: SECREVIEW_)."""
 
@@ -176,9 +180,9 @@ class Settings(BaseSettings):
     # (Kubernetes): they then only check the schema. The HTTP MCP server never migrates.
     db_auto_upgrade: bool = True
 
-    # MCP server transport: "streamable-http" (shared server, the default) or "stdio" (local
-    # host such as VS Code, which starts `serve --transport stdio`). host and port are used by
-    # the HTTP MCP server and by the controller.
+    # MCP server transport: "streamable-http" (shared server, the default, alias "http") or
+    # "stdio" (local host such as VS Code, which starts `serve --transport stdio`), whatever the
+    # case. host and port are used by the HTTP MCP server and by the controller.
     transport: str = "streamable-http"
     host: str = "127.0.0.1"
     port: int = 8000
@@ -451,6 +455,18 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
+    # Controller only: OpenGrep engine for whole-codebase scans (binary shipped in the
+    # "-opengrep" Docker image), skipped while no rule is installed. Rules are managed
+    # separately from the built-in TOML rules and are never downloaded implicitly.
+    opengrep_enabled: bool = True
+    opengrep_binary: str = "/usr/local/bin/opengrep"
+    opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
+    opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
+    # Scans run at the same time (503 beyond), cores and memory (MiB, 0: no limit) of one scan
+    opengrep_max_concurrent_scans: int = Field(default=1, ge=1, le=64)
+    opengrep_jobs: int = Field(default=2, ge=1, le=256)
+    opengrep_max_memory_mb: int = Field(default=2048, ge=0)
+
     @field_validator(
         "proxy",
         "no_proxy",
@@ -541,6 +557,16 @@ class Settings(BaseSettings):
                         f"forwarded_allow_ips: not an IP address or CIDR range: {entry!r}"
                     ) from None
         return ",".join(entries)
+
+    @field_validator("transport")
+    @classmethod
+    def _check_transport(cls, value: str) -> str:
+        """Accept streamable-http (or http) and stdio, whatever the case."""
+        transport = value.strip().lower()
+        transport = TRANSPORT_ALIASES.get(transport, transport)
+        if transport not in ("streamable-http", "stdio"):
+            raise ValueError(f"transport: expected streamable-http, http or stdio, got {value!r}")
+        return transport
 
     @field_validator("report_language")
     @classmethod

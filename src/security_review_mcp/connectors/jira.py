@@ -31,7 +31,7 @@ def wiki_description(content: FindingContent) -> str:
     for title, text in content.sections:
         lines += ["", f"*{title}*", "{noformat}", text.replace("{noformat}", "{ noformat}")]
         lines.append("{noformat}")
-    lines += ["", f"Sent by security-review-mcp (finding {content.finding_id})."]
+    lines += ["", f"Sent by Security Review (finding {content.finding_id})."]
     description = "\n".join(lines)
     if len(description) > MAX_DESCRIPTION_CHARS:
         description = description[: MAX_DESCRIPTION_CHARS - 20] + "\n[truncated]"

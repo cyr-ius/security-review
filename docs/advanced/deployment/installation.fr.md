@@ -45,6 +45,6 @@ Puis, sur la machine cible (uv est un exécutable unique : copiez-le avec les wh
 explicitement Python 3.14 :
 
 ```bash
-uv venv --python 3.14 /opt/security-review-mcp/venv
-uv pip install --python /opt/security-review-mcp/venv --no-index --find-links wheels security-review
+uv venv --python 3.14 /opt/secreview/venv
+uv pip install --python /opt/secreview/venv --no-index --find-links wheels security-review
 ```

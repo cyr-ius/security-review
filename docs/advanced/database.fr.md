@@ -123,7 +123,7 @@ docker compose down
 # 2. Vérifier l'export (il liste les tables), puis recréer le volume : l'export est désormais
 #    la seule copie des données
 docker compose run --rm -T --no-deps --entrypoint pg_restore db --list < ~/secreview.dump | grep 'TABLE DATA'
-docker volume rm security-review-mcp_secreview-pg
+docker volume rm security-review_secreview-pg
 
 # 3. Avec le fichier Compose actuel (postgres:18-alpine, montage sur /var/lib/postgresql)
 docker compose up -d db
