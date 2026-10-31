@@ -82,6 +82,7 @@ def _normalize_result(item: dict[str, Any]) -> tuple[str, dict[str, Any]] | None
         end_line = line
     return path, {
         "title": message[:200],
+        "description": message,
         "severity": severity,
         "rule_id": f"OPENGREP:{check_id}"[:60],
         "cwe": _cwe(metadata),
@@ -153,7 +154,12 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
                 result_path, finding = normalized
                 absolute = Path(result_path)
                 try:
-                    relative_path = absolute.resolve().relative_to(workspace.resolve()).as_posix()
+                    if absolute.is_absolute():
+                        relative_path = absolute.resolve().relative_to(workspace.resolve()).as_posix()
+                    else:
+                        relative_path = _safe_relative_path(result_path).as_posix()
+                        if not workspace.joinpath(*PurePosixPath(relative_path).parts).is_file():
+                            continue
                 except (OSError, ValueError):
                     continue
                 matches.setdefault(relative_path, []).append(finding)
