@@ -20,7 +20,6 @@ import { trend } from './trend';
 import { exports } from './exports';
 import { connectors } from './connectors';
 import { oauth } from './oauth';
-import { opengrepRules } from './opengrep-rules';
 
 /** Messages of every screen; add the catalog of a new screen here. */
 const CATALOGS = [
@@ -45,7 +44,6 @@ const CATALOGS = [
   exports,
   connectors,
   oauth,
-  opengrepRules,
 ] as const;
 
 type KeysOf<C> = C extends { en: Record<infer K, string> } ? K : never;
