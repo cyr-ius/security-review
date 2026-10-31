@@ -1,12 +1,12 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/python
 {
-  "name": "security-review-mcp",
+  "name": "security-review",
   // Development container (app) and its PostgreSQL database (db): see compose.yaml
   "dockerComposeFile": "compose.yaml",
   "service": "app",
   "runServices": ["app", "db"],
-  "workspaceFolder": "/workspaces/security-review-mcp",
+  "workspaceFolder": "/workspaces/security-review",
   "shutdownAction": "stopCompose",
   "features": {
     "ghcr.io/devcontainers-extra/features/prek:1": {},

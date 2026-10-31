@@ -72,6 +72,19 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---------------------------------------------------------------------------
 FROM python:3.14-slim
 
+# Optional OpenGrep binary. Pin an upstream release at build time; the engine stays disabled
+# unless SECREVIEW_OPENGREP_ENABLED=true and an administrator installs a rule pack.
+ARG OPENGREP_VERSION=""
+RUN if [ -n "$OPENGREP_VERSION" ]; then \
+      apt-get update \
+      && apt-get install -y --no-install-recommends ca-certificates curl \
+      && curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh \
+         | bash -s -- -v "$OPENGREP_VERSION" \
+      && install -m 0755 /root/.opengrep/cli/latest/opengrep /usr/local/bin/opengrep \
+      && apt-get purge -y --auto-remove curl \
+      && rm -rf /var/lib/apt/lists/* /root/.opengrep; \
+    fi
+
 LABEL org.opencontainers.image.title="security-review" \
       org.opencontainers.image.description="Security code review: MCP server and controller (REST API, web interface, CI/CD gate)"
 

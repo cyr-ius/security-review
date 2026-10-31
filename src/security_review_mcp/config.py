@@ -451,6 +451,13 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
+    # Controller only: optional OpenGrep engine for whole-codebase scans. Rules are managed
+    # separately from the built-in TOML rules and are never downloaded implicitly.
+    opengrep_enabled: bool = False
+    opengrep_binary: str = "/usr/local/bin/opengrep"
+    opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
+    opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
+
     @field_validator(
         "proxy",
         "no_proxy",
