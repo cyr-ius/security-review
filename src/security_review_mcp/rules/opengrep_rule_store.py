@@ -90,12 +90,14 @@ def list_rules() -> list[dict[str, str]]:
             continue
         try:
             stat = path.stat()
-            result.append({
-                "id": path.stem,
-                "content": path.read_text(encoding="utf-8"),
-                "updated_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
-            })
-        except (OSError, UnicodeError):
+            result.append(
+                {
+                    "id": path.stem,
+                    "content": path.read_text(encoding="utf-8"),
+                    "updated_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
+                }
+            )
+        except OSError, UnicodeError:
             logger.warning("Could not read OpenGrep rule file %s", path.name)
     return result
 
@@ -128,7 +130,11 @@ def save_rule(rule_id: str, content: str, *, create: bool) -> dict[str, str]:
     temporary_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=path.parent, prefix=".opengrep-", suffix=".tmp",
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=".opengrep-",
+            suffix=".tmp",
             delete=False,
         ) as temporary:
             temporary.write(content)

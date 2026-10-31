@@ -1,4 +1,5 @@
 """REST API for administrator-managed OpenGrep YAML rules."""
+
 import logging
 from typing import Annotated
 
@@ -16,12 +17,14 @@ RuleId = Annotated[str, Path(min_length=3, max_length=80, pattern=r"^[a-zA-Z0-9]
 
 class RuleWrite(BaseModel):
     """One YAML rule file submitted by an administrator."""
+
     id: str = Field(min_length=3, max_length=80, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]+$")
     content: str = Field(min_length=1, max_length=262144)
 
 
 class RuleFile(BaseModel):
     """A stored YAML rule file."""
+
     id: str
     content: str
     updated_at: str
@@ -29,11 +32,13 @@ class RuleFile(BaseModel):
 
 class RuleCatalog(BaseModel):
     """The YAML rules available to OpenGrep."""
+
     rules: list[RuleFile]
 
 
 class RuleValidation(BaseModel):
     """Validation result from the OpenGrep CLI."""
+
     valid: bool
     message: str
 
