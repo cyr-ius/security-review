@@ -161,14 +161,14 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
                 absolute = Path(result_path)
                 try:
                     if absolute.is_absolute():
-                        relative_path = absolute.resolve().relative_to(
-                            workspace.resolve()
-                        ).as_posix()
+                        relative_path = (
+                            absolute.resolve().relative_to(workspace.resolve()).as_posix()
+                        )
                     else:
                         relative_path = _safe_relative_path(result_path).as_posix()
                         if not workspace.joinpath(*PurePosixPath(relative_path).parts).is_file():
                             continue
-                except (OSError, ValueError):
+                except OSError, ValueError:
                     continue
                 matches.setdefault(relative_path, []).append(finding)
     except (OSError, ValueError) as exc:
