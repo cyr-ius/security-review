@@ -8,8 +8,8 @@ Le serveur Controller lance OpenGrep comme second moteur d'analyse statique lors
 
 L'[image `-opengrep`](../../advanced/deployment/docker.md#images-publiees) (`latest-opengrep`,
 `X.Y.Z-opengrep`) contient une version épinglée d'OpenGrep dans `/usr/local/bin/opengrep`, vérifiée par son
-empreinte SHA-256 à la construction (cible `opengrep` du `Dockerfile`) : utilisez-la pour le serveur
-Controller. L'image par défaut ne contient pas OpenGrep et définit `SECREVIEW_OPENGREP_ENABLED=false`. Avec une installation du paquet
+empreinte SHA-256 à la construction (cible `opengrep` du `Dockerfile`) et décompactée à ce moment, en
+lecture seule, pour qu'un scan ne l'extraie jamais : utilisez-la pour le serveur Controller. L'image par défaut ne contient pas OpenGrep et définit `SECREVIEW_OPENGREP_ENABLED=false`. Avec une installation du paquet
 PyPI, installez OpenGrep vous-même et définissez `SECREVIEW_OPENGREP_BINARY` s'il n'est pas dans
 `/usr/local/bin`.
 

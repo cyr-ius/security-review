@@ -12,7 +12,7 @@ docker pull ghcr.io/cyr-ius/security-review:latest   # or docker.io/cyrius44/sec
 | Tag | Content |
 |---|---|
 | `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (the latest stable version for `latest`) |
-| `X.Y.Z-opengrep`, `X.Y-opengrep`, `X-opengrep`, `latest-opengrep` | Same version with the [OpenGrep engine](../../review/analysis/opengrep.md) (about 400 MB more) |
+| `X.Y.Z-opengrep`, `X.Y-opengrep`, `X-opengrep`, `latest-opengrep` | Same version with the [OpenGrep engine](../../review/analysis/opengrep.md) (about 250 MB more) |
 | `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Deprecated: aliases of the same image, kept until the next major version (former PostgreSQL variant) |
 | `X.Y.ZrcN` (`a`, `b`, `rc`) | Pre-release: applies only to this specific tag; never used for `latest` |
 

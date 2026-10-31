@@ -84,16 +84,20 @@ FROM scratch AS opengrep-arm64
 ADD --checksum=sha256:2b713a29a00237f85408b83002fc111db5b94c7fa8d263f0a93184a960655d9d --chmod=0755 \
     https://github.com/opengrep/opengrep/releases/download/v1.31.0/opengrep_manylinux_aarch64 /opengrep
 
-# Only the stage of the target architecture is built. OpenGrep extracts its bundle (~250 MB) in
-# $XDG_CACHE_HOME at its first run: extracted once here, read-only, so that a scan neither
-# extracts it again nor can alter it. A separate stage: the layer copied from it into the image
-# does not change with the application, registries reuse it from one version to the next.
+# Only the stage of the target architecture is built. The release binary is a self-extracting
+# launcher (~46 MB) that unpacks its bundle (~250 MB) in $XDG_CACHE_HOME at its first run:
+# extracted once here, read-only, so that a scan neither extracts it again nor can alter it.
+# Only the bundle goes into the image, its opengrep.bin runs without the launcher. A separate
+# stage: the layer copied from it into the image does not change with the application,
+# registries reuse it from one version to the next.
 FROM opengrep-${TARGETARCH} AS opengrep-binary
 
 FROM python:3.14-slim AS opengrep-bundle
-COPY --from=opengrep-binary /opengrep /usr/local/bin/opengrep
-RUN XDG_CACHE_HOME=/opt/opengrep/cache HOME=/tmp opengrep --version \
-    && chmod -R a-w,a+rX /opt/opengrep
+COPY --from=opengrep-binary /opengrep /tmp/opengrep
+RUN XDG_CACHE_HOME=/tmp/cache HOME=/tmp /tmp/opengrep --version \
+    && mv /tmp/cache/opengrep/v* /opt/opengrep \
+    && chmod -R a-w,a+rX /opt/opengrep \
+    && /opt/opengrep/opengrep.bin --version
 
 # ---------------------------------------------------------------------------
 # Runtime stage: no build tools, no sources, non-root user
@@ -150,15 +154,16 @@ ENTRYPOINT ["docker-entrypoint"]
 CMD ["mcp"]
 
 # ---------------------------------------------------------------------------
-# Image with the OpenGrep engine of the controller (target "opengrep", "-opengrep" tags): binary
-# and extracted bundle owned by root, read-only
+# Image with the OpenGrep engine of the controller (target "opengrep", "-opengrep" tags):
+# extracted bundle owned by root, read-only, linked as /usr/local/bin/opengrep
 # ---------------------------------------------------------------------------
 FROM runtime AS opengrep
 
-COPY --from=opengrep-bundle /usr/local/bin/opengrep /usr/local/bin/opengrep
 COPY --from=opengrep-bundle /opt/opengrep /opt/opengrep
-ENV XDG_CACHE_HOME=/opt/opengrep/cache \
-    SECREVIEW_OPENGREP_ENABLED=true
+USER root
+RUN ln -s /opt/opengrep/opengrep.bin /usr/local/bin/opengrep
+USER secreview
+ENV SECREVIEW_OPENGREP_ENABLED=true
 
 # ---------------------------------------------------------------------------
 # Default image (last stage): without OpenGrep

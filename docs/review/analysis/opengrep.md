@@ -8,8 +8,8 @@ unchanged. Fragment scans (`scan_code`) do not start an external process.
 
 The [`-opengrep` image](../../advanced/deployment/docker.md#published-images) (`latest-opengrep`,
 `X.Y.Z-opengrep`) ships a pinned OpenGrep release in `/usr/local/bin/opengrep`, checked against its
-SHA-256 digest at build time (`opengrep` target of the `Dockerfile`): use it for the Controller
-server. The default image does not contain OpenGrep and sets `SECREVIEW_OPENGREP_ENABLED=false`. With an installation from
+SHA-256 digest at build time (`opengrep` target of the `Dockerfile`) and unpacked there, read-only,
+so that a scan never extracts it: use it for the Controller server. The default image does not contain OpenGrep and sets `SECREVIEW_OPENGREP_ENABLED=false`. With an installation from
 the PyPI package, install OpenGrep yourself and set `SECREVIEW_OPENGREP_BINARY` if it is not in
 `/usr/local/bin`.
 

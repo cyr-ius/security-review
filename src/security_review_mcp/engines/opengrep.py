@@ -47,8 +47,9 @@ class OpenGrepBusyError(OpenGrepError):
 def subprocess_env(home: str) -> dict[str, str]:
     """Minimal environment of an OpenGrep process, with a private ``HOME``.
 
-    ``XDG_CACHE_HOME`` is kept: OpenGrep extracts its bundle there, once (read-only copy
-    extracted when the Docker image is built), instead of at every run in ``HOME``.
+    ``XDG_CACHE_HOME`` is kept: the self-extracting release binary unpacks its bundle there,
+    once, instead of at every run in ``HOME`` (the Docker image runs the bundle extracted at
+    build time, without the launcher).
     """
     env = {
         "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
