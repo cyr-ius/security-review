@@ -164,7 +164,5 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
                     continue
                 matches.setdefault(relative_path, []).append(finding)
     except (OSError, ValueError) as exc:
-        if isinstance(exc, OpenGrepError):
-            raise
         raise OpenGrepError("Could not prepare the OpenGrep scan workspace") from exc
     return matches
