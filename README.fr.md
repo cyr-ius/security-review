@@ -16,8 +16,9 @@
 [documentation::badge]: https://img.shields.io/badge/Documentation-MkDocs-green?logo=materialformkdocs
 [documentation::web]: https://cyr-ius.github.io/security-review/fr/
 
-Serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises configurations),
-utilisable depuis VS Code / Copilot, Claude ou un agent CI/CD. Il fournit des prompts de revue,
+**Serveur MCP de revue de code sécurité assistée par l'IA** : votre assistant IA (VS Code /
+Copilot, Claude) ou un agent CI/CD relit le code pour détecter les failles et les mauvaises
+configurations. Il fournit des prompts de revue,
 des checklists, un scan par motifs avec des analyses Tree-sitter ciblées des flux requête vers SQL (Python, Java, Go, C#, Rust, Node.js), DOM Angular et origines de messages non vérifiées,
 une analyse de dépendances hors ligne et une base de rapports (SQLite ou PostgreSQL) exploitable
 en pipeline.

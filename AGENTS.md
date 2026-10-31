@@ -378,6 +378,8 @@ essentielles.
   `settings.controllerUrlTitle`...) ne changent pas, ni les noms des configurations de
   `.vscode/launch.json`.
 - Le produit s'appelle **Security Review** dans le texte (doc, README, interface, messages) et
+  se présente d'abord comme un **serveur MCP de revue de code sécurité assistée par l'IA**
+  (« MCP server for AI-assisted security code review ») ; il s'appelle
   `secreview` quand il faut un nom court technique (labels, répertoires, `User-Agent`). Les noms
   des commandes (`security-review-mcp`, `security-review-controller`, `security-review-ci`), du
   paquet Python `security_review_mcp`, de l'image `security-review` et du projet Compose ne

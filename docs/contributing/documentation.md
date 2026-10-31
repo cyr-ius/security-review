@@ -42,7 +42,8 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
   server** in English and **serveur Controller** in French: "Controller" keeps its English form
   and its capital C, and is never used alone. Commands, file names and identifiers
   (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`) are unchanged.
-- The product is named **Security Review** in the text, and `secreview` where a short technical
+- The product is named **Security Review** in the text, presented first as the **MCP server
+  for AI-assisted security code review**, and `secreview` where a short technical
   name is needed (labels, directories). Commands (`security-review-mcp`,
   `security-review-controller`, `security-review-ci`) and the image `security-review` keep
   their names.

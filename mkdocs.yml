@@ -1,5 +1,5 @@
 site_name: Security Review
-site_description: MCP server for security-oriented code review
+site_description: MCP server for AI-assisted security code review
 site_url: https://cyr-ius.github.io/security-review/
 repo_url: https://github.com/cyr-ius/security-review
 repo_name: cyr-ius/security-review
@@ -49,7 +49,7 @@ plugins:
         - locale: fr
           name: Français
           build: true
-          site_description: Serveur MCP pour la revue de code orientée sécurité
+          site_description: Serveur MCP de revue de code sécurité assistée par l'IA
           theme:
             palette:
               - media: "(prefers-color-scheme: light)"

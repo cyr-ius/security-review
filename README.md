@@ -16,8 +16,8 @@
 [documentation::badge]: https://img.shields.io/badge/Documentation-MkDocs-green?logo=materialformkdocs
 [documentation::web]: https://cyr-ius.github.io/security-review/
 
-MCP server for **security-oriented code review** (vulnerabilities and misconfigurations), usable
-from VS Code / Copilot, Claude or a CI/CD agent. It provides review prompts, checklists, a
+**MCP server for AI-assisted security code review**: your AI assistant (VS Code / Copilot,
+Claude) or a CI/CD agent reviews the code for vulnerabilities and misconfigurations. It provides review prompts, checklists, a
 pattern scan with focused Tree-sitter checks for request-to-SQL flows (Python, Java, Go, C#, Rust, Node.js), Angular DOM flows and unchecked message origins, an offline dependency analysis
 and a report database (SQLite or PostgreSQL) usable in pipelines.
 

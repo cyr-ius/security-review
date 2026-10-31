@@ -1,8 +1,10 @@
 # Security Review
 
-**Security Review fait des assistants IA de vos développeurs des relecteurs sécurité qui
+**Le serveur MCP de revue de code sécurité assistée par l'IA.**
+
+Security Review fait des assistants IA de vos développeurs des relecteurs sécurité qui
 appliquent vos règles, et donne à votre équipe sécurité une vue centrale de tout ce qu'ils
-trouvent.**
+trouvent.
 
 Vos équipes écrivent déjà du code avec des assistants IA (GitHub Copilot, Claude, Cursor...).
 Security Review se branche sur ces assistants par **MCP** (Model Context Protocol, le standard
