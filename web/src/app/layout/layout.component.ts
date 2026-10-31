@@ -86,6 +86,7 @@ export class LayoutComponent {
   /** What the reviews rely on: scan rules, checklists and development standards. */
   private readonly referenceItems: readonly NavItem[] = [
     { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.read' },
+    { path: '/opengrep-rules', label: 'layout.opengrepRules', icon: 'bi-filetype-yml', permission: 'rules.read' },
     {
       path: '/checklists',
       label: 'layout.checklists',

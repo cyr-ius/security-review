@@ -102,15 +102,6 @@ export const routes: Routes = [
           import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
       },
       {
-        path: 'opengrep-rules',
-        title: 'opengrepRules.title',
-        canActivate: [permissionGuard('rules.read')],
-        loadComponent: () =>
-          import('./features/opengrep-rules/opengrep-rule-list.component').then(
-            (m) => m.OpenGrepRuleListComponent,
-          ),
-      },
-      {
         path: 'checklists',
         title: 'layout.checklists',
         canActivate: [permissionGuard('rules.read')],
