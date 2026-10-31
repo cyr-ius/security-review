@@ -15,7 +15,10 @@ from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 RULE_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{2,79}$")
-YAML_RULE_ID = re.compile(r"(?m)^\s*-\s*id:\s*['\"]?([a-zA-Z0-9][a-zA-Z0-9._-]{2,79})['\"]?\s*$")
+# Blanks limited to the current line: \s would also match newlines, in quadratic time (ReDoS)
+YAML_RULE_ID = re.compile(
+    r"(?m)^[ \t]*-[ \t]*id:[ \t]*['\"]?([a-zA-Z0-9][a-zA-Z0-9._-]{2,79})['\"]?[ \t]*$"
+)
 MAX_RULE_CHARS = 262_144
 
 

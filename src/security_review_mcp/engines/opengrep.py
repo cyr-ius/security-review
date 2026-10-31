@@ -10,8 +10,12 @@ import logging
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -27,10 +31,62 @@ _SEVERITY = {
     "INVENTORY": "info",
 }
 _CWE = re.compile(r"CWE-?([0-9]+)", re.IGNORECASE)
+# Scans running in this process, bounded by SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS
+_running = 0
+_running_lock = threading.Lock()
 
 
 class OpenGrepError(RuntimeError):
     """OpenGrep could not complete a scan or returned invalid output."""
+
+
+class OpenGrepBusyError(OpenGrepError):
+    """Every OpenGrep scan slot is taken: the caller should retry later."""
+
+
+@contextmanager
+def _scan_slot(limit: int) -> Iterator[None]:
+    """Hold one of the ``limit`` scan slots, refusing the scan when none is free."""
+    global _running
+    with _running_lock:
+        if _running >= limit:
+            raise OpenGrepBusyError("OpenGrep is busy with other scans; retry later")
+        _running += 1
+    try:
+        yield
+    finally:
+        with _running_lock:
+            _running -= 1
+
+
+def _run(
+    command: list[str], *, cwd: Path, env: dict[str, str], timeout: int
+) -> subprocess.CompletedProcess[str]:
+    """Run OpenGrep in its own process group, killing the whole group on timeout.
+
+    OpenGrep forks workers (``--jobs``): killing only the main process would leave them running.
+    """
+    with subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        start_new_session=True,
+    ) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # The group may already be gone if OpenGrep ended right at the deadline
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate()
+            raise
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
 def _safe_relative_path(value: str) -> PurePosixPath:
@@ -113,7 +169,10 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
 
     matches: dict[str, list[dict[str, Any]]] = {}
     try:
-        with tempfile.TemporaryDirectory(prefix="secreview-opengrep-") as temporary:
+        with (
+            _scan_slot(settings.opengrep_max_concurrent_scans),
+            tempfile.TemporaryDirectory(prefix="secreview-opengrep-") as temporary,
+        ):
             workspace = Path(temporary) / "source"
             workspace.mkdir(mode=0o700)
             for name, content in files:
@@ -121,18 +180,23 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
                 destination = workspace.joinpath(*relative.parts)
                 destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
                 destination.write_text(content, encoding="utf-8", errors="replace")
-            command = [binary, "scan", "--json", "--config", str(rules_dir), str(workspace)]
+            command = [
+                binary,
+                "scan",
+                "--json",
+                "--config",
+                str(rules_dir),
+                "--jobs",
+                str(settings.opengrep_jobs),
+                "--max-memory",
+                str(settings.opengrep_max_memory_mb),
+                str(workspace),
+            ]
             try:
-                process = subprocess.run(
+                process = _run(
                     command,
                     cwd=workspace,
-                    stdin=subprocess.DEVNULL,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
                     timeout=settings.opengrep_timeout_seconds,
-                    check=False,
                     env={
                         "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
                         "HOME": temporary,

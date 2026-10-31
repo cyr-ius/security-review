@@ -457,6 +457,10 @@ class Settings(BaseSettings):
     opengrep_binary: str = "/usr/local/bin/opengrep"
     opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
     opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
+    # Scans run at the same time (503 beyond), cores and memory (MiB, 0: no limit) of one scan
+    opengrep_max_concurrent_scans: int = Field(default=1, ge=1, le=64)
+    opengrep_jobs: int = Field(default=2, ge=1, le=256)
+    opengrep_max_memory_mb: int = Field(default=2048, ge=0)
 
     @field_validator(
         "proxy",

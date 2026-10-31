@@ -56,6 +56,9 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
         opengrep_binary=str(binary),
         opengrep_rules_dir=str(rules),
         opengrep_timeout_seconds=15,
+        opengrep_max_concurrent_scans=1,
+        opengrep_jobs=2,
+        opengrep_max_memory_mb=512,
         max_scan_file_chars=1000,
     )
     monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
@@ -65,6 +68,7 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
         workspace = Path(kwargs["cwd"])
         assert (workspace / "app.py").is_file()
         assert command[1:4] == ["scan", "--json", "--config"]
+        assert command[5:9] == ["--jobs", "2", "--max-memory", "512"]
         payload = {
             "results": [
                 {
@@ -83,13 +87,13 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
         }
         return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
 
-    monkeypatch.setattr(opengrep.subprocess, "run", fake_run)
+    monkeypatch.setattr(opengrep, "_run", fake_run)
     result = opengrep.scan_files([("app.py", "print('ok')\nrun(command)\n")])
     assert result["app.py"][0]["rule_id"] == "OPENGREP:python.security.demo"
     assert result["app.py"][0]["severity"] == "medium"
 
 
-def test_scan_files_rejects_nonzero_exit(tmp_path, monkeypatch):
+def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
     binary = tmp_path / "opengrep"
     binary.touch()
     rules = tmp_path / "rules"
@@ -100,14 +104,24 @@ def test_scan_files_rejects_nonzero_exit(tmp_path, monkeypatch):
         opengrep_binary=str(binary),
         opengrep_rules_dir=str(rules),
         opengrep_timeout_seconds=1,
+        opengrep_max_concurrent_scans=1,
+        opengrep_jobs=1,
+        opengrep_max_memory_mb=0,
     )
     monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
     monkeypatch.setattr(opengrep.shutil, "which", lambda _: str(binary))
     monkeypatch.setattr(
-        opengrep.subprocess,
-        "run",
+        opengrep,
+        "_run",
         lambda *args, **kwargs: SimpleNamespace(returncode=2, stdout="", stderr="secret details"),
     )
+    with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
+        opengrep.scan_files([("app.py", "print('ok')")])
+
+    # Every slot taken: the scan is refused before writing the sources, and the slot is free again
+    # once the running scan ends
+    with opengrep._scan_slot(1), pytest.raises(opengrep.OpenGrepBusyError, match="busy"):
+        opengrep.scan_files([("app.py", "print('ok')")])
     with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
         opengrep.scan_files([("app.py", "print('ok')")])
 

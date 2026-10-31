@@ -177,6 +177,20 @@ Read by `security-review-controller` only.
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Maximum number of files of a scan request (`422` beyond) |
 | `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Size beyond which a file sent by `scan-code` is not scanned (listed as skipped) |
 
+### OpenGrep engine
+
+Optional engine of the Controller server for `scan-code`, see [OpenGrep](../review/analysis/opengrep.md).
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Also run OpenGrep on the files of `scan-code` |
+| `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
+| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory of the OpenGrep YAML rules |
+| `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one scan (1 to 7200) |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans running at the same time in one Controller server process (`503` beyond) |
+| `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one scan |
+| `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one scan (`0`: no limit) |
+
 ## Clients
 
 Read by the pipeline client `security-review-ci` (`SECREVIEW_CI_TOKEN` never by the servers).

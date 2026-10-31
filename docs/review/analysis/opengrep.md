@@ -25,6 +25,9 @@ Set the following controller environment variables:
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory containing OpenGrep YAML rule packs |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one OpenGrep scan |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | OpenGrep scans running at the same time in one Controller server process; a scan beyond is refused with `503` and `Retry-After` |
+| `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one OpenGrep scan (`--jobs`) |
+| `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one OpenGrep scan (`--max-memory`, `0`: no limit) |
 
 Install rule packs in the configured directory, for example by mounting an administrator-managed
 directory at `/var/lib/secreview/rules/opengrep`. Rule packs are deliberately not downloaded
@@ -41,8 +44,12 @@ same report and SARIF export as built-in findings. OpenGrep rule IDs are prefixe
 
 - Run the controller as the existing unprivileged `secreview` user.
 - Keep rule packs administrator-controlled; treat rule updates as security-sensitive changes.
-- Use container-level CPU, memory and process limits for the controller. The scan timeout is
-  enforced by the adapter; it is not a substitute for container resource limits.
+- Use container-level CPU, memory and process limits for the controller. The scan timeout, the
+  number of concurrent scans and the cores and memory of a scan are enforced by the adapter (on
+  timeout, OpenGrep and its workers are killed); they are not a substitute for container
+  resource limits.
+- If OpenGrep is busy with other scans or unavailable, `scan-code` gets a `503` answer: retry
+  later.
 - Do not mount application secrets or unrelated host paths into the scan workspace.
 - The controller does not execute scanned source files. It does write the received source payload
   to a temporary directory for OpenGrep to read.

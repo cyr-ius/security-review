@@ -65,3 +65,9 @@ def test_reject_invalid_rule(configured_store, monkeypatch):
     )
     with pytest.raises(ValueError, match="invalid pattern"):
         opengrep_rule_store.validate_rule("python.test.safe-eval", RULE)
+
+
+def test_rule_id_check_is_linear_on_blank_lines(configured_store):
+    # Regression: the former pattern (\s* spanning lines) took minutes on this input (ReDoS)
+    with pytest.raises(ValueError, match="one rule"):
+        opengrep_rule_store.validate_rule("python.test.safe-eval", "\n" * 262_000 + "x")

@@ -25,6 +25,9 @@ Configurez les variables d'environnement suivantes sur le Controller :
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Chemin de l'exécutable OpenGrep |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des packs de règles YAML |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan OpenGrep |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans OpenGrep simultanés dans un processus du serveur Controller ; un scan au-delà est refusé avec `503` et `Retry-After` |
+| `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan OpenGrep (`--jobs`) |
+| `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
 
 Installez les packs de règles dans le répertoire configuré, par exemple en montant un répertoire administré
 sur `/var/lib/secreview/rules/opengrep`. Les règles ne sont ni téléchargées automatiquement ni intégrées
@@ -40,8 +43,12 @@ SARIF que les résultats du scanner natif. Les identifiants des règles OpenGrep
 
 - Exécutez le Controller avec l'utilisateur non privilégié `secreview` déjà utilisé par l'image.
 - Réservez la gestion des packs de règles aux administrateurs ; leur mise à jour est une opération sensible.
-- Appliquez des limites CPU, mémoire et processus au conteneur. Le délai maximal est appliqué par l'adaptateur,
-  mais ne remplace pas les limites de ressources du conteneur.
+- Appliquez des limites CPU, mémoire et processus au conteneur. Le délai maximal, le nombre de scans
+  simultanés, ainsi que les cœurs et la mémoire d'un scan sont appliqués par l'adaptateur (à l'expiration du
+  délai, OpenGrep et ses processus de travail sont arrêtés), mais ne remplacent pas les limites de ressources
+  du conteneur.
+- Si OpenGrep est occupé par d'autres scans ou indisponible, `scan-code` reçoit une réponse `503` :
+  relancez plus tard.
 - Ne montez aucun secret applicatif ni chemin hôte sans rapport avec le scan dans l'espace de travail.
 - Le Controller n'exécute pas les sources analysées. Il écrit toutefois les contenus reçus dans un répertoire
   temporaire afin qu'OpenGrep puisse les lire.
