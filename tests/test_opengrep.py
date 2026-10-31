@@ -112,7 +112,6 @@ def test_scan_files_rejects_nonzero_exit(tmp_path, monkeypatch):
         opengrep.scan_files([("app.py", "print('ok')")])
 
 
-
 def test_codebase_scan_merges_opengrep_findings(monkeypatch):
     settings = SimpleNamespace(
         opengrep_enabled=True,
