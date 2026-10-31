@@ -12,10 +12,11 @@ services:
     # Keep the container running: VS Code attaches to it
     command: sleep infinity
     volumes:
-      - ..:/workspaces/security-review-mcp:cached
+      - ..:/workspaces/security-review:cached
       - ${HOME}/.claude:/home/vscode/.claude:cached
     environment:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview # secreview:ignore GEN-007 local dev database
+      SECREVIEW_OPENGREP_RULES_DIR: /workspaces/security-review/.venv/var/lib/secreview/rules/opengrep
     depends_on:
       db:
         condition: service_healthy
