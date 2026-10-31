@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ..config import get_settings
@@ -93,7 +93,7 @@ def list_rules() -> list[dict[str, str]]:
             result.append({
                 "id": path.stem,
                 "content": path.read_text(encoding="utf-8"),
-                "updated_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+                "updated_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
             })
         except (OSError, UnicodeError):
             logger.warning("Could not read OpenGrep rule file %s", path.name)
