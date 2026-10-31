@@ -107,7 +107,7 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
     binary = shutil.which(settings.opengrep_binary)
     if not binary or not Path(binary).is_file():
         raise OpenGrepError("OpenGrep is enabled but its executable is unavailable")
-    rules_dir = Path(settings.opengrep_rules_dir)
+    rules_dir = Path(settings.opengrep_rules_dir).resolve()
     if not rules_dir.is_dir() or not any(rules_dir.rglob("*.y*ml")):
         raise OpenGrepError("OpenGrep is enabled but no YAML rules are installed")
 
