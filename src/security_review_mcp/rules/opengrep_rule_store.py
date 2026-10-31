@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..config import get_settings
+from ..engines.opengrep import subprocess_env
 
 logger = logging.getLogger(__name__)
 RULE_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{2,79}$")
@@ -68,11 +69,7 @@ def validate_rule(rule_id: str, content: str) -> str:
                 errors="replace",
                 timeout=get_settings().opengrep_timeout_seconds,
                 check=False,
-                env={
-                    "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
-                    "HOME": temporary,
-                    "NO_COLOR": "1",
-                },
+                env=subprocess_env(temporary),
             )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError("OpenGrep rule validation exceeded its time limit") from exc

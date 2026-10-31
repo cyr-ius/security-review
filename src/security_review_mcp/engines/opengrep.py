@@ -44,6 +44,22 @@ class OpenGrepBusyError(OpenGrepError):
     """Every OpenGrep scan slot is taken: the caller should retry later."""
 
 
+def subprocess_env(home: str) -> dict[str, str]:
+    """Minimal environment of an OpenGrep process, with a private ``HOME``.
+
+    ``XDG_CACHE_HOME`` is kept: OpenGrep extracts its bundle there, once (read-only copy
+    extracted when the Docker image is built), instead of at every run in ``HOME``.
+    """
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+        "HOME": home,
+        "NO_COLOR": "1",
+    }
+    if cache := os.environ.get("XDG_CACHE_HOME"):
+        env["XDG_CACHE_HOME"] = cache
+    return env
+
+
 @contextmanager
 def _scan_slot(limit: int) -> Iterator[None]:
     """Hold one of the ``limit`` scan slots, refusing the scan when none is free."""
@@ -154,18 +170,21 @@ def _normalize_result(item: dict[str, Any]) -> tuple[str, dict[str, Any]] | None
 def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
     """Run OpenGrep on bounded source files and return matches indexed by relative path.
 
+    Without any YAML rule installed there is nothing to run: the engine is skipped, so that it
+    can be enabled by default before an administrator adds rules.
+
     Raises:
-        OpenGrepError: If enabled but the executable, rules or scan output are unavailable.
+        OpenGrepError: If rules are installed but the executable or scan output is unavailable.
     """
     settings = get_settings()
     if not settings.opengrep_enabled:
         return {}
-    binary = shutil.which(settings.opengrep_binary)
-    if not binary or not Path(binary).is_file():
-        raise OpenGrepError("OpenGrep is enabled but its executable is unavailable")
     rules_dir = Path(settings.opengrep_rules_dir).resolve()
     if not rules_dir.is_dir() or not any(rules_dir.rglob("*.y*ml")):
-        raise OpenGrepError("OpenGrep is enabled but no YAML rules are installed")
+        return {}
+    binary = shutil.which(settings.opengrep_binary)
+    if not binary or not Path(binary).is_file():
+        raise OpenGrepError("OpenGrep rules are installed but its executable is unavailable")
 
     matches: dict[str, list[dict[str, Any]]] = {}
     try:
@@ -197,11 +216,7 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
                     command,
                     cwd=workspace,
                     timeout=settings.opengrep_timeout_seconds,
-                    env={
-                        "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
-                        "HOME": temporary,
-                        "NO_COLOR": "1",
-                    },
+                    env=subprocess_env(temporary),
                 )
             except subprocess.TimeoutExpired as exc:
                 raise OpenGrepError("OpenGrep scan exceeded its configured time limit") from exc

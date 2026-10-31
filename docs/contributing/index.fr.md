@@ -52,8 +52,8 @@ ports 8000 (serveur MCP), 8080 (serveur Controller), 4200 (serveur de dev Angula
 
 Il installe aussi une version épinglée d'[OpenGrep](../review/analysis/opengrep.md) dans
 `/usr/local/bin/opengrep` (`.devcontainer/install-opengrep.sh`, qui vérifie son empreinte SHA-256)
-et active le moteur (`SECREVIEW_OPENGREP_ENABLED=true`) : ajoutez au moins une règle dans la page
-**Règles OpenGrep** du serveur Controller avant de lancer un scan de code, sinon le scan échoue.
+(la version de l'image Docker `-opengrep`) : le moteur, activé par défaut, s'exécute dès qu'une règle est ajoutée dans
+la page **Règles OpenGrep** du serveur Controller.
 
 ```bash
 psql -h db -U secreview secreview                     # mot de passe : secreview

@@ -1,27 +1,27 @@
 # Moteur OpenGrep
 
-Le Controller peut lancer OpenGrep comme second moteur d'analyse statique lors d'un scan de code complet
+Le serveur Controller lance OpenGrep comme second moteur d'analyse statique lors d'un scan de code complet
 (`security-review-ci scan-code`). Le scanner intégré reste actif et inchangé. Les scans de fragments
 (`scan_code`) ne lancent aucun processus externe.
 
-## Construction de l'image
+## Image Docker
 
-OpenGrep est optionnel dans l'image Docker. Construisez l'image avec une version amont explicitement épinglée :
+L'[image `-opengrep`](../../advanced/deployment/docker.md#images-publiees) (`latest-opengrep`,
+`X.Y.Z-opengrep`) contient une version épinglée d'OpenGrep dans `/usr/local/bin/opengrep`, vérifiée par son
+empreinte SHA-256 à la construction (cible `opengrep` du `Dockerfile`) : utilisez-la pour le serveur
+Controller. L'image par défaut ne contient pas OpenGrep et définit `SECREVIEW_OPENGREP_ENABLED=false`. Avec une installation du paquet
+PyPI, installez OpenGrep vous-même et définissez `SECREVIEW_OPENGREP_BINARY` s'il n'est pas dans
+`/usr/local/bin`.
 
-```sh
-docker build --build-arg OPENGREP_VERSION=v1.16.0 -t security-review-mcp .
-```
+## Configuration
 
-Choisissez et validez la version adaptée à votre déploiement. Si l'argument est vide, OpenGrep n'est pas
-installé dans l'image et le moteur reste désactivé.
-
-## Activation
-
-Configurez les variables d'environnement suivantes sur le Controller :
+Le moteur est activé par défaut (sauf dans l'image Docker par défaut, sans OpenGrep), mais il ne s'exécute qu'une fois au moins une règle YAML installée : sans
+règle, `scan-code` n'exécute que le scanner intégré. Définissez `SECREVIEW_OPENGREP_ENABLED=false` pour le
+désactiver. Variables d'environnement du serveur Controller :
 
 | Variable | Valeur par défaut | Description |
 | --- | --- | --- |
-| `SECREVIEW_OPENGREP_ENABLED` | `false` | Active OpenGrep pour les scans de code complet |
+| `SECREVIEW_OPENGREP_ENABLED` | `true` | Active OpenGrep pour les scans de code complet |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Chemin de l'exécutable OpenGrep |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des packs de règles YAML |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan OpenGrep |
@@ -52,7 +52,7 @@ SARIF que les résultats du scanner natif. Les identifiants des règles OpenGrep
 - Ne montez aucun secret applicatif ni chemin hôte sans rapport avec le scan dans l'espace de travail.
 - Le Controller n'exécute pas les sources analysées. Il écrit toutefois les contenus reçus dans un répertoire
   temporaire afin qu'OpenGrep puisse les lire.
-- Si OpenGrep est activé mais que le binaire ou les règles sont absents, ou si le scan échoue, le scan de code
+- Si des règles sont installées mais que le binaire OpenGrep est absent, ou si le scan échoue, le scan de code
   échoue explicitement au lieu de signaler silencieusement un succès limité au scanner natif.
 
 ## Gestion des règles depuis l’interface web

@@ -1,8 +1,10 @@
 name: Docker image
 
 # Builds the image (amd64 and arm64), which holds the PostgreSQL driver: one image for SQLite and
-# PostgreSQL. The "-pg" tags of the former PostgreSQL variant are kept as deprecated aliases of
-# the same image, until the next major version. Every pull request builds and smoke-tests it,
+# PostgreSQL, and its "-opengrep" variant with the OpenGrep engine (target "opengrep", about
+# 400 MB more), and its "-stdio" variant: the MCP server alone in stdio, for the host of a
+# developer (target "stdio", without the web interface nor the PostgreSQL driver). The "-pg" tags of the former PostgreSQL variant are kept as deprecated aliases of
+# the image without OpenGrep, until the next major version. Every pull request builds and smoke-tests it,
 # whatever files it touches: the image holds the whole package, and the protection of master
 # requires the "image" checks. A release (called by publish.yml on a vX.Y.Z tag) or a manual run
 # with "push" publishes it to GitHub Container Registry and Docker Hub.
@@ -55,12 +57,48 @@ jobs:
           cache-from: type=gha,scope=image
           cache-to: type=gha,mode=max,scope=image
 
+      # The OpenGrep stages have their own cache: the default build does not go through them
+      - name: Build the OpenGrep variant for the smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: opengrep
+          platforms: linux/amd64
+          load: true
+          tags: security-review:smoke-test-opengrep
+          cache-from: |
+            type=gha,scope=image
+            type=gha,scope=image-opengrep
+          cache-to: type=gha,mode=max,scope=image-opengrep
+
+      - name: Build the stdio variant for the smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: stdio
+          platforms: linux/amd64
+          load: true
+          tags: security-review:smoke-test-stdio
+          cache-from: |
+            type=gha,scope=image
+            type=gha,scope=image-stdio
+          cache-to: type=gha,mode=max,scope=image-stdio
+
       - name: Smoke test
         run: |
-          docker run --rm security-review:smoke-test --help
-          docker run --rm --entrypoint security-review-controller security-review:smoke-test --help
-          # Runs as the non-root user of the Dockerfile
-          test "$(docker run --rm --entrypoint id security-review:smoke-test -u)" = "10001"
+          for image in security-review:smoke-test security-review:smoke-test-opengrep; do
+            docker run --rm "$image" --help
+            docker run --rm --entrypoint security-review-controller "$image" --help
+            # Runs as the non-root user of the Dockerfile
+            test "$(docker run --rm --entrypoint id "$image" -u)" = "10001"
+          done
+          # OpenGrep in the "-opengrep" variant only
+          docker run --rm -e HOME=/tmp --entrypoint opengrep security-review:smoke-test-opengrep --version
+          test "$(docker run --rm --entrypoint sh security-review:smoke-test \
+            -c 'command -v opengrep || echo absent')" = "absent"
+          # stdio variant: the MCP server alone, as the non-root user
+          docker run --rm security-review:smoke-test-stdio --help
+          test "$(docker run --rm --entrypoint id security-review:smoke-test-stdio -u)" = "10001"
 
   push:
     needs: image
@@ -104,6 +142,48 @@ jobs:
           annotations: |
             org.opencontainers.image.title=security-review
             org.opencontainers.image.description=Security code review: MCP server and controller (REST API, web interface, CI/CD gate)
+
+      # Same tags with "-opengrep" (X.Y.Z-opengrep... latest-opengrep): the image with OpenGrep
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta-opengrep
+        with:
+          images: ${{ steps.names.outputs.images }}
+          tags: |
+            type=pep440,pattern={{version}}
+            type=pep440,pattern={{major}}.{{minor}}
+            type=pep440,pattern={{major}}
+            type=ref,event=branch
+            type=ref,event=pr
+          flavor: |
+            latest=auto
+            suffix=-opengrep,onlatest=true
+          labels: |
+            org.opencontainers.image.title=security-review
+            org.opencontainers.image.description=Security code review: MCP server and controller (REST API, web interface, CI/CD gate), with OpenGrep
+          annotations: |
+            org.opencontainers.image.title=security-review
+            org.opencontainers.image.description=Security code review: MCP server and controller (REST API, web interface, CI/CD gate), with OpenGrep
+
+      # Same tags with "-stdio" (X.Y.Z-stdio... latest-stdio): the MCP server alone in stdio
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta-stdio
+        with:
+          images: ${{ steps.names.outputs.images }}
+          tags: |
+            type=pep440,pattern={{version}}
+            type=pep440,pattern={{major}}.{{minor}}
+            type=pep440,pattern={{major}}
+            type=ref,event=branch
+            type=ref,event=pr
+          flavor: |
+            latest=auto
+            suffix=-stdio,onlatest=true
+          labels: |
+            org.opencontainers.image.title=security-review
+            org.opencontainers.image.description=Security code review: MCP server in stdio for a local host
+          annotations: |
+            org.opencontainers.image.title=security-review
+            org.opencontainers.image.description=Security code review: MCP server in stdio for a local host
 
       # Deprecated aliases (X.Y.Z-pg... latest-pg) of the former PostgreSQL variant
       - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -161,3 +241,37 @@ jobs:
           sbom: true
           cache-from: type=gha,scope=image
           cache-to: type=gha,mode=max,scope=image
+
+      - name: Build and push the OpenGrep variant
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: opengrep
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta-opengrep.outputs.tags }}
+          labels: ${{ steps.meta-opengrep.outputs.labels }}
+          annotations: ${{ steps.meta-opengrep.outputs.annotations }}
+          provenance: mode=max
+          sbom: true
+          cache-from: |
+            type=gha,scope=image
+            type=gha,scope=image-opengrep
+          cache-to: type=gha,mode=max,scope=image-opengrep
+
+      - name: Build and push the stdio variant
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: stdio
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta-stdio.outputs.tags }}
+          labels: ${{ steps.meta-stdio.outputs.labels }}
+          annotations: ${{ steps.meta-stdio.outputs.annotations }}
+          provenance: mode=max
+          sbom: true
+          cache-from: |
+            type=gha,scope=image
+            type=gha,scope=image-stdio
+          cache-to: type=gha,mode=max,scope=image-stdio

@@ -1,27 +1,27 @@
 # OpenGrep engine
 
-The controller can optionally run OpenGrep as a second static-analysis engine during a
+The Controller server runs OpenGrep as a second static-analysis engine during a
 whole-codebase scan (`security-review-ci scan-code`). The built-in scanner remains enabled and
 unchanged. Fragment scans (`scan_code`) do not start an external process.
 
-## Build
+## Docker image
 
-OpenGrep is optional in the Docker image. Build with a pinned upstream release:
+The [`-opengrep` image](../../advanced/deployment/docker.md#published-images) (`latest-opengrep`,
+`X.Y.Z-opengrep`) ships a pinned OpenGrep release in `/usr/local/bin/opengrep`, checked against its
+SHA-256 digest at build time (`opengrep` target of the `Dockerfile`): use it for the Controller
+server. The default image does not contain OpenGrep and sets `SECREVIEW_OPENGREP_ENABLED=false`. With an installation from
+the PyPI package, install OpenGrep yourself and set `SECREVIEW_OPENGREP_BINARY` if it is not in
+`/usr/local/bin`.
 
-```sh
-docker build --build-arg OPENGREP_VERSION=v1.16.0 -t security-review-mcp .
-```
+## Configuration
 
-Choose and validate the release supported by your deployment before building. When the build
-argument is empty, the image does not contain OpenGrep and the optional engine remains disabled.
-
-## Enable
-
-Set the following controller environment variables:
+The engine is enabled by default (except in the default Docker image, without OpenGrep), but it only runs once at least one YAML rule is installed:
+without any rule, `scan-code` runs the built-in scanner only. Set
+`SECREVIEW_OPENGREP_ENABLED=false` to turn it off. Environment variables of the Controller server:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SECREVIEW_OPENGREP_ENABLED` | `false` | Enable OpenGrep for whole-codebase scans |
+| `SECREVIEW_OPENGREP_ENABLED` | `true` | Enable OpenGrep for whole-codebase scans |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory containing OpenGrep YAML rule packs |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one OpenGrep scan |
@@ -53,7 +53,7 @@ same report and SARIF export as built-in findings. OpenGrep rule IDs are prefixe
 - Do not mount application secrets or unrelated host paths into the scan workspace.
 - The controller does not execute scanned source files. It does write the received source payload
   to a temporary directory for OpenGrep to read.
-- If OpenGrep is enabled but the binary or rule pack is missing, or the scan fails, the code scan
+- If rules are installed but the OpenGrep binary is missing, or the scan fails, the code scan
   fails rather than silently reporting a successful built-in-only scan.
 
 ## Managing rules from the web interface

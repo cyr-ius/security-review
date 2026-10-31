@@ -114,7 +114,8 @@ The tag publishes two PyPI distributions at the same version: `security-review` 
 **ci-client** job of `tests.yml` builds it and runs the wheel alone, without the server.
 
 The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
-with the PostgreSQL driver) and checks that both entry points start. On every pull request
+with the PostgreSQL driver) and its `-opengrep` variant with the OpenGrep engine (target
+`opengrep`), and checks that both entry points start. On every pull request
 (the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
 images to `ghcr.io/cyr-ius/security-review` and `docker.io/cyrius44/security-review`
 (see [published images](../advanced/deployment/docker.md#published-images)). A manual run (**Actions →

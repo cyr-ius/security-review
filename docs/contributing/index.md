@@ -52,8 +52,8 @@ forwards ports 8000 (MCP server), 8080 (Controller server), 4200 (Angular dev se
 
 It also installs a pinned [OpenGrep](../review/analysis/opengrep.md) release in
 `/usr/local/bin/opengrep` (`.devcontainer/install-opengrep.sh`, which checks its SHA-256 digest)
-and enables the engine (`SECREVIEW_OPENGREP_ENABLED=true`): add at least one rule on the
-**OpenGrep rules** page of the Controller server before running a code scan, otherwise the scan fails.
+(the release of the `-opengrep` Docker image): the engine, enabled by default, runs once a rule is added on the
+**OpenGrep rules** page of the Controller server.
 
 ```bash
 psql -h db -U secreview secreview                     # password: secreview

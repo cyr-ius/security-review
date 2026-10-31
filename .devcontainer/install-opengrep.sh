@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Installs a pinned OpenGrep release in /usr/local/bin/opengrep (path of SECREVIEW_OPENGREP_BINARY),
-# to try the optional OpenGrep engine of the Controller server. The binary is checked against its
-# SHA-256 digest before installation. To upgrade, change the version and both digests (field
-# "digest" of the release assets on https://api.github.com/repos/opengrep/opengrep/releases).
+# for the OpenGrep engine of the Controller server. The binary is checked against its SHA-256
+# digest before installation. To upgrade, change the version and both digests here and in the
+# Dockerfile (field "digest" of the release assets on
+# https://api.github.com/repos/opengrep/opengrep/releases).
 set -euo pipefail
 
 VERSION="v1.31.0"

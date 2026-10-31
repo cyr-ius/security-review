@@ -81,4 +81,5 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
 }
 ```
 
-Pour lancer le serveur depuis un conteneur, voir [Docker](../advanced/deployment/docker.md).
+Pour lancer le serveur depuis un conteneur, sans installer Python, utilisez l'image `-stdio` : voir
+[Docker : mode local](../advanced/deployment/docker.md#mode-local-stdio).

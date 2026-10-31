@@ -179,11 +179,11 @@ Lues par `security-review-controller` uniquement.
 
 ### Moteur OpenGrep
 
-Moteur facultatif du serveur Controller pour `scan-code`, voir [OpenGrep](../review/analysis/opengrep.md).
+Moteur du serveur Controller pour `scan-code`, activé par défaut et ignoré tant qu'aucune règle n'est installée (binaire fourni dans l'image Docker `-opengrep`, désactivé dans l'image par défaut), voir [OpenGrep](../review/analysis/opengrep.md).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_OPENGREP_ENABLED` | `false` | Lance aussi OpenGrep sur les fichiers de `scan-code` |
+| `SECREVIEW_OPENGREP_ENABLED` | `true` | Lance aussi OpenGrep sur les fichiers de `scan-code` |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Exécutable OpenGrep |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des règles YAML d'OpenGrep |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan (1 à 7200) |

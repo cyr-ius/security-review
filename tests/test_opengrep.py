@@ -6,14 +6,29 @@ from types import SimpleNamespace
 
 import pytest
 
+from security_review_mcp.config import Settings
 from security_review_mcp.engines import opengrep
 from security_review_mcp.rules import codescan
 from security_review_mcp.rules.codescan import SourceFile
 
 
-def test_disabled_engine_does_not_require_binary_or_rules(monkeypatch):
-    monkeypatch.setattr(opengrep, "get_settings", lambda: SimpleNamespace(opengrep_enabled=False))
+def test_engine_enabled_by_default_runs_only_once_rules_are_installed(tmp_path, monkeypatch):
+    # Enabled by default, but skipped without any rule: scan-code works out of the box
+    assert Settings().opengrep_enabled is True
+    rules = tmp_path / "rules"
+    settings = SimpleNamespace(
+        opengrep_enabled=True,
+        opengrep_binary=str(tmp_path / "missing-opengrep"),
+        opengrep_rules_dir=str(rules),
+    )
+    monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
     assert opengrep.scan_files([("app.py", "print('hello')")]) == {}
+
+    # Installed rules without the executable are a misconfiguration, never a silent skip
+    rules.mkdir()
+    (rules / "demo.yaml").write_text("rules: []\n", encoding="utf-8")
+    with pytest.raises(opengrep.OpenGrepError, match="executable is unavailable"):
+        opengrep.scan_files([("app.py", "print('hello')")])
 
 
 def test_safe_relative_path_rejects_traversal():
@@ -63,10 +78,15 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
     )
     monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
     monkeypatch.setattr(opengrep.shutil, "which", lambda _: str(binary))
+    monkeypatch.setenv("XDG_CACHE_HOME", "/opt/opengrep/cache")
+    monkeypatch.setenv("SECREVIEW_DATABASE_URL", "postgresql://user:secret@db/secreview")
 
     def fake_run(command, **kwargs):
         workspace = Path(kwargs["cwd"])
         assert (workspace / "app.py").is_file()
+        # Private HOME and the bundle cache of the image; nothing else of the controller
+        assert set(kwargs["env"]) == {"PATH", "HOME", "NO_COLOR", "XDG_CACHE_HOME"}
+        assert kwargs["env"]["XDG_CACHE_HOME"] == "/opt/opengrep/cache"
         assert command[1:4] == ["scan", "--json", "--config"]
         assert command[5:9] == ["--jobs", "2", "--max-memory", "512"]
         payload = {

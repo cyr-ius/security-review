@@ -12,10 +12,41 @@ docker pull ghcr.io/cyr-ius/security-review:latest   # or docker.io/cyrius44/sec
 | Tag | Content |
 |---|---|
 | `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (the latest stable version for `latest`) |
+| `X.Y.Z-opengrep`, `X.Y-opengrep`, `X-opengrep`, `latest-opengrep` | Same version with the [OpenGrep engine](../../review/analysis/opengrep.md) (about 400 MB more) |
+| `X.Y.Z-stdio`, `X.Y-stdio`, `X-stdio`, `latest-stdio` | Same version, MCP server alone in stdio for the host of a developer (see [Local mode (stdio)](#local-mode-stdio)) |
 | `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Deprecated: aliases of the same image, kept until the next major version (former PostgreSQL variant) |
 | `X.Y.ZrcN` (`a`, `b`, `rc`) | Pre-release: applies only to this specific tag; never used for `latest` |
 
+Use the `-opengrep` image for the Controller server only if you run OpenGrep rules: the MCP server
+never runs OpenGrep and keeps the default image. To build them locally: `docker build .`,
+`docker build --target opengrep .` or `docker build --target stdio .`.
+
 The images include an SBOM and a provenance attestation (accessible via `docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
+
+## Local mode (stdio)
+
+The `-stdio` image runs the MCP server alone, in [local mode](../../getting-started/stdio.md): the
+host (VS Code, Claude…) starts the container and talks to it on stdin / stdout, with no port, no
+token and no Controller server. It contains neither the web interface nor the PostgreSQL driver:
+the reports are saved in a SQLite database of the volume (`/var/lib/secreview`), on the workstation
+only. In `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-v", "secreview-mcp:/var/lib/secreview",
+               "ghcr.io/cyr-ius/security-review:latest-stdio"]
+    }
+  }
+}
+```
+
+`-i` is required (the host writes on the standard input of the container). The volume keeps the
+database between two starts; the schema is created or upgraded at start. Without the volume, the
+reports are lost when the container stops.
 
 ## Docker Compose with PostgreSQL
 

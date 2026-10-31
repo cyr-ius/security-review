@@ -3,6 +3,8 @@
 # Image of security-review-mcp: one image, two processes sharing the database.
 #
 #   docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
+#   docker build --target opengrep -t security-review-mcp:opengrep .   # plus the OpenGrep engine
+#   docker build --target stdio -t security-review-mcp:stdio .   # MCP server alone, in stdio
 #
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/var/lib/secreview security-review-mcp \
@@ -68,25 +70,58 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable --extra postgres
 
 # ---------------------------------------------------------------------------
-# Runtime stage: no build tools, no sources, non-root user
+# Build stage of the stdio image: same venv without the PostgreSQL driver (stdio accepts SQLite
+# only) nor the web interface (served by the controller)
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim
+FROM python:3.14-slim AS builder-stdio
 
-# Optional OpenGrep binary. Pin an upstream release at build time; the engine stays disabled
-# unless SECREVIEW_OPENGREP_ENABLED=true and an administrator installs a rule pack.
-ARG OPENGREP_VERSION=""
-RUN if [ -n "$OPENGREP_VERSION" ]; then \
-      apt-get update \
-      && apt-get install -y --no-install-recommends ca-certificates curl \
-      && curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh \
-         | bash -s -- -v "$OPENGREP_VERSION" \
-      && install -m 0755 /root/.opengrep/cli/latest/opengrep /usr/local/bin/opengrep \
-      && apt-get purge -y --auto-remove curl \
-      && rm -rf /var/lib/apt/lists/* /root/.opengrep; \
-    fi
+COPY --from=uv /uv /bin/uv
 
-LABEL org.opencontainers.image.title="security-review" \
-      org.opencontainers.image.description="Security code review: MCP server and controller (REST API, web interface, CI/CD gate)"
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0
+
+WORKDIR /app
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-editable
+
+COPY pyproject.toml uv.lock README.md ./
+COPY src ./src
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-editable
+
+# ---------------------------------------------------------------------------
+# OpenGrep stage: pinned binary of the OpenGrep engine of the controller, checked against its
+# SHA-256 digest (same release as .devcontainer/install-opengrep.sh). To upgrade, change the
+# version and both digests (field "digest" of the release assets on
+# https://api.github.com/repos/opengrep/opengrep/releases).
+# ---------------------------------------------------------------------------
+FROM scratch AS opengrep-amd64
+ADD --checksum=sha256:dbbe3c2058dbe600c449a8ba22ea79a1643a6660658400090d0323a8d0d31147 --chmod=0755 \
+    https://github.com/opengrep/opengrep/releases/download/v1.31.0/opengrep_manylinux_x86 /opengrep
+
+FROM scratch AS opengrep-arm64
+ADD --checksum=sha256:2b713a29a00237f85408b83002fc111db5b94c7fa8d263f0a93184a960655d9d --chmod=0755 \
+    https://github.com/opengrep/opengrep/releases/download/v1.31.0/opengrep_manylinux_aarch64 /opengrep
+
+# Only the stage of the target architecture is built. OpenGrep extracts its bundle (~250 MB) in
+# $XDG_CACHE_HOME at its first run: extracted once here, read-only, so that a scan neither
+# extracts it again nor can alter it. A separate stage: the layer copied from it into the image
+# does not change with the application, registries reuse it from one version to the next.
+FROM opengrep-${TARGETARCH} AS opengrep-binary
+
+FROM python:3.14-slim AS opengrep-bundle
+COPY --from=opengrep-binary /opengrep /usr/local/bin/opengrep
+RUN XDG_CACHE_HOME=/opt/opengrep/cache HOME=/tmp opengrep --version \
+    && chmod -R a-w,a+rX /opt/opengrep
+
+# ---------------------------------------------------------------------------
+# Base of the runtime images: no build tools, no sources, non-root user
+# ---------------------------------------------------------------------------
+FROM python:3.14-slim AS base
 
 RUN groupadd --system --gid 10001 secreview \
     && useradd --system --uid 10001 --gid secreview --no-create-home \
@@ -94,16 +129,48 @@ RUN groupadd --system --gid 10001 secreview \
     && mkdir -p /var/lib/secreview \
     && chown secreview:secreview /var/lib/secreview
 
+ENV PATH="/app/.venv/bin:${PATH}" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
+
+WORKDIR /var/lib/secreview
+
+# ---------------------------------------------------------------------------
+# Image of the MCP server alone, in stdio (target "stdio", "-stdio" tags), started by the host of
+# a developer (VS Code...) with docker run -i: local SQLite database in the volume, no port, no
+# controller use (no web interface, no PostgreSQL driver)
+# ---------------------------------------------------------------------------
+FROM base AS stdio
+
+LABEL org.opencontainers.image.title="security-review" \
+      org.opencontainers.image.description="Security code review: MCP server in stdio for a local host"
+
+COPY --from=builder-stdio /app/.venv /app/.venv
+
+VOLUME ["/var/lib/secreview"]
+
+USER secreview
+
+# The host talks to the server on stdin / stdout: run with docker run -i
+ENTRYPOINT ["security-review-mcp"]
+CMD ["serve", "--transport", "stdio"]
+
+# ---------------------------------------------------------------------------
+# Runtime stage of the MCP server and the controller
+# ---------------------------------------------------------------------------
+FROM base AS runtime
+
+LABEL org.opencontainers.image.title="security-review" \
+      org.opencontainers.image.description="Security code review: MCP server and controller (REST API, web interface, CI/CD gate)"
+
 # Same path as in the build stage: the venv scripts reference it
 COPY --from=builder /app/.venv /app/.venv
 
 # A process listening on 127.0.0.1 is unreachable from outside its container: listen on every
 # interface, the published port (-p 127.0.0.1:..., ports: in Compose) limits the exposure
-ENV PATH="/app/.venv/bin:${PATH}" \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db \
-    SECREVIEW_HOST=0.0.0.0
+ENV SECREVIEW_HOST=0.0.0.0 \
+    SECREVIEW_OPENGREP_ENABLED=false
 
 # The admin password hash and the project tokens are stored in the database. At its first start
 # the controller creates the administrator "admin" (SECREVIEW_ADMIN_USERNAME) with a random
@@ -113,7 +180,6 @@ ENV PATH="/app/.venv/bin:${PATH}" \
 # Reports database (SQLite) lives in the volume, with the internal rules imported with
 #   docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
 #       --entrypoint security-review-controller IMAGE rules import /rules
-WORKDIR /var/lib/secreview
 VOLUME ["/var/lib/secreview"]
 
 USER secreview
@@ -131,3 +197,19 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # command: (Compose, Kubernetes).
 ENTRYPOINT ["security-review-mcp"]
 CMD ["serve"]
+
+# ---------------------------------------------------------------------------
+# Image with the OpenGrep engine of the controller (target "opengrep", "-opengrep" tags): binary
+# and extracted bundle owned by root, read-only
+# ---------------------------------------------------------------------------
+FROM runtime AS opengrep
+
+COPY --from=opengrep-bundle /usr/local/bin/opengrep /usr/local/bin/opengrep
+COPY --from=opengrep-bundle /opt/opengrep /opt/opengrep
+ENV XDG_CACHE_HOME=/opt/opengrep/cache \
+    SECREVIEW_OPENGREP_ENABLED=true
+
+# ---------------------------------------------------------------------------
+# Default image (last stage): without OpenGrep
+# ---------------------------------------------------------------------------
+FROM runtime
