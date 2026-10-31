@@ -47,3 +47,13 @@ SARIF que les résultats du scanner natif. Les identifiants des règles OpenGrep
   temporaire afin qu'OpenGrep puisse les lire.
 - Si OpenGrep est activé mais que le binaire ou les règles sont absents, ou si le scan échoue, le scan de code
   échoue explicitement au lieu de signaler silencieusement un succès limité au scanner natif.
+
+## Gestion des règles depuis l’interface web
+
+Le Controller propose une page de gestion authentifiée à l’adresse `/ui/opengrep-rules`.
+Les utilisateurs disposant de `rules.read` peuvent consulter les fichiers YAML du répertoire
+`SECREVIEW_OPENGREP_RULES_DIR`. Ceux disposant de `rules.manage` peuvent créer, modifier,
+valider et supprimer ces fichiers. Chaque fichier géré contient exactement une règle et son
+identifiant YAML doit correspondre à celui du fichier. Toute écriture est validée avec
+`opengrep validate <fichier>` avant un remplacement atomique. Le Controller ne télécharge
+aucun pack de règles et ne suit aucune source distante à la place de l’administrateur.

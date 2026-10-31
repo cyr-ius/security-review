@@ -48,3 +48,12 @@ same report and SARIF export as built-in findings. OpenGrep rule IDs are prefixe
   to a temporary directory for OpenGrep to read.
 - If OpenGrep is enabled but the binary or rule pack is missing, or the scan fails, the code scan
   fails rather than silently reporting a successful built-in-only scan.
+
+## Managing rules from the web interface
+
+The Controller exposes an authenticated rule-management page at `/ui/opengrep-rules`.
+Users with `rules.read` can inspect the YAML files in `SECREVIEW_OPENGREP_RULES_DIR`;
+users with `rules.manage` can create, edit, validate and delete them. Each managed YAML file
+contains exactly one rule, and its rule id must match the file identifier. Writes are validated
+with `opengrep validate <file>` before an atomic replacement. The Controller does not download
+rule packs or follow remote rule sources on behalf of the administrator.
