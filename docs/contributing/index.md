@@ -50,6 +50,11 @@ environment (`uv sync --extra dev --extra docs --extra postgres`, `npm --prefix 
 forwards ports 8000 (MCP server), 8080 (Controller server), 4200 (Angular dev server), 8001 (docs) and
 5432 (PostgreSQL, development credentials `secreview` / `secreview`).
 
+It also installs a pinned [OpenGrep](../review/analysis/opengrep.md) release in
+`/usr/local/bin/opengrep` (`.devcontainer/install-opengrep.sh`, which checks its SHA-256 digest)
+and enables the engine (`SECREVIEW_OPENGREP_ENABLED=true`): add at least one rule on the
+**OpenGrep rules** page of the Controller server before running a code scan, otherwise the scan fails.
+
 ```bash
 psql -h db -U secreview secreview                     # password: secreview
 SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to SQLite for once
