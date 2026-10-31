@@ -61,6 +61,7 @@ from . import (
     oauth_routes,
     report_routes,
     rule_routes,
+    opengrep_routes,
     token_routes,
 )
 from .auth_routes import OidcLogins
@@ -133,6 +134,7 @@ for _domain in (
     account_routes,
     report_routes,
     rule_routes,
+    opengrep_routes,
     token_routes,
     admin_routes,
     access_routes,
