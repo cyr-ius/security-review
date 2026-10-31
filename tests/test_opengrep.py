@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import pytest
 
 from security_review_mcp.engines import opengrep
+from security_review_mcp.rules import codescan
+from security_review_mcp.rules.codescan import SourceFile
 
 
 def test_disabled_engine_does_not_require_binary_or_rules(monkeypatch):
@@ -108,3 +110,38 @@ def test_scan_files_rejects_nonzero_exit(tmp_path, monkeypatch):
     )
     with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
         opengrep.scan_files([("app.py", "print('ok')")])
+
+
+
+def test_codebase_scan_merges_opengrep_findings(monkeypatch):
+    settings = SimpleNamespace(
+        opengrep_enabled=True,
+        max_scan_files=10,
+        max_scan_file_chars=1000,
+    )
+    monkeypatch.setattr(codescan, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        codescan.opengrep,
+        "scan_files",
+        lambda files: {
+            "app.py": [
+                {
+                    "title": "Unsafe subprocess",
+                    "description": "Command injection risk",
+                    "severity": "high",
+                    "rule_id": "OPENGREP:python.security.demo",
+                    "cwe": "CWE-78",
+                    "line": 3,
+                    "line_end": 4,
+                    "excerpt": "subprocess.run(command)",
+                    "advice": "Use a safe argument list.",
+                }
+            ]
+        },
+    )
+    result = codescan.scan_files([SourceFile("app.py", "import subprocess\n\nsubprocess.run(command)\n")])
+    findings = codescan.to_findings(result)
+    assert result["matches_count"] == 1
+    assert findings[0].rule_id == "OPENGREP:python.security.demo"
+    assert findings[0].description == "Command injection risk"
+    assert findings[0].line_start == 3 and findings[0].line_end == 4
