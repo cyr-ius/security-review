@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
+import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { OpenGrepRule } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
@@ -30,7 +31,7 @@ export class OpenGrepRuleListComponent {
   readonly validating = signal(false);
   readonly deleting = signal(false);
   readonly error = signal<string | null>(null);
-  readonly notice = signal<string | null>(null);
+  readonly notice = signal<MessageKey | null>(null);
   readonly validationOutput = signal<string | null>(null);
 
   readonly filteredRules = computed(() => {
