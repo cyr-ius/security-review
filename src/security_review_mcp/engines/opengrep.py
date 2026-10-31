@@ -89,7 +89,9 @@ def _normalize_result(item: dict[str, Any]) -> tuple[str, dict[str, Any]] | None
         "line": line,
         "line_end": end_line,
         "excerpt": evidence[:2000],
-        "advice": "Review the matched code and apply the remediation described by the OpenGrep rule.",
+        "advice": (
+            "Review the matched code and apply the remediation described by the OpenGrep rule."
+        ),
     }
 
 
@@ -102,7 +104,7 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
     settings = get_settings()
     if not settings.opengrep_enabled:
         return {}
-    binary = shutil.which(settings.opengrep_binary) if os.sep not in settings.opengrep_binary else settings.opengrep_binary
+    binary = shutil.which(settings.opengrep_binary)
     if not binary or not Path(binary).is_file():
         raise OpenGrepError("OpenGrep is enabled but its executable is unavailable")
     rules_dir = Path(settings.opengrep_rules_dir)
@@ -131,7 +133,11 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
                     errors="replace",
                     timeout=settings.opengrep_timeout_seconds,
                     check=False,
-                    env={"PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"), "HOME": temporary, "NO_COLOR": "1"},
+                    env={
+                        "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+                        "HOME": temporary,
+                        "NO_COLOR": "1",
+                    },
                 )
             except subprocess.TimeoutExpired as exc:
                 raise OpenGrepError("OpenGrep scan exceeded its configured time limit") from exc
@@ -155,7 +161,9 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
                 absolute = Path(result_path)
                 try:
                     if absolute.is_absolute():
-                        relative_path = absolute.resolve().relative_to(workspace.resolve()).as_posix()
+                        relative_path = absolute.resolve().relative_to(
+                            workspace.resolve()
+                        ).as_posix()
                     else:
                         relative_path = _safe_relative_path(result_path).as_posix()
                         if not workspace.joinpath(*PurePosixPath(relative_path).parts).is_file():
