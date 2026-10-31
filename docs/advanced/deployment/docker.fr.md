@@ -22,6 +22,45 @@ localement : `docker build .` ou `docker build --target opengrep .`.
 
 Les images portent un SBOM et une attestation de provenance (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
 
+## Choisir le processus
+
+Le premier argument donné à l'image choisit le processus qu'elle lance :
+
+| Commande | Processus |
+|---|---|
+| `mcp` (par défaut) | Serveur MCP (`security-review-mcp serve`), en HTTP streamable ou en stdio selon `SECREVIEW_TRANSPORT` (`http` par défaut, ou `stdio`) |
+| `mcp ARGS…` | `security-review-mcp ARGS…` (par exemple `mcp enroll`) |
+| `controller` | Serveur Controller (`security-review-controller serve`) : API REST, interface web |
+| `controller ARGS…` | une commande du serveur Controller (par exemple `controller token list`) |
+
+```bash
+docker run -d -p 127.0.0.1:8080:8000 ghcr.io/cyr-ius/security-review controller   # Controller server
+docker run -d -p 127.0.0.1:8000:8000 ghcr.io/cyr-ius/security-review mcp          # MCP server (HTTP)
+```
+
+En stdio, l'hôte d'un développeur (VS Code, Claude…) démarre lui-même le conteneur et lui parle
+sur stdin / stdout ([mode local](../../getting-started/stdio.md), base SQLite locale dans le
+volume). Dans `.mcp.json` :
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "SECREVIEW_TRANSPORT=stdio",
+               "-v", "secreview-mcp:/var/lib/secreview",
+               "ghcr.io/cyr-ius/security-review:latest", "mcp"]
+    }
+  }
+}
+```
+
+`-i` est indispensable (l'hôte écrit sur l'entrée standard du conteneur). En stdio, le serveur
+refuse une `SECREVIEW_DATABASE_URL` PostgreSQL : pour travailler sur la base de l'équipe,
+connectez l'hôte au serveur MCP partagé en HTTP. Les autres arguments sont passés à
+`security-review-mcp`, et `--entrypoint security-review-controller` fonctionne toujours.
+
 ## Docker Compose avec PostgreSQL
 
 Un seul fichier,
@@ -109,11 +148,10 @@ docker compose exec controller security-review-controller token list
 La même image lance chaque processus dans son propre conteneur, sur une base PostgreSQL
 existante (voir [Architecture](../architecture/index.md)) :
 
-- le **serveur MCP** est le point d'entrée par défaut de l'image (`security-review-mcp`,
-  commande par défaut `serve`, en HTTP streamable ; ajoutez `--transport stdio` pour le mode local) ;
-- le **serveur Controller** (API REST, interface web, administration) se lance avec
-  `--entrypoint security-review-controller`, avec les [jetons](../bearer-tokens.md) et le [TLS](../tls.md) intégrés
-  ou derrière un reverse proxy qui s'en charge.
+- le **serveur MCP** se lance avec la commande `mcp` (par défaut), en HTTP streamable ;
+- le **serveur Controller** (API REST, interface web, administration) se lance avec la commande
+  `controller`, avec les [jetons](../bearer-tokens.md) et le [TLS](../tls.md) intégrés ou
+  derrière un reverse proxy qui s'en charge.
 
 ```bash
 DB=postgresql+psycopg2://user:pass@db:5432/secreview
@@ -122,8 +160,7 @@ DB=postgresql+psycopg2://user:pass@db:5432/secreview
 #    à jour le schéma (Alembic) au démarrage, donc à lancer en premier
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
     -e SECREVIEW_DATABASE_URL=$DB \
-    --entrypoint security-review-controller \
-    ghcr.io/cyr-ius/security-review serve
+    ghcr.io/cyr-ius/security-review controller
 
 # 2. Serveur MCP : exposé aux agents et à la CI
 docker run -d --name secreview-mcp -p 8443:8443 \
@@ -131,7 +168,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    ghcr.io/cyr-ius/security-review serve --port 8443
+    ghcr.io/cyr-ius/security-review mcp serve --port 8443
 
 # 3. Mot de passe du compte admin, créé au premier démarrage du serveur Controller
 docker exec secreview-controller security-review-controller user reset-password admin
@@ -150,12 +187,12 @@ appliquent en quelques secondes) :
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
-    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review rules import /rules
+    ghcr.io/cyr-ius/security-review controller rules import /rules
 ```
 
 Les autres commandes passent de la même façon :
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview \
-    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review token list
+    ghcr.io/cyr-ius/security-review controller token list
 ```

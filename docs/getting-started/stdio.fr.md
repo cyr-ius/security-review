@@ -81,4 +81,5 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
 }
 ```
 
-Pour lancer le serveur depuis un conteneur, voir [Docker](../advanced/deployment/docker.md).
+Pour lancer le serveur depuis un conteneur (commande `mcp` avec `SECREVIEW_TRANSPORT=stdio`), voir
+[Docker : choisir le processus](../advanced/deployment/docker.md#choisir-le-processus).

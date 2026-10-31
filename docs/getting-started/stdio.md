@@ -82,4 +82,5 @@ repository:
 }
 ```
 
-To run the server from a container, see [Docker](../advanced/deployment/docker.md).
+To run the server from a container (`mcp` command with `SECREVIEW_TRANSPORT=stdio`), see
+[Docker: choosing the process](../advanced/deployment/docker.md#choosing-the-process).

@@ -44,8 +44,8 @@ services:
   controller:
     image: ghcr.io/cyr-ius/security-review:latest
     restart: unless-stopped
-    entrypoint: ["security-review-controller"]
-    command: ["serve"]
+    # The image starts the Controller server with the `controller` command
+    command: ["controller"]
     environment:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Signs the web sessions: keep the same value, or every session ends at restart
@@ -83,7 +83,9 @@ services:
   mcp:
     image: ghcr.io/cyr-ius/security-review:latest
     restart: unless-stopped
-    # The image runs `security-review-mcp serve`: streamable HTTP on /mcp
+    # The image starts the MCP server with the `mcp` command (its default): streamable HTTP on
+    # /mcp (SECREVIEW_TRANSPORT)
+    command: ["mcp"]
     environment:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # SECREVIEW_TLS_CERTFILE: /etc/secreview/tls/cert.pem

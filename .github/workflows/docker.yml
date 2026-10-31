@@ -73,8 +73,12 @@ jobs:
       - name: Smoke test
         run: |
           for image in security-review:smoke-test security-review:smoke-test-opengrep; do
-            docker run --rm "$image" --help
+            # The first argument chooses the process: mcp (default) or controller
+            docker run --rm "$image" mcp --help | grep -q security-review-mcp
+            docker run --rm "$image" controller --help | grep -q security-review-controller
             docker run --rm --entrypoint security-review-controller "$image" --help
+            # The MCP server in stdio (SECREVIEW_TRANSPORT): prepares its database, ends on EOF
+            docker run -i --rm -e SECREVIEW_TRANSPORT=stdio "$image" mcp < /dev/null
             # Runs as the non-root user of the Dockerfile
             test "$(docker run --rm --entrypoint id "$image" -u)" = "10001"
           done

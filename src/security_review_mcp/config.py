@@ -154,6 +154,10 @@ def default_database_url() -> SecretStr:
     return SecretStr(f"sqlite:///{base / 'security-review-mcp' / 'security_reports.db'}")
 
 
+# Short names of the MCP transports (SECREVIEW_TRANSPORT)
+TRANSPORT_ALIASES = {"http": "streamable-http"}
+
+
 class Settings(BaseSettings):
     """Server settings (prefix: SECREVIEW_)."""
 
@@ -176,9 +180,9 @@ class Settings(BaseSettings):
     # (Kubernetes): they then only check the schema. The HTTP MCP server never migrates.
     db_auto_upgrade: bool = True
 
-    # MCP server transport: "streamable-http" (shared server, the default) or "stdio" (local
-    # host such as VS Code, which starts `serve --transport stdio`). host and port are used by
-    # the HTTP MCP server and by the controller.
+    # MCP server transport: "streamable-http" (shared server, the default, alias "http") or
+    # "stdio" (local host such as VS Code, which starts `serve --transport stdio`), whatever the
+    # case. host and port are used by the HTTP MCP server and by the controller.
     transport: str = "streamable-http"
     host: str = "127.0.0.1"
     port: int = 8000
@@ -553,6 +557,16 @@ class Settings(BaseSettings):
                         f"forwarded_allow_ips: not an IP address or CIDR range: {entry!r}"
                     ) from None
         return ",".join(entries)
+
+    @field_validator("transport")
+    @classmethod
+    def _check_transport(cls, value: str) -> str:
+        """Accept streamable-http (or http) and stdio, whatever the case."""
+        transport = value.strip().lower()
+        transport = TRANSPORT_ALIASES.get(transport, transport)
+        if transport not in ("streamable-http", "stdio"):
+            raise ValueError(f"transport: expected streamable-http, http or stdio, got {value!r}")
+        return transport
 
     @field_validator("report_language")
     @classmethod

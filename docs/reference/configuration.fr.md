@@ -51,7 +51,7 @@ Lues par `security-review-mcp` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (mode partagé) ou `stdio` (mode local) |
+| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` ou `http` (mode partagé), ou `stdio` (mode local), sans tenir compte de la casse ; mode de la commande `mcp` de l'[image Docker](../advanced/deployment/docker.md#choisir-le-processus) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/bearer-tokens.md)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_ENROLLMENT` | `true` | [Enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) : un client sans jeton atteint un serveur MCP restreint, sans aucun outil, qui invite l'utilisateur à créer un jeton MCP personnel dans l'interface web ; avec un jeton, `request_project` crée un nouveau projet pour un utilisateur portant `projects.create`, sinon le demande pour qu'un utilisateur portant `projects.create` le valide. `false` : `401` sans jeton, et aucune demande de projet |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](../review/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans la page [**Langue des rapports**](../usage/index.md#pages) |

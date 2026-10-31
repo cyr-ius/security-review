@@ -86,7 +86,8 @@ spec:
         - name: controller
           image: ghcr.io/cyr-ius/security-review:latest
           # The image listens on every interface of the pod, port 8000
-          command: ["security-review-controller", "serve"]
+          # The image starts the Controller server with the `controller` command
+          args: ["controller"]
           envFrom:
             - configMapRef:
                 name: secreview-config
@@ -192,7 +193,9 @@ spec:
       containers:
         - name: mcp
           image: ghcr.io/cyr-ius/security-review:latest
-          # The image runs `serve`: streamable HTTP on every interface of the pod, port 8000
+          # The image starts the MCP server with the `mcp` command: streamable HTTP
+          # (SECREVIEW_TRANSPORT) on every interface of the pod, port 8000
+          args: ["mcp"]
           envFrom:
             - configMapRef:
                 name: secreview-config

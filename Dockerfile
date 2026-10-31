@@ -5,19 +5,21 @@
 #   docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
 #   docker build --target opengrep -t security-review-mcp:opengrep .   # plus the OpenGrep engine
 #
-# stdio (developer workstation, the MCP host starts the container itself):
-#   docker run -i --rm -v secreview-data:/var/lib/secreview security-review-mcp \
-#       serve --transport stdio
+# The first argument chooses the process (scripts/docker-entrypoint.sh): `mcp` (default) or
+# `controller`, followed by their own arguments.
 #
-# Shared server (see docker-compose.yml): the MCP server (default entrypoint, MCP on /mcp) and
-# the controller (REST API on /api/v1, web interface on /ui, administration commands) run in
-# two containers. Enable TLS (SECREVIEW_TLS_CERTFILE, SECREVIEW_TLS_KEYFILE) or put them behind
-# a reverse proxy that enforces it:
-#   docker run --rm -v secreview-data:/var/lib/secreview --entrypoint security-review-controller \
-#       security-review-mcp db upgrade
+# stdio (developer workstation, the MCP host starts the container itself):
+#   docker run -i --rm -e SECREVIEW_TRANSPORT=stdio -v secreview-data:/var/lib/secreview \
+#       security-review-mcp mcp
+#
+# Shared server (see docker-compose.yml): the MCP server (MCP on /mcp) and the controller (REST
+# API on /api/v1, web interface on /ui, administration commands) run in two containers. Enable
+# TLS (SECREVIEW_TLS_CERTFILE, SECREVIEW_TLS_KEYFILE) or put them behind a reverse proxy that
+# enforces it:
 #   docker run -d -p 127.0.0.1:8080:8000 -v secreview-data:/var/lib/secreview \
-#       --entrypoint security-review-controller security-review-mcp serve
-#   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp
+#       security-review-mcp controller
+#   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/var/lib/secreview \
+#       security-review-mcp mcp
 # Both processes listen on every interface of the container (SECREVIEW_HOST=0.0.0.0): the address
 # of the host they are reachable on is chosen when publishing the port (-p 127.0.0.1:...).
 # (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)
@@ -126,7 +128,7 @@ ENV PATH="/app/.venv/bin:${PATH}" \
 
 # Reports database (SQLite) lives in the volume, with the internal rules imported with
 #   docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
-#       --entrypoint security-review-controller IMAGE rules import /rules
+#       IMAGE controller rules import /rules
 WORKDIR /var/lib/secreview
 VOLUME ["/var/lib/secreview"]
 
@@ -139,12 +141,13 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-m", "security_review_mcp.healthcheck"]
 
-# HTTP MCP server by default (`serve`); arguments replace the command: `serve` with its
-# transport options (`--transport stdio` for a local host), or `enroll`. The controller and its
-# commands (serve, db, token, rules...) use --entrypoint security-review-controller (Docker) or
-# command: (Compose, Kubernetes).
-ENTRYPOINT ["security-review-mcp"]
-CMD ["serve"]
+# `mcp` (default): MCP server, in streamable HTTP or in stdio (SECREVIEW_TRANSPORT);
+# `controller`: Controller server or one of its commands (db, token, user, rules...). Other
+# arguments go to security-review-mcp (serve, enroll...), as before; --entrypoint
+# security-review-controller (Docker) or entrypoint: (Compose) still work.
+COPY --chmod=0755 scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
+ENTRYPOINT ["docker-entrypoint"]
+CMD ["mcp"]
 
 # ---------------------------------------------------------------------------
 # Image with the OpenGrep engine of the controller (target "opengrep", "-opengrep" tags): binary

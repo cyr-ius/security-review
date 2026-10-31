@@ -62,8 +62,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    entrypoint: ["security-review-controller"]
-    command: ["serve"]
+    command: ["controller"]
     env_file:
       - path: .env
         required: false
@@ -75,6 +74,7 @@ services:
 
   mcp:
     <<: *secreview
+    command: ["mcp"]
     restart: unless-stopped
     depends_on:
       controller:
