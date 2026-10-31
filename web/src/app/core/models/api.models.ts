@@ -549,7 +549,6 @@ export interface OpenGrepRuleValidation {
   message: string;
 }
 
-
 /** Origin of a stored checklist item. */
 export type ChecklistItemOrigin = 'builtin' | 'custom';
 

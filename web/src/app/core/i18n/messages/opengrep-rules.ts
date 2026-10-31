@@ -27,7 +27,8 @@ export const opengrepRules = defineMessages({
   },
   fr: {
     'opengrepRules.title': 'Règles OpenGrep',
-    'opengrepRules.subtitle': 'Gérer les règles YAML utilisées par le moteur d’analyse OpenGrep facultatif.',
+    'opengrepRules.subtitle':
+      'Gérer les règles YAML utilisées par le moteur d’analyse ' + 'OpenGrep facultatif.',
     'opengrepRules.new': 'Nouvelle règle',
     'opengrepRules.search': 'Rechercher un identifiant',
     'opengrepRules.rules': 'Fichiers de règles',
@@ -45,7 +46,8 @@ export const opengrepRules = defineMessages({
     'opengrepRules.deleted': 'Règle supprimée.',
     'opengrepRules.updatedAt': 'Modifiée',
     'opengrepRules.editorHelp':
-      'Un fichier YAML doit contenir exactement une règle. Son id doit correspondre à l’identifiant ci-dessus.',
+      'Un fichier YAML doit contenir exactement une règle. ' +
+      'Son id doit correspondre à l’identifiant ci-dessus.',
     'opengrepRules.loadError': 'Impossible de charger les règles OpenGrep.',
   },
   es: {
