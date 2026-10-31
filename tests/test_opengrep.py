@@ -139,7 +139,9 @@ def test_codebase_scan_merges_opengrep_findings(monkeypatch):
             ]
         },
     )
-    result = codescan.scan_files([SourceFile("app.py", "import subprocess\n\nsubprocess.run(command)\n")])
+    result = codescan.scan_files(
+        [SourceFile("app.py", "import subprocess\n\nsubprocess.run(command)\n")]
+    )
     findings = codescan.to_findings(result)
     assert result["matches_count"] == 1
     assert findings[0].rule_id == "OPENGREP:python.security.demo"
