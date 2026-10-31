@@ -100,6 +100,7 @@ plugins:
             OIDC login in detail: Connexion OIDC en détail
             OIDC login: Connexion OIDC
             Overview: Présentation
+            OpenGrep engine: Moteur OpenGrep
             Pipeline client (CI/CD): Client de pipeline (CI/CD)
             Projects: Projets
             Prometheus metrics: Métriques Prometheus
@@ -172,6 +173,7 @@ nav:
       - Gate: review/gate.md
       - Analysis:
           - Whole codebase analysis: review/analysis/code-scan.md
+          - OpenGrep engine: review/analysis/opengrep.md
           - Dependency analysis: review/analysis/dependencies.md
           - Read guard for AI assistants: review/analysis/read-guard.md
   - Application:
