@@ -111,7 +111,7 @@ def get_rule(rule_id: str) -> dict[str, str]:
     return {
         "id": rule_id,
         "content": path.read_text(encoding="utf-8"),
-        "updated_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+        "updated_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
     }
 
 
