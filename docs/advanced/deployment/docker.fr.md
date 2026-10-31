@@ -13,40 +13,14 @@ docker pull ghcr.io/cyr-ius/security-review:latest   # or docker.io/cyrius44/sec
 |---|---|
 | `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (la dernière version stable pour `latest`) |
 | `X.Y.Z-opengrep`, `X.Y-opengrep`, `X-opengrep`, `latest-opengrep` | Même version avec le [moteur OpenGrep](../../review/analysis/opengrep.md) (environ 400 Mo de plus) |
-| `X.Y.Z-stdio`, `X.Y-stdio`, `X-stdio`, `latest-stdio` | Même version, serveur MCP seul en stdio pour l'hôte d'un développeur (voir [Mode local (stdio)](#mode-local-stdio)) |
 | `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Dépréciés : alias de la même image, conservés jusqu'à la prochaine version majeure (ancienne variante PostgreSQL) |
 | `X.Y.ZrcN` (`a`, `b`, `rc`) | Préversion : ce tag seulement, jamais `latest` |
 
 Utilisez l'image `-opengrep` pour le serveur Controller seulement si vous exécutez des règles
 OpenGrep : le serveur MCP n'exécute jamais OpenGrep et garde l'image par défaut. Pour les construire
-localement : `docker build .`, `docker build --target opengrep .` ou `docker build --target stdio .`.
+localement : `docker build .` ou `docker build --target opengrep .`.
 
 Les images portent un SBOM et une attestation de provenance (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
-
-## Mode local (stdio)
-
-L'image `-stdio` exécute le serveur MCP seul, en [mode local](../../getting-started/stdio.md) :
-l'hôte (VS Code, Claude…) démarre le conteneur et lui parle sur stdin / stdout, sans port, sans
-jeton et sans serveur Controller. Elle ne contient ni l'interface web ni le pilote PostgreSQL : les
-rapports sont enregistrés dans une base SQLite du volume (`/var/lib/secreview`), sur le poste
-seulement. Dans `.mcp.json` :
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-mcp:/var/lib/secreview",
-               "ghcr.io/cyr-ius/security-review:latest-stdio"]
-    }
-  }
-}
-```
-
-`-i` est indispensable (l'hôte écrit sur l'entrée standard du conteneur). Le volume conserve la base
-d'un démarrage à l'autre ; le schéma est créé ou mis à niveau au démarrage. Sans volume, les
-rapports sont perdus à l'arrêt du conteneur.
 
 ## Docker Compose avec PostgreSQL
 

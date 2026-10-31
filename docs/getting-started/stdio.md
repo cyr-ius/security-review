@@ -82,5 +82,4 @@ repository:
 }
 ```
 
-To run the server from a container, without installing Python, use the `-stdio` image: see
-[Docker: local mode](../advanced/deployment/docker.md#local-mode-stdio).
+To run the server from a container, see [Docker](../advanced/deployment/docker.md).

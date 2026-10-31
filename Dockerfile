@@ -4,7 +4,6 @@
 #
 #   docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
 #   docker build --target opengrep -t security-review-mcp:opengrep .   # plus the OpenGrep engine
-#   docker build --target stdio -t security-review-mcp:stdio .   # MCP server alone, in stdio
 #
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/var/lib/secreview security-review-mcp \
@@ -70,30 +69,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable --extra postgres
 
 # ---------------------------------------------------------------------------
-# Build stage of the stdio image: same venv without the PostgreSQL driver (stdio accepts SQLite
-# only) nor the web interface (served by the controller)
-# ---------------------------------------------------------------------------
-FROM python:3.14-slim AS builder-stdio
-
-COPY --from=uv /uv /bin/uv
-
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=0
-
-WORKDIR /app
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-editable
-
-COPY pyproject.toml uv.lock README.md ./
-COPY src ./src
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-editable
-
-# ---------------------------------------------------------------------------
 # OpenGrep stage: pinned binary of the OpenGrep engine of the controller, checked against its
 # SHA-256 digest (same release as .devcontainer/install-opengrep.sh). To upgrade, change the
 # version and both digests (field "digest" of the release assets on
@@ -119,9 +94,12 @@ RUN XDG_CACHE_HOME=/opt/opengrep/cache HOME=/tmp opengrep --version \
     && chmod -R a-w,a+rX /opt/opengrep
 
 # ---------------------------------------------------------------------------
-# Base of the runtime images: no build tools, no sources, non-root user
+# Runtime stage: no build tools, no sources, non-root user
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS base
+FROM python:3.14-slim AS runtime
+
+LABEL org.opencontainers.image.title="security-review" \
+      org.opencontainers.image.description="Security code review: MCP server and controller (REST API, web interface, CI/CD gate)"
 
 RUN groupadd --system --gid 10001 secreview \
     && useradd --system --uid 10001 --gid secreview --no-create-home \
@@ -129,48 +107,17 @@ RUN groupadd --system --gid 10001 secreview \
     && mkdir -p /var/lib/secreview \
     && chown secreview:secreview /var/lib/secreview
 
-ENV PATH="/app/.venv/bin:${PATH}" \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
-
-WORKDIR /var/lib/secreview
-
-# ---------------------------------------------------------------------------
-# Image of the MCP server alone, in stdio (target "stdio", "-stdio" tags), started by the host of
-# a developer (VS Code...) with docker run -i: local SQLite database in the volume, no port, no
-# controller use (no web interface, no PostgreSQL driver)
-# ---------------------------------------------------------------------------
-FROM base AS stdio
-
-LABEL org.opencontainers.image.title="security-review" \
-      org.opencontainers.image.description="Security code review: MCP server in stdio for a local host"
-
-COPY --from=builder-stdio /app/.venv /app/.venv
-
-VOLUME ["/var/lib/secreview"]
-
-USER secreview
-
-# The host talks to the server on stdin / stdout: run with docker run -i
-ENTRYPOINT ["security-review-mcp"]
-CMD ["serve", "--transport", "stdio"]
-
-# ---------------------------------------------------------------------------
-# Runtime stage of the MCP server and the controller
-# ---------------------------------------------------------------------------
-FROM base AS runtime
-
-LABEL org.opencontainers.image.title="security-review" \
-      org.opencontainers.image.description="Security code review: MCP server and controller (REST API, web interface, CI/CD gate)"
-
 # Same path as in the build stage: the venv scripts reference it
 COPY --from=builder /app/.venv /app/.venv
 
 # A process listening on 127.0.0.1 is unreachable from outside its container: listen on every
 # interface, the published port (-p 127.0.0.1:..., ports: in Compose) limits the exposure
-ENV SECREVIEW_HOST=0.0.0.0 \
-    SECREVIEW_OPENGREP_ENABLED=false
+ENV PATH="/app/.venv/bin:${PATH}" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db \
+    SECREVIEW_OPENGREP_ENABLED=false \
+    SECREVIEW_HOST=0.0.0.0
 
 # The admin password hash and the project tokens are stored in the database. At its first start
 # the controller creates the administrator "admin" (SECREVIEW_ADMIN_USERNAME) with a random
@@ -180,6 +127,7 @@ ENV SECREVIEW_HOST=0.0.0.0 \
 # Reports database (SQLite) lives in the volume, with the internal rules imported with
 #   docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
 #       --entrypoint security-review-controller IMAGE rules import /rules
+WORKDIR /var/lib/secreview
 VOLUME ["/var/lib/secreview"]
 
 USER secreview
