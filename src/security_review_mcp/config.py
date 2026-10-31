@@ -457,7 +457,6 @@ class Settings(BaseSettings):
     opengrep_binary: str = "/usr/local/bin/opengrep"
     opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
     opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
-    opengrep_max_memory_mb: int = Field(default=2048, ge=128, le=16_384)
 
     @field_validator(
         "proxy",
