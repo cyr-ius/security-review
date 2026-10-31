@@ -61,6 +61,10 @@ import {
   RulePackImportResult,
   RulePackSection,
   RuleReloadResult,
+  OpenGrepRule,
+  OpenGrepRuleCatalog,
+  OpenGrepRuleWrite,
+  OpenGrepRuleValidation,
   StandardPackImportResult,
   ConnectorDestination,
   ConnectorSystem,
@@ -228,6 +232,30 @@ export class ApiService {
 
   customRules(): Observable<CustomRuleCatalog> {
     return this.http.get<CustomRuleCatalog>(`${API_URL}/rules`);
+  }
+
+  opengrepRules(): Observable<OpenGrepRuleCatalog> {
+    return this.http.get<OpenGrepRuleCatalog>(`${API_URL}/opengrep/rules`);
+  }
+
+  opengrepRule(id: string): Observable<OpenGrepRule> {
+    return this.http.get<OpenGrepRule>(`${API_URL}/opengrep/rules/${encodeURIComponent(id)}`);
+  }
+
+  createOpenGrepRule(rule: OpenGrepRuleWrite): Observable<OpenGrepRule> {
+    return this.http.post<OpenGrepRule>(`${API_URL}/opengrep/rules`, rule);
+  }
+
+  updateOpenGrepRule(id: string, rule: OpenGrepRuleWrite): Observable<OpenGrepRule> {
+    return this.http.put<OpenGrepRule>(`${API_URL}/opengrep/rules/${encodeURIComponent(id)}`, rule);
+  }
+
+  deleteOpenGrepRule(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/opengrep/rules/${encodeURIComponent(id)}`);
+  }
+
+  validateOpenGrepRule(rule: OpenGrepRuleWrite): Observable<OpenGrepRuleValidation> {
+    return this.http.post<OpenGrepRuleValidation>(`${API_URL}/opengrep/rules/validate`, rule);
   }
 
   checklistItems(): Observable<ChecklistCatalog> {

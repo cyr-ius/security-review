@@ -528,6 +528,13 @@ export interface RuleReloadResult {
   load_errors: string[];
 }
 
+/** OpenGrep YAML rule file. */
+export interface OpenGrepRule { id: string; content: string; updated_at: string; }
+export interface OpenGrepRuleCatalog { rules: OpenGrepRule[]; }
+export interface OpenGrepRuleWrite { id: string; content: string; }
+export interface OpenGrepRuleValidation { valid: boolean; message: string; }
+
+
 /** Origin of a stored checklist item. */
 export type ChecklistItemOrigin = 'builtin' | 'custom';
 
