@@ -1,4 +1,5 @@
 """Safe file-backed management of administrator-owned OpenGrep YAML rules."""
+
 from __future__ import annotations
 
 import logging
