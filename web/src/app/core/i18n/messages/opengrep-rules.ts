@@ -21,7 +21,8 @@ export const opengrepRules = defineMessages({
     'opengrepRules.saved': 'Rule saved.',
     'opengrepRules.deleted': 'Rule deleted.',
     'opengrepRules.updatedAt': 'Updated',
-    'opengrepRules.editorHelp': 'One YAML file must contain exactly one rule. Its id must match the identifier above.',
+    'opengrepRules.editorHelp':
+      'One YAML file must contain exactly one rule. Its id must match the identifier above.',
     'opengrepRules.loadError': 'Could not load OpenGrep rules.',
   },
   fr: {
@@ -43,7 +44,8 @@ export const opengrepRules = defineMessages({
     'opengrepRules.saved': 'Règle enregistrée.',
     'opengrepRules.deleted': 'Règle supprimée.',
     'opengrepRules.updatedAt': 'Modifiée',
-    'opengrepRules.editorHelp': 'Un fichier YAML doit contenir exactement une règle. Son id doit correspondre à l’identifiant ci-dessus.',
+    'opengrepRules.editorHelp':
+      'Un fichier YAML doit contenir exactement une règle. Son id doit correspondre à l’identifiant ci-dessus.',
     'opengrepRules.loadError': 'Impossible de charger les règles OpenGrep.',
   },
   es: {
@@ -65,7 +67,8 @@ export const opengrepRules = defineMessages({
     'opengrepRules.saved': 'Regla guardada.',
     'opengrepRules.deleted': 'Regla eliminada.',
     'opengrepRules.updatedAt': 'Actualizada',
-    'opengrepRules.editorHelp': 'Cada archivo YAML debe contener una sola regla y su id debe coincidir con el identificador.',
+    'opengrepRules.editorHelp':
+      'Cada archivo YAML debe contener una sola regla y su id debe coincidir con el identificador.',
     'opengrepRules.loadError': 'No se pudieron cargar las reglas OpenGrep.',
   },
 });

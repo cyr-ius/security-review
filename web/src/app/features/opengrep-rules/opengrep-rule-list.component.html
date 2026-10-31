@@ -31,7 +31,9 @@
   <div class="row g-3">
     <section class="col-lg-4" aria-label="OpenGrep rule files">
       <div class="card h-100">
-        <div class="card-header fw-semibold">{{ 'opengrepRules.rules' | t }} ({{ filteredRules().length }})</div>
+        <div class="card-header fw-semibold">
+          {{ 'opengrepRules.rules' | t }} ({{ filteredRules().length }})
+        </div>
         <div class="card-body">
           <label class="visually-hidden" for="opengrep-rule-search">{{ 'opengrepRules.search' | t }}</label>
           <input
@@ -53,7 +55,8 @@
               >
                 <code>{{ rule.id }}</code>
                 <small class="d-block opacity-75">
-                  {{ 'opengrepRules.updatedAt' | t }}: {{ rule.updated_at | date: 'dd/MM/yyyy HH:mm' }}
+                  {{ 'opengrepRules.updatedAt' | t }}:
+                  {{ rule.updated_at | date: 'dd/MM/yyyy HH:mm' }}
                 </small>
               </button>
             } @empty {
@@ -69,7 +72,12 @@
           <div class="card-header d-flex flex-wrap align-items-center gap-2">
             <strong>{{ isNew() ? ('opengrepRules.create' | t) : ruleId() }}</strong>
             @if (canManage() && !isNew()) {
-              <button type="button" class="btn btn-sm btn-outline-danger ms-auto" [disabled]="deleting()" (click)="remove()">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger ms-auto"
+                [disabled]="deleting()"
+                (click)="remove()"
+              >
                 <i class="bi bi-trash" aria-hidden="true"></i>
                 {{ 'opengrepRules.delete' | t }}
               </button>
@@ -107,11 +115,21 @@
             }
             @if (canManage()) {
               <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
-                <button type="button" class="btn btn-outline-secondary" [disabled]="validating() || saving()" (click)="validate()">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  [disabled]="validating() || saving()"
+                  (click)="validate()"
+                >
                   @if (validating()) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> }
                   {{ 'opengrepRules.validate' | t }}
                 </button>
-                <button type="button" class="btn btn-primary" [disabled]="saving() || validating() || deleting()" (click)="save()">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  [disabled]="saving() || validating() || deleting()"
+                  (click)="save()"
+                >
                   @if (saving()) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> }
                   {{ isNew() ? ('opengrepRules.create' | t) : ('opengrepRules.save' | t) }}
                 </button>
@@ -119,7 +137,9 @@
             }
           </div>
         } @else {
-          <div class="card-body text-center text-body-secondary py-5">{{ 'opengrepRules.select' | t }}</div>
+          <div class="card-body text-center text-body-secondary py-5">
+            {{ 'opengrepRules.select' | t }}
+          </div>
         }
       </div>
     </section>
