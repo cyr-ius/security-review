@@ -63,6 +63,8 @@ import {
   RuleReloadResult,
   OpenGrepRule,
   OpenGrepRuleCatalog,
+  OpenGrepRuleProposal,
+  OpenGrepRuleProposalList,
   OpenGrepRuleWrite,
   OpenGrepRuleValidation,
   StandardPackImportResult,
@@ -256,6 +258,24 @@ export class ApiService {
 
   validateOpenGrepRule(rule: OpenGrepRuleWrite): Observable<OpenGrepRuleValidation> {
     return this.http.post<OpenGrepRuleValidation>(`${API_URL}/opengrep/rules/validate`, rule);
+  }
+
+  /** OpenGrep rules proposed by agents and waiting for a decision. */
+  opengrepProposals(): Observable<OpenGrepRuleProposalList> {
+    return this.http.get<OpenGrepRuleProposalList>(`${API_URL}/opengrep/proposals`);
+  }
+
+  /** Install a proposed rule, as proposed or as corrected in `content`. */
+  approveOpenGrepProposal(id: number, content: string): Observable<OpenGrepRuleProposal> {
+    return this.http.post<OpenGrepRuleProposal>(`${API_URL}/opengrep/proposals/${id}/approve`, {
+      content,
+    });
+  }
+
+  rejectOpenGrepProposal(id: number, reason: string | null): Observable<OpenGrepRuleProposal> {
+    return this.http.post<OpenGrepRuleProposal>(`${API_URL}/opengrep/proposals/${id}/reject`, {
+      reason,
+    });
   }
 
   checklistItems(): Observable<ChecklistCatalog> {

@@ -328,7 +328,10 @@ export type AuditAction =
   | 'oauth.grant_denied'
   | 'oauth.grant_revoked'
   | 'oauth.refresh_reused'
-  | 'mcp_oauth.changed';
+  | 'mcp_oauth.changed'
+  | 'opengrep_rule.proposed'
+  | 'opengrep_rule.approved'
+  | 'opengrep_rule.rejected';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -373,6 +376,9 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'oauth.grant_revoked',
   'oauth.refresh_reused',
   'mcp_oauth.changed',
+  'opengrep_rule.proposed',
+  'opengrep_rule.approved',
+  'opengrep_rule.rejected',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -547,6 +553,26 @@ export interface OpenGrepRuleWrite {
 export interface OpenGrepRuleValidation {
   valid: boolean;
   message: string;
+}
+
+/** OpenGrep rule proposed by an agent during a review, waiting for a person. */
+export interface OpenGrepRuleProposal {
+  id: number;
+  rule_id: string;
+  content: string;
+  reason: string;
+  test_code: string | null;
+  project: string;
+  status: 'pending' | 'approved' | 'rejected';
+  proposed_by: string;
+  proposed_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_reason: string | null;
+}
+
+export interface OpenGrepRuleProposalList {
+  proposals: OpenGrepRuleProposal[];
 }
 
 /** Origin of a stored checklist item. */

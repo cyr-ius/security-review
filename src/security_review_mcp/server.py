@@ -30,7 +30,7 @@ from .config import (
 from .deps import advisories, depscan
 from .observability import audit
 from .reports import sarif, services, trends
-from .rules import registry, scanner
+from .rules import opengrep_proposals, opengrep_rule_store, registry, scanner
 from .storage.database import SchemaError, check_db, init_db
 from .storage.models import (
     MAX_AUTHOR_CHARS,
@@ -66,6 +66,9 @@ stored results.
 - You never change the status of a finding: `propose_finding_status` only records a proposal \
 (fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
 web interface. The gate keeps blocking until then.
+- When a confirmed issue follows a pattern the scan rules missed and that may recur, \
+`propose_opengrep_rule` proposes an OpenGrep rule to detect it: a person validates it before it \
+joins the rules.
 - Before a review, call `request_project` with the project name: when the token does not \
 reach the project yet, a user allowed to create projects gets a new project at once, a user \
 allowed to join projects joins an existing one at once, otherwise the project is requested \
@@ -808,6 +811,79 @@ def propose_finding_status(
         audit.token_actor(client) if client else "stdio",
     )
     return finding.model_dump(mode="json")
+
+
+@mcp.tool(annotations=WRITE)
+@_tool_errors
+def propose_opengrep_rule(
+    ctx: Context,
+    project: ProjectName,
+    rule_id: Annotated[
+        str,
+        Field(
+            min_length=3,
+            max_length=80,
+            description=(
+                "Id of the rule, also the `id` of the YAML rule, for example "
+                "`acme.python.unsafe-template` (the `secreview.` prefix is reserved)"
+            ),
+        ),
+    ],
+    content: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=opengrep_rule_store.MAX_RULE_CHARS,
+            description=(
+                "One OpenGrep YAML rule file: `rules:` with exactly one rule, with `message`, "
+                "`languages`, `severity` and the CWE in `metadata.cwe`; no secret"
+            ),
+        ),
+    ],
+    reason: Annotated[
+        str,
+        Field(
+            min_length=services.MIN_STATUS_REASON_CHARS,
+            max_length=MAX_STATUS_REASON_CHARS,
+            description="The vulnerable pattern the rule detects and why the current rules miss it",
+        ),
+    ],
+    test_code: Annotated[
+        str,
+        Field(
+            description=(
+                "Code the rule must match, each line preceded by a `ruleid: <rule_id>` comment, "
+                "and safe code it must not match, preceded by `ok: <rule_id>`"
+            ),
+        ),
+    ] = "",
+) -> dict:
+    """Propose an OpenGrep rule that detects a vulnerable pattern found during a review.
+
+    The rule is not installed: a person validates it with OpenGrep and approves or rejects it
+    in the web interface. A proposal with the id of a pending one replaces it.
+    """
+    services.check_project_scope(_caller_projects(ctx), project)
+    writable = _caller_write_projects(ctx)
+    if writable is not None and project not in writable:
+        raise ValueError(
+            f"This token cannot propose a rule for project '{project}': its user does not hold "
+            "reports.write on the project"
+        )
+    client = _auth_state(ctx).get("auth_client")
+    proposal = opengrep_proposals.propose_rule(
+        project,
+        rule_id,
+        content,
+        reason,
+        test_code,
+        client or "stdio",
+        audit.token_actor(client) if client else "stdio",
+    )
+    return proposal | {
+        "next_steps": "A person reviews the rule in the web interface (OpenGrep rules page) "
+        "and approves or rejects it: it is not installed until then."
+    }
 
 
 @mcp.tool(annotations=READ_ONLY)

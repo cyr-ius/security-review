@@ -183,6 +183,13 @@
   les modifie ni ne les supprime. De même pour relever la criticité d'un finding : avec une
   justification, journalisé, jamais sous la criticité du rapport (baisser un finding passe par
   une acceptation de risque).
+- **Les agents n'installent jamais une règle de scan** : `propose_opengrep_rule` enregistre
+  seulement une proposition (une règle, préfixe réservé `secreview.` refusé, ni secret ni
+  caractère invisible, motif masqué, propositions en attente bornées par
+  `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS`). Une personne connectée avec `rules.manage`
+  l'approuve, ce qui la valide avec OpenGrep et ne remplace jamais une règle installée ; un jeton
+  Bearer ne peut pas décider ([règles proposées par les
+  agents](../review/analysis/opengrep.md#regles-proposees-par-les-agents)).
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt

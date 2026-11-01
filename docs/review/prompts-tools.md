@@ -58,6 +58,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type, with pagination |
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
+| `propose_opengrep_rule` | **Proposes** an [OpenGrep rule](analysis/opengrep.md#rules-proposed-by-agents) for a vulnerable pattern the scan missed; installed only once a person approves it |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
@@ -73,7 +74,7 @@ projects; `reload_rules` is refused to it (see
 [tokens restricted to a project](../advanced/bearer-tokens.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them. A
 [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens) reaches the projects of its user, and
-`save_security_report` and `propose_finding_status` only those where the user holds
+`save_security_report`, `propose_finding_status` and `propose_opengrep_rule` only those where the user holds
 `reports.write`: for another project, `request_project` creates it or requests it.
 
 ### Enrollment server

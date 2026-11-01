@@ -96,6 +96,11 @@ class AuditAction(StrEnum):
     OAUTH_REFRESH_REUSED = "oauth.refresh_reused"
     # The OAuth login turned on or off, or its MCP endpoint changed, in the web interface
     MCP_OAUTH_CHANGED = "mcp_oauth.changed"
+    # OpenGrep rules proposed by an agent (see opengrep_proposals), approved (the rule file is
+    # installed) or rejected by a person logged in to the web interface
+    OPENGREP_RULE_PROPOSED = "opengrep_rule.proposed"
+    OPENGREP_RULE_APPROVED = "opengrep_rule.approved"
+    OPENGREP_RULE_REJECTED = "opengrep_rule.rejected"
 
 
 def user_actor(username: str) -> str:

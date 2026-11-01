@@ -122,3 +122,36 @@ valider et supprimer ces fichiers. Chaque fichier géré contient exactement une
 identifiant YAML doit correspondre à celui du fichier. Toute écriture est validée avec
 `opengrep validate <fichier>` avant un remplacement atomique. Le Controller ne télécharge
 aucun pack de règles et ne suit aucune source distante à la place de l’administrateur.
+
+## Règles proposées par les agents
+
+Pendant une revue, quand un problème confirmé suit un motif vulnérable que le scan n'a pas
+relevé et qui peut se répéter, l'agent peut proposer une règle OpenGrep avec l'outil MCP
+`propose_opengrep_rule` ([outils](../prompts-tools.md#outils)) : la règle YAML, son motif et
+du code de test (cas `ruleid:` et `ok:`). **La règle n'est pas installée** : le serveur MCP
+enregistre seulement la proposition en base, et les prompts de revue demandent à l'agent de ne
+proposer une règle qu'après avoir enregistré le rapport.
+
+- Le fichier doit contenir exactement une règle dont l'`id` est l'identifiant proposé ; le
+  préfixe `secreview.` est réservé aux règles par défaut. Une règle qui semble contenir un
+  secret, ou des caractères invisibles, est refusée. Le motif est masqué et borné comme celui
+  d'une proposition de statut.
+- Le jeton doit atteindre le projet et y détenir `reports.write` (comme pour
+  `save_security_report`). Une nouvelle proposition avec l'identifiant d'une proposition en
+  attente la remplace ; au plus `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` propositions
+  attendent en même temps.
+- Les propositions en attente sont listées en haut de la page **Règles OpenGrep** pour les
+  utilisateurs disposant de `rules.manage`. **Examiner** en ouvre une dans l'éditeur avec son
+  projet, son auteur, son motif et son code de test : l'approbateur peut corriger le YAML (pas
+  son identifiant), le valider avec OpenGrep, puis l'**Approuver et installer** ou la
+  **Rejeter** avec un motif facultatif.
+- Seule une personne connectée à l'interface web décide : un jeton Bearer, qu'un agent peut
+  détenir, reçoit `403`. Une approbation valide la règle avec `opengrep validate` et crée son
+  fichier ; elle ne remplace jamais une règle installée (`409`). La proposition, l'approbation
+  et le rejet sont inscrits au [journal d'audit](../../advanced/audit-log.md).
+
+| Route | Permission | Rôle |
+|---|---|---|
+| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Propositions d'un statut (`pending` par défaut, `approved`, `rejected`), les plus récentes d'abord |
+| `POST /api/v1/opengrep/proposals/{id}/approve` | `rules.manage`, session web | Corps `{"content": null}` (ou le YAML corrigé) : valide et installe la règle |
+| `POST /api/v1/opengrep/proposals/{id}/reject` | `rules.manage`, session web | Corps `{"reason": null}` : la règle n'est pas installée |

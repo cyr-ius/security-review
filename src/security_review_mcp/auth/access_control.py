@@ -85,6 +85,7 @@ from ..storage.models import (
     FindingComment,
     FindingExport,
     OidcRoleMapping,
+    OpenGrepRuleProposal,
     Project,
     ProjectEnrollment,
     SecurityReport,
@@ -1278,7 +1279,8 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
     """Delete ``project`` and everything that refers to it (``projects.delete``), in one
     transaction: its reports, findings and comments, the roles of the users on it and the
     project in the OIDC mappings (see _forget_project_access), in the tokens (see
-    token_store.forget_project) and its connector destinations. The audit log keeps the events
+    token_store.forget_project), its connector destinations and its OpenGrep rule proposals
+    (an approved rule stays installed). The audit log keeps the events
     of the project and records ``project.deleted``.
 
     Raises:
@@ -1297,6 +1299,7 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
         # Its connector destinations (its exports went with its findings), deleted here rather
         # than by connectors: the MCP server imports this module, never the connectors
         session.exec(delete(ConnectorTarget).where(ConnectorTarget.project == cleaned))
+        session.exec(delete(OpenGrepRuleProposal).where(OpenGrepRuleProposal.project == cleaned))
         session.delete(row)
         audit.record(
             session,

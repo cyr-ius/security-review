@@ -1,14 +1,22 @@
-"""REST API for administrator-managed OpenGrep YAML rules."""
+"""REST API for administrator-managed OpenGrep YAML rules and the rules proposed by agents."""
 
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Path, Response, status
+from fastapi import APIRouter, HTTPException, Path, Query, Response, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-from ..rules import opengrep_rule_store
-from .deps import RulesManager, RulesReader
+from ..rules import opengrep_proposals, opengrep_rule_store
+from ..storage.models import RuleProposalStatus
+from .deps import RulesManager, RulesReader, actor_of
+from .schemas import (
+    Identity,
+    OpenGrepRuleApproval,
+    OpenGrepRuleProposalList,
+    OpenGrepRuleProposalPublic,
+    OpenGrepRuleRejection,
+)
 
 logger = logging.getLogger("security_review_mcp.web")
 router = APIRouter(prefix="/opengrep", tags=["opengrep"])
@@ -118,3 +126,69 @@ async def delete_rule(rule_id: RuleId, identity: RulesManager) -> Response:
         raise _error(exc) from exc
     logger.info("OpenGrep rule %s deleted by %s", rule_id, identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _person(identity: Identity) -> None:
+    """Refuse a bearer token: only a person logged in to the web interface decides on a rule
+    proposed by an agent (an agent may hold a token with rules.manage)."""
+    if identity.auth_source is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only a person logged in to the web interface can decide on a proposed rule",
+        )
+
+
+@router.get("/proposals", response_model=OpenGrepRuleProposalList)
+async def list_proposals(
+    identity: RulesManager,
+    proposal_status: Annotated[RuleProposalStatus | None, Query(alias="status")] = (
+        RuleProposalStatus.PENDING
+    ),
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> OpenGrepRuleProposalList:
+    """List the OpenGrep rules proposed by agents (pending ones by default), newest first."""
+    proposals = await run_in_threadpool(
+        opengrep_proposals.list_proposals, proposal_status, limit, offset
+    )
+    return OpenGrepRuleProposalList.model_validate({"proposals": proposals})
+
+
+@router.post("/proposals/{proposal_id}/approve", response_model=OpenGrepRuleProposalPublic)
+async def approve_proposal(
+    proposal_id: int, body: OpenGrepRuleApproval, identity: RulesManager
+) -> OpenGrepRuleProposalPublic:
+    """Validate a proposed rule with OpenGrep and install it (never over an existing rule)."""
+    _person(identity)
+    try:
+        result = await run_in_threadpool(
+            opengrep_proposals.approve_proposal,
+            proposal_id,
+            identity.client,
+            actor_of(identity),
+            body.content,
+        )
+    except (ValueError, FileExistsError, RuntimeError) as exc:
+        raise _error(exc) from exc
+    logger.info("OpenGrep rule proposal %s approved by %s", proposal_id, identity.client)
+    return OpenGrepRuleProposalPublic.model_validate(result)
+
+
+@router.post("/proposals/{proposal_id}/reject", response_model=OpenGrepRuleProposalPublic)
+async def reject_proposal(
+    proposal_id: int, body: OpenGrepRuleRejection, identity: RulesManager
+) -> OpenGrepRuleProposalPublic:
+    """Reject a proposed rule: it is not installed."""
+    _person(identity)
+    try:
+        result = await run_in_threadpool(
+            opengrep_proposals.reject_proposal,
+            proposal_id,
+            identity.client,
+            actor_of(identity),
+            body.reason,
+        )
+    except ValueError as exc:
+        raise _error(exc) from exc
+    logger.info("OpenGrep rule proposal %s rejected by %s", proposal_id, identity.client)
+    return OpenGrepRuleProposalPublic.model_validate(result)

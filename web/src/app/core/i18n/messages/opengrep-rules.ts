@@ -25,6 +25,27 @@ export const opengrepRules = defineMessages({
     'opengrepRules.editorHelp':
       'One YAML file must contain exactly one rule. Its id must match the identifier above.',
     'opengrepRules.loadError': 'Could not load OpenGrep rules.',
+    'opengrepRules.idRequired': 'The identifier is required.',
+    'opengrepRules.idPattern':
+      'Use 3 to 80 letters, digits, dots, underscores or hyphens, starting with a letter or a digit.',
+    'opengrepRules.contentRequired': 'The YAML definition is required.',
+    'opengrepRules.confirmDelete': 'Delete the OpenGrep rule "{id}"?',
+    'opengrepRules.failed': 'The operation failed.',
+    'opengrepRules.proposals': 'Rules proposed by agents',
+    'opengrepRules.proposalsHelp':
+      'Rules proposed during a security review. They are not used until you approve them.',
+    'opengrepRules.proposalFrom': 'Proposed by',
+    'opengrepRules.project': 'Project',
+    'opengrepRules.reason': 'Reason',
+    'opengrepRules.testCode': 'Test code',
+    'opengrepRules.review': 'Review',
+    'opengrepRules.approve': 'Approve and install',
+    'opengrepRules.reject': 'Reject',
+    'opengrepRules.rejectReason': 'Rejection reason (optional)',
+    'opengrepRules.approved': 'Rule approved and installed.',
+    'opengrepRules.rejected': 'Proposal rejected.',
+    'opengrepRules.proposalHelp':
+      'Check the rule and validate it with OpenGrep. You may correct the YAML before approving it; the identifier cannot change.',
   },
   fr: {
     'opengrepRules.title': 'Règles OpenGrep',
@@ -51,6 +72,27 @@ export const opengrepRules = defineMessages({
       'Un fichier YAML doit contenir exactement une règle. ' +
       'Son id doit correspondre à l’identifiant ci-dessus.',
     'opengrepRules.loadError': 'Impossible de charger les règles OpenGrep.',
+    'opengrepRules.idRequired': 'L’identifiant est obligatoire.',
+    'opengrepRules.idPattern':
+      'Utilisez 3 à 80 lettres, chiffres, points, tirets bas ou tirets, en commençant par une lettre ou un chiffre.',
+    'opengrepRules.contentRequired': 'La définition YAML est obligatoire.',
+    'opengrepRules.confirmDelete': 'Supprimer la règle OpenGrep « {id} » ?',
+    'opengrepRules.failed': 'L’opération a échoué.',
+    'opengrepRules.proposals': 'Règles proposées par les agents',
+    'opengrepRules.proposalsHelp':
+      'Règles proposées pendant une revue de sécurité. Elles ne sont utilisées qu’après votre approbation.',
+    'opengrepRules.proposalFrom': 'Proposée par',
+    'opengrepRules.project': 'Projet',
+    'opengrepRules.reason': 'Motif',
+    'opengrepRules.testCode': 'Code de test',
+    'opengrepRules.review': 'Examiner',
+    'opengrepRules.approve': 'Approuver et installer',
+    'opengrepRules.reject': 'Rejeter',
+    'opengrepRules.rejectReason': 'Motif du rejet (facultatif)',
+    'opengrepRules.approved': 'Règle approuvée et installée.',
+    'opengrepRules.rejected': 'Proposition rejetée.',
+    'opengrepRules.proposalHelp':
+      'Vérifiez la règle et validez-la avec OpenGrep. Vous pouvez corriger le YAML avant de l’approuver ; l’identifiant ne change pas.',
   },
   es: {
     'opengrepRules.title': 'Reglas de OpenGrep',
@@ -75,5 +117,26 @@ export const opengrepRules = defineMessages({
     'opengrepRules.editorHelp':
       'Cada archivo YAML debe contener una sola regla y su id debe coincidir con el identificador.',
     'opengrepRules.loadError': 'No se pudieron cargar las reglas OpenGrep.',
+    'opengrepRules.idRequired': 'El identificador es obligatorio.',
+    'opengrepRules.idPattern':
+      'Use de 3 a 80 letras, dígitos, puntos, guiones bajos o guiones, empezando por una letra o un dígito.',
+    'opengrepRules.contentRequired': 'La definición YAML es obligatoria.',
+    'opengrepRules.confirmDelete': '¿Eliminar la regla OpenGrep «{id}»?',
+    'opengrepRules.failed': 'La operación falló.',
+    'opengrepRules.proposals': 'Reglas propuestas por los agentes',
+    'opengrepRules.proposalsHelp':
+      'Reglas propuestas durante una revisión de seguridad. No se usan hasta que usted las apruebe.',
+    'opengrepRules.proposalFrom': 'Propuesta por',
+    'opengrepRules.project': 'Proyecto',
+    'opengrepRules.reason': 'Motivo',
+    'opengrepRules.testCode': 'Código de prueba',
+    'opengrepRules.review': 'Examinar',
+    'opengrepRules.approve': 'Aprobar e instalar',
+    'opengrepRules.reject': 'Rechazar',
+    'opengrepRules.rejectReason': 'Motivo del rechazo (opcional)',
+    'opengrepRules.approved': 'Regla aprobada e instalada.',
+    'opengrepRules.rejected': 'Propuesta rechazada.',
+    'opengrepRules.proposalHelp':
+      'Revise la regla y valídela con OpenGrep. Puede corregir el YAML antes de aprobarla; el identificador no cambia.',
   },
 });

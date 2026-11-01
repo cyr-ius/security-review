@@ -469,6 +469,31 @@ async def test_propose_finding_status_refuses_invalid_input(status, reason):
     assert services.get_report(saved["report_id"]).findings[0].proposed_status is None
 
 
+async def test_agent_can_only_propose_an_opengrep_rule():
+    rule = (
+        "rules:\n  - id: acme.python.unsafe-template\n    message: SSTI\n"
+        "    languages: [python]\n    severity: ERROR\n    pattern: render_template_string($X)\n"
+    )
+    args = {
+        "project": "demo",
+        "rule_id": "acme.python.unsafe-template",
+        "content": rule,
+        "reason": "Template injection missed by the scan rules",
+        "test_code": "# ruleid: acme.python.unsafe-template\nrender_template_string(t)\n",
+    }
+    async with Client(mcp) as client:
+        result = await client.call_tool("propose_opengrep_rule", args)
+        refused = await client.call_tool(
+            "propose_opengrep_rule", args | {"rule_id": "acme.python.other"}
+        )
+    proposed = json.loads(text_of(result))
+    assert (proposed["status"], proposed["proposed_by"]) == ("pending", "stdio")
+    assert "approves or rejects" in proposed["next_steps"]
+    assert refused.is_error and "must match" in text_of(refused)
+    (event,) = audit.list_events(action="opengrep_rule.proposed")["events"]
+    assert (event["actor"], event["project"]) == ("stdio", "demo")
+
+
 # ── Project-restricted tokens (HTTP transport) ───────────────────────────────
 
 

@@ -466,6 +466,9 @@ class Settings(BaseSettings):
     opengrep_max_concurrent_scans: int = Field(default=1, ge=1, le=64)
     opengrep_jobs: int = Field(default=2, ge=1, le=256)
     opengrep_max_memory_mb: int = Field(default=2048, ge=0)
+    # MCP server: OpenGrep rules proposed by agents (propose_opengrep_rule) and waiting for a
+    # person at the same time; a new proposal is refused beyond
+    opengrep_max_pending_proposals: int = Field(default=100, ge=1, le=10_000)
 
     @field_validator(
         "proxy",

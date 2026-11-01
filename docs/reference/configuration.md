@@ -190,6 +190,7 @@ Engine of the Controller server for `scan-code`, enabled by default and skipped 
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans running at the same time in one Controller server process (`503` beyond) |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one scan |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one scan (`0`: no limit) |
+| `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | MCP server: OpenGrep rules proposed by agents (`propose_opengrep_rule`) and waiting for a decision at the same time; a new proposal is refused beyond |
 
 ## Clients
 

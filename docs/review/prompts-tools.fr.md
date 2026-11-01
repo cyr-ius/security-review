@@ -59,6 +59,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
+| `propose_opengrep_rule` | **Propose** une [règle OpenGrep](analysis/opengrep.md#regles-proposees-par-les-agents) pour un motif vulnérable que le scan n'a pas relevé ; installée seulement après l'approbation d'une personne |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
@@ -74,7 +75,7 @@ projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
 [jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels) atteint les projets de son
-utilisateur, et `save_security_report` et `propose_finding_status` seulement ceux où
+utilisateur, et `save_security_report`, `propose_finding_status` et `propose_opengrep_rule` seulement ceux où
 l'utilisateur porte `reports.write` : pour un autre projet, `request_project` le crée ou le
 demande.
 

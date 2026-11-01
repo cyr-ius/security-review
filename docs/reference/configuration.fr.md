@@ -190,6 +190,7 @@ Moteur du serveur Controller pour `scan-code`, activé par défaut et ignoré ta
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans simultanés dans un processus du serveur Controller (`503` au-delà) |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan (`0` : sans limite) |
+| `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | Serveur MCP : règles OpenGrep proposées par les agents (`propose_opengrep_rule`) en attente de décision en même temps ; une nouvelle proposition est refusée au-delà |
 
 ## Clients
 

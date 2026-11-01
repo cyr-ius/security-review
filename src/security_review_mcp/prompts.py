@@ -36,6 +36,13 @@ Call `request_project` once with the project name you will pass to `save_securit
 (usually the repository name). If its `status` is `requested`, stop there: the report could \
 not be saved, so give the user its `next_steps` instead of reviewing."""
 
+# Last step of a review: a rule for a pattern the scan missed, approved by a person
+_RULE_PROPOSAL = """\
+If a confirmed issue follows a vulnerable pattern that the scan did not report and that may \
+recur elsewhere, then, after saving the report, call `propose_opengrep_rule` with one OpenGrep \
+YAML rule that detects it, its reason and test code (`ruleid:` and `ok:` cases). It is not \
+installed until a person approves it. Do not propose a rule for a one-off issue."""
+
 _BACKTICK_RUN_RE = re.compile(r"`{3,}")
 
 
@@ -83,6 +90,7 @@ than reporting it.
 `review_type` `{{review_type}}`, a summary and the structured findings, so that the review is \
 stored. {_AUTHOR_RULE} {_COVERAGE_RULE} Pass an empty findings list if \
 the review found nothing, and say what was covered.
+3. {_RULE_PROPOSAL}
 """
 
 
@@ -371,6 +379,7 @@ files and areas reviewed, and those NOT reviewed.
 2. Call `save_security_report` exactly once with `review_type` `codebase-review`. \
 {_AUTHOR_RULE} {_COVERAGE_RULE} Put the coverage in `scope` (for example \
 "Full codebase: src/api, src/auth reviewed; src/legacy not reviewed").
+3. {_RULE_PROPOSAL}
 """
 
 

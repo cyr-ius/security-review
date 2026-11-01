@@ -47,7 +47,7 @@ def rule_path(rule_id: str) -> Path:
     return path
 
 
-def _validate_id(rule_id: str, content: str) -> None:
+def check_rule_file(rule_id: str, content: str) -> None:
     """Require one rule whose id matches the managed file name."""
     if len(content) > MAX_RULE_CHARS or not content.strip():
         raise ValueError("The YAML rule is empty or exceeds the 256 KiB limit")
@@ -58,7 +58,7 @@ def _validate_id(rule_id: str, content: str) -> None:
 
 def validate_rule(rule_id: str, content: str) -> str:
     """Validate the rule with the configured OpenGrep executable."""
-    _validate_id(rule_id, content)
+    check_rule_file(rule_id, content)
     binary = shutil.which(get_settings().opengrep_binary)
     if binary is None:
         raise RuntimeError("The configured OpenGrep executable is unavailable")
@@ -174,7 +174,7 @@ def install_bundled(
     for files in bundled_rules(languages).values():
         for source in files:
             content = source.read_text(encoding="utf-8")
-            _validate_id(source.stem, content)
+            check_rule_file(source.stem, content)
             path = _installed_path(source.stem)
             current = path.read_text(encoding="utf-8") if path.is_file() else None
             if current is not None and not overwrite:
@@ -202,7 +202,7 @@ def sync_bundled() -> dict[str, list[str]]:
         for source in files:
             rule_id = source.stem
             content = source.read_text(encoding="utf-8")
-            _validate_id(rule_id, content)
+            check_rule_file(rule_id, content)
             path = _installed_path(rule_id)
             recorded = manifest.get(rule_id)
             if not path.is_file():

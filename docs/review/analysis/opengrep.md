@@ -121,3 +121,33 @@ users with `rules.manage` can create, edit, validate and delete them. Each manag
 contains exactly one rule, and its rule id must match the file identifier. Writes are validated
 with `opengrep validate <file>` before an atomic replacement. The Controller does not download
 rule packs or follow remote rule sources on behalf of the administrator.
+
+## Rules proposed by agents
+
+During a review, when a confirmed issue follows a vulnerable pattern the scan missed and that
+may recur, the agent can propose an OpenGrep rule with the MCP tool `propose_opengrep_rule`
+([tools](../prompts-tools.md#tools)): the YAML rule, its reason and test code (`ruleid:` and
+`ok:` cases). **The rule is not installed**: the MCP server only stores the proposal in the
+database, and the review prompts tell the agent to propose a rule only after saving the report.
+
+- The rule must hold exactly one rule whose `id` is the proposed identifier; the `secreview.`
+  prefix is kept for the default rules. A rule that looks like it holds a secret, or with
+  invisible characters, is refused. The reason is masked and bounded like the reason of a
+  status proposal.
+- The token must reach the project and hold `reports.write` on it (as for
+  `save_security_report`). A new proposal with the identifier of a pending one replaces it; at
+  most `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` proposals wait at the same time.
+- Pending proposals are listed at the top of the **OpenGrep rules** page for the users with
+  `rules.manage`. **Review** opens one in the editor with its project, author, reason and test
+  code: the approver may correct the YAML (not its identifier), validate it with OpenGrep, then
+  **Approve and install** it or **Reject** it with an optional reason.
+- Only a person logged in to the web interface decides: a bearer token, which an agent may
+  hold, gets `403`. An approval validates the rule with `opengrep validate` and creates its file;
+  it never replaces an installed rule (`409`). The proposal, the approval and the rejection are
+  written to the [audit log](../../advanced/audit-log.md).
+
+| Route | Permission | Role |
+|---|---|---|
+| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Proposals of a status (`pending` by default, `approved`, `rejected`), newest first |
+| `POST /api/v1/opengrep/proposals/{id}/approve` | `rules.manage`, web session | Body `{"content": null}` (or the corrected YAML): validates and installs the rule |
+| `POST /api/v1/opengrep/proposals/{id}/reject` | `rules.manage`, web session | Body `{"reason": null}`: the rule is not installed |

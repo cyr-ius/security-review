@@ -122,7 +122,7 @@ l'utiliser.
 | Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
 | Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
 | Moteur de scan, masquage des secrets | `rules/scanner.py` |
-| Règles et checklists par défaut (copiées en base au premier lancement) ; règles OpenGrep par défaut (une par fichier, installées par `security-review-controller opengrep install`, ou au démarrage du contrôleur quand OpenGrep est activé et son exécutable présent (image `-opengrep`), sans toucher une règle modifiée ou supprimée) et leur gestion | `rules/default_rules.toml` ; `rules/opengrep/<langage>/*.yaml`, `rules/opengrep_rule_store.py`, `engines/opengrep.py` |
+| Règles et checklists par défaut (copiées en base au premier lancement) ; règles OpenGrep par défaut (une par fichier, installées par `security-review-controller opengrep install`, ou au démarrage du contrôleur quand OpenGrep est activé et son exécutable présent (image `-opengrep`), sans toucher une règle modifiée ou supprimée) et leur gestion ; règles OpenGrep proposées par un agent (`propose_opengrep_rule`), approuvées ou rejetées par une personne | `rules/default_rules.toml` ; `rules/opengrep/<langage>/*.yaml`, `rules/opengrep_rule_store.py`, `engines/opengrep.py` ; `rules/opengrep_proposals.py` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
 | CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
@@ -242,6 +242,11 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   sous
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, une acceptation n'exige ni motif ni date) ; une décision expirée
   compte comme ouverte (gate, posture, SARIF, tendances).
+- **Un agent n'installe jamais une règle de scan** : `propose_opengrep_rule` enregistre seulement
+  une proposition en base (préfixe `secreview.` refusé, ni secret ni caractère invisible, nombre
+  en attente borné) ; seule une personne connectée à l'interface (session, jamais un jeton
+  Bearer) avec `rules.manage` l'approuve, ce qui la valide avec OpenGrep sans jamais remplacer
+  une règle installée.
 
 ### Paramètres
 
