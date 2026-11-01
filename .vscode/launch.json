@@ -22,7 +22,10 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "SECREVIEW_LOG_LEVEL": "DEBUG"
+        "SECREVIEW_LOG_LEVEL": "DEBUG",
+        "SECREVIEW_OPENGREP_ENABLED": "true",
+        "SECREVIEW_OPENGREP_RULES_DIR": "${workspaceFolder}/.venv/var/lib/secreview/rules/opengrep",
+        "SECREVIEW_PUBLIC_URL": "http://localhost:8080"
       },
       "console": "integratedTerminal",
       "justMyCode": false,

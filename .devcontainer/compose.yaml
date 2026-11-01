@@ -16,9 +16,6 @@ services:
       - ${HOME}/.claude:/home/vscode/.claude:cached
     environment:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview # secreview:ignore GEN-007 local dev database
-      # OpenGrep engine of the Controller server (binary installed by install-opengrep.sh)
-      SECREVIEW_OPENGREP_ENABLED: "true"
-      SECREVIEW_OPENGREP_RULES_DIR: /workspaces/security-review/.venv/var/lib/secreview/rules/opengrep
     depends_on:
       db:
         condition: service_healthy
