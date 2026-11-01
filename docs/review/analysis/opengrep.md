@@ -10,19 +10,19 @@ The [`-opengrep` image](../../advanced/deployment/docker.md#published-images) (`
 `X.Y.Z-opengrep`) ships a pinned OpenGrep release in `/usr/local/bin/opengrep`, checked against its
 SHA-256 digest at build time (`opengrep` target of the `Dockerfile`) and unpacked there, read-only,
 so that a scan never extracts it: use it for the Controller server. The
-[default rules](#default-rules) are installed and kept up to date at each start. The default image does not contain OpenGrep and sets `SECREVIEW_OPENGREP_ENABLED=false`. With an installation from
-the PyPI package, install OpenGrep yourself and set `SECREVIEW_OPENGREP_BINARY` if it is not in
+[default rules](#default-rules) are installed and kept up to date at each start. The `-opengrep` image sets `SECREVIEW_OPENGREP_ENABLED=true`; the default image does not contain OpenGrep. With an installation from
+the PyPI package, install OpenGrep yourself, set `SECREVIEW_OPENGREP_ENABLED=true` and set `SECREVIEW_OPENGREP_BINARY` if it is not in
 `/usr/local/bin`.
 
 ## Configuration
 
-The engine is enabled by default (except in the default Docker image, without OpenGrep), but it only runs once at least one YAML rule is installed:
-without any rule, `scan-code` runs the built-in scanner only. Set
-`SECREVIEW_OPENGREP_ENABLED=false` to turn it off. Environment variables of the Controller server:
+The engine is disabled by default and enabled in the `-opengrep` image; set
+`SECREVIEW_OPENGREP_ENABLED=true` to turn it on elsewhere. Once enabled, it only runs once at least one YAML rule is installed:
+without any rule, `scan-code` runs the built-in scanner only. Environment variables of the Controller server:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SECREVIEW_OPENGREP_ENABLED` | `true` | Enable OpenGrep for whole-codebase scans |
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Enable OpenGrep for whole-codebase scans |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory containing OpenGrep YAML rule packs |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one OpenGrep scan |

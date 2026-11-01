@@ -13,9 +13,10 @@ from security_review_mcp.rules import codescan, opengrep_rule_store
 from security_review_mcp.rules.codescan import SourceFile
 
 
-def test_engine_enabled_by_default_runs_only_once_rules_are_installed(tmp_path, monkeypatch):
-    # Enabled by default, but skipped without any rule: scan-code works out of the box
-    assert Settings().opengrep_enabled is True
+def test_engine_disabled_by_default_runs_only_once_rules_are_installed(tmp_path, monkeypatch):
+    # Disabled by default (a PyPI installation has no executable); once enabled, skipped
+    # without any rule: scan-code works out of the box
+    assert Settings().opengrep_enabled is False
     rules = tmp_path / "rules"
     settings = SimpleNamespace(
         opengrep_enabled=True,

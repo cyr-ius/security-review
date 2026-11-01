@@ -52,7 +52,7 @@ forwards ports 8000 (MCP server), 8080 (Controller server), 4200 (Angular dev se
 
 It also installs a pinned [OpenGrep](../review/analysis/opengrep.md) release in
 `/usr/local/bin/opengrep` (`.devcontainer/install-opengrep.sh`, which checks its SHA-256 digest)
-(the release of the `-opengrep` Docker image): the engine, enabled by default, runs once a rule is added on the
+(the release of the `-opengrep` Docker image): the engine, disabled by default but enabled by the `.vscode/launch.json` configurations, runs once a rule is added on the
 **OpenGrep rules** page of the Controller server or the default rules are installed
 (`security-review-controller opengrep install`); the tests run the default rules with it.
 

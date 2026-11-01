@@ -10,19 +10,19 @@ L'[image `-opengrep`](../../advanced/deployment/docker.md#images-publiees) (`lat
 `X.Y.Z-opengrep`) contient une version épinglée d'OpenGrep dans `/usr/local/bin/opengrep`, vérifiée par son
 empreinte SHA-256 à la construction (cible `opengrep` du `Dockerfile`) et décompactée à ce moment, en
 lecture seule, pour qu'un scan ne l'extraie jamais : utilisez-la pour le serveur Controller. Les
-[règles par défaut](#regles-par-defaut) sont installées et tenues à jour à chaque démarrage. L'image par défaut ne contient pas OpenGrep et définit `SECREVIEW_OPENGREP_ENABLED=false`. Avec une installation du paquet
-PyPI, installez OpenGrep vous-même et définissez `SECREVIEW_OPENGREP_BINARY` s'il n'est pas dans
+[règles par défaut](#regles-par-defaut) sont installées et tenues à jour à chaque démarrage. L'image `-opengrep` définit `SECREVIEW_OPENGREP_ENABLED=true` ; l'image par défaut ne contient pas OpenGrep. Avec une installation du paquet
+PyPI, installez OpenGrep vous-même, définissez `SECREVIEW_OPENGREP_ENABLED=true` et `SECREVIEW_OPENGREP_BINARY` s'il n'est pas dans
 `/usr/local/bin`.
 
 ## Configuration
 
-Le moteur est activé par défaut (sauf dans l'image Docker par défaut, sans OpenGrep), mais il ne s'exécute qu'une fois au moins une règle YAML installée : sans
-règle, `scan-code` n'exécute que le scanner intégré. Définissez `SECREVIEW_OPENGREP_ENABLED=false` pour le
-désactiver. Variables d'environnement du serveur Controller :
+Le moteur est désactivé par défaut et activé dans l'image `-opengrep` ; définissez
+`SECREVIEW_OPENGREP_ENABLED=true` pour l'activer ailleurs. Une fois activé, il ne s'exécute qu'une fois au moins une règle YAML installée : sans
+règle, `scan-code` n'exécute que le scanner intégré. Variables d'environnement du serveur Controller :
 
 | Variable | Valeur par défaut | Description |
 | --- | --- | --- |
-| `SECREVIEW_OPENGREP_ENABLED` | `true` | Active OpenGrep pour les scans de code complet |
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Active OpenGrep pour les scans de code complet |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Chemin de l'exécutable OpenGrep |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des packs de règles YAML |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan OpenGrep |

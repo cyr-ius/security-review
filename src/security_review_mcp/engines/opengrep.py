@@ -185,7 +185,7 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
     """Run OpenGrep on bounded source files and return matches indexed by relative path.
 
     Without any YAML rule installed there is nothing to run: the engine is skipped, so that it
-    can be enabled by default before an administrator adds rules.
+    can be enabled before an administrator adds rules.
 
     Raises:
         OpenGrepError: If rules are installed but the executable or scan output is unavailable.

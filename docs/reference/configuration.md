@@ -179,11 +179,11 @@ Read by `security-review-controller` only.
 
 ### OpenGrep engine
 
-Engine of the Controller server for `scan-code`, enabled by default and skipped while no rule is installed (binary shipped in the `-opengrep` Docker image, disabled in the default image), see [OpenGrep](../review/analysis/opengrep.md).
+Engine of the Controller server for `scan-code`, disabled by default and skipped while no rule is installed (binary shipped in the `-opengrep` Docker image, which enables it), see [OpenGrep](../review/analysis/opengrep.md).
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_OPENGREP_ENABLED` | `true` | Also run OpenGrep on the files of `scan-code` |
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Also run OpenGrep on the files of `scan-code` |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory of the OpenGrep YAML rules |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one scan (1 to 7200) |

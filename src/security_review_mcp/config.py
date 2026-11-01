@@ -455,10 +455,11 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    # Controller only: OpenGrep engine for whole-codebase scans (binary shipped in the
-    # "-opengrep" Docker image), skipped while no rule is installed. Rules are managed
-    # separately from the built-in TOML rules and are never downloaded implicitly.
-    opengrep_enabled: bool = True
+    # Controller only: OpenGrep engine for whole-codebase scans, disabled by default (a PyPI
+    # installation has no OpenGrep executable) and enabled by the "-opengrep" Docker image that
+    # ships it; skipped while no rule is installed. Rules are managed separately from the
+    # built-in TOML rules and are never downloaded implicitly.
+    opengrep_enabled: bool = False
     opengrep_binary: str = "/usr/local/bin/opengrep"
     opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
     opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
