@@ -2,7 +2,25 @@
 
 Le serveur Controller lance OpenGrep comme second moteur d'analyse statique lors d'un scan de code complet
 (`security-review-ci scan-code`). Le scanner intégré reste actif et inchangé. Les scans de fragments
-(`scan_code`) ne lancent aucun processus externe.
+(`scan_code`) du serveur MCP n'utilisent OpenGrep que lorsqu'ils sont
+[délégués au serveur Controller](#scans-de-fragments-scan_code).
+
+## Scans de fragments (`scan_code`)
+
+Par défaut, l'outil `scan_code` scanne le fragment reçu avec les seules règles du serveur MCP, sans
+lancer de processus externe. Avec `SECREVIEW_MCP_SCAN_CONTROLLER_URL` défini sur le serveur MCP (URL
+racine du serveur Controller, par exemple `http://controller:8080` dans Compose), il envoie le fragment
+à `POST /api/v1/scan/content` du serveur Controller avec le jeton de l'agent : le serveur Controller
+applique ses règles, puis ses règles OpenGrep quand le moteur est activé, et n'enregistre rien. La
+réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`).
+
+- Le jeton de l'agent est relayé tel quel : un jeton `mcp` ou `admin` n'atteint que cette route, pas
+  le reste de l'API REST.
+- Sans jeton d'appelant (stdio, serveur ouvert), ou quand le serveur Controller ne répond pas
+  (injoignable, OpenGrep occupé, `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` dépassé), `scan_code` scanne avec
+  les règles du serveur MCP et en donne la raison dans `controller_error`.
+- L'appel ne va qu'à l'URL configurée, sans proxy ni redirection, avec une réponse bornée ; utilisez
+  une URL `https://` quand le serveur Controller n'est pas sur le même réseau privé.
 
 ## Image Docker
 

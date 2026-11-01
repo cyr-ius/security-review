@@ -13,6 +13,7 @@ base (voir [Architecture](index.md)).
 | `/api/v1/auth/` | la page de connexion : mot de passe et connexion [OIDC](../oidc.md) | aucun |
 | `/api/v1/` | l'interface web, les scripts, Swagger | session web, jeton `admin` ou `api` |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` (personnel ou non) |
+| `/api/v1/scan/content` | le serveur MCP : `scan_code` [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code) (ne lit ni n'enregistre rien) | jeton `mcp` ou `admin` de l'agent, relayé |
 | `/metrics` | Prometheus ([métriques](../../reference/metrics.md)) | jeton `metrics` ou `admin` |
 | `/api/docs` | Swagger : documentation OpenAPI de l'API REST, sans données, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../../usage/tokens.md#jetons-api)) |
 | `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-serveur-controller), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |

@@ -57,6 +57,8 @@ Lues par `security-review-mcp` uniquement.
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](../review/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans la page [**Langue des rapports**](../usage/index.md#pages) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code`, et de chaque texte d'un rapport (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |
+| `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | URL racine du serveur Controller (`http://controller:8080` dans Compose) à qui `scan_code` [délègue son scan](../review/analysis/opengrep.md#scans-de-fragments-scan_code) avec le jeton de l'agent, pour appliquer aussi les règles OpenGrep ; non définie : aucune délégation, aucune connexion sortante |
+| `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` | `120` | Durée maximale d'un scan délégué, OpenGrep compris (1 à 7200) ; au-delà, `scan_code` scanne avec les règles du serveur MCP |
 
 ## Serveur Controller
 

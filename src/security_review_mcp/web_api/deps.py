@@ -19,6 +19,7 @@ from ..http_server import (
     API_ROLES,
     BEARER_CHALLENGE,
     CI_ROUTE_ROLES,
+    MCP_ROLES,
     METRICS_ROLES,
     SCAN_ROUTE_ROLES,
     Role,
@@ -140,6 +141,15 @@ def scan_identity(
     return identity
 
 
+def content_scan_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the scan delegated by scan_code: the ``mcp`` or ``admin`` token of the agent,
+    relayed by the MCP server."""
+    return _identity_with_role(request, MCP_ROLES)
+
+
 def metrics_identity(
     request: Request,
     _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
@@ -171,6 +181,7 @@ CurrentIdentity = Annotated[Identity, Depends(current_identity)]
 PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
 ScanIdentity = Annotated[Identity, Depends(scan_identity)]
 MetricsIdentity = Annotated[Identity, Depends(metrics_identity)]
+ContentScanIdentity = Annotated[Identity, Depends(content_scan_identity)]
 TokenOwner = Annotated[str | None, Depends(token_owner)]
 WriteProjects = Annotated[frozenset[str] | None, Depends(token_write_projects)]
 

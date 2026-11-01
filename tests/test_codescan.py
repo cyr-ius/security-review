@@ -52,6 +52,25 @@ def test_scan_files_reports_skipped_and_oversized_files(monkeypatch):
     assert result["files_skipped"] == 5 and result["files_scanned"] == 1
 
 
+def test_scan_content_adds_the_opengrep_matches_of_the_fragment(monkeypatch):
+    monkeypatch.setattr(get_settings(), "opengrep_enabled", True)
+    scanned: list = []
+    opengrep_match = {"rule_id": "OPENGREP:secreview.python.eval", "line": 1}
+
+    def fake_opengrep(files):
+        scanned.extend(files)
+        return {files[0][0]: [opengrep_match]}
+
+    monkeypatch.setattr(codescan.opengrep, "scan_files", fake_opengrep)
+
+    result = codescan.scan_content(FILES[0].content, "py")
+
+    # OpenGrep picks its rules from the name of the file: one of the language of the fragment
+    assert scanned == [("fragment.py", FILES[0].content)]
+    assert (result["language"], result["engines"]) == ("python", ["rules", "opengrep"])
+    assert {m["rule_id"] for m in result["matches"]} >= {"PY-004", opengrep_match["rule_id"]}
+
+
 def test_scan_files_refuses_too_many_files(monkeypatch):
     monkeypatch.setattr(get_settings(), "max_scan_files", 3)
     with pytest.raises(ValueError, match="SECREVIEW_MAX_SCAN_FILES"):

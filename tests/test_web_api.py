@@ -3098,6 +3098,24 @@ def test_scans_need_a_ci_or_admin_token(secured, web_sessions, ci_token):
     assert admin.status_code == 200
 
 
+def test_the_delegated_content_scan_is_the_only_route_of_an_mcp_token(
+    secured, web_sessions, ci_token
+):
+    body = {"content": "subprocess.run(cmd, shell=True)\n", "language": "py"}
+
+    scan = secured.post("/api/v1/scan/content", json=body, headers=auth("mcp"))
+
+    assert scan.status_code == 200, scan.text
+    assert scan.json()["engines"] == ["rules"]
+    assert "PY-004" in {m["rule_id"] for m in scan.json()["matches"]}
+    for role in ("reader", "ci", "metrics"):
+        response = secured.post("/api/v1/scan/content", json=body, headers=auth(role))
+        assert response.status_code == 403, role
+    assert secured.post("/api/v1/scan/content", json=body).status_code == 401
+    # The token of the agent reaches nothing else of the Controller server
+    assert secured.get("/api/v1/reports", headers=auth("mcp")).status_code == 403
+
+
 def test_scans_refuse_a_web_session(accounts):
     make_user("root", USER_PASSWORD, "admin", must_change=False)
     headers = session_headers(accounts, "root")

@@ -480,6 +480,32 @@ class CodeMatch(BaseModel):
     advice: str
 
 
+class ContentScanRequest(BaseModel):
+    """Fragment sent by the scan_code tool of the MCP server (SECREVIEW_MCP_SCAN_CONTROLLER_URL)."""
+
+    # Bounded by SECREVIEW_MAX_CONTENT_CHARS once received
+    content: str
+    language: str = Field(min_length=1, max_length=40)
+
+
+class ContentMatch(CodeMatch):
+    """A match of a fragment; an OpenGrep match also gives its last line and its message."""
+
+    line_end: int | None = None
+    description: str | None = None
+
+
+class ContentScanResult(BaseModel):
+    """Matches of a fragment (leads to verify, secrets masked), and the engines that ran."""
+
+    language: str
+    lines_scanned: int
+    matches: list[ContentMatch]
+    # Matches hidden by a secreview:ignore marker, reported so that they can be audited
+    suppressed: list[ContentMatch]
+    engines: list[Literal["rules", "opengrep"]]
+
+
 class CodeScanFile(BaseModel):
     """Matches of one scanned file."""
 

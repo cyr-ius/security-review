@@ -2,7 +2,25 @@
 
 The Controller server runs OpenGrep as a second static-analysis engine during a
 whole-codebase scan (`security-review-ci scan-code`). The built-in scanner remains enabled and
-unchanged. Fragment scans (`scan_code`) do not start an external process.
+unchanged. On the MCP server, fragment scans (`scan_code`) only use OpenGrep when they are
+[delegated to the Controller server](#fragment-scans-scan_code).
+
+## Fragment scans (`scan_code`)
+
+By default, the `scan_code` tool scans the fragment it receives with the rules of the MCP server
+only, and starts no external process. With `SECREVIEW_MCP_SCAN_CONTROLLER_URL` set on the MCP server
+(root URL of the Controller server, for example `http://controller:8080` inside Compose), it sends the
+fragment to `POST /api/v1/scan/content` of the Controller server with the token of the agent: the
+Controller server applies its rules, then its OpenGrep rules when the engine is enabled, and stores
+nothing. The answer tells the engines that ran (`engines`: `rules`, `opengrep`).
+
+- The token of the agent is relayed as is: an `mcp` or `admin` token reaches this route only, not the
+  rest of the REST API.
+- Without a caller token (stdio, open server), or when the Controller server does not answer
+  (unreachable, busy OpenGrep, `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` exceeded), `scan_code` scans with
+  the rules of the MCP server and gives the reason in `controller_error`.
+- The call goes to the configured URL only, without proxy nor redirect, with a bounded answer; use an
+  `https://` URL when the Controller server is not on the same private network.
 
 ## Docker image
 

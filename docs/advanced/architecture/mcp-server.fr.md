@@ -98,7 +98,7 @@ message de toute autre erreur lui est masqué.
 |---|---|---|---|
 | `list_checklists` | lecture seule | aucun | Domaines (intégrés et internes) avec leur nombre d'éléments |
 | `get_review_checklist` | lecture seule | `domain` | La checklist en Markdown, suivie de la langue des rapports si elle est configurée |
-| `scan_code` | lecture seule | `content` (au plus `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (règle, ligne, extrait masqué), `suppressed` (lignes marquées `secreview:ignore`), compteurs, `report_language` ; des pistes à vérifier, pas un SAST complet |
+| `scan_code` | lecture seule | `content` (au plus `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (règle, ligne, extrait masqué), `suppressed` (lignes marquées `secreview:ignore`), compteurs, `engines` (`rules`, `opengrep` quand il est [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)), `controller_error`, `report_language` ; des pistes à vérifier, pas un SAST complet |
 | `list_rules` | lecture seule | `language` (facultatif) | Règles actives, `disabled_rules`, `load_errors` des règles internes |
 | `reload_rules` | écriture | aucun | Relit aussitôt les règles en base (sinon en 5 secondes) ; refusé à un jeton restreint à des projets |
 
@@ -164,7 +164,9 @@ sans argument, qui expliquent comment obtenir un jeton.
 ## Ce qu'il ne fait jamais
 
 - Il ne fait **aucune connexion sortante** (la base OSV est importée par le serveur Controller), et ne
-  charge aucun module du serveur Controller.
+  charge aucun module du serveur Controller. Seule exception, désactivée par défaut : `scan_code`
+  [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)
+  (`SECREVIEW_MCP_SCAN_CONTROLLER_URL`), avec le jeton de l'agent.
 - Ses outils **ne lisent jamais le disque** à partir d'un chemin donné par le client : ils
   travaillent sur le contenu transmis.
 - Toute entrée est bornée (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,

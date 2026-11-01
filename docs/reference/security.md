@@ -106,7 +106,11 @@
   [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the Controller server that make them (advisory download, OIDC, syslog, connectors, version check):
-  a test checks it. The Controller server only downloads the OSV advisories if an administrator enables it
+  a test checks it. Only exception, disabled by default: with `SECREVIEW_MCP_SCAN_CONTROLLER_URL`,
+  `scan_code` sends its fragment to the Controller server with the token of the agent, to that URL
+  only, without proxy nor redirect, answer bounded, token never logged (see
+  [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); an `mcp` token reaches
+  that route only. The Controller server only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
@@ -321,8 +325,9 @@
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
 - Data flows (taint analysis) are only followed by the [OpenGrep engine](../review/analysis/opengrep.md),
-  on the Controller server, during a scan of the codebase: the `scan_code` tool only applies the
-  line-by-line patterns.
+  on the Controller server, during a scan of the codebase, or for `scan_code` when it is
+  [delegated to the Controller server](../review/analysis/opengrep.md#fragment-scans-scan_code);
+  otherwise the `scan_code` tool only applies the line-by-line patterns.
 - The [coverage of a review](../review/prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.

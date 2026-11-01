@@ -54,7 +54,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | Outil | Rôle |
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
-| `scan_code` | Scan rapide par motifs ligne par ligne (pistes à vérifier, **pas** un SAST complet ; les flux de données sont suivis par OpenGrep lors d'un scan du dépôt). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
+| `scan_code` | Scan rapide par motifs ligne par ligne (pistes à vérifier, **pas** un SAST complet ; les flux de données sont suivis par OpenGrep lors d'un scan du dépôt, ou par `scan_code` quand il est [délégué au serveur Controller](analysis/opengrep.md#scans-de-fragments-scan_code)). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |

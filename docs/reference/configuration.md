@@ -57,6 +57,8 @@ Read by `security-review-mcp` only.
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Report language](../review/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen on the [**Report language**](../usage/index.md#pages) page |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |
+| `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Root URL of the Controller server (`http://controller:8080` inside Compose) to which `scan_code` [delegates its scan](../review/analysis/opengrep.md#fragment-scans-scan_code) with the token of the agent, to apply the OpenGrep rules too; unset: no delegation, no outgoing connection |
+| `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` | `120` | Maximum duration of a delegated scan, OpenGrep included (1 to 7200); beyond, `scan_code` scans with the rules of the MCP server |
 
 ## Controller server
 

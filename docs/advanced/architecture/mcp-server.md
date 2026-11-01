@@ -97,7 +97,7 @@ error is hidden from it.
 |---|---|---|---|
 | `list_checklists` | read-only | none | Domains (built-in and internal) with their number of items |
 | `get_review_checklist` | read-only | `domain` | The checklist in Markdown, followed by the report language when one is configured |
-| `scan_code` | read-only | `content` (at most `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (rule, line, masked excerpt), `suppressed` (lines marked `secreview:ignore`), counts, `report_language`; leads to check, not a full SAST |
+| `scan_code` | read-only | `content` (at most `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (rule, line, masked excerpt), `suppressed` (lines marked `secreview:ignore`), counts, `engines` (`rules`, `opengrep` when [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)), `controller_error`, `report_language`; leads to check, not a full SAST |
 | `list_rules` | read-only | `language` (optional) | Active rules, `disabled_rules`, `load_errors` of the internal rules |
 | `reload_rules` | write | none | Reads the rules of the database again at once (otherwise within 5 seconds); refused to a token restricted to projects |
 
@@ -163,7 +163,9 @@ without argument, which explain how to get a token.
 ## What it never does
 
 - It makes **no outgoing connection** (the OSV database is imported by the Controller server), and loads
-  no module of the Controller server.
+  no module of the Controller server. Only exception, disabled by default: `scan_code`
+  [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)
+  (`SECREVIEW_MCP_SCAN_CONTROLLER_URL`), with the token of the agent.
 - Its tools **never read the disk** from a path given by the client: they work on the content
   sent.
 - Every input is bounded (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,

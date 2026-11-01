@@ -30,7 +30,7 @@ from .config import (
 from .deps import advisories, depscan
 from .observability import audit
 from .reports import sarif, services, trends
-from .rules import opengrep_proposals, opengrep_rule_store, registry, scanner
+from .rules import opengrep_proposals, opengrep_rule_store, registry, remote_scan, scanner
 from .storage.database import SchemaError, check_db, init_db
 from .storage.models import (
     MAX_AUTHOR_CHARS,
@@ -260,6 +260,15 @@ def _caller_write_projects(ctx: Context) -> frozenset[str] | None:
     http_server.write_scope); with stdio, there is no restriction.
     """
     return http_server.write_scope(_auth_state(ctx))
+
+
+def _caller_authorization(ctx: Context) -> str | None:
+    """Authorization header of an HTTP caller authenticated by the middleware (None with stdio
+    or an open server), relayed to the Controller server by scan_code."""
+    if "auth_role" not in _auth_state(ctx):
+        return None
+    headers = getattr(ctx.request_context.request, "headers", None)
+    return headers.get("authorization") if headers is not None else None
 
 
 def _caller_address(ctx: Context) -> str | None:
@@ -513,6 +522,7 @@ def get_review_checklist(
 @mcp.tool(annotations=READ_ONLY)
 @_tool_errors
 def scan_code(
+    ctx: Context,
     content: Annotated[str, Field(description="Source or configuration text to scan")],
     language: Annotated[
         str, Field(description=f"One of: {', '.join(scanner.SUPPORTED_LANGUAGES)}")
@@ -522,18 +532,41 @@ def scan_code(
 
     The scan is a first pass: every match must be confirmed by reading the code, and an
     empty result does not mean the code is safe. Excerpts have their secrets masked.
+    `engines` tells which engines ran (the OpenGrep rules when the Controller server scans).
     """
-    limit = get_settings().max_content_chars
+    settings = get_settings()
+    limit = settings.max_content_chars
     if len(content) > limit:
         raise ValueError(f"Content too large ({len(content)} chars); the limit is {limit}")
-    matches, suppressed = registry.scan(content, language)
+    language = scanner.normalize_language(language)
+    # Delegated to the Controller server when configured (its rules and OpenGrep rules), with the
+    # token of the caller; scanned here with stdio or when the Controller server fails
+    result = controller_error = None
+    authorization = _caller_authorization(ctx)
+    if settings.mcp_scan_controller_url and authorization:
+        try:
+            result = remote_scan.scan(
+                settings.mcp_scan_controller_url,
+                authorization,
+                content,
+                language,
+                settings.mcp_scan_timeout_seconds,
+            )
+        except remote_scan.RemoteScanError as exc:
+            logger.warning("Delegated scan failed, scanning locally: %s", exc)
+            controller_error = f"Scanned by the MCP server only: {exc}"
+    if result is None:
+        matches, suppressed = registry.scan(content, language)
+        result = {"matches": matches, "suppressed": suppressed, "engines": ["rules"]}
     return {
-        "language": scanner.normalize_language(language),
+        "language": language,
         "lines_scanned": len(content.splitlines()),
-        "matches_count": len(matches),
-        "matches": matches,
-        "suppressed_count": len(suppressed),
-        "suppressed": suppressed,
+        "engines": result["engines"],
+        "matches_count": len(result["matches"]),
+        "matches": result["matches"],
+        "suppressed_count": len(result["suppressed"]),
+        "suppressed": result["suppressed"],
+        "controller_error": controller_error,
         # Reviews made without a prompt only learn the configured language here
         "report_language": app_settings.report_language() or None,
         "note": (
