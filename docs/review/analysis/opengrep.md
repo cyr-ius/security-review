@@ -46,7 +46,7 @@ ignore list (test directories such as `tests/`, `node_modules/`...).
 
 ## Default rules
 
-Security Review ships 89 OpenGrep rules written for the project (Apache-2.0 license, like the
+Security Review ships 90 OpenGrep rules written for the project (Apache-2.0 license, like the
 rest of the code): the community packs are not redistributed, because their licenses
 (Semgrep Rules License, or LGPL with the Commons Clause for the `opengrep-rules` fork) forbid
 their use in a product like this one. They complement the [built-in rules](../rules.md) with
@@ -69,7 +69,7 @@ what a line-by-line pattern cannot see:
 | JavaScript, TypeScript, Angular (`javascript`) | 16 | Taint: SQL, command, `eval`/`vm`, path, SSRF, redirect, XSS, RegExp, DOM XSS from the URL or the route; `message` data read without checking its origin, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, crypto |
 | Go (`go`) | 11 | Taint: SQL, command, path, SSRF, redirect, XSS; `InsecureSkipVerify`, zip slip, server timeouts, crypto, `math/rand` for secrets |
 | C#, ASP.NET Core (`csharp`) | 12 | Taint: SQL (ADO.NET, EF Core, Dapper), process, path, SSRF, redirect; deserializers, certificate validation, JWT, crypto, DTD, HTML encoding, CORS |
-| Rust (`rust`) | 8 | SQL built with `format!`, shell, TLS, crypto, JWT, CORS, cookies, HTML |
+| Rust (`rust`) | 9 | Taint: SQL (sqlx, diesel, drivers) from axum and actix-web extractors; SQL built with `format!`, shell, TLS, crypto, JWT, CORS, cookies, HTML |
 | Dockerfile (`dockerfile`) | 2 | No `USER` before `CMD`/`ENTRYPOINT`, last `USER` is root |
 | GitHub Actions (`github-actions`) | 4 | Script injection with `${{ }}`, `pull_request_target` checking out the pull request, action not pinned on a SHA, `write-all` |
 

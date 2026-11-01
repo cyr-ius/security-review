@@ -14,6 +14,29 @@ async fn users(pool: &sqlx::PgPool, name: &str) {
     sqlx::query("SELECT * FROM users WHERE name = $1").bind(name).fetch_all(pool).await;
 }
 
+async fn search(pool: &sqlx::PgPool, Query(params): Query<Search>) {
+    let sql = format!("SELECT * FROM users WHERE name = '{}'", params.name);
+    // ruleid: secreview.rust.taint-sql
+    sqlx::query(&sql).fetch_all(pool).await;
+    // ok: secreview.rust.taint-sql
+    sqlx::query("SELECT * FROM users WHERE name = $1").bind(&params.name).fetch_all(pool).await;
+}
+
+async fn remove(pool: &sqlx::PgPool, Path(id): Path<String>) {
+    let mut sql = String::from("DELETE FROM users WHERE id = ");
+    sql.push_str(&id);
+    // ruleid: secreview.rust.taint-sql
+    sqlx::query(&sql).execute(pool).await;
+}
+
+async fn by_id(client: &tokio_postgres::Client, Path(id): Path<i64>, req: HttpRequest) {
+    // ok: secreview.rust.taint-sql
+    client.execute(&format!("SELECT * FROM users WHERE id = {}", id), &[]).await;
+    let filter = req.query_string();
+    // ruleid: secreview.rust.taint-sql
+    client.execute(&format!("SELECT * FROM users WHERE {}", filter), &[]).await;
+}
+
 fn convert(format: &str) {
     // ruleid: secreview.rust.command-through-shell
     Command::new("sh").arg("-c").arg(format!("convert report.pdf report.{}", format)).status();

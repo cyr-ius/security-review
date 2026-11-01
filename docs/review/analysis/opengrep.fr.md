@@ -46,7 +46,7 @@ d'exclusion par défaut (répertoires de tests comme `tests/`, `node_modules/`..
 
 ## Règles par défaut
 
-Security Review fournit 89 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
+Security Review fournit 90 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
 reste du code) : les packs communautaires ne sont pas redistribués, car leurs licences
 (Semgrep Rules License, ou LGPL avec la Commons Clause pour le fork `opengrep-rules`) interdisent
 leur usage dans un produit comme celui-ci. Elles complètent les [règles intégrées](../rules.md)
@@ -68,7 +68,7 @@ avec ce qu'un motif ligne par ligne ne voit pas :
 | JavaScript, TypeScript, Angular (`javascript`) | 16 | Taint : SQL, commande, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, XSS DOM depuis l'URL ou la route ; données `message` lues sans vérifier leur origine, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie |
 | Go (`go`) | 11 | Taint : SQL, commande, chemin, SSRF, redirection, XSS ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret |
 | C#, ASP.NET Core (`csharp`) | 12 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, chemin, SSRF, redirection ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS |
-| Rust (`rust`) | 8 | SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
+| Rust (`rust`) | 9 | Taint : SQL (sqlx, diesel, pilotes) depuis les extracteurs axum et actix-web ; SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
 | Dockerfile (`dockerfile`) | 2 | Pas de `USER` avant `CMD`/`ENTRYPOINT`, dernier `USER` à root |
 | GitHub Actions (`github-actions`) | 4 | Injection de script avec `${{ }}`, `pull_request_target` qui récupère le code de la pull request, action non épinglée sur un SHA, `write-all` |
 
