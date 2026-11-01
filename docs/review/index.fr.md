@@ -22,9 +22,8 @@ web. Un changement s'applique à tous les agents, sans redémarrage.
 
 - Une règle est une expression régulière. Elle porte un identifiant (`PY-004`), une gravité
   et une CWE.
-- Quelques règles vont plus loin. Elles suivent le trajet d'une donnée dans un fichier, avec
-  Tree-sitter (`PY-026`, `NG-021`, `JV-019`, et les flux SQL en Go, C#, Rust et Node.js :
-  `GO-019`, `CS-021`, `RS-015`, `TS-016`).
+- Le suivi du trajet d'une donnée (analyse de propagation, *taint*) revient au
+  [moteur OpenGrep](analysis/opengrep.md), lors d'un scan du dépôt.
 - Une correspondance est une **piste**, pas une faille. L'agent doit la confirmer en lisant le
   code.
 - Aucun résultat ne veut pas dire « code sûr ». Ce n'est pas un SAST complet.

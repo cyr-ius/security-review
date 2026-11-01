@@ -132,6 +132,21 @@ def test_upgrade_keeps_modified_and_deleted_defaults(monkeypatch, database):
     assert stored_rule("PY-003") is None
 
 
+def test_upgrade_removes_retired_defaults_unless_modified(monkeypatch):
+    rule_store.update_rule("PY-001", rule_store.default_rules()["PY-001"] | {"title": "Mine"})
+    retired = {
+        rule_id: entry
+        for rule_id, entry in rule_store.default_rules().items()
+        if rule_id not in ("PY-001", "PY-002")
+    }
+    monkeypatch.setattr(rule_store, "default_rules", lambda: retired)
+    assert rule_store.seed_defaults() == 1
+    assert stored_rule("PY-002") is None
+    assert stored_rule("PY-001")["title"] == "Mine"
+    assert stored_rule("PY-001")["origin"] == "custom"
+    assert rule_store.seed_defaults() == 0
+
+
 def test_first_seeding_keeps_an_existing_rule_with_a_default_id(database):
     from sqlmodel import Session, delete
 

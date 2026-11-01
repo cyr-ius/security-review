@@ -308,6 +308,15 @@ def _seed(session: Session) -> int:
             _row_entry(row) if row else None,
             functools.partial(_store_rule, session, default, row),
         )
+    for (kind, key), seed in seeds.items():
+        if kind != "rule" or key in default_rules():
+            continue
+        # Retired default rule: removed unless an administrator has modified it (kept as custom)
+        row = session.get(CustomRule, key)
+        if row is not None and digest(_row_entry(row)) == seed.digest:
+            session.delete(row)
+            written += 1
+        session.delete(seed)
     for (domain, item_id), default in default_check_items().items():
         item = session.get(CustomCheckItem, (domain, item_id))
         written += _seed_entry(

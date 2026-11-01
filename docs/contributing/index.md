@@ -123,7 +123,6 @@ src/security_review_mcp/
 │   └── trends.py          # trend report
 ├── rules/         # scan rules and checklists
 │   ├── scanner.py         # scan engine, inline suppression, secret masking
-│   ├── syntax_analysis.py # Tree-sitter structural checks, separate from line-based rules
 │   ├── codescan.py        # whole codebase scan of the files sent by security-review-ci (findings)
 │   ├── default_rules.toml # default rules and checklists, copied into the database at first start
 │   ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file

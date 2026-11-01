@@ -46,7 +46,7 @@ d'exclusion par défaut (répertoires de tests comme `tests/`, `node_modules/`..
 
 ## Règles par défaut
 
-Security Review fournit 88 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
+Security Review fournit 89 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
 reste du code) : les packs communautaires ne sont pas redistribués, car leurs licences
 (Semgrep Rules License, ou LGPL avec la Commons Clause pour le fork `opengrep-rules`) interdisent
 leur usage dans un produit comme celui-ci. Elles complètent les [règles intégrées](../rules.md)
@@ -65,7 +65,7 @@ avec ce qu'un motif ligne par ligne ne voit pas :
 | --- | --- | --- |
 | Python (`python`) | 18 | Taint : SQL, commande, `eval`, SSRF, chemin, redirection, template, HTML, désérialisation ; TLS, YAML, JWT, debug, CORS, archives, hachages, cookies |
 | Java, Spring (`java`) | 18 | Taint : SQL/JPQL, commande, chemin, SSRF, redirection, XSS, SpEL/OGNL, JNDI/LDAP ; désérialisation, XXE (DOM, SAX, StAX), CSRF, TLS sans vérification, nom d'hôte, chiffrements, hachages, cookies, Jackson |
-| JavaScript, TypeScript, Angular (`javascript`) | 15 | Taint : SQL, commande, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, XSS DOM depuis l'URL ou la route ; `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie |
+| JavaScript, TypeScript, Angular (`javascript`) | 16 | Taint : SQL, commande, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, XSS DOM depuis l'URL ou la route ; données `message` lues sans vérifier leur origine, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie |
 | Go (`go`) | 11 | Taint : SQL, commande, chemin, SSRF, redirection, XSS ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret |
 | C#, ASP.NET Core (`csharp`) | 12 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, chemin, SSRF, redirection ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS |
 | Rust (`rust`) | 8 | SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |

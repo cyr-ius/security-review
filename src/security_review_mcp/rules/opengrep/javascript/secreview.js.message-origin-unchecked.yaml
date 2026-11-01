@@ -1,0 +1,39 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.message-origin-unchecked
+    message: >-
+      A message handler reads event.data without checking event.origin first: any window or
+      frame can post data that the page then trusts. Compare event.origin with an explicit
+      allow-list of expected origins before using the data.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-346: Origin Validation Error"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: $TARGET.addEventListener("message", ($E) => { ... }, ...)
+          - pattern-inside: $TARGET.addEventListener("message", function ($E) { ... }, ...)
+          - pattern-inside: $TARGET.onmessage = ($E) => { ... }
+          - pattern-inside: $TARGET.onmessage = function ($E) { ... }
+          - pattern-inside: |
+              @HostListener("window:message", ...)
+              $METHOD($E, ...) { ... }
+      - pattern-not-inside: |
+          if (<... $E.origin ...>) { ... }
+      - pattern-not-inside: |
+          if (<... $E.origin ...>) $STMT;
+      - pattern-not-inside: |
+          if (<... $E.origin ...>) return ...;
+          ...
+      - pattern-not-inside: |
+          if (<... $E.origin ...>) { ... }
+          ...
+      - pattern-not-inside: |
+          if (<... $E.origin ...>) throw $ERR;
+          ...
+      - pattern: $E.data
