@@ -1,0 +1,6 @@
+name: CodeQL configuration
+
+# Test cases of the default OpenGrep rules: deliberately vulnerable code (`ruleid:` lines),
+# read by the tests only, never packaged or run.
+paths-ignore:
+  - tests/opengrep_rules

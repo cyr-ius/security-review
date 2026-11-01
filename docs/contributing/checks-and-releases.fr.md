@@ -1,7 +1,7 @@
 # Vérifications, revues et publication
 
 Ce qui tourne avant qu'un changement soit fusionné, et comment une version est publiée. La CI
-relance toutes les vérifications (`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`).
+relance toutes les vérifications (`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`, `codeql.yml`).
 
 ## Linters et formateurs
 
@@ -36,6 +36,12 @@ Angular ; `tests.yml` lance pytest sur Python 3.14 et 3.15 avec `uv sync --locke
 `.devcontainer/install-opengrep.sh` (pour le test des
 [règles OpenGrep par défaut](tests.md#regles-opengrep-par-defaut)), et construit le client
 `security-review-ci` seul (job **ci-client**).
+
+`codeql.yml` lance l'analyse CodeQL (GitHub Actions, JavaScript / TypeScript, Python) à chaque
+push et pull request, et chaque semaine. Sa configuration, `.github/codeql/codeql-config.yml`,
+exclut `tests/opengrep_rules/` : les cas de test des règles OpenGrep par défaut sont
+volontairement vulnérables. Ce workflow remplace le *default setup* de CodeQL, qui doit rester
+désactivé dans les réglages du dépôt (**Settings → Code security**).
 
 ## Tests
 

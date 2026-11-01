@@ -1,7 +1,7 @@
 # Checks, reviews and releases
 
 What runs before a change is merged, and how a version is published. CI runs every check again
-(`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`).
+(`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`, `codeql.yml`).
 
 ## Linters and formatters
 
@@ -35,6 +35,12 @@ after a change of dependencies) with the pinned OpenGrep release of
 `.devcontainer/install-opengrep.sh` (for the test of the
 [default OpenGrep rules](tests.md#default-opengrep-rules)), and builds the `security-review-ci`
 client alone (**ci-client** job).
+
+`codeql.yml` runs the CodeQL analysis (GitHub Actions, JavaScript / TypeScript, Python) on every
+push and pull request, and weekly. Its configuration, `.github/codeql/codeql-config.yml`,
+excludes `tests/opengrep_rules/`: the test cases of the default OpenGrep rules are
+deliberately vulnerable. This workflow replaces the *default setup* of CodeQL, which must stay
+disabled in the repository settings (**Settings → Code security**).
 
 ## Tests
 
