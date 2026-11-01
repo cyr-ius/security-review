@@ -190,6 +190,7 @@ Moteur du serveur Controller pour `scan-code`, désactivé par défaut et ignor�
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des règles YAML d'OpenGrep |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan (1 à 7200) |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans simultanés dans un processus du serveur Controller (`503` au-delà) |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de `scan_code` [délégués par le serveur MCP](../review/analysis/opengrep.md#scans-de-fragments-scan_code) scannés en même temps, dans leurs propres créneaux (`503` au-delà) ; `0` : règles seules pour les fragments |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan (`0` : sans limite) |
 | `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | Serveur MCP : règles OpenGrep proposées par les agents (`propose_opengrep_rule`) en attente de décision en même temps ; une nouvelle proposition est refusée au-delà |

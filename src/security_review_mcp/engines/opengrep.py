@@ -32,7 +32,8 @@ _SEVERITY = {
 }
 _CWE = re.compile(r"CWE-?([0-9]+)", re.IGNORECASE)
 # Scans running in this process, bounded by SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS
-_running = 0
+# Scans running per pool: the codebase scans and the fragments of scan_code have their own slots
+_running = {"codebase": 0, "fragment": 0}
 _running_lock = threading.Lock()
 
 
@@ -62,18 +63,17 @@ def subprocess_env(home: str) -> dict[str, str]:
 
 
 @contextmanager
-def _scan_slot(limit: int) -> Iterator[None]:
-    """Hold one of the ``limit`` scan slots, refusing the scan when none is free."""
-    global _running
+def _scan_slot(limit: int, pool: str = "codebase") -> Iterator[None]:
+    """Hold one of the ``limit`` scan slots of ``pool``, refusing the scan when none is free."""
     with _running_lock:
-        if _running >= limit:
+        if _running[pool] >= limit:
             raise OpenGrepBusyError("OpenGrep is busy with other scans; retry later")
-        _running += 1
+        _running[pool] += 1
     try:
         yield
     finally:
         with _running_lock:
-            _running -= 1
+            _running[pool] -= 1
 
 
 def _run(
@@ -181,8 +181,13 @@ def _normalize_result(
     }
 
 
-def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
+def scan_files(
+    files: list[tuple[str, str]], fragment: bool = False
+) -> dict[str, list[dict[str, Any]]]:
     """Run OpenGrep on bounded source files and return matches indexed by relative path.
+
+    A ``fragment`` of scan_code takes a slot of SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS,
+    so that the agents never use the slots of the codebase scans of the pipelines.
 
     Without any YAML rule installed there is nothing to run: the engine is skipped, so that it
     can be enabled before an administrator adds rules.
@@ -203,7 +208,12 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
     matches: dict[str, list[dict[str, Any]]] = {}
     try:
         with (
-            _scan_slot(settings.opengrep_max_concurrent_scans),
+            _scan_slot(
+                settings.opengrep_max_concurrent_fragment_scans
+                if fragment
+                else settings.opengrep_max_concurrent_scans,
+                "fragment" if fragment else "codebase",
+            ),
             tempfile.TemporaryDirectory(prefix="secreview-opengrep-") as temporary,
         ):
             workspace = Path(temporary) / "source"

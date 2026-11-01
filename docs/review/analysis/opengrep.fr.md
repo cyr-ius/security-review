@@ -21,6 +21,8 @@ réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`).
   les règles du serveur MCP et en donne la raison dans `controller_error`.
 - L'appel ne va qu'à l'URL configurée, sans proxy ni redirection, avec une réponse bornée ; utilisez
   une URL `https://` quand le serveur Controller n'est pas sur le même réseau privé.
+- Les fragments ont leurs propres créneaux OpenGrep (`SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`) :
+  des agents qui appellent souvent `scan_code` ne font jamais attendre les scans du dépôt des pipelines.
 
 ## Image Docker
 
@@ -45,6 +47,7 @@ règle, `scan-code` n'exécute que le scanner intégré. Variables d'environneme
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des packs de règles YAML |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan OpenGrep |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans OpenGrep simultanés dans un processus du serveur Controller ; un scan au-delà est refusé avec `503` et `Retry-After` |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de [`scan_code`](#scans-de-fragments-scan_code) scannés par OpenGrep en même temps, dans leurs propres créneaux pour que les agents ne prennent jamais ceux des scans du dépôt (`503` au-delà : le serveur MCP scanne avec ses règles) ; `0` : les fragments ne sont scannés qu'avec les règles |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan OpenGrep (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
 

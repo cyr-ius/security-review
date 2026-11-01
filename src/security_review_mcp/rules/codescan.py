@@ -153,21 +153,23 @@ _FRAGMENT_NAMES = {
 
 def scan_content(content: str, language: str) -> dict:
     """Scan one fragment sent by the MCP server (scan_code) with the active rules, then with the
-    OpenGrep rules when the engine is enabled.
+    OpenGrep rules when the engine is enabled and SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS
+    is not 0.
 
     Raises:
         ValueError: If the content is above SECREVIEW_MAX_CONTENT_CHARS or the language unknown.
         opengrep.OpenGrepError: If OpenGrep is enabled with rules but cannot run.
     """
-    limit = get_settings().max_content_chars
+    settings = get_settings()
+    limit = settings.max_content_chars
     if len(content) > limit:
         raise ValueError(f"Content too large ({len(content)} chars); the limit is {limit}")
     language = scanner.normalize_language(language)
     matches, suppressed = registry.scan(content, language, MAX_MATCHES_PER_FILE)
     engines = ["rules"]
-    if get_settings().opengrep_enabled:
+    if settings.opengrep_enabled and settings.opengrep_max_concurrent_fragment_scans:
         name = _FRAGMENT_NAMES[language]
-        found = opengrep.scan_files([(name, content)]).get(name, [])
+        found = opengrep.scan_files([(name, content)], fragment=True).get(name, [])
         remaining = max(0, MAX_MATCHES_PER_FILE - len(matches))
         matches.extend(found[:remaining])
         engines.append("opengrep")

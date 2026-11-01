@@ -57,7 +57,8 @@ def test_scan_content_adds_the_opengrep_matches_of_the_fragment(monkeypatch):
     scanned: list = []
     opengrep_match = {"rule_id": "OPENGREP:secreview.python.eval", "line": 1}
 
-    def fake_opengrep(files):
+    def fake_opengrep(files, fragment):
+        assert fragment  # in the slots of the fragments, not of the pipelines
         scanned.extend(files)
         return {files[0][0]: [opengrep_match]}
 
@@ -69,6 +70,9 @@ def test_scan_content_adds_the_opengrep_matches_of_the_fragment(monkeypatch):
     assert scanned == [("fragment.py", FILES[0].content)]
     assert (result["language"], result["engines"]) == ("python", ["rules", "opengrep"])
     assert {m["rule_id"] for m in result["matches"]} >= {"PY-004", opengrep_match["rule_id"]}
+    # No slot for the fragments: the rules only
+    monkeypatch.setattr(get_settings(), "opengrep_max_concurrent_fragment_scans", 0)
+    assert codescan.scan_content(FILES[0].content, "py")["engines"] == ["rules"]
 
 
 def test_scan_files_refuses_too_many_files(monkeypatch):

@@ -127,6 +127,7 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
         opengrep_rules_dir=str(rules),
         opengrep_timeout_seconds=1,
         opengrep_max_concurrent_scans=1,
+        opengrep_max_concurrent_fragment_scans=1,
         opengrep_jobs=1,
         opengrep_max_memory_mb=0,
     )
@@ -146,6 +147,14 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
         opengrep.scan_files([("app.py", "print('ok')")])
     with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
         opengrep.scan_files([("app.py", "print('ok')")])
+    # The fragments of scan_code have their own slots: they never take those of the pipelines
+    with opengrep._scan_slot(1), pytest.raises(opengrep.OpenGrepError, match="scan failed"):
+        opengrep.scan_files([("app.py", "print('ok')")], fragment=True)
+    with opengrep._scan_slot(1, "fragment"):
+        with pytest.raises(opengrep.OpenGrepBusyError, match="busy"):
+            opengrep.scan_files([("app.py", "print('ok')")], fragment=True)
+        with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
+            opengrep.scan_files([("app.py", "print('ok')")])
 
 
 def test_codebase_scan_merges_opengrep_findings(monkeypatch):

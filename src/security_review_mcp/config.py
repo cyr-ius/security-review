@@ -495,6 +495,10 @@ class Settings(BaseSettings):
     opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
     # Scans run at the same time (503 beyond), cores and memory (MiB, 0: no limit) of one scan
     opengrep_max_concurrent_scans: int = Field(default=1, ge=1, le=64)
+    # Fragments of scan_code delegated by the MCP server (SECREVIEW_MCP_SCAN_CONTROLLER_URL) scanned
+    # with OpenGrep at the same time, in their own slots (503 beyond: the MCP server then scans
+    # with its rules); 0: the fragments are scanned with the rules only
+    opengrep_max_concurrent_fragment_scans: int = Field(default=1, ge=0, le=64)
     opengrep_jobs: int = Field(default=2, ge=1, le=256)
     opengrep_max_memory_mb: int = Field(default=2048, ge=0)
     # MCP server: OpenGrep rules proposed by agents (propose_opengrep_rule) and waiting for a
