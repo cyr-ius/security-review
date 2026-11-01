@@ -32,7 +32,10 @@ management in [Bearer tokens](../bearer-tokens.md).
 2. checks the settings (TLS, OIDC, OSV, syslog, connectors): an invalid value stops it with
    code `2`;
 3. creates the [first administrator](#first-administrator) while no account exists;
-4. starts the background tasks, then serves the routes.
+4. while OpenGrep is enabled and its executable is present (`-opengrep` image), installs or updates the
+   [default OpenGrep rules](../../review/analysis/opengrep.md#default-rules) (a failure is
+   logged and does not stop it);
+5. starts the background tasks, then serves the routes.
 
 ## Schema migrations
 

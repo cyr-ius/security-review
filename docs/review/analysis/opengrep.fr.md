@@ -9,7 +9,8 @@ Le serveur Controller lance OpenGrep comme second moteur d'analyse statique lors
 L'[image `-opengrep`](../../advanced/deployment/docker.md#images-publiees) (`latest-opengrep`,
 `X.Y.Z-opengrep`) contient une version épinglée d'OpenGrep dans `/usr/local/bin/opengrep`, vérifiée par son
 empreinte SHA-256 à la construction (cible `opengrep` du `Dockerfile`) et décompactée à ce moment, en
-lecture seule, pour qu'un scan ne l'extraie jamais : utilisez-la pour le serveur Controller. L'image par défaut ne contient pas OpenGrep et définit `SECREVIEW_OPENGREP_ENABLED=false`. Avec une installation du paquet
+lecture seule, pour qu'un scan ne l'extraie jamais : utilisez-la pour le serveur Controller. Les
+[règles par défaut](#regles-par-defaut) sont installées et tenues à jour à chaque démarrage. L'image par défaut ne contient pas OpenGrep et définit `SECREVIEW_OPENGREP_ENABLED=false`. Avec une installation du paquet
 PyPI, installez OpenGrep vous-même et définissez `SECREVIEW_OPENGREP_BINARY` s'il n'est pas dans
 `/usr/local/bin`.
 
@@ -29,11 +30,12 @@ désactiver. Variables d'environnement du serveur Controller :
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan OpenGrep (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
 
-Installez les [règles par défaut](#regles-par-defaut) avec
-`security-review-controller opengrep install`, ou vos propres packs de règles dans le répertoire
-configuré, par exemple en montant un répertoire administré sur `/var/lib/secreview/rules/opengrep`.
-Les règles ne sont jamais téléchargées, et rien n'est installé tant qu'un administrateur ne lance
-pas la commande. Le répertoire doit contenir au moins un fichier `.yml` ou `.yaml`.
+Les [règles par défaut](#regles-par-defaut) sont installées au démarrage par l'image
+`-opengrep`, ou par `security-review-controller opengrep install` ; ajoutez vos propres packs de
+règles dans le répertoire configuré, par exemple en montant un répertoire administré sur
+`/var/lib/secreview/rules/opengrep` (gardez-le sur un volume, pour que les modifications et
+suppressions faites dans la page **Règles OpenGrep** survivent à un nouveau conteneur). Les règles
+ne sont jamais téléchargées. Le répertoire doit contenir au moins un fichier `.yml` ou `.yaml`.
 
 Lorsque le moteur est activé, le Controller écrit les sources déjà reçues du client CI dans un répertoire
 temporaire privé, exécute OpenGrep sans shell, analyse sa sortie JSON puis supprime l'espace de travail.
@@ -71,8 +73,15 @@ avec ce qu'un motif ligne par ligne ne voit pas :
 | GitHub Actions (`github-actions`) | 4 | Injection de script avec `${{ }}`, `pull_request_target` qui récupère le code de la pull request, action non épinglée sur un SHA, `write-all` |
 
 Leurs identifiants suivent `secreview.<langage>.<contrôle>` (`secreview.go.zip-slip`) et leurs
-métadonnées donnent la CWE et la catégorie OWASP, reprises dans les findings. Installez-les sur
-le serveur Controller :
+métadonnées donnent la CWE et la catégorie OWASP, reprises dans les findings.
+
+Tant que le moteur est activé (`SECREVIEW_OPENGREP_ENABLED`) et que l'exécutable OpenGrep est
+présent (image `-opengrep`), le serveur Controller les met à jour à chaque démarrage, comme les règles TOML par défaut : une nouvelle règle
+est installée, une règle restée telle qu'installée est remplacée par la nouvelle version, et une
+règle modifiée ou supprimée dans la page **Règles OpenGrep** est laissée telle quelle. Les
+empreintes des versions installées sont gardées dans `.secreview-default-rules.json` du
+répertoire de règles ; supprimez-le pour repartir de zéro. La commande les installe à la
+demande, sur le serveur Controller :
 
 ```bash
 security-review-controller opengrep list                          # bundled rules by language

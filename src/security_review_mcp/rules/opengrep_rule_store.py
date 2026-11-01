@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -21,8 +23,11 @@ YAML_RULE_ID = re.compile(
     r"(?m)^[ \t]*-[ \t]*id:[ \t]*['\"]?([a-zA-Z0-9][a-zA-Z0-9._-]{2,79})['\"]?[ \t]*$"
 )
 MAX_RULE_CHARS = 262_144
-# Default rules shipped with the package (one sub-directory per language), installed on demand
+# Default rules shipped with the package (one sub-directory per language), installed at the
+# start of the Controller server while OpenGrep is enabled, or by the opengrep command
 BUNDLED_DIR = Path(__file__).parent / "opengrep"
+# Digests of the installed default rules: tells an untouched rule from an edited or deleted one
+MANIFEST_NAME = ".secreview-default-rules.json"
 
 
 def rules_dir() -> Path:
@@ -165,22 +170,101 @@ def install_bundled(
     ``overwrite`` is set. The rules are checked by the test suite, so OpenGrep is not needed.
     """
     result: dict[str, list[str]] = {"installed": [], "replaced": [], "skipped": []}
+    manifest = _read_manifest()
     for files in bundled_rules(languages).values():
         for source in files:
             content = source.read_text(encoding="utf-8")
             _validate_id(source.stem, content)
-            path = rule_path(source.stem)
-            exists = path.exists() or path.with_suffix(".yml").exists()
-            if exists and not overwrite:
+            path = _installed_path(source.stem)
+            current = path.read_text(encoding="utf-8") if path.is_file() else None
+            if current is not None and not overwrite:
+                if current == content:
+                    manifest[source.stem] = _digest(content)
                 result["skipped"].append(source.stem)
                 continue
-            if not path.exists() and path.with_suffix(".yml").exists():
-                path = path.with_suffix(".yml")
-                if path.is_symlink():
-                    raise ValueError("Symbolic links are not accepted for OpenGrep rules")
             _write_atomic(path, content)
-            result["replaced" if exists else "installed"].append(source.stem)
+            manifest[source.stem] = _digest(content)
+            result["installed" if current is None else "replaced"].append(source.stem)
+    _write_manifest(manifest)
     return result
+
+
+def sync_bundled() -> dict[str, list[str]]:
+    """Bring the rules directory up to date with the bundled default rules, at start-up.
+
+    Like the default TOML rules: a new rule is installed and a rule left as installed is
+    updated, but a rule edited or deleted by an administrator is left alone. The digest of
+    each installed version is kept in a manifest of the rules directory (MANIFEST_NAME).
+    """
+    result: dict[str, list[str]] = {"installed": [], "updated": [], "kept": []}
+    manifest = _read_manifest()
+    for files in bundled_rules().values():
+        for source in files:
+            rule_id = source.stem
+            content = source.read_text(encoding="utf-8")
+            _validate_id(rule_id, content)
+            path = _installed_path(rule_id)
+            recorded = manifest.get(rule_id)
+            if not path.is_file():
+                if recorded is None:  # never installed; recorded and missing: deleted
+                    _write_atomic(path, content)
+                    manifest[rule_id] = _digest(content)
+                    result["installed"].append(rule_id)
+                continue
+            current = path.read_text(encoding="utf-8")
+            if current == content:
+                manifest[rule_id] = _digest(content)
+            elif recorded == _digest(current):
+                _write_atomic(path, content)
+                manifest[rule_id] = _digest(content)
+                result["updated"].append(rule_id)
+            else:
+                result["kept"].append(rule_id)
+    _write_manifest(manifest)
+    return result
+
+
+def _installed_path(rule_id: str) -> Path:
+    """Path of an installed rule: its ``.yaml`` file, or an existing ``.yml`` one."""
+    path = rule_path(rule_id)
+    legacy = path.with_suffix(".yml")
+    if not path.exists() and legacy.exists():
+        if legacy.is_symlink():
+            raise ValueError("Symbolic links are not accepted for OpenGrep rules")
+        return legacy
+    return path
+
+
+def _digest(content: str) -> str:
+    """SHA-256 of a rule file, as recorded in the manifest."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _read_manifest() -> dict[str, str]:
+    """Digests of the default rules installed in the rules directory (empty when unreadable)."""
+    path = rules_dir() / MANIFEST_NAME
+    if path.is_symlink() or not path.is_file():
+        return {}
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except OSError, UnicodeError, json.JSONDecodeError:
+        logger.warning("Ignoring the unreadable OpenGrep default rules manifest")
+        return {}
+    if not isinstance(manifest, dict):
+        return {}
+    return {
+        key: value
+        for key, value in manifest.items()
+        if isinstance(key, str) and isinstance(value, str) and RULE_ID.fullmatch(key)
+    }
+
+
+def _write_manifest(manifest: dict[str, str]) -> None:
+    """Store the digests of the installed default rules."""
+    path = rules_dir() / MANIFEST_NAME
+    if path.is_symlink():
+        raise ValueError("Symbolic links are not accepted for OpenGrep rules")
+    _write_atomic(path, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
 
 def _write_atomic(path: Path, content: str) -> None:

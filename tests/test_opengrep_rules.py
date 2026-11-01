@@ -151,3 +151,52 @@ def test_bundled_rules_match_their_test_cases(tmp_path):
     assert expected - found == set(), "rules missing their expected matches"
     assert allowed & found == set(), "rules matching safe code"
     assert bundled - {key[2] for key in expected} == set(), "bundled rules without a test case"
+
+
+def _bundle(directory, **rules):
+    """Write a bundled rule pack: one python/<id>.yaml file per rule, message as content."""
+    language = directory / "python"
+    language.mkdir(parents=True, exist_ok=True)
+    for rule_id, message in rules.items():
+        rule_id = rule_id.replace("_", "-")
+        (language / f"python.test.{rule_id}.yaml").write_text(
+            RULE.replace("python.test.safe-eval", f"python.test.{rule_id}").replace(
+                "Avoid dynamic evaluation", message
+            ),
+            encoding="utf-8",
+        )
+
+
+def test_sync_bundled_rules_keeps_administrator_edits_and_deletions(
+    configured_store, tmp_path, monkeypatch
+):
+    bundle = tmp_path / "bundle"
+    monkeypatch.setattr(opengrep_rule_store, "BUNDLED_DIR", bundle)
+    _bundle(bundle, edited="v1", deleted="v1", untouched="v1")
+    assert sorted(opengrep_rule_store.sync_bundled()["installed"]) == [
+        "python.test.deleted",
+        "python.test.edited",
+        "python.test.untouched",
+    ]
+
+    edited = configured_store / "python.test.edited.yaml"
+    edited.write_text(edited.read_text(encoding="utf-8") + "# local edit\n", encoding="utf-8")
+    opengrep_rule_store.delete_rule("python.test.deleted")
+    # A new version of the package changes every rule and adds one
+    _bundle(bundle, edited="v2", deleted="v2", untouched="v2", added="v2")
+    changes = opengrep_rule_store.sync_bundled()
+
+    assert changes == {
+        "installed": ["python.test.added"],
+        "updated": ["python.test.untouched"],
+        "kept": ["python.test.edited"],
+    }
+    assert edited.read_text(encoding="utf-8").endswith("# local edit\n")
+    assert not (configured_store / "python.test.deleted.yaml").exists()
+    assert "v2" in opengrep_rule_store.get_rule("python.test.untouched")["content"]
+    # Up to date: nothing changes at the next start
+    assert opengrep_rule_store.sync_bundled() == {
+        "installed": [],
+        "updated": [],
+        "kept": ["python.test.edited"],
+    }

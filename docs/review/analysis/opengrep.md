@@ -9,7 +9,8 @@ unchanged. Fragment scans (`scan_code`) do not start an external process.
 The [`-opengrep` image](../../advanced/deployment/docker.md#published-images) (`latest-opengrep`,
 `X.Y.Z-opengrep`) ships a pinned OpenGrep release in `/usr/local/bin/opengrep`, checked against its
 SHA-256 digest at build time (`opengrep` target of the `Dockerfile`) and unpacked there, read-only,
-so that a scan never extracts it: use it for the Controller server. The default image does not contain OpenGrep and sets `SECREVIEW_OPENGREP_ENABLED=false`. With an installation from
+so that a scan never extracts it: use it for the Controller server. The
+[default rules](#default-rules) are installed and kept up to date at each start. The default image does not contain OpenGrep and sets `SECREVIEW_OPENGREP_ENABLED=false`. With an installation from
 the PyPI package, install OpenGrep yourself and set `SECREVIEW_OPENGREP_BINARY` if it is not in
 `/usr/local/bin`.
 
@@ -29,11 +30,12 @@ without any rule, `scan-code` runs the built-in scanner only. Set
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one OpenGrep scan (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one OpenGrep scan (`--max-memory`, `0`: no limit) |
 
-Install the [default rules](#default-rules) with `security-review-controller opengrep install`,
-or your own rule packs in the configured directory, for example by mounting an
-administrator-managed directory at `/var/lib/secreview/rules/opengrep`. Rules are never
-downloaded, and nothing is installed until an administrator runs the command. The directory must
-contain at least one `.yml` or `.yaml` file.
+The [default rules](#default-rules) are installed at start-up by the `-opengrep` image, or by
+`security-review-controller opengrep install`; add your own rule packs in the configured
+directory, for example by mounting an administrator-managed directory at
+`/var/lib/secreview/rules/opengrep` (keep it on a volume, so that the edits and deletions made
+on the **OpenGrep rules** page survive a new container). Rules are never downloaded. The
+directory must contain at least one `.yml` or `.yaml` file.
 
 When enabled, the controller writes the source files already received from the CI client into a
 private temporary directory, invokes OpenGrep without a shell, parses its JSON output, and removes
@@ -72,8 +74,14 @@ what a line-by-line pattern cannot see:
 | GitHub Actions (`github-actions`) | 4 | Script injection with `${{ }}`, `pull_request_target` checking out the pull request, action not pinned on a SHA, `write-all` |
 
 Their ids follow `secreview.<language>.<check>` (`secreview.go.zip-slip`) and their metadata
-give the CWE and the OWASP category, copied into the findings. Install them on the Controller
-server:
+give the CWE and the OWASP category, copied into the findings.
+
+While the engine is enabled (`SECREVIEW_OPENGREP_ENABLED`) and the OpenGrep executable is present
+(`-opengrep` image), the Controller server brings them up to date at each start, like the default TOML rules: a new rule is installed, a rule
+left as installed is updated with the new version, and a rule edited or deleted on the
+**OpenGrep rules** page is left alone. The digests of the installed versions are kept in
+`.secreview-default-rules.json` in the rules directory; delete it to start over. The command
+installs them on demand, on the Controller server:
 
 ```bash
 security-review-controller opengrep list                          # bundled rules by language

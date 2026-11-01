@@ -10,6 +10,7 @@ commands (``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_c
 
 import argparse
 import logging
+import shutil
 import sys
 
 from . import __version__, app_settings, cli, connectors, http_server, web_api
@@ -17,7 +18,7 @@ from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
 from .observability import audit_syslog
-from .rules import registry
+from .rules import opengrep_rule_store, registry
 from .storage import retention
 from .storage.database import SchemaError, init_db
 
@@ -56,6 +57,28 @@ def _log_bootstrap_admin(created: bool, settings: Settings) -> None:
         "`security-review-controller user reset-password %s`",
         name,
         name,
+    )
+
+
+def _sync_default_opengrep_rules(settings: Settings) -> None:
+    """Install or update the default OpenGrep rules while the engine is enabled.
+
+    Skipped without the executable: installed rules would then make scan-code fail. A failure
+    (read-only rules directory...) is logged: the server starts anyway, and scan-code runs with
+    the rules already installed.
+    """
+    if not settings.opengrep_enabled or shutil.which(settings.opengrep_binary) is None:
+        return
+    try:
+        changes = opengrep_rule_store.sync_bundled()
+    except (OSError, ValueError) as exc:
+        logger.error("Could not install the default OpenGrep rules: %s", exc)
+        return
+    logger.info(
+        "Default OpenGrep rules: %d installed, %d updated, %d edited and kept",
+        len(changes["installed"]),
+        len(changes["updated"]),
+        len(changes["kept"]),
     )
 
 
@@ -120,6 +143,7 @@ def serve(argv: list[str]) -> None:
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
+    _sync_default_opengrep_rules(settings)
     logger.info("Controller server %s listening on %s:%d", __version__, args.host, args.port)
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:

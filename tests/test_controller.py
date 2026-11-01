@@ -31,6 +31,8 @@ def settings(monkeypatch):
     """Replace the controller settings; returns a function taking the overrides."""
 
     def _set(**values) -> None:
+        # Never install the default OpenGrep rules into the real rules directory
+        values.setdefault("opengrep_enabled", False)
         current = make_settings(**values)
         monkeypatch.setattr(controller, "get_settings", lambda: current)
         monkeypatch.setattr(database, "get_settings", lambda: current)
@@ -519,3 +521,30 @@ def test_serve_refuses_an_invalid_syslog_address(settings, captured_run, capsys)
 
     assert exc.value.code == 2 and not captured_run
     assert "SECREVIEW_AUDIT_SYSLOG_ADDRESS" in capsys.readouterr().err
+
+
+def test_serve_installs_the_default_opengrep_rules_only_when_enabled(
+    settings, captured_run, ui_dir, monkeypatch, caplog, tmp_path
+):
+    calls: list[str] = []
+
+    def fake_sync() -> dict[str, list[str]]:
+        calls.append("sync")
+        if len(calls) == 2:
+            raise OSError("read-only file system")
+        return {"installed": ["secreview.go.zip-slip"], "updated": [], "kept": []}
+
+    monkeypatch.setattr(controller.opengrep_rule_store, "sync_bundled", fake_sync)
+    # Without the executable (PyPI installation), installed rules would make scan-code fail
+    settings(opengrep_enabled=True, opengrep_binary=str(tmp_path / "missing-opengrep"))
+    controller.main(["serve"])
+    settings(opengrep_enabled=False, opengrep_binary="/bin/sh")
+    controller.main(["serve"])
+    assert calls == []
+
+    # Enabled with the executable ("-opengrep" image): at each start; a failure does not stop it
+    settings(opengrep_enabled=True, opengrep_binary="/bin/sh")
+    controller.main(["serve"])
+    controller.main(["serve"])
+    assert calls == ["sync", "sync"]
+    assert "Could not install the default OpenGrep rules" in caplog.text
