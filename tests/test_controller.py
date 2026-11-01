@@ -78,6 +78,30 @@ def fake_pruner(monkeypatch):
     return FakePruner.instances
 
 
+class IdleTask:
+    """Background task that never starts a thread."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Ignore the settings."""
+
+    def start(self) -> None:
+        """Do nothing."""
+
+    def stop(self) -> None:
+        """Do nothing."""
+
+
+@pytest.fixture(autouse=True)
+def idle_background_tasks(monkeypatch):
+    """Keep the syslog forwarder and the connectors off the shared test database connection.
+
+    Their real threads read the database at once: two threads on the single in-memory SQLite
+    connection crash the test worker.
+    """
+    monkeypatch.setattr(controller.audit_syslog, "AuditForwarder", IdleTask)
+    monkeypatch.setattr(controller.connectors, "ExportDispatcher", IdleTask)
+
+
 @pytest.fixture
 def captured_run(monkeypatch):
     """Capture the uvicorn.run call instead of starting a server."""
