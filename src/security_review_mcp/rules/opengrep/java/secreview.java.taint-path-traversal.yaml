@@ -1,0 +1,56 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-path-traversal
+    message: >-
+      Request data is used as a file path: "../" sequences or an absolute path can read or
+      overwrite any file. Keep only the file name (Path.getFileName, FilenameUtils.getName) or
+      normalize the path and check that it starts with the expected directory.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new File($PATH)
+              - pattern: new File($PARENT, $PATH)
+              - pattern: Paths.get($PATH, ...)
+              - pattern: Path.of($PATH, ...)
+              - pattern: new FileInputStream($PATH)
+              - pattern: new FileOutputStream($PATH, ...)
+              - pattern: new FileReader($PATH, ...)
+              - pattern: new FileWriter($PATH, ...)
+              - pattern: (Path $DIR).resolve($PATH)
+              - pattern: new FileSystemResource($PATH)
+              - pattern: new UrlResource($PATH)
+          - focus-metavariable: $PATH
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: FilenameUtils.getName(...)
+          - pattern: $X.getFileName()
+          - pattern: StringUtils.cleanPath(...)

@@ -122,9 +122,9 @@ l'utiliser.
 | Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
 | Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
 | Moteur de scan, masquage des secrets | `rules/scanner.py` |
-| Règles et checklists par défaut (copiées en base au premier lancement) | `rules/default_rules.toml` |
+| Règles et checklists par défaut (copiées en base au premier lancement) ; règles OpenGrep par défaut (une par fichier, installées par `security-review-controller opengrep install`) et leur gestion | `rules/default_rules.toml` ; `rules/opengrep/<langage>/*.yaml`, `rules/opengrep_rule_store.py`, `engines/opengrep.py` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
 | Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
@@ -256,6 +256,12 @@ TypeScript / Node.js), `DEP` (hygiène des
 dépendances), `AI` (texte caché ou instructions adressées à un assistant IA). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
 
+Les règles OpenGrep par défaut (`rules/opengrep/<langage>/<id>.yaml`) sont écrites pour le projet
+(Apache-2.0) : n'y copiez aucune règle de `semgrep-rules` ou `opengrep-rules`, dont les licences
+l'interdisent. Identifiant `secreview.<langage>.<contrôle>`, au plus 51 caractères (le `rule_id`
+d'un finding, `OPENGREP:` compris, est tronqué à 60), CWE et OWASP dans `metadata`. Chaque règle a
+au moins un cas `ruleid:` et un cas `ok:` dans `tests/opengrep_rules/<langage>/`.
+
 Les règles et checklists par défaut sont dans `src/security_review_mcp/rules/default_rules.toml`,
 jamais dans le code Python. Elles sont copiées en base au premier lancement
 (`rule_store.seed_defaults`, appelé par `init_db`). Une règle ajoutée ou corrigée dans ce
@@ -346,6 +352,7 @@ essentielles.
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/review/prompts-tools` |
 | Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/review/rules` ou `docs/review/checklists` (et `review/analysis/code-scan` si le scan du dépôt change) |
+| Une règle OpenGrep par défaut (`rules/opengrep/`) | `docs/review/analysis/opengrep` (tableau des règles par langage) |
 | Le format des packs TOML internes | `docs/review/rules` (et `review/checklists` pour `[[checklist]]`), `examples/rules/company.toml` |
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/review/analysis/dependencies` |
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`review/gate`, `advanced/architecture/ci`, `review/analysis/code-scan`, `advanced/reports/sarif`...) |

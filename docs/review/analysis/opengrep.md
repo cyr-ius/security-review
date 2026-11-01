@@ -29,16 +29,65 @@ without any rule, `scan-code` runs the built-in scanner only. Set
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one OpenGrep scan (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one OpenGrep scan (`--max-memory`, `0`: no limit) |
 
-Install rule packs in the configured directory, for example by mounting an administrator-managed
-directory at `/var/lib/secreview/rules/opengrep`. Rule packs are deliberately not downloaded
-automatically and are not bundled into the application image. The directory must contain at
-least one `.yml` or `.yaml` file.
+Install the [default rules](#default-rules) with `security-review-controller opengrep install`,
+or your own rule packs in the configured directory, for example by mounting an
+administrator-managed directory at `/var/lib/secreview/rules/opengrep`. Rules are never
+downloaded, and nothing is installed until an administrator runs the command. The directory must
+contain at least one `.yml` or `.yaml` file.
 
 When enabled, the controller writes the source files already received from the CI client into a
 private temporary directory, invokes OpenGrep without a shell, parses its JSON output, and removes
 the workspace. Findings are normalized into the existing report format and are included in the
 same report and SARIF export as built-in findings. OpenGrep rule IDs are prefixed with
-`OPENGREP:`.
+`OPENGREP:` (`OPENGREP:secreview.python.taint-sql`). OpenGrep skips the paths of its default
+ignore list (test directories such as `tests/`, `node_modules/`...).
+
+## Default rules
+
+Security Review ships 88 OpenGrep rules written for the project (Apache-2.0 license, like the
+rest of the code): the community packs are not redistributed, because their licenses
+(Semgrep Rules License, or LGPL with the Commons Clause for the `opengrep-rules` fork) forbid
+their use in a product like this one. They complement the [built-in rules](../rules.md) with
+what a line-by-line pattern cannot see:
+
+- **taint analysis**: a value read from the request (Flask, Django, FastAPI, Spring, servlets,
+  Express, NestJS, ASP.NET Core, `net/http`, Gin, Echo) is followed through variables and
+  string building until it reaches a dangerous call (SQL, command, file path, outgoing URL,
+  redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
+  `secure_filename`, `path.basename`, `html.EscapeString`...) stops it;
+- **structure**: an option that is missing (an XML factory without
+  `disallow-doctype-decl`, an archive extracted without a filter, an HTTP server without timeouts,
+  a Dockerfile without `USER`) or a combination of arguments (CORS with any origin *and*
+  credentials).
+
+| Language (directory) | Rules | Main checks |
+| --- | --- | --- |
+| Python (`python`) | 18 | Taint: SQL, command, `eval`, SSRF, path, redirect, template, HTML, deserialization; TLS, YAML, JWT, debug, CORS, archives, hashes, cookies |
+| Java, Spring (`java`) | 18 | Taint: SQL/JPQL, command, path, SSRF, redirect, XSS, SpEL/OGNL, JNDI/LDAP; deserialization, XXE (DOM, SAX, StAX), CSRF, trust-all TLS, host name, ciphers, hashes, cookies, Jackson |
+| JavaScript, TypeScript, Angular (`javascript`) | 15 | Taint: SQL, command, `eval`/`vm`, path, SSRF, redirect, XSS, RegExp, DOM XSS from the URL or the route; `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, crypto |
+| Go (`go`) | 11 | Taint: SQL, command, path, SSRF, redirect, XSS; `InsecureSkipVerify`, zip slip, server timeouts, crypto, `math/rand` for secrets |
+| C#, ASP.NET Core (`csharp`) | 12 | Taint: SQL (ADO.NET, EF Core, Dapper), process, path, SSRF, redirect; deserializers, certificate validation, JWT, crypto, DTD, HTML encoding, CORS |
+| Rust (`rust`) | 8 | SQL built with `format!`, shell, TLS, crypto, JWT, CORS, cookies, HTML |
+| Dockerfile (`dockerfile`) | 2 | No `USER` before `CMD`/`ENTRYPOINT`, last `USER` is root |
+| GitHub Actions (`github-actions`) | 4 | Script injection with `${{ }}`, `pull_request_target` checking out the pull request, action not pinned on a SHA, `write-all` |
+
+Their ids follow `secreview.<language>.<check>` (`secreview.go.zip-slip`) and their metadata
+give the CWE and the OWASP category, copied into the findings. Install them on the Controller
+server:
+
+```bash
+security-review-controller opengrep list                          # bundled rules by language
+security-review-controller opengrep install                       # every language
+security-review-controller opengrep install --language python --language javascript
+security-review-controller opengrep install --overwrite           # after an upgrade
+```
+
+`install` copies one file per rule into `SECREVIEW_OPENGREP_RULES_DIR` and prints the installed,
+replaced and skipped ids (JSON). A rule that already exists is kept, so that an edit made on the
+**OpenGrep rules** page survives; `--overwrite` replaces it with the version of the package
+(after an upgrade, for instance). To drop a rule, delete it on that page. In a container, run
+the command in the Controller server container
+(`docker compose exec controller security-review-controller opengrep install`).
 
 ## Operational security
 

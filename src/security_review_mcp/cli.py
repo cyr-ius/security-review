@@ -1,8 +1,8 @@
 """Command line of the administrators (no MCP client or agent needed).
 
-``security-review-controller`` runs ``db``, ``advisories``, ``rules``, ``token``, ``user``,
-``role``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The code and dependency scans of a
-pipeline are run by
+``security-review-controller`` runs ``db``, ``advisories``, ``rules``, ``opengrep``, ``token``,
+``user``, ``role``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The code and dependency
+scans of a pipeline are run by
 ``security-review-ci`` (see ci_client), which sends the files to the controller. Exit codes
 follow the same convention everywhere: 0 success, 1 blocked (findings found, schema not up to
 date), 2 usage or data error.
@@ -24,7 +24,7 @@ from .deps import advisories, advisory_sync
 from .observability import audit
 from .reports import services
 from .reports.services import NotFoundError
-from .rules import registry, rule_store, rules_loader
+from .rules import opengrep_rule_store, registry, rule_store, rules_loader
 from .storage.database import SchemaError, init_db, schema_status, upgrade_db
 
 EXIT_PASSED = 0
@@ -565,6 +565,42 @@ def rules_command(argv: list[str]) -> int:
     return EXIT_PASSED
 
 
+# ── opengrep ─────────────────────────────────────────────────────────────────
+
+
+def opengrep_command(argv: list[str]) -> int:
+    """Run ``security-review-controller opengrep``: list or install the bundled OpenGrep rules."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-controller opengrep",
+        description="Install the default OpenGrep rules shipped with Security Review into "
+        "SECREVIEW_OPENGREP_RULES_DIR.",
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    lister = actions.add_parser("list", help="list the bundled rules by language")
+    lister.add_argument("--language", action="append", help="only this language (repeatable)")
+    installer = actions.add_parser("install", help="copy the bundled rules into the rules dir")
+    installer.add_argument("--language", action="append", help="only this language (repeatable)")
+    installer.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace the rules already installed with the same id (local edits are lost)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        if args.action == "list":
+            bundled = opengrep_rule_store.bundled_rules(args.language)
+            result: object = {
+                name: [rule.stem for rule in rules] for name, rules in bundled.items()
+            }
+        else:
+            result = opengrep_rule_store.install_bundled(args.language, overwrite=args.overwrite)
+    except (ValueError, OSError) as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
 # ── db ───────────────────────────────────────────────────────────────────────
 
 
@@ -612,6 +648,7 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "db": db_command,
     "advisories": advisories_command,
     "rules": rules_command,
+    "opengrep": opengrep_command,
     "token": token_command,
     "audit": audit_command,
     "user": user_command,

@@ -1,0 +1,20 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.flask-debug-enabled
+    message: >-
+      The application runs with the debug server enabled: the Werkzeug debugger lets anyone who
+      reaches it run code, and errors leak source code. Read the debug flag from the configuration
+      and keep it off in production.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-489: Active Debug Code"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $APP.run(..., debug=True, ...)
+      - pattern: uvicorn.run(..., reload=True, ...)
+      - pattern: $APP.config["DEBUG"] = True

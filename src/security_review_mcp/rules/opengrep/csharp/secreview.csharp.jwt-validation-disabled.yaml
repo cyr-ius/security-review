@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.jwt-validation-disabled
+    message: >-
+      JWT validation is weakened (signature, lifetime, issuer or audience not checked): forged or
+      expired tokens are accepted. Keep ValidateIssuerSigningKey, ValidateLifetime,
+      ValidateIssuer, ValidateAudience and RequireSignedTokens at true.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-347: Improper Verification of Cryptographic Signature"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: $P.$SETTING = false
+          - patterns:
+              - pattern-inside: "new TokenValidationParameters { ... }"
+              - pattern: $SETTING = false
+      - metavariable-regex:
+          metavariable: $SETTING
+          regex: ^(ValidateIssuerSigningKey|ValidateLifetime|ValidateIssuer|ValidateAudience|RequireSignedTokens|RequireExpirationTime)$

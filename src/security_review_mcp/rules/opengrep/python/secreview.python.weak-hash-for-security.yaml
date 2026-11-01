@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.weak-hash-for-security
+    message: >-
+      MD5 or SHA-1 is used without usedforsecurity=False: both are broken for signatures,
+      integrity and passwords. Use SHA-256 or better (and a password hash such as Argon2id, scrypt
+      or bcrypt for passwords), or mark a non-security use with usedforsecurity=False.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-328: Use of Weak Hash"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+          - pattern: hashlib.new("md5", ...)
+          - pattern: hashlib.new("sha1", ...)
+          - pattern: hashlib.new("MD5", ...)
+          - pattern: hashlib.new("SHA1", ...)
+      - pattern-not: hashlib.$FUNC(..., usedforsecurity=False, ...)

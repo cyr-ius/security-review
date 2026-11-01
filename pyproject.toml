@@ -53,7 +53,7 @@ security-review-ci = "security_review_mcp.ci_client:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-security_review_mcp = ["rules/default_rules.toml", "favicon.svg", "storage/migrations/script.py.mako", "webui/*", "webui/**/*"]
+security_review_mcp = ["rules/default_rules.toml", "rules/opengrep/*/*.yaml", "favicon.svg", "storage/migrations/script.py.mako", "webui/*", "webui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -64,6 +64,10 @@ markers = ["real_password_hashing: hash passwords with the production scrypt cos
 [tool.ruff]
 line-length = 100
 target-version = "py314"
+# Deliberately vulnerable test cases of the bundled OpenGrep rules
+extend-exclude = ["tests/opengrep_rules"]
+# Also when the files are passed explicitly (prek hooks)
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C4", "UP"]

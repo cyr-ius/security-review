@@ -1,0 +1,49 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-open-redirect
+    message: >-
+      Request data is used as a redirect target: an attacker can send users to a phishing site
+      with a link to this application. Redirect to a relative path or check the target against an
+      allow-list.
+    languages: [go]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).FormValue(...)"
+          - pattern: "($REQ : *http.Request).PostFormValue(...)"
+          - pattern: "($REQ : *http.Request).PathValue(...)"
+          - pattern: "($REQ : *http.Request).URL.Query()"
+          - pattern: "($REQ : *http.Request).URL.RawQuery"
+          - pattern: "($REQ : *http.Request).URL.Path"
+          - pattern: "($REQ : *http.Request).Form"
+          - pattern: "($REQ : *http.Request).PostForm"
+          - pattern: "($REQ : *http.Request).Header"
+          - pattern: "($REQ : *http.Request).Body"
+          - pattern: "($REQ : *http.Request).Cookie(...)"
+          - pattern: mux.Vars(...)
+          - pattern: chi.URLParam(...)
+          - patterns:
+              - pattern: "($CTX : *gin.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|DefaultQuery|Param|PostForm|DefaultPostForm|GetHeader|GetQuery|GetPostForm|QueryArray|FormFile|Cookie)$
+          - patterns:
+              - pattern: "($CTX : echo.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: http.Redirect($W, $R, $URL, ...)
+              - pattern: "($CTX : *gin.Context).Redirect($CODE, $URL)"
+              - pattern: "($CTX : echo.Context).Redirect($CODE, $URL)"
+          - focus-metavariable: $URL

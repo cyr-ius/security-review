@@ -1,0 +1,36 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.pr-target-checkout
+    message: >-
+      A pull_request_target workflow checks out the pull request code: it runs with write
+      permissions and the repository secrets, so a malicious pull request can steal them by
+      changing a build script. Use the pull_request event for untrusted code, or never run the
+      checked-out code in this workflow.
+    languages: [yaml]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              on: pull_request_target
+              ...
+          - pattern-inside: |
+              on: [..., pull_request_target, ...]
+              ...
+          - pattern-inside: |
+              on:
+                ...
+                pull_request_target: $EVENT
+                ...
+              ...
+      - pattern: |
+          ref: $REF
+      - metavariable-regex:
+          metavariable: $REF
+          regex: .*(github\.event\.pull_request\.head\.(sha|ref)|github\.head_ref|refs/pull/)

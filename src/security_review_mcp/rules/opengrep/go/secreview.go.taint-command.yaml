@@ -1,0 +1,55 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-command
+    message: >-
+      Request data reaches an operating system command: as the program name, or as the script of
+      "sh -c". Run a fixed program with separate arguments and validate the value against an
+      allow-list.
+    languages: [go]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).FormValue(...)"
+          - pattern: "($REQ : *http.Request).PostFormValue(...)"
+          - pattern: "($REQ : *http.Request).PathValue(...)"
+          - pattern: "($REQ : *http.Request).URL.Query()"
+          - pattern: "($REQ : *http.Request).URL.RawQuery"
+          - pattern: "($REQ : *http.Request).URL.Path"
+          - pattern: "($REQ : *http.Request).Form"
+          - pattern: "($REQ : *http.Request).PostForm"
+          - pattern: "($REQ : *http.Request).Header"
+          - pattern: "($REQ : *http.Request).Body"
+          - pattern: "($REQ : *http.Request).Cookie(...)"
+          - pattern: mux.Vars(...)
+          - pattern: chi.URLParam(...)
+          - patterns:
+              - pattern: "($CTX : *gin.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|DefaultQuery|Param|PostForm|DefaultPostForm|GetHeader|GetQuery|GetPostForm|QueryArray|FormFile|Cookie)$
+          - patterns:
+              - pattern: "($CTX : echo.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: exec.Command($CMD, ...)
+              - pattern: exec.CommandContext($CTX, $CMD, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern: exec.Command($SHELL, $FLAG, $CMD, ...)
+                      - pattern: exec.CommandContext($CTX, $SHELL, $FLAG, $CMD, ...)
+                  - metavariable-regex:
+                      metavariable: $SHELL
+                      regex: ^"(sh|bash|/bin/sh|/bin/bash|cmd|cmd\.exe|powershell)"$
+          - focus-metavariable: $CMD

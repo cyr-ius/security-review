@@ -30,6 +30,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - run: uv sync --locked --extra dev
+      # Pinned OpenGrep (checked digest): runs the bundled rules against their test cases
+      - run: bash .devcontainer/install-opengrep.sh
       - run: uv run pytest
 
   # The standalone security-review-ci distribution runs without the server and its dependencies

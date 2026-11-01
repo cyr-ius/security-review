@@ -1,0 +1,23 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.angular.bypass-security-trust-dynamic
+    message: >-
+      Angular sanitization is bypassed for a value computed at run time (bypassSecurityTrust*): if
+      any part of it comes from a user or an API, it can inject scripts. Let Angular sanitize the
+      value, or sanitize it with DomSanitizer.sanitize or DOMPurify before trusting it.
+    languages: [typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp: "A03:2021 - Injection"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern: $SANITIZER.$BYPASS($VALUE)
+      - metavariable-regex:
+          metavariable: $BYPASS
+          regex: ^bypassSecurityTrust(Html|Script|Style|Url|ResourceUrl)$
+      - pattern-not: $SANITIZER.$BYPASS("...")
+      - pattern-not: $SANITIZER.$BYPASS(DOMPurify.sanitize(...))

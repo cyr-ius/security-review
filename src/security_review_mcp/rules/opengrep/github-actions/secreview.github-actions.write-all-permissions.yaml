@@ -1,0 +1,18 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.write-all-permissions
+    message: >-
+      The workflow or job grants write-all permissions to GITHUB_TOKEN: any step (or a compromised
+      action) can push code, create releases or change settings. Declare only the scopes the job
+      needs (permissions: contents: read).
+    languages: [yaml]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-250: Execution with Unnecessary Privileges"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern: |
+      permissions: write-all

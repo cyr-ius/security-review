@@ -1,0 +1,30 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.command-through-shell
+    message: >-
+      A command line built at run time is run through a shell (sh -c, cmd /C): any shell
+      metacharacter in a value becomes a new command. Run the program directly with
+      Command::new(program).arg(value).
+    languages: [rust]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: Command::new($SHELL).arg($FLAG).arg($CMD)
+          - pattern: Command::new($SHELL).args([$FLAG, $CMD])
+          - pattern: Command::new($SHELL).args(&[$FLAG, $CMD])
+          - pattern: std::process::Command::new($SHELL).arg($FLAG).arg($CMD)
+      - metavariable-regex:
+          metavariable: $SHELL
+          regex: ^"(sh|bash|zsh|/bin/sh|/bin/bash|cmd|cmd\.exe|powershell|pwsh)"$
+      - metavariable-regex:
+          metavariable: $FLAG
+          regex: ^"(-c|/C|/c|-Command)"$
+      - pattern-not: Command::new($SHELL).arg($FLAG).arg("...")
+      - pattern-not: Command::new($SHELL).args([$FLAG, "..."])

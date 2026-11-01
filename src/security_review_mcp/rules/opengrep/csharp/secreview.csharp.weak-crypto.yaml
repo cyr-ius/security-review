@@ -1,0 +1,30 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.weak-crypto
+    message: >-
+      A broken hash or cipher is used (MD5, SHA-1, DES, 3DES, RC2, or ECB mode): use SHA-256 or
+      better, AesGcm, and a password hash (PBKDF2 with a high iteration count, Argon2id, bcrypt)
+      for passwords.
+    languages: [csharp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: MD5.Create(...)
+      - pattern: MD5.HashData(...)
+      - pattern: SHA1.Create(...)
+      - pattern: SHA1.HashData(...)
+      - pattern: new MD5CryptoServiceProvider()
+      - pattern: new SHA1Managed()
+      - pattern: new SHA1CryptoServiceProvider()
+      - pattern: DES.Create(...)
+      - pattern: TripleDES.Create(...)
+      - pattern: RC2.Create(...)
+      - pattern: new DESCryptoServiceProvider()
+      - pattern: new TripleDESCryptoServiceProvider()
+      - pattern: CipherMode.ECB

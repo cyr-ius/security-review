@@ -130,7 +130,18 @@ def _cwe(metadata: Any) -> str | None:
     return None
 
 
-def _normalize_result(item: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+def _check_id_prefix(rules_dir: Path) -> str:
+    """Prefix OpenGrep adds to the rule ids of a ``--config`` directory: its path, dotted.
+
+    ``/var/lib/secreview/rules/opengrep`` turns rule ``x`` into
+    ``var.lib.secreview.rules.opengrep.x``, which would hide the rule id once truncated.
+    """
+    return ".".join(rules_dir.parts[1:]) + "."
+
+
+def _normalize_result(
+    item: dict[str, Any], rule_prefix: str = ""
+) -> tuple[str, dict[str, Any]] | None:
     """Convert one OpenGrep JSON result to the internal per-file match format."""
     path = item.get("path")
     extra = item.get("extra")
@@ -145,6 +156,8 @@ def _normalize_result(item: dict[str, Any]) -> tuple[str, dict[str, Any]] | None
     check_id = item.get("check_id")
     if not isinstance(message, str) or not isinstance(check_id, str):
         return None
+    if rule_prefix and check_id.startswith(rule_prefix):
+        check_id = check_id[len(rule_prefix) :]
     severity_name = str(extra.get("severity", "WARNING")).upper()
     severity = _SEVERITY.get(severity_name, "medium")
     metadata = extra.get("metadata")
@@ -231,10 +244,11 @@ def scan_files(files: list[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]:
             results = payload.get("results") if isinstance(payload, dict) else None
             if not isinstance(results, list):
                 raise OpenGrepError("OpenGrep JSON output has no results list")
+            rule_prefix = _check_id_prefix(rules_dir)
             for item in results:
                 if not isinstance(item, dict):
                     continue
-                normalized = _normalize_result(item)
+                normalized = _normalize_result(item, rule_prefix)
                 if normalized is None:
                     continue
                 result_path, finding = normalized

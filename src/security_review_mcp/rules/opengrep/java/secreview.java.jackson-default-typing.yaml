@@ -1,0 +1,22 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.jackson-default-typing
+    message: >-
+      Jackson polymorphic typing is enabled for any class (default typing or @JsonTypeInfo with
+      class names): a JSON document can instantiate gadget classes and run code. Use a fixed set
+      of subtypes (@JsonSubTypes) or a strict PolymorphicTypeValidator.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $MAPPER.enableDefaultTyping(...)
+      - pattern: $MAPPER.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ...)
+      - pattern: $MAPPER.activateDefaultTyping(new LaissezFaireSubTypeValidator(), ...)
+      - pattern: "@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, ...)"
+      - pattern: "@JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS, ...)"

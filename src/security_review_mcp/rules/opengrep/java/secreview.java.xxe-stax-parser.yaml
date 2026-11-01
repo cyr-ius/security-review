@@ -1,0 +1,32 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.xxe-stax-parser
+    message: >-
+      An XMLInputFactory (StAX) is used without disabling DTDs or external entities: a document
+      can read local files or reach internal hosts (XXE). Set XMLInputFactory.SUPPORT_DTD to false
+      before creating the reader.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-611: Improper Restriction of XML External Entity Reference"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-inside: |
+          $TYPE $FACTORY = XMLInputFactory.$NEW();
+          ...
+      - pattern-either:
+          - pattern: $FACTORY.createXMLStreamReader(...)
+          - pattern: $FACTORY.createXMLEventReader(...)
+      - pattern-not-inside: |
+          $FACTORY.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+          ...
+      - pattern-not-inside: |
+          $FACTORY.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+          ...
+      - pattern-not-inside: |
+          $FACTORY.setProperty("javax.xml.stream.isSupportingExternalEntities", false);
+          ...

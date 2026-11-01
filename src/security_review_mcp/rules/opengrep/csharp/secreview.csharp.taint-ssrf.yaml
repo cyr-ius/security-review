@@ -1,0 +1,65 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-ssrf
+    message: >-
+      Request data is used as the URL of an outgoing request (SSRF): an attacker can reach
+      internal services or cloud metadata endpoints. Build the URL from a fixed base and check the
+      host against an allow-list.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery (SSRF)"
+      owasp: "A10:2021 - Server-Side Request Forgery (SSRF)"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern: $CLIENT.$METHOD($URL, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(GetAsync|GetStringAsync|GetStreamAsync|GetByteArrayAsync|PostAsync|PutAsync|DeleteAsync|PatchAsync|GetFromJsonAsync|PostAsJsonAsync)$
+              - pattern: new HttpRequestMessage($VERB, $URL)
+              - pattern: WebRequest.Create($URL)
+          - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Uri.EscapeDataString(...)

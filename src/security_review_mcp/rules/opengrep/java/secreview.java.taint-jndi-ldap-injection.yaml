@@ -1,0 +1,52 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-jndi-ldap-injection
+    message: >-
+      Request data reaches a JNDI lookup or an LDAP search filter: a JNDI name can load remote
+      code (Log4Shell-style), an LDAP filter can be rewritten to bypass checks. Use a fixed JNDI
+      name; build LDAP filters with LdapQueryBuilder or encode the value
+      (LdapEncoder.filterEncode).
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-90: Improper Neutralization of Special Elements used in an LDAP Query ('LDAP Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (Context $CTX).lookup($NAME)
+              - pattern: (InitialContext $CTX).lookup($NAME)
+              - pattern: new InitialContext().lookup($NAME)
+              - pattern: (DirContext $CTX).search($BASE, $NAME, ...)
+              - pattern: (InitialDirContext $CTX).search($BASE, $NAME, ...)
+              - pattern: (LdapTemplate $LDAP).search($BASE, $NAME, ...)
+              - pattern: (JndiTemplate $JNDI).lookup($NAME, ...)
+          - focus-metavariable: $NAME
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: LdapEncoder.filterEncode(...)
+          - pattern: Encode.forLdap(...)

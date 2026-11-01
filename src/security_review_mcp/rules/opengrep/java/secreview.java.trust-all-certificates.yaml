@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.trust-all-certificates
+    message: >-
+      A trust manager accepts every certificate: a network attacker can impersonate any server and
+      read or change the traffic. Use the default trust manager, or a trust store that contains
+      only the private certificate authority.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-295: Improper Certificate Validation"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: |
+          public void checkServerTrusted(...) { }
+      - pattern: |
+          public X509Certificate[] getAcceptedIssuers() { return null; }
+      - pattern: InsecureTrustManagerFactory.INSTANCE
+      - pattern: new TrustAllStrategy()
+      - pattern: TrustAllStrategy.INSTANCE
+      - pattern: new TrustSelfSignedStrategy()

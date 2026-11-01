@@ -1,0 +1,24 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.cookie-insecure
+    message: >-
+      A cookie is set with secure=False or httponly=False: it can travel over clear-text HTTP or
+      be read by injected scripts. Set secure=True, httponly=True and a samesite value on session
+      and authentication cookies.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $RESP.set_cookie(..., secure=False, ...)
+      - pattern: $RESP.set_cookie(..., httponly=False, ...)
+      - pattern: SESSION_COOKIE_SECURE = False
+      - pattern: SESSION_COOKIE_HTTPONLY = False
+      - pattern: CSRF_COOKIE_SECURE = False
+      - pattern: $APP.config["SESSION_COOKIE_SECURE"] = False
+      - pattern: $APP.config["SESSION_COOKIE_HTTPONLY"] = False

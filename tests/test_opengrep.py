@@ -1,6 +1,7 @@
 """Tests for the optional OpenGrep whole-codebase engine."""
 
 import json
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,7 +9,7 @@ import pytest
 
 from security_review_mcp.config import Settings
 from security_review_mcp.engines import opengrep
-from security_review_mcp.rules import codescan
+from security_review_mcp.rules import codescan, opengrep_rule_store
 from security_review_mcp.rules.codescan import SourceFile
 
 
@@ -180,3 +181,33 @@ def test_codebase_scan_merges_opengrep_findings(monkeypatch):
     assert findings[0].rule_id == "OPENGREP:python.security.demo"
     assert findings[0].description == "Command injection risk"
     assert findings[0].line_start == 3 and findings[0].line_end == 4
+
+
+@pytest.mark.skipif(shutil.which("opengrep") is None, reason="OpenGrep is not installed")
+def test_scan_files_reports_the_rule_id_without_the_rules_directory(tmp_path, monkeypatch):
+    # Regression: OpenGrep prefixes rule ids with the dotted path of the --config directory
+    # (var.lib.secreview.rules.opengrep.x), which hid the rule id once truncated
+    rules = tmp_path / "var" / "lib" / "secreview" / "rules" / "opengrep"
+    rules.mkdir(parents=True)
+    bundled = opengrep_rule_store.BUNDLED_DIR / "python" / "secreview.python.taint-sql.yaml"
+    (rules / bundled.name).write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
+    settings = SimpleNamespace(
+        opengrep_enabled=True,
+        opengrep_binary="opengrep",
+        opengrep_rules_dir=str(rules),
+        opengrep_timeout_seconds=120,
+        opengrep_max_concurrent_scans=1,
+        opengrep_jobs=1,
+        opengrep_max_memory_mb=0,
+    )
+    monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
+    source = (
+        "from flask import request\n"
+        "def users(cursor):\n"
+        "    cursor.execute(\"SELECT * FROM users WHERE name = '\" + request.args['n'] + \"'\")\n"
+    )
+    result = opengrep.scan_files([("app.py", source)])
+    assert [finding["rule_id"] for finding in result["app.py"]] == [
+        "OPENGREP:secreview.python.taint-sql"
+    ]
+    assert result["app.py"][0]["cwe"] == "CWE-89"

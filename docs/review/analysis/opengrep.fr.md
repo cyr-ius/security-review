@@ -29,15 +29,64 @@ désactiver. Variables d'environnement du serveur Controller :
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan OpenGrep (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
 
-Installez les packs de règles dans le répertoire configuré, par exemple en montant un répertoire administré
-sur `/var/lib/secreview/rules/opengrep`. Les règles ne sont ni téléchargées automatiquement ni intégrées
-à l'image applicative. Le répertoire doit contenir au moins un fichier `.yml` ou `.yaml`.
+Installez les [règles par défaut](#regles-par-defaut) avec
+`security-review-controller opengrep install`, ou vos propres packs de règles dans le répertoire
+configuré, par exemple en montant un répertoire administré sur `/var/lib/secreview/rules/opengrep`.
+Les règles ne sont jamais téléchargées, et rien n'est installé tant qu'un administrateur ne lance
+pas la commande. Le répertoire doit contenir au moins un fichier `.yml` ou `.yaml`.
 
 Lorsque le moteur est activé, le Controller écrit les sources déjà reçues du client CI dans un répertoire
 temporaire privé, exécute OpenGrep sans shell, analyse sa sortie JSON puis supprime l'espace de travail.
 Les résultats sont convertis au format de findings existant et intégrés au même rapport et au même export
 SARIF que les résultats du scanner natif. Les identifiants des règles OpenGrep sont préfixés par
-`OPENGREP:`.
+`OPENGREP:` (`OPENGREP:secreview.python.taint-sql`). OpenGrep ignore les chemins de sa liste
+d'exclusion par défaut (répertoires de tests comme `tests/`, `node_modules/`...).
+
+## Règles par défaut
+
+Security Review fournit 88 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
+reste du code) : les packs communautaires ne sont pas redistribués, car leurs licences
+(Semgrep Rules License, ou LGPL avec la Commons Clause pour le fork `opengrep-rules`) interdisent
+leur usage dans un produit comme celui-ci. Elles complètent les [règles intégrées](../rules.md)
+avec ce qu'un motif ligne par ligne ne voit pas :
+
+- **analyse de propagation (taint)** : une valeur lue dans la requête (Flask, Django, FastAPI,
+  Spring, servlets, Express, NestJS, ASP.NET Core, `net/http`, Gin, Echo) est suivie à travers
+  les variables et la construction de chaînes jusqu'à un appel dangereux (SQL, commande, chemin
+  de fichier, URL sortante, redirection, template, HTML, désérialisation). Un assainissement en
+  chemin (`int()`, `secure_filename`, `path.basename`, `html.EscapeString`...) l'arrête ;
+- **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
+  extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
+  combinaison d'arguments (CORS avec toute origine *et* identifiants).
+
+| Langage (répertoire) | Règles | Principaux contrôles |
+| --- | --- | --- |
+| Python (`python`) | 18 | Taint : SQL, commande, `eval`, SSRF, chemin, redirection, template, HTML, désérialisation ; TLS, YAML, JWT, debug, CORS, archives, hachages, cookies |
+| Java, Spring (`java`) | 18 | Taint : SQL/JPQL, commande, chemin, SSRF, redirection, XSS, SpEL/OGNL, JNDI/LDAP ; désérialisation, XXE (DOM, SAX, StAX), CSRF, TLS sans vérification, nom d'hôte, chiffrements, hachages, cookies, Jackson |
+| JavaScript, TypeScript, Angular (`javascript`) | 15 | Taint : SQL, commande, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, XSS DOM depuis l'URL ou la route ; `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie |
+| Go (`go`) | 11 | Taint : SQL, commande, chemin, SSRF, redirection, XSS ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret |
+| C#, ASP.NET Core (`csharp`) | 12 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, chemin, SSRF, redirection ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS |
+| Rust (`rust`) | 8 | SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
+| Dockerfile (`dockerfile`) | 2 | Pas de `USER` avant `CMD`/`ENTRYPOINT`, dernier `USER` à root |
+| GitHub Actions (`github-actions`) | 4 | Injection de script avec `${{ }}`, `pull_request_target` qui récupère le code de la pull request, action non épinglée sur un SHA, `write-all` |
+
+Leurs identifiants suivent `secreview.<langage>.<contrôle>` (`secreview.go.zip-slip`) et leurs
+métadonnées donnent la CWE et la catégorie OWASP, reprises dans les findings. Installez-les sur
+le serveur Controller :
+
+```bash
+security-review-controller opengrep list                          # bundled rules by language
+security-review-controller opengrep install                       # every language
+security-review-controller opengrep install --language python --language javascript
+security-review-controller opengrep install --overwrite           # after an upgrade
+```
+
+`install` copie un fichier par règle dans `SECREVIEW_OPENGREP_RULES_DIR` et affiche les
+identifiants installés, remplacés et ignorés (JSON). Une règle déjà présente est conservée, pour
+qu'une modification faite dans la page **Règles OpenGrep** survive ; `--overwrite` la remplace
+par la version du paquet (après une mise à niveau, par exemple). Pour retirer une règle,
+supprimez-la dans cette page. En conteneur, lancez la commande dans le conteneur du serveur
+Controller (`docker compose exec controller security-review-controller opengrep install`).
 
 ## Sécurité opérationnelle
 

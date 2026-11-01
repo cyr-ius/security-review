@@ -1,0 +1,53 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-dom-xss
+    message: >-
+      A value from the URL (location, document.URL, document.referrer, window.name, route
+      parameters) is written to the page as HTML: a crafted link runs scripts in the user's
+      session (DOM-based XSS). Use textContent, Angular interpolation, or sanitize with DOMPurify.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: location.$FIELD
+          - pattern: window.location.$FIELD
+          - pattern: document.location.$FIELD
+          - pattern: document.URL
+          - pattern: document.documentURI
+          - pattern: document.referrer
+          - pattern: window.name
+          - pattern: new URLSearchParams(...).get(...)
+          - pattern: $ROUTE.snapshot.queryParamMap.get(...)
+          - pattern: $ROUTE.snapshot.paramMap.get(...)
+          - pattern: $ROUTE.snapshot.queryParams[...]
+          - pattern: $ROUTE.snapshot.params[...]
+          - pattern: $ROUTE.snapshot.fragment
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $ELEMENT.innerHTML = $HTML
+              - pattern: $ELEMENT.outerHTML = $HTML
+              - pattern: document.write($HTML)
+              - pattern: document.writeln($HTML)
+              - pattern: $ELEMENT.insertAdjacentHTML($POSITION, $HTML)
+              - pattern: $JQ(...).html($HTML)
+              - pattern: $JQ(...).append($HTML)
+              - pattern: $SANITIZER.bypassSecurityTrustHtml($HTML)
+              - pattern: $SANITIZER.bypassSecurityTrustUrl($HTML)
+              - pattern: $SANITIZER.bypassSecurityTrustResourceUrl($HTML)
+              - pattern: $SANITIZER.bypassSecurityTrustScript($HTML)
+              - pattern: $SANITIZER.bypassSecurityTrustStyle($HTML)
+          - focus-metavariable: $HTML
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: DOMPurify.sanitize(...)
+          - pattern: encodeURIComponent(...)
+          - pattern: $SANITIZER.sanitize(...)

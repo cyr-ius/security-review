@@ -1,0 +1,28 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.script-injection
+    message: >-
+      A run step interpolates a value an attacker controls (issue or pull request title or body,
+      comment, branch name, commit message) with ${{ }}: the value is pasted into the shell script
+      before it runs and can execute commands with the workflow's token. Pass the value through an
+      env: variable and quote it ("$TITLE").
+    languages: [yaml]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-inside: |
+          steps: [...]
+      - pattern-either:
+          - pattern: |
+              run: $SCRIPT
+          - pattern: |
+              script: $SCRIPT
+      - metavariable-regex:
+          metavariable: $SCRIPT
+          regex: (?s).*\$\{\{\s*(github\.head_ref|github\.event\.client_payload\.|github\.event\.(issue|pull_request|comment|review|review_comment|discussion|discussion_comment|head_commit|commits|pages|workflow_run|release)\b[^}]*\.(title|body|message|name|label|head_ref|ref|email|head_branch|tag_name|default_branch|page_name))[^}]*\}\}.*

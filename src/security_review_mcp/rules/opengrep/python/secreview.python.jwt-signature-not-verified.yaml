@@ -1,0 +1,23 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.jwt-signature-not-verified
+    message: >-
+      A JSON Web Token is decoded without checking its signature or with the "none" algorithm:
+      anyone can forge its claims. Verify the signature with an explicit list of algorithms
+      (algorithms=["RS256"]).
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-347: Improper Verification of Cryptographic Signature"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: 'jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - pattern: jwt.decode(..., verify=False, ...)
+      - pattern: jwt.decode(..., algorithms=[..., "none", ...], ...)
+      - pattern: 'jose.jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - pattern: jwt.get_unverified_claims(...)
+      - pattern: jose.jwt.get_unverified_claims(...)

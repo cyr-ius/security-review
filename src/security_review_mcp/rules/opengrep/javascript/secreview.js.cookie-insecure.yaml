@@ -1,0 +1,21 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.cookie-insecure
+    message: >-
+      A session or response cookie is configured with secure: false or httpOnly: false: it can
+      travel over clear-text HTTP or be read by injected scripts. Set secure, httpOnly and
+      sameSite on session and authentication cookies.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: "$RES.cookie($NAME, $VALUE, {..., httpOnly: false, ...})"
+      - pattern: "$RES.cookie($NAME, $VALUE, {..., secure: false, ...})"
+      - pattern: "session({..., cookie: {..., secure: false, ...}, ...})"
+      - pattern: "session({..., cookie: {..., httpOnly: false, ...}, ...})"

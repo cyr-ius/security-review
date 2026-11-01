@@ -31,8 +31,10 @@ anyway.
 
 In CI, `lint.yml` runs ruff (**ruff** job) and, in the **web** job, Prettier and the Angular
 build; `tests.yml` runs pytest on Python 3.14 and 3.15 with `uv sync --locked` (run `uv lock`
-after a change of dependencies), and builds the `security-review-ci` client alone
-(**ci-client** job).
+after a change of dependencies) with the pinned OpenGrep release of
+`.devcontainer/install-opengrep.sh` (for the test of the
+[default OpenGrep rules](tests.md#default-opengrep-rules)), and builds the `security-review-ci`
+client alone (**ci-client** job).
 
 ## Tests
 

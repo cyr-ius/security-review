@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.dockerfile.user-root
+    message: >-
+      The last USER instruction of the image switches back to root before the start command: the
+      process runs with root privileges in the container. Switch to an unprivileged user after the
+      steps that need root.
+    languages: [dockerfile]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-250: Execution with Unnecessary Privileges"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern: USER $ROOT
+      - metavariable-regex:
+          metavariable: $ROOT
+          regex: ^(root|0)(:(root|0))?$
+      - pattern-not-inside: |
+          USER $ROOT
+          ...
+          USER $OTHER

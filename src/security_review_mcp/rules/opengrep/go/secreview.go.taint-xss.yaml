@@ -1,0 +1,60 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-xss
+    message: >-
+      Request data is written to the HTTP response, or converted to template.HTML, without HTML
+      escaping: it can inject scripts in the page. Render it with html/template (which escapes by
+      default) or escape it with html.EscapeString.
+    languages: [go]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp: "A03:2021 - Injection"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).FormValue(...)"
+          - pattern: "($REQ : *http.Request).PostFormValue(...)"
+          - pattern: "($REQ : *http.Request).PathValue(...)"
+          - pattern: "($REQ : *http.Request).URL.Query()"
+          - pattern: "($REQ : *http.Request).URL.RawQuery"
+          - pattern: "($REQ : *http.Request).URL.Path"
+          - pattern: "($REQ : *http.Request).Form"
+          - pattern: "($REQ : *http.Request).PostForm"
+          - pattern: "($REQ : *http.Request).Header"
+          - pattern: "($REQ : *http.Request).Body"
+          - pattern: "($REQ : *http.Request).Cookie(...)"
+          - pattern: mux.Vars(...)
+          - pattern: chi.URLParam(...)
+          - patterns:
+              - pattern: "($CTX : *gin.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|DefaultQuery|Param|PostForm|DefaultPostForm|GetHeader|GetQuery|GetPostForm|QueryArray|FormFile|Cookie)$
+          - patterns:
+              - pattern: "($CTX : echo.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fmt.Fprintf($W, $FORMAT, ..., $HTML, ...)
+              - pattern: fmt.Fprint($W, ..., $HTML, ...)
+              - pattern: io.WriteString($W, $HTML)
+              - pattern: "($W : http.ResponseWriter).Write($HTML)"
+              - pattern: template.HTML($HTML)
+              - pattern: template.JS($HTML)
+              - pattern: template.URL($HTML)
+              - pattern: template.HTMLAttr($HTML)
+          - focus-metavariable: $HTML
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: html.EscapeString(...)
+          - pattern: template.HTMLEscapeString(...)
+          - pattern: url.QueryEscape(...)
+          - pattern: strconv.Atoi(...)

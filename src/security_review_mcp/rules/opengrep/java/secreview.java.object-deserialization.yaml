@@ -1,0 +1,26 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.object-deserialization
+    message: >-
+      An object is read with ObjectInputStream.readObject() without a deserialization filter: a
+      crafted stream can run code through gadget chains of the classpath. Prefer a data format
+      (JSON with fixed types), or set an ObjectInputFilter that allows only the expected classes.
+    languages: [java]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: (ObjectInputStream $OIS).readObject()
+          - pattern: (ObjectInputStream $OIS).readUnshared()
+          - pattern: new ObjectInputStream(...).readObject()
+      - pattern-not-inside: |
+          $OIS.setObjectInputFilter(...);
+          ...
+      - pattern-not-inside: |
+          class $CLASS extends ObjectInputStream { ... }

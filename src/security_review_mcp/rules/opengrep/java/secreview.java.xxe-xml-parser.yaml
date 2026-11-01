@@ -1,0 +1,37 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.xxe-xml-parser
+    message: >-
+      An XML parser factory is used without disabling DOCTYPE declarations: a document can read
+      local files or reach internal hosts through external entities (XXE). Call
+      setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) on the factory
+      before creating the parser.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-611: Improper Restriction of XML External Entity Reference"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              $TYPE $FACTORY = DocumentBuilderFactory.newInstance();
+              ...
+          - pattern-inside: |
+              $TYPE $FACTORY = SAXParserFactory.newInstance();
+              ...
+      - pattern-either:
+          - pattern: $FACTORY.newDocumentBuilder()
+          - pattern: $FACTORY.newSAXParser()
+      - pattern-not-inside: |
+          $FACTORY.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+          ...
+      - pattern-not-inside: |
+          $FACTORY.setFeature("http://xml.org/sax/features/external-general-entities", false);
+          ...
+      - pattern-not-inside: |
+          $FACTORY.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+          ...

@@ -37,6 +37,7 @@ commands:
   project      list, approve or reject the projects requested by an enrollment
   audit        read or purge the audit log (triage decisions, tokens, enrollments, access)
   rules        manage the internal rules and checklists
+  opengrep     list or install the default OpenGrep rules shipped with Security Review
   advisories   import, download or inspect the OSV advisory database
 
 Run `security-review-controller COMMAND --help` for the options of a command, `--version` for

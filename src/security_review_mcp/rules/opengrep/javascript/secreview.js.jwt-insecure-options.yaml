@@ -1,0 +1,20 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.jwt-insecure-options
+    message: >-
+      A JSON Web Token is signed or verified with the "none" algorithm or with expiry checks
+      disabled: anyone can forge a token or reuse an expired one. Verify with an explicit list of
+      strong algorithms and keep expiry checks on.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-347: Improper Verification of Cryptographic Signature"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: '$JWT.verify($TOKEN, $KEY, {..., algorithms: [..., "none", ...], ...}, ...)'
+      - pattern: "$JWT.verify($TOKEN, $KEY, {..., ignoreExpiration: true, ...}, ...)"
+      - pattern: '$JWT.sign($PAYLOAD, $KEY, {..., algorithm: "none", ...}, ...)'

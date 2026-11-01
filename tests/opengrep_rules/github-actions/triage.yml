@@ -1,0 +1,29 @@
+# Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
+name: Triage
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+# ruleid: secreview.github-actions.write-all-permissions
+permissions: write-all
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      # ruleid: secreview.github-actions.action-not-pinned
+      - uses: some-org/labeler@v2
+      # ok: secreview.github-actions.action-not-pinned
+      - uses: some-org/labeler@3d3c42e5aac5ba805825da76410c181273ba90b1 # v2.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # ruleid: secreview.github-actions.pr-target-checkout
+          ref: ${{ github.event.pull_request.head.sha }}
+      # ruleid: secreview.github-actions.script-injection
+      - run: echo "New issue ${{ github.event.issue.title }}"
+      # ok: secreview.github-actions.script-injection
+      - run: echo "New issue $TITLE"
+        env:
+          TITLE: ${{ github.event.issue.title }}
+      # ok: secreview.github-actions.script-injection
+      - run: echo "Run ${{ github.run_id }}"

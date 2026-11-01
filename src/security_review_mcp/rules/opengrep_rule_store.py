@@ -21,6 +21,8 @@ YAML_RULE_ID = re.compile(
     r"(?m)^[ \t]*-[ \t]*id:[ \t]*['\"]?([a-zA-Z0-9][a-zA-Z0-9._-]{2,79})['\"]?[ \t]*$"
 )
 MAX_RULE_CHARS = 262_144
+# Default rules shipped with the package (one sub-directory per language), installed on demand
+BUNDLED_DIR = Path(__file__).parent / "opengrep"
 
 
 def rules_dir() -> Path:
@@ -128,6 +130,61 @@ def save_rule(rule_id: str, content: str, *, create: bool) -> dict[str, str]:
         path = path.with_suffix(".yml")
         if path.is_symlink() or not path.is_file():
             raise FileNotFoundError("OpenGrep rule not found")
+    _write_atomic(path, content)
+    return get_rule(rule_id)
+
+
+def bundled_rules(languages: list[str] | None = None) -> dict[str, list[Path]]:
+    """Return the default rule files shipped with the package, by language directory.
+
+    Raises:
+        ValueError: If a requested language has no bundled rules.
+    """
+    available = {
+        directory.name: sorted(directory.glob("*.yaml"))
+        for directory in sorted(BUNDLED_DIR.iterdir())
+        if directory.is_dir()
+    }
+    if languages:
+        unknown = sorted(set(languages) - set(available))
+        if unknown:
+            raise ValueError(
+                f"No bundled OpenGrep rules for: {', '.join(unknown)} "
+                f"(available: {', '.join(available)})"
+            )
+        available = {name: files for name, files in available.items() if name in languages}
+    return available
+
+
+def install_bundled(
+    languages: list[str] | None = None, *, overwrite: bool = False
+) -> dict[str, list[str]]:
+    """Copy the bundled default rules into the rules directory.
+
+    A rule file that already exists is kept (an administrator may have edited it) unless
+    ``overwrite`` is set. The rules are checked by the test suite, so OpenGrep is not needed.
+    """
+    result: dict[str, list[str]] = {"installed": [], "replaced": [], "skipped": []}
+    for files in bundled_rules(languages).values():
+        for source in files:
+            content = source.read_text(encoding="utf-8")
+            _validate_id(source.stem, content)
+            path = rule_path(source.stem)
+            exists = path.exists() or path.with_suffix(".yml").exists()
+            if exists and not overwrite:
+                result["skipped"].append(source.stem)
+                continue
+            if not path.exists() and path.with_suffix(".yml").exists():
+                path = path.with_suffix(".yml")
+                if path.is_symlink():
+                    raise ValueError("Symbolic links are not accepted for OpenGrep rules")
+            _write_atomic(path, content)
+            result["replaced" if exists else "installed"].append(source.stem)
+    return result
+
+
+def _write_atomic(path: Path, content: str) -> None:
+    """Write a rule file through a temporary file and an atomic replacement (mode 0600)."""
     temporary_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -147,7 +204,6 @@ def save_rule(rule_id: str, content: str, *, create: bool) -> dict[str, str]:
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
-    return get_rule(rule_id)
 
 
 def delete_rule(rule_id: str) -> None:

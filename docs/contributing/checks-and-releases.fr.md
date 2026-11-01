@@ -32,8 +32,10 @@ la CI les relance toutes de toute façon.
 
 En CI, `lint.yml` lance ruff (job **ruff**) et, dans le job **web**, Prettier et la build
 Angular ; `tests.yml` lance pytest sur Python 3.14 et 3.15 avec `uv sync --locked` (lancez
-`uv lock` après un changement de dépendances), et construit le client `security-review-ci` seul
-(job **ci-client**).
+`uv lock` après un changement de dépendances) avec la version épinglée d'OpenGrep de
+`.devcontainer/install-opengrep.sh` (pour le test des
+[règles OpenGrep par défaut](tests.md#regles-opengrep-par-defaut)), et construit le client
+`security-review-ci` seul (job **ci-client**).
 
 ## Tests
 

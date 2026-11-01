@@ -1,0 +1,42 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.archive-extract-unfiltered
+    message: >-
+      An archive is extracted without validating its members: entries with "../" or absolute
+      names, or links, can write outside the target directory (zip slip). Pass filter="data" to
+      tarfile.extractall (Python 3.12+) or check every member path first.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      with tarfile.open(...) as $TAR:
+                        ...
+                  - pattern-inside: |
+                      $TAR = tarfile.open(...)
+                      ...
+                  - pattern-inside: |
+                      with zipfile.ZipFile(...) as $TAR:
+                        ...
+                  - pattern-inside: |
+                      $TAR = zipfile.ZipFile(...)
+                      ...
+              - pattern-either:
+                  - pattern: $TAR.extractall(...)
+                  - pattern: $TAR.extract(...)
+          - pattern: tarfile.open(...).extractall(...)
+          - pattern: shutil.unpack_archive(...)
+      - pattern-not: $TAR.extractall(..., filter="data", ...)
+      - pattern-not: $TAR.extractall(..., filter="tar", ...)
+      - pattern-not: $TAR.extract(..., filter="data", ...)
+      - pattern-not: tarfile.open(...).extractall(..., filter="data", ...)
+      - pattern-not: shutil.unpack_archive(..., filter="data", ...)
