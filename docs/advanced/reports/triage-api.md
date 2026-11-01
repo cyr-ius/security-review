@@ -44,7 +44,10 @@ Without `expires_on`, a false positive never expires, nor does an acceptance, un
 ## Finding reported again
 
 The server recognizes an issue by its fingerprint: project, rule or CWE, file and title,
-without the line number, as in [SARIF](sarif.md). When a rule matches several lines of a file,
+without the line number, as in [SARIF](sarif.md). A finding of category `dependency` with a
+`rule_id` ignores its title: an advisory (`GHSA-`, `CVE-`, `PYSEC-`...) is recognized by its id
+alone, whatever the file (a scan reports it on the lockfile, a review on the manifest), and a
+hygiene rule (`DEP-*`) by its id and the file name. When a rule matches several lines of a file,
 the occurrences are paired in line order if their number is unchanged (the code moved), else
 only on the same line: a new occurrence never inherits the decision taken on another one, it
 is open. A pending agent proposal of an acceptance or a false positive is carried over too.

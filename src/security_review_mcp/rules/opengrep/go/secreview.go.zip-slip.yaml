@@ -1,0 +1,39 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.zip-slip
+    message: >-
+      An archive entry name is joined to a directory without checking the result: an entry named
+      "../x" writes outside the target directory (zip slip). Check that the cleaned path starts
+      with the destination directory, or extract with os.Root (Go 1.24+).
+    languages: [go]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              for $I, $FILE := range $READER.File {
+                ...
+              }
+          - pattern-inside: |
+              for {
+                ...
+                $FILE, $ERR := $TAR.Next()
+                ...
+              }
+      - pattern-either:
+          - pattern: filepath.Join($DIR, $FILE.Name)
+          - pattern: filepath.Join($DIR, $FILE.Name, ...)
+      - pattern-not-inside: |
+          $TARGET := filepath.Join($DIR, $FILE.Name)
+          ...
+          if <... strings.HasPrefix($TARGET, ...) ...> { ... }
+          ...
+      - pattern-not-inside: |
+          if <... filepath.IsLocal($FILE.Name) ...> { ... }
+          ...

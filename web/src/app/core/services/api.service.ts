@@ -61,6 +61,12 @@ import {
   RulePackImportResult,
   RulePackSection,
   RuleReloadResult,
+  OpenGrepRule,
+  OpenGrepRuleCatalog,
+  OpenGrepRuleProposal,
+  OpenGrepRuleProposalList,
+  OpenGrepRuleWrite,
+  OpenGrepRuleValidation,
   StandardPackImportResult,
   ConnectorDestination,
   ConnectorSystem,
@@ -86,7 +92,7 @@ import {
 /** Base path of the REST API (served by the same origin as the application). */
 export const API_URL = '/api/v1';
 
-/** Typed access to the REST API of security-review-mcp. */
+/** Typed access to the REST API of Security Review. */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
@@ -228,6 +234,48 @@ export class ApiService {
 
   customRules(): Observable<CustomRuleCatalog> {
     return this.http.get<CustomRuleCatalog>(`${API_URL}/rules`);
+  }
+
+  opengrepRules(): Observable<OpenGrepRuleCatalog> {
+    return this.http.get<OpenGrepRuleCatalog>(`${API_URL}/opengrep/rules`);
+  }
+
+  opengrepRule(id: string): Observable<OpenGrepRule> {
+    return this.http.get<OpenGrepRule>(`${API_URL}/opengrep/rules/${encodeURIComponent(id)}`);
+  }
+
+  createOpenGrepRule(rule: OpenGrepRuleWrite): Observable<OpenGrepRule> {
+    return this.http.post<OpenGrepRule>(`${API_URL}/opengrep/rules`, rule);
+  }
+
+  updateOpenGrepRule(id: string, rule: OpenGrepRuleWrite): Observable<OpenGrepRule> {
+    return this.http.put<OpenGrepRule>(`${API_URL}/opengrep/rules/${encodeURIComponent(id)}`, rule);
+  }
+
+  deleteOpenGrepRule(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/opengrep/rules/${encodeURIComponent(id)}`);
+  }
+
+  validateOpenGrepRule(rule: OpenGrepRuleWrite): Observable<OpenGrepRuleValidation> {
+    return this.http.post<OpenGrepRuleValidation>(`${API_URL}/opengrep/rules/validate`, rule);
+  }
+
+  /** OpenGrep rules proposed by agents and waiting for a decision. */
+  opengrepProposals(): Observable<OpenGrepRuleProposalList> {
+    return this.http.get<OpenGrepRuleProposalList>(`${API_URL}/opengrep/proposals`);
+  }
+
+  /** Install a proposed rule, as proposed or as corrected in `content`. */
+  approveOpenGrepProposal(id: number, content: string): Observable<OpenGrepRuleProposal> {
+    return this.http.post<OpenGrepRuleProposal>(`${API_URL}/opengrep/proposals/${id}/approve`, {
+      content,
+    });
+  }
+
+  rejectOpenGrepProposal(id: number, reason: string | null): Observable<OpenGrepRuleProposal> {
+    return this.http.post<OpenGrepRuleProposal>(`${API_URL}/opengrep/proposals/${id}/reject`, {
+      reason,
+    });
   }
 
   checklistItems(): Observable<ChecklistCatalog> {

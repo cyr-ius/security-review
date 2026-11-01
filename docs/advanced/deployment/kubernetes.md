@@ -29,11 +29,22 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller user reset-password admin
 ```
 
+!!! note "Upgrading manifests applied before the `secreview` labels"
+    The manifests now label their resources `app.kubernetes.io/name: secreview` (PostgreSQL:
+    `app.kubernetes.io/part-of: secreview`) instead of `security-review-mcp`. The selector of
+    a Deployment or StatefulSet cannot be changed: delete them before applying the new
+    manifests. The volume of PostgreSQL is kept (its PersistentVolumeClaim is not deleted with
+    the StatefulSet).
+
+    ```bash
+    kubectl -n secreview delete deploy/secreview-controller deploy/secreview-mcp statefulset/secreview-postgres
+    ```
+
 ## Content of the manifests
 
 `postgres.yaml` contains a **`secreview-postgres` StatefulSet** (official image
 `postgres:18-alpine`, one instance, 10 GiB volume, non-root container with a read-only file
-system), its Service and a **NetworkPolicy** that only lets the pods of security-review-mcp
+system), its Service and a **NetworkPolicy** that only lets the pods of Security Review
 reach the port `5432`. For production, prefer a managed database or an operator, which handle
 replication, backups and upgrades.
 

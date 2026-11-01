@@ -36,8 +36,9 @@ project, also opened by the people button of its row on the **Projects**
 page: search accounts, tick them and add them (with the reading), choose the permissions of
 each member (**Write the reports** for those whose agent saves reviews) or remove it, then **Save**. The same projects are given in **Users** ([roles and
 projects of an account](access-control.md#roles-and-projects-of-an-account)), or by approving the
-**Access request** filed by an agent in **Projects**. The accounts that have every project and
-those of the [OIDC mappings](sso.md#oidc-mappings) are not listed there.
+**Access request** filed by an agent in **Projects**. The accounts that have every project,
+themselves or by an [OIDC mapping](sso.md#oidc-mappings), are listed apart, under **Users who have
+every project**, read only: change their permissions in **Users** or in the mapping.
 
 ## Creating a project
 

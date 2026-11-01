@@ -32,7 +32,9 @@ Worth knowing:
 
 When a later report raises the same issue again (same project, rule, file and title, whatever
 the line), it does not add a second finding to review: the new occurrence **replaces** the
-previous one. The system detects the duplicates.
+previous one. The system detects the duplicates. A dependency finding is recognized by its
+advisory (or its hygiene rule and file name), whatever its title: a dependency review and a
+dependency scan report a vulnerable package once.
 
 - A still valid **acceptance** or **false positive** is carried over, with its reason, approver
   and expiry date, as are the comments and a raised severity. The gate does not block again.

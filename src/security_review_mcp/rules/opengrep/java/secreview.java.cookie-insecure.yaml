@@ -1,0 +1,21 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.cookie-insecure
+    message: >-
+      A cookie is explicitly created without the Secure or HttpOnly flag: it can travel over
+      clear-text HTTP or be read by injected scripts. Set both flags (and SameSite) on session and
+      authentication cookies.
+    languages: [java]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: (Cookie $COOKIE).setSecure(false)
+      - pattern: (Cookie $COOKIE).setHttpOnly(false)
+      - pattern: ResponseCookie.from(...). ... .secure(false)
+      - pattern: ResponseCookie.from(...). ... .httpOnly(false)

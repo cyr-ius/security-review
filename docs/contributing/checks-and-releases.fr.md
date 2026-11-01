@@ -1,7 +1,7 @@
 # Vérifications, revues et publication
 
 Ce qui tourne avant qu'un changement soit fusionné, et comment une version est publiée. La CI
-relance toutes les vérifications (`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`).
+relance toutes les vérifications (`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`, `codeql.yml`).
 
 ## Linters et formateurs
 
@@ -32,8 +32,16 @@ la CI les relance toutes de toute façon.
 
 En CI, `lint.yml` lance ruff (job **ruff**) et, dans le job **web**, Prettier et la build
 Angular ; `tests.yml` lance pytest sur Python 3.14 et 3.15 avec `uv sync --locked` (lancez
-`uv lock` après un changement de dépendances), et construit le client `security-review-ci` seul
-(job **ci-client**).
+`uv lock` après un changement de dépendances) avec la version épinglée d'OpenGrep de
+`.devcontainer/install-opengrep.sh` (pour le test des
+[règles OpenGrep par défaut](tests.md#regles-opengrep-par-defaut)), et construit le client
+`security-review-ci` seul (job **ci-client**).
+
+`codeql.yml` lance l'analyse CodeQL (GitHub Actions, JavaScript / TypeScript, Python) à chaque
+push et pull request, et chaque semaine. Sa configuration, `.github/codeql/codeql-config.yml`,
+exclut `tests/opengrep_rules/` : les cas de test des règles OpenGrep par défaut sont
+volontairement vulnérables. Ce workflow remplace le *default setup* de CodeQL, qui doit rester
+désactivé dans les réglages du dépôt (**Settings → Code security**).
 
 ## Tests
 
@@ -115,7 +123,8 @@ Le tag publie deux distributions PyPI à la même version : `security-review` et
 Le job **ci-client** de `tests.yml` le construit et lance le wheel seul, sans le serveur.
 
 Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `linux/arm64`,
-avec le pilote PostgreSQL) et vérifie que les deux points d'entrée démarrent. Sur chaque pull
+avec le pilote PostgreSQL) et sa variante `-opengrep` avec le moteur OpenGrep (cible `opengrep`), et
+vérifie que les deux points d'entrée démarrent. Sur chaque pull
 request (la protection de `master` exige ces vérifications), il construit seulement ; sur un tag de
 version, il pousse les images sur `ghcr.io/cyr-ius/security-review` et
 `docker.io/cyrius44/security-review` (voir [images publiées](../advanced/deployment/docker.md#images-publiees)).

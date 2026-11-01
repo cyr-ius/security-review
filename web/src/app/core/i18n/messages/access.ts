@@ -102,7 +102,10 @@ export const access = defineMessages({
     'mappings.loadError': 'Could not load the OIDC mappings.',
     'projectMembers.title': 'Members',
     'projectMembers.help':
-      'Users who have this project, with their per-project permissions here (reading, triage). The users who have every project and those of the OIDC mappings are not listed.',
+      'Users who have this project, with their per-project permissions here (reading, triage). The users who have every project are listed apart.',
+    'projectMembers.allProjects': 'Users who have every project',
+    'projectMembers.allProjectsHelp':
+      'They have this project by their permissions on every project, given on the Users page or by an OIDC mapping: change them there.',
     'projectMembers.searchUsers': 'Search the users',
     'projectMembers.addUsers': 'Add ({count})',
     'projectMembers.removeOf': 'Remove {user} from the project',
@@ -221,7 +224,10 @@ export const access = defineMessages({
     'mappings.loadError': 'Impossible de charger les correspondances OIDC.',
     'projectMembers.title': 'Membres',
     'projectMembers.help':
-      'Utilisateurs qui ont ce projet, avec leurs droits par projet ici (lecture, triage). Les utilisateurs qui ont tous les projets et ceux des correspondances OIDC ne sont pas listés.',
+      'Utilisateurs qui ont ce projet, avec leurs droits par projet ici (lecture, triage). Les utilisateurs qui ont tous les projets sont listés à part.',
+    'projectMembers.allProjects': 'Utilisateurs qui ont tous les projets',
+    'projectMembers.allProjectsHelp':
+      'Ils ont ce projet par leurs droits sur tous les projets, donnés sur la page Utilisateurs ou par une correspondance OIDC : modifiez-les là.',
     'projectMembers.searchUsers': 'Rechercher les utilisateurs',
     'projectMembers.addUsers': 'Ajouter ({count})',
     'projectMembers.removeOf': 'Retirer {user} du projet',
@@ -340,7 +346,10 @@ export const access = defineMessages({
     'mappings.loadError': 'No se pudieron cargar las correspondencias OIDC.',
     'projectMembers.title': 'Miembros',
     'projectMembers.help':
-      'Usuarios que tienen este proyecto, con sus permisos por proyecto aquí (lectura, clasificación). No se listan los usuarios que tienen todos los proyectos ni los de las correspondencias OIDC.',
+      'Usuarios que tienen este proyecto, con sus permisos por proyecto aquí (lectura, clasificación). Los usuarios que tienen todos los proyectos se listan aparte.',
+    'projectMembers.allProjects': 'Usuarios que tienen todos los proyectos',
+    'projectMembers.allProjectsHelp':
+      'Tienen este proyecto por sus permisos en todos los proyectos, dados en la página Usuarios o por una correspondencia OIDC: modifíquelos allí.',
     'projectMembers.searchUsers': 'Buscar los usuarios',
     'projectMembers.addUsers': 'Añadir ({count})',
     'projectMembers.removeOf': 'Quitar a {user} del proyecto',

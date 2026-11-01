@@ -1,0 +1,79 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-command
+    message: >-
+      Request data reaches a shell command (child_process exec, execSync or spawn with shell:
+      true). Use execFile or spawn with an argument array and no shell, and validate the value
+      against an allow-list.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$FIELD
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|params|headers|cookies|signedCookies|files|file|originalUrl|url|path|hostname)$
+          - patterns:
+              - pattern: $REQ.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(param|get|header)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      $METHOD(..., $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      async $METHOD(..., $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(Get|Post|Put|Patch|Delete|All|Head|Options)$
+              - pattern: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          import { ..., $FN, ... } from '$MODULE';
+                          ...
+                      - pattern-inside: |
+                          const { ..., $FN, ... } = require('$MODULE');
+                          ...
+                  - pattern: $FN($CMD, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          import * as $CP from '$MODULE';
+                          ...
+                      - pattern-inside: |
+                          import $CP from '$MODULE';
+                          ...
+                      - pattern-inside: |
+                          const $CP = require('$MODULE');
+                          ...
+                  - pattern: $CP.$FN($CMD, ...)
+              - pattern: require('$MODULE').$FN($CMD, ...)
+          - metavariable-regex:
+              metavariable: $MODULE
+              regex: ^(node:)?child_process$
+          - metavariable-regex:
+              metavariable: $FN
+              regex: ^(exec|execSync)$
+          - focus-metavariable: $CMD

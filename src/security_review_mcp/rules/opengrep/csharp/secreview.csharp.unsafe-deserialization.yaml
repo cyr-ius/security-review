@@ -1,0 +1,28 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.unsafe-deserialization
+    message: >-
+      An insecure deserializer is used (BinaryFormatter, SoapFormatter, NetDataContractSerializer,
+      LosFormatter, ObjectStateFormatter) or Json.NET resolves type names from the document: a
+      crafted payload can run code. Use System.Text.Json or DataContractSerializer with known
+      types, and keep TypeNameHandling at None.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: new BinaryFormatter(...)
+      - pattern: new SoapFormatter(...)
+      - pattern: new NetDataContractSerializer(...)
+      - pattern: new LosFormatter(...)
+      - pattern: new ObjectStateFormatter(...)
+      - patterns:
+          - pattern: TypeNameHandling.$HANDLING
+          - metavariable-regex:
+              metavariable: $HANDLING
+              regex: ^(All|Auto|Objects|Arrays)$

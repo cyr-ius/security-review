@@ -18,7 +18,8 @@ schéma officiel).
 - Pour un projet, un finding signalé dans plusieurs rapports n'apparaît qu'une fois (sa
   dernière occurrence, voir [finding signalé de nouveau](../../usage/triage.md#finding-signale-de-nouveau)).
 - L'empreinte (`partialFingerprints`) ignore le numéro de ligne : elle reste stable quand le
-  code bouge.
+  code bouge. Un finding de dépendance avec un `rule_id` ignore aussi son titre (voir
+  [API de triage](triage-api.md#finding-signale-de-nouveau)).
 - Sans chemin de fichier, le finding n'a qu'une localisation logique.
 
 ## Intégrations

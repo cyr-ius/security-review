@@ -1,0 +1,72 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.taint-command
+    message: >-
+      Request data reaches an operating system command. Avoid the shell: run a fixed program with
+      an argument list (subprocess.run([...]) without shell=True) and validate the value against
+      an allow-list.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.$ATTR
+          - patterns:
+              - pattern: $REQ.$ATTR
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data)$
+          - patterns:
+              - pattern: await $REQ.$METHOD()
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(json|form|body)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: Annotated[str, ...], ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: Annotated[str, ...], ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern: $P
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: os.system($CMD)
+              - pattern: os.popen($CMD, ...)
+              - pattern: subprocess.$FUNC($CMD, ..., shell=True, ...)
+              - pattern: subprocess.getoutput($CMD)
+              - pattern: subprocess.getstatusoutput($CMD)
+              - pattern: asyncio.create_subprocess_shell($CMD, ...)
+          - focus-metavariable: $CMD
+    pattern-sanitizers:
+      - pattern: shlex.quote(...)

@@ -29,7 +29,7 @@ from security_review_mcp.deps import advisory_sync
 from security_review_mcp.http_server import Role
 from security_review_mcp.observability import audit
 from security_review_mcp.reports import services
-from security_review_mcp.rules import registry, rule_store
+from security_review_mcp.rules import opengrep_proposals, registry, rule_store
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import (
     ApiToken,
@@ -1047,7 +1047,7 @@ def test_project_members_and_oidc_mappings_are_managed_with_users_manage(
     }
     response = secured.put(url, json=body, headers=admin)
     assert response.status_code == 200
-    assert [(m["username"], m["permissions"]) for m in response.json()] == [
+    assert [(m["username"], m["permissions"]) for m in response.json() if m["permissions"]] == [
         ("alice", ["findings.triage", "reports.read"])
     ]
     assert web_users.find_user("alice")["permissions"]["findings.triage"] == ["billing"]
@@ -2200,6 +2200,34 @@ def test_only_a_logged_in_triager_raises_a_severity(secured, web_sessions, repor
     assert raised["severity_changed_by"] == "triager"
     lowered = {"severity": "info", "reason": "Not that bad after all"}
     assert secured.patch(url, json=lowered, headers=auth("triager")).status_code == 422
+
+
+def test_only_a_logged_in_person_decides_on_a_proposed_opengrep_rule(secured, monkeypatch):
+    rule_id = "acme.python.unsafe-template"
+    rule = f"rules:\n  - id: {rule_id}\n    languages: [python]\n    pattern: eval($X)\n"
+    proposal = opengrep_proposals.propose_rule(
+        "shop-api", rule_id, rule, "Dynamic evaluation missed by the scan", None, "agent"
+    )
+    saved = []
+    monkeypatch.setattr(
+        opengrep_proposals.opengrep_rule_store,
+        "save_rule",
+        lambda *args, **kwargs: saved.append(args),
+    )
+    make_user("ruler", USER_PASSWORD, "admin")
+    session = secured.post(
+        "/api/v1/auth/login", json={"username": "ruler", "password": USER_PASSWORD}
+    ).json()["session"]
+    url = f"/api/v1/opengrep/proposals/{proposal['id']}/approve"
+
+    listed = secured.get("/api/v1/opengrep/proposals", headers=auth("admin")).json()
+    assert [item["rule_id"] for item in listed["proposals"]] == [rule_id]
+    # A bearer token, which an agent may hold, never installs a rule it proposed
+    assert secured.post(url, json={}, headers=auth("admin")).status_code == 403
+    response = secured.post(url, json={}, headers={"Authorization": f"Bearer {session}"})
+    assert response.status_code == 200, response.text
+    assert (response.json()["status"], response.json()["decided_by"]) == ("approved", "ruler")
+    assert saved == [(rule_id, rule)]
 
 
 def test_risk_acceptances_and_their_append_only_comments(secured, web_sessions, reports):

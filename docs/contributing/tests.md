@@ -50,6 +50,7 @@ the same commit as the change.
 |---|---|---|
 | MCP tool, prompt or resource | End to end with `mcp.client.Client(mcp)` (`pytestmark = pytest.mark.anyio`), with a representative error case (`result.is_error`) | `tests/test_server.py`, see [MCP server](mcp-server.md#tests) |
 | Scan rule | At least one **positive** case (the vulnerable pattern is found) and one **negative** case (the equivalent safe code is not) | `tests/test_scanner.py` |
+| Default OpenGrep rule | Annotated cases in `tests/opengrep_rules/<language>/`, see [below](#default-opengrep-rules) | `tests/test_opengrep_rules.py` |
 | REST route | `TestClient` with the `client`, `secured` or `web_sessions` fixtures, status code and body, at least one refusal | `tests/test_web_api.py`, see [Controller server](controller.md#tests) |
 | CLI command | `cli.run([...])` (or `server.main([...])`), **exit code** and output (`capsys`) | `tests/test_cli_and_tools.py` |
 | Table model | A new Alembic revision; `test_upgrade_creates_the_schema_of_the_models` checks that the migrations produce the models | `tests/test_database.py` |
@@ -68,3 +69,25 @@ def test_advisories_import_and_status(tmp_path, capsys):
 
 In CI, `tests.yml` runs the suite on Python 3.14 and 3.15 (see
 [Checks, reviews and releases](checks-and-releases.md)).
+
+## Default OpenGrep rules
+
+The [default OpenGrep rules](../review/analysis/opengrep.md#default-rules) are YAML files in
+`src/security_review_mcp/rules/opengrep/<language>/`, one rule per file named after its id
+(`secreview.<language>.<check>`). Their cases are source files in
+`tests/opengrep_rules/<language>/`, excluded from ruff: a `ruleid:` comment says that the next
+code line must match the rule, an `ok:` comment that it must not (the safe equivalent).
+
+```python
+@app.get("/fetch")
+def fetch():
+    url = request.args.get("url")
+    # ruleid: secreview.python.taint-ssrf
+    requests.get(url, timeout=5)
+    # ok: secreview.python.taint-ssrf
+    requests.get("https://api.example.com/status", params={"q": url}, timeout=5)
+```
+
+`test_bundled_rules_match_their_test_cases` runs OpenGrep on these cases and fails when a rule
+misses a `ruleid:` line, matches an `ok:` line, or has no case at all. It needs the `opengrep`
+executable (installed in the devcontainer and in CI) and is skipped without it.

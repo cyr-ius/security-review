@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.subprocess-shell-dynamic
+    message: >-
+      A command built at run time is run through a shell (shell=True or os.system): any shell
+      metacharacter in a value becomes a new command. Pass an argument list without shell=True.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: subprocess.$FUNC($CMD, ..., shell=True, ...)
+              - pattern: os.system($CMD)
+              - pattern: os.popen($CMD, ...)
+          - pattern-not: subprocess.$FUNC("...", ...)
+          - pattern-not: os.system("...")
+          - pattern-not: os.popen("...", ...)
+          - pattern-not: subprocess.$FUNC([...], ...)

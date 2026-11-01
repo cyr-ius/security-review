@@ -1,10 +1,10 @@
-site_name: Security Review MCP
-site_description: MCP server for security-oriented code review
+site_name: Security Review
+site_description: MCP server for AI-assisted security code review
 site_url: https://cyr-ius.github.io/security-review/
 repo_url: https://github.com/cyr-ius/security-review
 repo_name: cyr-ius/security-review
 edit_uri: edit/dev/docs/
-copyright: Security Review MCP
+copyright: Security Review
 
 theme:
   name: material
@@ -49,7 +49,7 @@ plugins:
         - locale: fr
           name: Français
           build: true
-          site_description: Serveur MCP pour la revue de code orientée sécurité
+          site_description: Serveur MCP de revue de code sécurité assistée par l'IA
           theme:
             palette:
               - media: "(prefers-color-scheme: light)"
@@ -100,6 +100,7 @@ plugins:
             OIDC login in detail: Connexion OIDC en détail
             OIDC login: Connexion OIDC
             Overview: Présentation
+            OpenGrep engine: Moteur OpenGrep
             Pipeline client (CI/CD): Client de pipeline (CI/CD)
             Projects: Projets
             Prometheus metrics: Métriques Prometheus
@@ -172,6 +173,7 @@ nav:
       - Gate: review/gate.md
       - Analysis:
           - Whole codebase analysis: review/analysis/code-scan.md
+          - OpenGrep engine: review/analysis/opengrep.md
           - Dependency analysis: review/analysis/dependencies.md
           - Read guard for AI assistants: review/analysis/read-guard.md
   - Application:

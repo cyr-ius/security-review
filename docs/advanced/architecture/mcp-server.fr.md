@@ -118,6 +118,7 @@ message de toute autre erreur lui est masqué.
 | `get_security_report` | lecture seule | `report_id`, `format` (`markdown` par défaut, ou `json`) | Le rapport et ses findings, sans son auteur |
 | `list_security_reports` | lecture seule | `project`, `risk_level`, `review_type`, `limit` (1 à 100, `20` par défaut), `offset` | Les rapports, du plus récent au plus ancien, sans leur auteur (`author` : obsolète, ignoré) |
 | `propose_finding_status` | écriture | `finding_id`, `status` (`fixed`, `accepted` ou `false_positive`), `reason` (10 à 1 000 caractères) | Le finding avec sa proposition ; son statut ne change pas tant qu'une personne n'a pas décidé ([statut d'un finding](../../review/prompts-tools.md#statut-dun-finding)) |
+| `propose_opengrep_rule` | écriture | `project`, `rule_id`, `content` (une règle YAML, au plus 256 Kio), `reason` (10 à 1 000 caractères), `test_code` (au plus `SECREVIEW_MAX_CONTENT_CHARS`) | La proposition en attente et `next_steps` ; la règle n'est installée qu'après l'approbation d'une personne ([règles proposées par les agents](../../review/analysis/opengrep.md#regles-proposees-par-les-agents)) |
 
 **Posture, gate, exports et tendances**
 
@@ -171,6 +172,8 @@ sans argument, qui expliquent comment obtenir un jeton.
   avant stockage.
 - Il **ne change jamais le statut d'un finding** : `propose_finding_status` enregistre seulement
   une proposition, qu'une personne valide dans l'interface web.
+- Il **n'installe jamais une règle de scan** : `propose_opengrep_rule` enregistre seulement la
+  règle en base ; le serveur Controller l'installe après l'approbation d'une personne.
 - En stdio, stdout est réservé au protocole MCP : les journaux vont sur stderr.
 
 Voir [Sécurité et limites](../../reference/security.md).

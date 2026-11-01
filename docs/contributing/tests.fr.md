@@ -50,6 +50,7 @@ sont dans le même commit que lui.
 |---|---|---|
 | Outil, prompt ou ressource MCP | De bout en bout avec `mcp.client.Client(mcp)` (`pytestmark = pytest.mark.anyio`), avec un cas d'erreur représentatif (`result.is_error`) | `tests/test_server.py`, voir [Serveur MCP](mcp-server.md#tests) |
 | Règle de scan | Au moins un cas **positif** (le motif vulnérable est détecté) et un cas **négatif** (le code sûr équivalent ne l'est pas) | `tests/test_scanner.py` |
+| Règle OpenGrep par défaut | Cas annotés dans `tests/opengrep_rules/<langage>/`, voir [ci-dessous](#regles-opengrep-par-defaut) | `tests/test_opengrep_rules.py` |
 | Route REST | `TestClient` avec les fixtures `client`, `secured` ou `web_sessions`, code de statut et corps, au moins un refus | `tests/test_web_api.py`, voir [Serveur Controller](controller.md#tests) |
 | Commande CLI | `cli.run([...])` (ou `server.main([...])`), **code de sortie** et sortie (`capsys`) | `tests/test_cli_and_tools.py` |
 | Modèle de table | Une nouvelle révision Alembic ; `test_upgrade_creates_the_schema_of_the_models` vérifie que les migrations produisent les modèles | `tests/test_database.py` |
@@ -68,3 +69,26 @@ def test_advisories_import_and_status(tmp_path, capsys):
 
 En CI, `tests.yml` lance la suite sur Python 3.14 et 3.15 (voir
 [Vérifications, revues et publication](checks-and-releases.md)).
+
+## Règles OpenGrep par défaut
+
+Les [règles OpenGrep par défaut](../review/analysis/opengrep.md#regles-par-defaut) sont des
+fichiers YAML dans `src/security_review_mcp/rules/opengrep/<langage>/`, une règle par fichier
+nommé d'après son identifiant (`secreview.<langage>.<contrôle>`). Leurs cas sont des fichiers
+source dans `tests/opengrep_rules/<langage>/`, exclus de ruff : un commentaire `ruleid:` indique
+que la ligne de code suivante doit correspondre à la règle, un commentaire `ok:` qu'elle ne le
+doit pas (l'équivalent sûr).
+
+```python
+@app.get("/fetch")
+def fetch():
+    url = request.args.get("url")
+    # ruleid: secreview.python.taint-ssrf
+    requests.get(url, timeout=5)
+    # ok: secreview.python.taint-ssrf
+    requests.get("https://api.example.com/status", params={"q": url}, timeout=5)
+```
+
+`test_bundled_rules_match_their_test_cases` lance OpenGrep sur ces cas et échoue quand une règle
+manque une ligne `ruleid:`, correspond à une ligne `ok:` ou n'a aucun cas. Il a besoin de
+l'exécutable `opengrep` (installé dans le devcontainer et en CI) et est ignoré sans lui.

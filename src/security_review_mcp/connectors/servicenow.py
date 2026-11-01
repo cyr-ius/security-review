@@ -100,7 +100,7 @@ class ServiceNowConnector(Connector):
             "urgency": urgency,
             "impact": impact,
             "correlation_id": content.fingerprint,
-            "correlation_display": "security-review-mcp",
+            "correlation_display": "Security Review",
         }
         if destination:
             body["assignment_group"] = destination

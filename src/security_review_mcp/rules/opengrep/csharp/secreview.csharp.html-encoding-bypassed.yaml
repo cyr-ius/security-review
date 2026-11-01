@@ -1,0 +1,26 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.html-encoding-bypassed
+    message: >-
+      A value computed at run time is marked as trusted HTML (HtmlString, MarkupString, Html.Raw):
+      it is no longer encoded and can inject scripts. Let Razor encode the value, or sanitize it
+      with an HTML sanitizer before trusting it.
+    languages: [csharp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp: "A03:2021 - Injection"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: new HtmlString($HTML)
+          - pattern: (MarkupString)$HTML
+          - pattern: new MarkupString($HTML)
+          - pattern: Html.Raw($HTML)
+      - pattern-not: new HtmlString("...")
+      - pattern-not: (MarkupString)"..."
+      - pattern-not: new MarkupString("...")
+      - pattern-not: Html.Raw("...")

@@ -126,7 +126,7 @@ PROTECTED_RESOURCE_PREFIX = "/.well-known/oauth-protected-resource"
 # The only scope of the OAuth tokens (see oauth_server.SCOPE)
 OAUTH_SCOPE = "mcp"
 # Value of WWW-Authenticate on a 401 / 403 (an error="..." parameter may follow)
-BEARER_CHALLENGE = 'Bearer realm="security-review-mcp"'
+BEARER_CHALLENGE = 'Bearer realm="secreview"'
 
 
 @dataclass(frozen=True)

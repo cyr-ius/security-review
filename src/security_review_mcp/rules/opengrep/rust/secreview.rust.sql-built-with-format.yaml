@@ -1,0 +1,36 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.sql-built-with-format
+    message: >-
+      A SQL query is built with format! and passed to sqlx, diesel or a database driver: any value
+      formatted into it can inject SQL. Use bind parameters (sqlx::query("... $1") .bind(value),
+      the query! macros, or the diesel query builder).
+    languages: [rust]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: sqlx::query(&format!(...))
+          - pattern: sqlx::query(format!(...).as_str())
+          - pattern: sqlx::query_as::<$T, $R>(&format!(...))
+          - pattern: sqlx::query_as(&format!(...))
+          - pattern: sqlx::query_scalar(&format!(...))
+          - pattern: diesel::sql_query(format!(...))
+          - pattern: sql_query(format!(...))
+          - pattern: $CONN.execute(&format!(...), ...)
+          - pattern: $CONN.query(&format!(...), ...)
+          - pattern: $CONN.batch_execute(&format!(...))
+          - pattern: |
+              let $SQL = format!(...);
+              ...
+              sqlx::query(&$SQL)
+          - pattern: |
+              let $SQL = format!(...);
+              ...
+              $CONN.execute(&$SQL, ...)

@@ -1,7 +1,7 @@
 # Checks, reviews and releases
 
 What runs before a change is merged, and how a version is published. CI runs every check again
-(`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`).
+(`lint.yml`, `tests.yml`, `docs.yml`, `docker.yml`, `codeql.yml`).
 
 ## Linters and formatters
 
@@ -31,8 +31,16 @@ anyway.
 
 In CI, `lint.yml` runs ruff (**ruff** job) and, in the **web** job, Prettier and the Angular
 build; `tests.yml` runs pytest on Python 3.14 and 3.15 with `uv sync --locked` (run `uv lock`
-after a change of dependencies), and builds the `security-review-ci` client alone
-(**ci-client** job).
+after a change of dependencies) with the pinned OpenGrep release of
+`.devcontainer/install-opengrep.sh` (for the test of the
+[default OpenGrep rules](tests.md#default-opengrep-rules)), and builds the `security-review-ci`
+client alone (**ci-client** job).
+
+`codeql.yml` runs the CodeQL analysis (GitHub Actions, JavaScript / TypeScript, Python) on every
+push and pull request, and weekly. Its configuration, `.github/codeql/codeql-config.yml`,
+excludes `tests/opengrep_rules/`: the test cases of the default OpenGrep rules are
+deliberately vulnerable. This workflow replaces the *default setup* of CodeQL, which must stay
+disabled in the repository settings (**Settings → Code security**).
 
 ## Tests
 
@@ -114,7 +122,8 @@ The tag publishes two PyPI distributions at the same version: `security-review` 
 **ci-client** job of `tests.yml` builds it and runs the wheel alone, without the server.
 
 The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
-with the PostgreSQL driver) and checks that both entry points start. On every pull request
+with the PostgreSQL driver) and its `-opengrep` variant with the OpenGrep engine (target
+`opengrep`), and checks that both entry points start. On every pull request
 (the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
 images to `ghcr.io/cyr-ius/security-review` and `docker.io/cyrius44/security-review`
 (see [published images](../advanced/deployment/docker.md#published-images)). A manual run (**Actions →

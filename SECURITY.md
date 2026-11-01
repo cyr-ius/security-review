@@ -1,6 +1,6 @@
-# Security policy of security-review-mcp
+# Security policy of Security Review
 
-`security-review-mcp` is a security tool: a vulnerability in it is treated as a blocking bug.
+Security Review is a security tool: a vulnerability in it is treated as a blocking bug.
 
 ## Supported versions
 

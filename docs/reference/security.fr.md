@@ -183,6 +183,13 @@
   les modifie ni ne les supprime. De même pour relever la criticité d'un finding : avec une
   justification, journalisé, jamais sous la criticité du rapport (baisser un finding passe par
   une acceptation de risque).
+- **Les agents n'installent jamais une règle de scan** : `propose_opengrep_rule` enregistre
+  seulement une proposition (une règle, préfixe réservé `secreview.` refusé, ni secret ni
+  caractère invisible, motif masqué, propositions en attente bornées par
+  `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS`). Une personne connectée avec `rules.manage`
+  l'approuve, ce qui la valide avec OpenGrep et ne remplace jamais une règle installée ; un jeton
+  Bearer ne peut pas décider ([règles proposées par les
+  agents](../review/analysis/opengrep.md#regles-proposees-par-les-agents)).
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
@@ -334,11 +341,9 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
-- Les quelques [analyses Tree-sitter](../review/rules.md#regles-par-defaut) (`PY-026`, `JV-019`,
-  `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) ne suivent que des flux simples dans un seul
-  fichier. Elles sont bornées pour qu'un fichier piégé ne puisse pas bloquer un scan : chaque
-  fonction est analysée une fois par état d'entrée, et le code trop imbriqué n'est contrôlé que
-  par les motifs.
+- Les flux de données (analyse de propagation, *taint*) ne sont suivis que par le
+  [moteur OpenGrep](../review/analysis/opengrep.md), sur le serveur Controller, lors d'un scan du
+  dépôt : l'outil `scan_code` n'applique que les motifs ligne par ligne.
 - La [couverture d'une revue](../review/prompts-tools.md#couverture-de-la-revue) (résultats de
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier

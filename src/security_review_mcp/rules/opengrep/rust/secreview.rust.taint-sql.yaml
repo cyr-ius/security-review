@@ -1,0 +1,54 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.taint-sql
+    message: >-
+      Request data (an axum or actix-web extractor, the query string) reaches a SQL query built as
+      a string (format!, concatenation, push_str). Use bind parameters (sqlx::query("... $1")
+      .bind(value), the query! macros, or the diesel query builder) instead of formatting the value
+      into the query.
+    languages: [rust]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  fn $F(..., $ARG: $EXTRACTOR<$T>, ...) { ... }
+              - pattern: $ARG
+              - metavariable-regex:
+                  metavariable: $EXTRACTOR
+                  regex: ^((axum::extract::|web::)?(Query|Path|Json|Form))$
+              # An integer, boolean or UUID extractor cannot carry SQL
+              - metavariable-regex:
+                  metavariable: $T
+                  regex: ^(?!(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|bool|Uuid|uuid::Uuid)$)
+          - pattern: "($REQ : HttpRequest).query_string()"
+          - pattern: "($REQ : HttpRequest).match_info()"
+    pattern-propagators:
+      - pattern: $TO.push_str($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: sqlx::query($QUERY)
+              - pattern: sqlx::query_as($QUERY)
+              - pattern: sqlx::query_as::<$...T>($QUERY)
+              - pattern: sqlx::query_scalar($QUERY)
+              - pattern: diesel::sql_query($QUERY)
+              - pattern: sql_query($QUERY)
+              - pattern: $CONN.execute($QUERY, ...)
+              - pattern: $CONN.query($QUERY, ...)
+              - pattern: $CONN.batch_execute($QUERY)
+          - focus-metavariable: $QUERY
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $VALUE.parse::<$T>()
+          - pattern: Uuid::parse_str(...)

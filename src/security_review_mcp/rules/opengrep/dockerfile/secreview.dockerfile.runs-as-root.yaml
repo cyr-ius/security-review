@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.dockerfile.runs-as-root
+    message: >-
+      The image starts its process without switching to an unprivileged user (no USER instruction
+      before CMD or ENTRYPOINT, or USER root): a compromise of the process gives root in the
+      container. Create a dedicated user and add USER before the start command.
+    languages: [dockerfile]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-250: Execution with Unnecessary Privileges"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: CMD ...
+          - pattern: ENTRYPOINT ...
+      - pattern-not-inside: |
+          USER $USER
+          ...
+      - pattern-not-inside: |
+          USER $USER

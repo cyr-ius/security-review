@@ -1,0 +1,21 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.certificate-validation-disabled
+    message: >-
+      A server certificate validation callback accepts every certificate: a network attacker can
+      impersonate the server. Remove the callback, or validate the chain against a pinned private
+      certificate authority.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-295: Improper Certificate Validation"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $HANDLER.ServerCertificateCustomValidationCallback = ($A, $B, $C, $D) => true
+      - pattern: ServicePointManager.ServerCertificateValidationCallback = ($A, $B, $C, $D) => true
+      - pattern: $HANDLER.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+      - pattern: "$OPTIONS.RemoteCertificateValidationCallback = ($A, $B, $C, $D) => true"

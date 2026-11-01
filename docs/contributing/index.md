@@ -50,6 +50,12 @@ environment (`uv sync --extra dev --extra docs --extra postgres`, `npm --prefix 
 forwards ports 8000 (MCP server), 8080 (Controller server), 4200 (Angular dev server), 8001 (docs) and
 5432 (PostgreSQL, development credentials `secreview` / `secreview`).
 
+It also installs a pinned [OpenGrep](../review/analysis/opengrep.md) release in
+`/usr/local/bin/opengrep` (`.devcontainer/install-opengrep.sh`, which checks its SHA-256 digest)
+(the release of the `-opengrep` Docker image): the engine, enabled by default, runs once a rule is added on the
+**OpenGrep rules** page of the Controller server or the default rules are installed
+(`security-review-controller opengrep install`); the tests run the default rules with it.
+
 ```bash
 psql -h db -U secreview secreview                     # password: secreview
 SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to SQLite for once
@@ -61,7 +67,7 @@ without leaving the container.
 ## Building the image
 
 ```bash
-docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
+docker build -t security-review .   # SQLite and PostgreSQL (driver included)
 ```
 
 The build also compiles the [web interface](../usage/index.md) (Node.js stage); the
@@ -117,7 +123,6 @@ src/security_review_mcp/
 │   └── trends.py          # trend report
 ├── rules/         # scan rules and checklists
 │   ├── scanner.py         # scan engine, inline suppression, secret masking
-│   ├── syntax_analysis.py # Tree-sitter structural checks, separate from line-based rules
 │   ├── codescan.py        # whole codebase scan of the files sent by security-review-ci (findings)
 │   ├── default_rules.toml # default rules and checklists, copied into the database at first start
 │   ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file

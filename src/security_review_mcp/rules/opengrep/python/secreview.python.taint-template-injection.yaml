@@ -1,0 +1,74 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.taint-template-injection
+    message: >-
+      Request data is compiled as a template (server-side template injection): Jinja2 and Mako
+      templates can run Python code. Pass the value as a variable of a fixed template instead of
+      building the template from it.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1336: Improper Neutralization of Special Elements Used in a Template Engine"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.$ATTR
+          - patterns:
+              - pattern: $REQ.$ATTR
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data)$
+          - patterns:
+              - pattern: await $REQ.$METHOD()
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(json|form|body)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: Annotated[str, ...], ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: Annotated[str, ...], ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern: $P
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.render_template_string($TEMPLATE, ...)
+              - pattern: jinja2.Template($TEMPLATE, ...)
+              - pattern: jinja2.Environment(...).from_string($TEMPLATE, ...)
+              - patterns:
+                  - pattern-inside: |
+                      $ENV = jinja2.Environment(...)
+                      ...
+                  - pattern: $ENV.from_string($TEMPLATE, ...)
+              - pattern: mako.template.Template($TEMPLATE, ...)
+              - pattern: django.template.Template($TEMPLATE, ...)
+          - focus-metavariable: $TEMPLATE

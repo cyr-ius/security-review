@@ -17,7 +17,7 @@ from ..config import CONTROLLER_URL_MAX_CHARS, MAX_RETENTION_DAYS, REPORT_LANGUA
 from ..connectors import api as connectors_api
 from ..http_server import Role
 from ..observability import audit_syslog
-from ..rules import rules_loader
+from ..rules import opengrep_rule_store, rules_loader
 from ..storage.models import (
     MAX_AUTHOR_CHARS,
     MAX_COMMENT_CHARS,
@@ -25,6 +25,7 @@ from ..storage.models import (
     FindingPublic,
     FindingStatus,
     ReviewType,
+    RuleProposalStatus,
     Severity,
 )
 from ..storage.project_names import ProjectName
@@ -1118,12 +1119,14 @@ class AccessRole(BaseModel):
 
 
 class ProjectMember(BaseModel):
-    """A web user who has the project, with its per-project permissions there."""
+    """A web user who has the project, with its per-project permissions given there (empty
+    when it only has every project) and those it holds on every project (read only here)."""
 
     user_id: int
     username: str
     auth_source: AuthSource
     permissions: list[access_control.Permission]
+    all_projects_permissions: list[access_control.Permission]
 
 
 class ProjectMemberBinding(BaseModel):
@@ -1584,3 +1587,41 @@ class ConnectorSystem(BaseModel):
 
     kind: str
     name: str
+
+
+class OpenGrepRuleProposalPublic(BaseModel):
+    """An OpenGrep rule proposed by an agent during a review (see opengrep_proposals)."""
+
+    id: int
+    rule_id: str
+    content: str
+    reason: str
+    test_code: str | None
+    project: str
+    status: RuleProposalStatus
+    proposed_by: str
+    proposed_at: datetime
+    decided_by: str | None
+    decided_at: datetime | None
+    decision_reason: str | None
+
+
+class OpenGrepRuleProposalList(BaseModel):
+    """OpenGrep rules proposed by agents, newest first."""
+
+    proposals: list[OpenGrepRuleProposalPublic]
+
+
+class OpenGrepRuleApproval(BaseModel):
+    """Body of POST /opengrep/proposals/{id}/approve: the YAML rule as corrected by the
+    approver (default: as proposed); the rule id does not change."""
+
+    content: str | None = Field(
+        default=None, min_length=1, max_length=opengrep_rule_store.MAX_RULE_CHARS
+    )
+
+
+class OpenGrepRuleRejection(BaseModel):
+    """Body of POST /opengrep/proposals/{id}/reject: an optional reason."""
+
+    reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)

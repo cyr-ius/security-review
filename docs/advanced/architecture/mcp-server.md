@@ -117,6 +117,7 @@ error is hidden from it.
 | `get_security_report` | read-only | `report_id`, `format` (`markdown` by default, or `json`) | The report and its findings, without its author |
 | `list_security_reports` | read-only | `project`, `risk_level`, `review_type`, `limit` (1 to 100, `20` by default), `offset` | Reports, newest first, without their author (`author`: deprecated, ignored) |
 | `propose_finding_status` | write | `finding_id`, `status` (`fixed`, `accepted` or `false_positive`), `reason` (10 to 1,000 characters) | The finding with its proposal; its status does not change until a person decides ([status of a finding](../../review/prompts-tools.md#status-of-a-finding)) |
+| `propose_opengrep_rule` | write | `project`, `rule_id`, `content` (one YAML rule, at most 256 KiB), `reason` (10 to 1,000 characters), `test_code` (at most `SECREVIEW_MAX_CONTENT_CHARS`) | The pending proposal and `next_steps`; the rule is installed only once a person approves it ([rules proposed by agents](../../review/analysis/opengrep.md#rules-proposed-by-agents)) |
 
 **Posture, gate, exports and trends**
 
@@ -170,6 +171,8 @@ without argument, which explain how to get a token.
   before storage.
 - It **never changes the status of a finding**: `propose_finding_status` only records a proposal,
   that a person approves in the web interface.
+- It **never installs a scan rule**: `propose_opengrep_rule` only stores the rule in the
+  database; the Controller server installs it once a person approves it.
 - In stdio, stdout is kept for the MCP protocol: the logs go to stderr.
 
 See [Security and limits](../../reference/security.md).

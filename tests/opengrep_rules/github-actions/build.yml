@@ -1,0 +1,19 @@
+# Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
+name: Build
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # ok: secreview.github-actions.pr-target-checkout
+          ref: ${{ github.event.pull_request.head.sha }}
+      # ruleid: secreview.github-actions.script-injection
+      - run: |
+          git fetch origin
+          git checkout ${{ github.head_ref }}
+      # ruleid: secreview.github-actions.script-injection
+      - run: ./deploy.sh ${{ github.event.client_payload.environment }}

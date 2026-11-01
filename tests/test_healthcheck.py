@@ -1,6 +1,7 @@
 """Tests of the health check of the Docker image."""
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -191,3 +192,32 @@ def test_the_image_listens_on_every_interface_and_compose_chooses_the_exposure()
         # An address given by a variable is judged on its default: "${VAR:-127.0.0.1}:8000"
         ports = [re.sub(r"^\$\{\w+:-([^}]*)\}", r"\1", port) for port in ports]
         assert all(port.startswith("127.0.0.1:") == loopback for port in ports), compose
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        ([], "security-review-mcp serve"),
+        (["mcp"], "security-review-mcp serve"),
+        (["mcp", "enroll"], "security-review-mcp enroll"),
+        (["controller"], "security-review-controller serve"),
+        (["controller", "token", "list"], "security-review-controller token list"),
+        # Former usage: the arguments of security-review-mcp
+        (["serve", "--transport", "stdio"], "security-review-mcp serve --transport stdio"),
+    ],
+)
+def test_the_entry_point_of_the_image_starts_the_chosen_process(tmp_path, args, expected):
+    # Each program prints its name and its arguments: the script only chooses and execs one
+    for program in ("security-review-mcp", "security-review-controller"):
+        fake = tmp_path / program
+        fake.write_text(f'#!/bin/sh\necho {program} "$@"\n', encoding="utf-8")
+        fake.chmod(0o755)
+    result = subprocess.run(
+        ["sh", str(ROOT / "scripts" / "docker-entrypoint.sh"), *args],
+        env={"PATH": f"{tmp_path}:/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    # Nothing else on stdout, which stdio reserves to the MCP protocol
+    assert result.stdout == f"{expected}\n"

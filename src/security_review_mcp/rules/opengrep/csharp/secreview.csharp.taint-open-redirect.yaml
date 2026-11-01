@@ -1,0 +1,61 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-open-redirect
+    message: >-
+      Request data is used as a redirect target: an attacker can send users to a phishing site
+      with a link to this application. Use LocalRedirect, or check the target with Url.IsLocalUrl
+      before redirecting.
+    languages: [csharp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Redirect($URL)
+              - pattern: RedirectPermanent($URL)
+              - pattern: $RESPONSE.Redirect($URL, ...)
+              - pattern: Results.Redirect($URL, ...)
+          - pattern-not-inside: |
+              if (<... Url.IsLocalUrl($URL) ...>) { ... }
+          - focus-metavariable: $URL

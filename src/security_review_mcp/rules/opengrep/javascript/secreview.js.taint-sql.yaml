@@ -1,0 +1,63 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-sql
+    message: >-
+      Request data reaches a SQL query built as a string. Pass the value as a bound parameter
+      (query(text, [values]), Prisma tagged $queryRaw, query builder methods) instead of
+      concatenating or interpolating it.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$FIELD
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|params|headers|cookies|signedCookies|files|file|originalUrl|url|path|hostname)$
+          - patterns:
+              - pattern: $REQ.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(param|get|header)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      $METHOD(..., $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      async $METHOD(..., $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(Get|Post|Put|Patch|Delete|All|Head|Options)$
+              - pattern: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.query($QUERY, ...)
+              - pattern: $DB.execute($QUERY, ...)
+              - pattern: $DB.raw($QUERY, ...)
+              - pattern: $DB.whereRaw($QUERY, ...)
+              - pattern: $DB.$queryRawUnsafe($QUERY, ...)
+              - pattern: $DB.$executeRawUnsafe($QUERY, ...)
+              - pattern: $DB.literal($QUERY)
+          - focus-metavariable: $QUERY
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: parseInt(...)
+          - pattern: Number(...)
+          - pattern: parseFloat(...)

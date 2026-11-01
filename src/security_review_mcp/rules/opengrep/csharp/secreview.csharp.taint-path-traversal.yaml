@@ -1,0 +1,71 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-path-traversal
+    message: >-
+      Request data is used as a file path: "../" sequences or an absolute path can read or
+      overwrite any file. Keep only the file name (Path.GetFileName), or resolve the full path and
+      check that it starts with the expected directory.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern-either:
+                      - pattern: File.$METHOD($PATH, ...)
+                      - pattern: System.IO.File.$METHOD($PATH, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(ReadAllText|ReadAllBytes|ReadAllLines|OpenRead|OpenWrite|Open|WriteAllText|WriteAllBytes|AppendAllText|Delete|Copy|Move|Create|ReadAllTextAsync|ReadAllBytesAsync|WriteAllTextAsync|WriteAllBytesAsync)$
+              - pattern: new FileStream($PATH, ...)
+              - pattern: new StreamReader($PATH, ...)
+              - pattern: new StreamWriter($PATH, ...)
+              - pattern: PhysicalFile($PATH, ...)
+              - pattern: Directory.Delete($PATH, ...)
+          - focus-metavariable: $PATH
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Path.GetFileName(...)
+          - pattern: System.IO.Path.GetFileName(...)

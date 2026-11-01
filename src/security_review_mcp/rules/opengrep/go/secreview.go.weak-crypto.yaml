@@ -1,0 +1,23 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.weak-crypto
+    message: >-
+      A broken hash or cipher is used (MD5, SHA-1, DES, 3DES, RC4): use SHA-256 or better, AES-GCM
+      or ChaCha20-Poly1305, and a password hash (argon2id, bcrypt, scrypt) for passwords.
+    languages: [go]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: md5.New()
+      - pattern: md5.Sum(...)
+      - pattern: sha1.New()
+      - pattern: sha1.Sum(...)
+      - pattern: des.NewCipher(...)
+      - pattern: des.NewTripleDESCipher(...)
+      - pattern: rc4.NewCipher(...)

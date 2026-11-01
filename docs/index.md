@@ -1,7 +1,9 @@
 # Security Review
 
-**Security Review turns the AI assistants of your developers into security reviewers that
-follow your rules, and gives your security team a central view of everything they find.**
+**The MCP server for AI-assisted security code review.**
+
+Security Review turns the AI assistants of your developers into security reviewers that
+follow your rules, and gives your security team a central view of everything they find.
 
 Your teams already write code with AI assistants (GitHub Copilot, Claude, Cursor...). Security
 Review plugs into these assistants through **MCP** (Model Context Protocol, the open standard
@@ -83,7 +85,7 @@ block starts everything (PostgreSQL, Controller server, MCP server), resets the 
 account and creates a token for your agent:
 
 ```bash
-mkdir security-review-mcp && cd security-review-mcp
+mkdir secreview && cd secreview
 curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait

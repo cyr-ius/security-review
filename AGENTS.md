@@ -4,7 +4,7 @@ Ce fichier est la **référence unique** pour tout agent (Claude, Copilot, Codex
 qui modifie ce dépôt. `CLAUDE.md` et `.github/copilot-instructions.md` ne font qu'y renvoyer :
 modifiez les règles ici, pas là-bas.
 
-`security-review-mcp` est un serveur MCP de revue de code orientée sécurité : prompts,
+**Security Review** (petit nom `secreview`) est un serveur MCP de revue de code orientée sécurité : prompts,
 checklists, scan par motifs, analyse de dépendances, rapports persistés (SQLModel, migrations
 Alembic), CLI pour la CI/CD (gate, SARIF, tendances) et transport HTTP avec jetons Bearer / TLS.
 
@@ -122,9 +122,9 @@ l'utiliser.
 | Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
 | Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
 | Moteur de scan, masquage des secrets | `rules/scanner.py` |
-| Règles et checklists par défaut (copiées en base au premier lancement) | `rules/default_rules.toml` |
+| Règles et checklists par défaut (copiées en base au premier lancement) ; règles OpenGrep par défaut (une par fichier, installées par `security-review-controller opengrep install`, ou au démarrage du contrôleur quand OpenGrep est activé et son exécutable présent (image `-opengrep`), sans toucher une règle modifiée ou supprimée) et leur gestion ; règles OpenGrep proposées par un agent (`propose_opengrep_rule`), approuvées ou rejetées par une personne | `rules/default_rules.toml` ; `rules/opengrep/<langage>/*.yaml`, `rules/opengrep_rule_store.py`, `engines/opengrep.py` ; `rules/opengrep_proposals.py` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
 | Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
@@ -242,6 +242,11 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   sous
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, une acceptation n'exige ni motif ni date) ; une décision expirée
   compte comme ouverte (gate, posture, SARIF, tendances).
+- **Un agent n'installe jamais une règle de scan** : `propose_opengrep_rule` enregistre seulement
+  une proposition en base (préfixe `secreview.` refusé, ni secret ni caractère invisible, nombre
+  en attente borné) ; seule une personne connectée à l'interface (session, jamais un jeton
+  Bearer) avec `rules.manage` l'approuve, ce qui la valide avec OpenGrep sans jamais remplacer
+  une règle installée.
 
 ### Paramètres
 
@@ -255,6 +260,12 @@ Identifiants `PRÉFIXE-NNN` par famille : `PY`, `JV`, `NG` (Angular), `CFG`, `GE
 TypeScript / Node.js), `DEP` (hygiène des
 dépendances), `AI` (texte caché ou instructions adressées à un assistant IA). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
+
+Les règles OpenGrep par défaut (`rules/opengrep/<langage>/<id>.yaml`) sont écrites pour le projet
+(Apache-2.0) : n'y copiez aucune règle de `semgrep-rules` ou `opengrep-rules`, dont les licences
+l'interdisent. Identifiant `secreview.<langage>.<contrôle>`, au plus 51 caractères (le `rule_id`
+d'un finding, `OPENGREP:` compris, est tronqué à 60), CWE et OWASP dans `metadata`. Chaque règle a
+au moins un cas `ruleid:` et un cas `ok:` dans `tests/opengrep_rules/<langage>/`.
 
 Les règles et checklists par défaut sont dans `src/security_review_mcp/rules/default_rules.toml`,
 jamais dans le code Python. Elles sont copiées en base au premier lancement
@@ -346,6 +357,7 @@ essentielles.
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/review/prompts-tools` |
 | Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/review/rules` ou `docs/review/checklists` (et `review/analysis/code-scan` si le scan du dépôt change) |
+| Une règle OpenGrep par défaut (`rules/opengrep/`) | `docs/review/analysis/opengrep` (tableau des règles par langage) |
 | Le format des packs TOML internes | `docs/review/rules` (et `review/checklists` pour `[[checklist]]`), `examples/rules/company.toml` |
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/review/analysis/dependencies` |
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`review/gate`, `advanced/architecture/ci`, `review/analysis/code-scan`, `advanced/reports/sarif`...) |
@@ -377,6 +389,14 @@ essentielles.
   commandes, identifiants et clés (`security-review-controller`, `SECREVIEW_CONTROLLER_URL`,
   `settings.controllerUrlTitle`...) ne changent pas, ni les noms des configurations de
   `.vscode/launch.json`.
+- Le produit s'appelle **Security Review** dans le texte (doc, README, interface, messages) et
+  se présente d'abord comme un **serveur MCP de revue de code sécurité assistée par l'IA**
+  (« MCP server for AI-assisted security code review ») ; il s'appelle
+  `secreview` quand il faut un nom court technique (labels, répertoires, `User-Agent`). Les noms
+  des commandes (`security-review-mcp`, `security-review-controller`, `security-review-ci`), du
+  paquet Python `security_review_mcp`, de l'image `security-review` et du projet Compose ne
+  changent pas, ni les identifiants dont dépendent des données existantes (répertoire de la base
+  SQLite locale, nom de l'outil SARIF, projet `security-review-mcp` des rapports).
 - Une vue de l'interface web s'appelle une **page** (**page** en anglais, **página** en espagnol),
   jamais un « écran » / « screen » / « pantalla » (sauf « plein écran », « full screen »).
 - L'interface web est traduite (anglais, français, espagnol) : chaque version de la doc cite les

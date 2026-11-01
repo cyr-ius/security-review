@@ -1,0 +1,48 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-expression-injection
+    message: >-
+      Request data is evaluated as an expression (SpEL, OGNL, MVEL, JEXL, EL): expression
+      languages can call arbitrary methods and run code. Never evaluate user input; use a
+      SimpleEvaluationContext with fixed expressions if evaluation is required.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-917: Improper Neutralization of Special Elements used in an Expression Language Statement ('Expression Language Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (ExpressionParser $PARSER).parseExpression($EXPR, ...)
+              - pattern: (SpelExpressionParser $PARSER).parseExpression($EXPR, ...)
+              - pattern: new SpelExpressionParser().parseExpression($EXPR, ...)
+              - pattern: Ognl.getValue($EXPR, ...)
+              - pattern: Ognl.parseExpression($EXPR)
+              - pattern: MVEL.eval($EXPR, ...)
+              - pattern: (ExpressionFactory $FACTORY).createValueExpression($CTX, $EXPR, ...)
+              - pattern: (JexlEngine $JEXL).createExpression($EXPR)
+          - focus-metavariable: $EXPR

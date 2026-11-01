@@ -264,6 +264,53 @@ def test_a_finding_reported_again_replaces_its_previous_occurrence(triage):
     assert statuses == {5: FindingStatus.OPEN, 10: FindingStatus.ACCEPTED}
 
 
+def test_a_dependency_review_and_a_dependency_scan_report_an_issue_once():
+    dependency = {"category": "dependency", "line_start": None, "line_end": None}
+    services.save_report(
+        "shop",
+        "Dependency scan",
+        [
+            make_finding(
+                title="Vulnerable dependency: python-jose 3.5.0",
+                rule_id="GHSA-3qf3-8w2g-rqmx",
+                file_path="uv.lock",
+                **dependency,
+            ),
+            make_finding(
+                Severity.LOW,
+                title="Loose or missing version constraint",
+                rule_id="DEP-001",
+                file_path="pyproject.toml",
+                **dependency,
+            ),
+        ],
+        review_type=ReviewType.DEPENDENCY_SCAN,
+    )
+    # The agent writes its own titles, cites the manifest and the same advisory in lower case
+    review = services.save_report(
+        "shop",
+        "Dependency review",
+        [
+            make_finding(
+                title="python-jose : contournement de la protection",
+                rule_id="ghsa-3qf3-8w2g-rqmx",
+                file_path="pyproject.toml",
+                **dependency,
+            ),
+            make_finding(
+                Severity.LOW,
+                title="Contraintes de version non bornées",
+                rule_id="DEP-001",
+                file_path="backend/pyproject.toml",
+                **dependency,
+            ),
+        ],
+        review_type=ReviewType.DEPENDENCY_REVIEW,
+    )
+    assert review["recurring_findings"] == 2
+    assert services.list_project_findings("shop")["total"] == 2
+
+
 def test_review_type_is_stored_listed_and_filtered():
     api = services.save_report(
         "shop",

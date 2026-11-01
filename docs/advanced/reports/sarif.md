@@ -17,7 +17,8 @@ official schema).
 - For a project, a finding reported in several reports appears only once (its latest
   occurrence, see [finding reported again](../../usage/triage.md#finding-reported-again)).
 - The fingerprint (`partialFingerprints`) ignores the line number: it stays stable when the
-  code moves.
+  code moves. A dependency finding with a `rule_id` ignores its title too (see
+  [triage API](triage-api.md#finding-reported-again)).
 - Without a file path, the finding only has a logical location.
 
 ## Integrations

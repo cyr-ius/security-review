@@ -87,6 +87,12 @@ export class LayoutComponent {
   private readonly referenceItems: readonly NavItem[] = [
     { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.read' },
     {
+      path: '/opengrep-rules',
+      label: 'layout.opengrepRules',
+      icon: 'bi-filetype-yml',
+      permission: 'rules.read',
+    },
+    {
       path: '/checklists',
       label: 'layout.checklists',
       icon: 'bi-list-check',

@@ -1,6 +1,6 @@
 # Audit log
 
-The **audit log** records who changed what in security-review-mcp: the triage decisions, the
+The **audit log** records who changed what in Security Review: the triage decisions, the
 tokens, the accounts and their rights, the projects, the logins. It answers the questions of an
 audit ("who accepted this risk?", "who created this token?").
 

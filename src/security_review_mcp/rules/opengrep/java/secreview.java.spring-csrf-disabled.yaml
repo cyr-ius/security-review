@@ -1,0 +1,21 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.spring-csrf-disabled
+    message: >-
+      CSRF protection is disabled in Spring Security. Keep it enabled for any endpoint
+      authenticated by a cookie or a session; disabling it is only acceptable for a stateless API
+      authenticated by a header token.
+    languages: [java]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-352: Cross-Site Request Forgery (CSRF)"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $HTTP.csrf().disable()
+      - pattern: $HTTP.csrf($CSRF -> $CSRF.disable())
+      - pattern: $HTTP.csrf(AbstractHttpConfigurer::disable)
+      - pattern: $HTTP.csrf(CsrfConfigurer::disable)

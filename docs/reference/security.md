@@ -172,6 +172,12 @@
   same rule (session with `findings.triage`) and are append-only: no route edits or deletes one.
   So does raising the severity of a finding: with a justification, logged, never below the
   severity of the report (lowering a finding goes through a risk acceptance).
+- **Agents never install a scan rule**: `propose_opengrep_rule` only stores a proposal (one
+  rule, reserved `secreview.` prefix refused, no secret nor invisible character, reason masked,
+  pending proposals bounded by `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS`). A person logged in
+  with `rules.manage` approves it, which validates it with OpenGrep and never replaces an
+  installed rule; a bearer token cannot decide ([rules proposed by
+  agents](../review/analysis/opengrep.md#rules-proposed-by-agents)).
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
@@ -314,10 +320,9 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
-- The few [Tree-sitter analyses](../review/rules.md#default-rules) (`PY-026`, `JV-019`,
-  `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) only follow simple flows inside one file.
-  They are bounded so that a crafted file cannot block a scan: each function is analyzed once
-  per input state, and code nested too deeply is only checked by the patterns.
+- Data flows (taint analysis) are only followed by the [OpenGrep engine](../review/analysis/opengrep.md),
+  on the Controller server, during a scan of the codebase: the `scan_code` tool only applies the
+  line-by-line patterns.
 - The [coverage of a review](../review/prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.

@@ -1,0 +1,30 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.weak-crypto
+    message: >-
+      A broken hash or cipher is requested from the crypto module (MD5, SHA-1, DES, RC4, ECB mode,
+      or createCipher without an IV): use SHA-256 or better, AES-GCM with a random IV, and a
+      password hash (scrypt, Argon2id) for passwords.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $CRYPTO.createHash($ALGORITHM, ...)
+              - pattern: $CRYPTO.createHmac($ALGORITHM, ...)
+          - metavariable-regex:
+              metavariable: $ALGORITHM
+              regex: (?i)^["'](md4|md5|sha1|ripemd160)["']$
+      - patterns:
+          - pattern: $CRYPTO.createCipheriv($ALGORITHM, ...)
+          - metavariable-regex:
+              metavariable: $ALGORITHM
+              regex: (?i)^["']((des|rc2|rc4|bf|blowfish)[^"']*|[^"']*-ecb)["']$
+      - pattern: $CRYPTO.createCipher(...)

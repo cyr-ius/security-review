@@ -1,0 +1,75 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-sql
+    message: >-
+      Request data reaches a SQL query built as a string. Use SqlParameter (or Dapper anonymous
+      parameters) and EF Core FromSql / FromSqlInterpolated, which turn the interpolated values
+      into parameters, instead of FromSqlRaw with concatenation.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new SqlCommand($QUERY, ...)
+              - pattern: new NpgsqlCommand($QUERY, ...)
+              - pattern: new MySqlCommand($QUERY, ...)
+              - pattern: new SqliteCommand($QUERY, ...)
+              - pattern: $CMD.CommandText = $QUERY
+              - pattern: $DB.FromSqlRaw($QUERY, ...)
+              - pattern: $DB.ExecuteSqlRaw($QUERY, ...)
+              - pattern: $DB.ExecuteSqlRawAsync($QUERY, ...)
+              - pattern: $CONN.Query($QUERY, ...)
+              - pattern: $CONN.QueryAsync($QUERY, ...)
+              - pattern: $CONN.QueryFirstOrDefault($QUERY, ...)
+              - pattern: $CONN.QueryFirstOrDefaultAsync($QUERY, ...)
+              - pattern: $CONN.Execute($QUERY, ...)
+              - pattern: $CONN.ExecuteAsync($QUERY, ...)
+          - focus-metavariable: $QUERY
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: int.Parse(...)
+          - pattern: long.Parse(...)
+          - pattern: Guid.Parse(...)
+          - pattern: Convert.ToInt32(...)

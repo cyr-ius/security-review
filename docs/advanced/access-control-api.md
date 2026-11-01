@@ -49,7 +49,7 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 | `POST /api/v1/users` | Creates a user with its roles (`role_ids`), its per-project permissions on every project (`all_projects_permissions`) and its projects (`projects`, each with its `permissions`, reading by default) |
 | `PUT /api/v1/users/{id}` | Replaces the roles, the per-project permissions on every project or the projects of a user; a missing field is left unchanged, those of its OIDC mappings are kept |
 | `GET /api/v1/access/projects?search=&limit=` | Known projects whose name contains `search` (every project, also those the caller does not read), 200 at most |
-| `GET`, `PUT /api/v1/access/projects/{project}/members` | Users who have a project, each with its `permissions` there (those who have every project and those of the OIDC mappings are not listed) |
+| `GET`, `PUT /api/v1/access/projects/{project}/members` | Users who have a project, each with its `permissions` given there and its `all_projects_permissions` held on every project, by the user or its OIDC mappings (read only; a user who only has every project has empty `permissions` and does not count in the version of the list nor in the `PUT`) |
 | `GET`, `PUT /api/v1/oidc/mappings` | OIDC mappings, replaced all at once ([OIDC](oidc.md#oidc-mappings)) |
 
 An unknown field (such as the former `group_ids`) is refused (`422`). The built-in roles

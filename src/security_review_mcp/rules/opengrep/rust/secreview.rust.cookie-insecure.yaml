@@ -1,0 +1,21 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.cookie-insecure
+    message: >-
+      A cookie is built with secure(false) or http_only(false): it can travel over clear-text HTTP
+      or be read by injected scripts. Set secure, http_only and same_site on session and
+      authentication cookies.
+    languages: [rust]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $COOKIE.secure(false)
+      - pattern: $COOKIE.http_only(false)
+      - pattern: $COOKIE.set_secure(false)
+      - pattern: $COOKIE.set_http_only(false)

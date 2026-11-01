@@ -51,7 +51,7 @@ Lues par `security-review-mcp` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (mode partagé) ou `stdio` (mode local) |
+| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` ou `http` (mode partagé), ou `stdio` (mode local), sans tenir compte de la casse ; mode de la commande `mcp` de l'[image Docker](../advanced/deployment/docker.md#choisir-le-processus) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/bearer-tokens.md)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_ENROLLMENT` | `true` | [Enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) : un client sans jeton atteint un serveur MCP restreint, sans aucun outil, qui invite l'utilisateur à créer un jeton MCP personnel dans l'interface web ; avec un jeton, `request_project` crée un nouveau projet pour un utilisateur portant `projects.create`, sinon le demande pour qu'un utilisateur portant `projects.create` le valide. `false` : `401` sans jeton, et aucune demande de projet |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](../review/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans la page [**Langue des rapports**](../usage/index.md#pages) |
@@ -176,6 +176,21 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Taille maximale d'une requête de [`security-review-ci scan-code` ou `scan-deps`](../review/analysis/code-scan.md#limites-du-serveur-controller) (`413` au-delà) |
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Nombre maximal de fichiers d'une requête de scan (`422` au-delà) |
 | `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Taille au-delà de laquelle un fichier envoyé par `scan-code` n'est pas scanné (signalé comme ignoré) |
+
+### Moteur OpenGrep
+
+Moteur du serveur Controller pour `scan-code`, activé par défaut et ignoré tant qu'aucune règle n'est installée (binaire fourni dans l'image Docker `-opengrep`, désactivé dans l'image par défaut), voir [OpenGrep](../review/analysis/opengrep.md).
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_OPENGREP_ENABLED` | `true` | Lance aussi OpenGrep sur les fichiers de `scan-code` |
+| `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Exécutable OpenGrep |
+| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des règles YAML d'OpenGrep |
+| `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan (1 à 7200) |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans simultanés dans un processus du serveur Controller (`503` au-delà) |
+| `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan |
+| `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan (`0` : sans limite) |
+| `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | Serveur MCP : règles OpenGrep proposées par les agents (`propose_opengrep_rule`) en attente de décision en même temps ; une nouvelle proposition est refusée au-delà |
 
 ## Clients
 

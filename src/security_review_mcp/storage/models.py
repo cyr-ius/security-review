@@ -605,6 +605,39 @@ class CustomRule(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow)
 
 
+class RuleProposalStatus(StrEnum):
+    """State of an OpenGrep rule proposed by an agent (see rules.opengrep_proposals)."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class OpenGrepRuleProposal(SQLModel, table=True):
+    """An OpenGrep YAML rule proposed by an agent during a review (propose_opengrep_rule).
+
+    It is never installed by the agent: a person logged in to the web interface approves it
+    (the controller validates it with OpenGrep and writes the rule file) or rejects it. A new
+    proposal with the id of a pending one replaces it.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    rule_id: str = Field(index=True, max_length=80)
+    content: str
+    reason: str = Field(max_length=MAX_STATUS_REASON_CHARS)
+    # Code the rule should match (ruleid:) and not match (ok:), masked like the content
+    test_code: str | None = Field(default=None)
+    project: str = Field(index=True, max_length=200)
+    status: RuleProposalStatus = Field(
+        default=RuleProposalStatus.PENDING, sa_type=String(20), index=True
+    )
+    proposed_by: str = Field(max_length=200)
+    proposed_at: datetime = Field(default_factory=utcnow)
+    decided_by: str | None = Field(default=None, max_length=200)
+    decided_at: datetime | None = Field(default=None)
+    decision_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+
+
 class CustomCheckItem(SQLModel, table=True):
     """Stored checklist item; the ``company`` domain is added to every review prompt."""
 

@@ -1,6 +1,6 @@
 # Journal d'audit
 
-Le **journal d'audit** enregistre qui a changé quoi dans security-review-mcp : les décisions de
+Le **journal d'audit** enregistre qui a changé quoi dans Security Review : les décisions de
 triage, les jetons, les comptes et leurs droits, les projets, les connexions. Il répond aux
 questions d'un audit (« qui a accepté ce risque ? », « qui a créé ce jeton ? »).
 

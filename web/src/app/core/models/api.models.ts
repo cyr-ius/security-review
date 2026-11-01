@@ -328,7 +328,10 @@ export type AuditAction =
   | 'oauth.grant_denied'
   | 'oauth.grant_revoked'
   | 'oauth.refresh_reused'
-  | 'mcp_oauth.changed';
+  | 'mcp_oauth.changed'
+  | 'opengrep_rule.proposed'
+  | 'opengrep_rule.approved'
+  | 'opengrep_rule.rejected';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -373,6 +376,9 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'oauth.grant_revoked',
   'oauth.refresh_reused',
   'mcp_oauth.changed',
+  'opengrep_rule.proposed',
+  'opengrep_rule.approved',
+  'opengrep_rule.rejected',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -526,6 +532,47 @@ export type CustomRuleWrite = Pick<
 export interface RuleReloadResult {
   loaded_rules: number;
   load_errors: string[];
+}
+
+/** OpenGrep YAML rule file. */
+export interface OpenGrepRule {
+  id: string;
+  content: string;
+  updated_at: string;
+}
+
+export interface OpenGrepRuleCatalog {
+  rules: OpenGrepRule[];
+}
+
+export interface OpenGrepRuleWrite {
+  id: string;
+  content: string;
+}
+
+export interface OpenGrepRuleValidation {
+  valid: boolean;
+  message: string;
+}
+
+/** OpenGrep rule proposed by an agent during a review, waiting for a person. */
+export interface OpenGrepRuleProposal {
+  id: number;
+  rule_id: string;
+  content: string;
+  reason: string;
+  test_code: string | null;
+  project: string;
+  status: 'pending' | 'approved' | 'rejected';
+  proposed_by: string;
+  proposed_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_reason: string | null;
+}
+
+export interface OpenGrepRuleProposalList {
+  proposals: OpenGrepRuleProposal[];
 }
 
 /** Origin of a stored checklist item. */
@@ -1124,7 +1171,10 @@ export interface ProjectMember {
   user_id: number;
   username: string;
   auth_source: AuthSource;
+  /** Given on the project (empty when the user only has every project). */
   permissions: Permission[];
+  /** Held on every project, by the user or its OIDC mappings (read only here). */
+  all_projects_permissions: Permission[];
 }
 
 /** A value of the OIDC roles claim that gives roles, per-project permissions on every project
