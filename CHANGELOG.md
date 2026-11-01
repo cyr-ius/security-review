@@ -1,5 +1,61 @@
 # Changelog
 
+## [11.0.0](https://github.com/cyr-ius/security-review/compare/v10.0.1...v11.0.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **rules:** scan_code no longer follows data flows, and the rule ids above are no longer reported; data flows are only followed by OpenGrep during a scan of the codebase.
+
+### Features
+
+* **docker:** choose the process with the controller or mcp command ([0581b48](https://github.com/cyr-ius/security-review/commit/0581b48dce1932e570f3b11058ae87c3fccca21f))
+* **docker:** publish -opengrep and -stdio image variants ([c2a55a6](https://github.com/cyr-ius/security-review/commit/c2a55a6c71d2e13b8d03231d0f2d056d7713a2e5))
+* **opengrep:** add a Rust taint rule from request extractors to SQL queries ([7f40765](https://github.com/cyr-ius/security-review/commit/7f407658a61c9a7cb32213f33c6fb3b03760f7bd))
+* **opengrep:** add controller settings ([7b169ae](https://github.com/cyr-ius/security-review/commit/7b169ae9ee485964eaf77d06fefd385b17408131))
+* **opengrep:** add navigation and localized labels ([114bee9](https://github.com/cyr-ius/security-review/commit/114bee99e836e08b7ddff1e9105a69c47abc47df))
+* **opengrep:** add OpenGrep rules navigation and translations ([2d29c4a](https://github.com/cyr-ius/security-review/commit/2d29c4a5099bd1a2109b9fc6433ea06cdeb9083d))
+* **opengrep:** add OpenGrep scan adapter ([bfa3743](https://github.com/cyr-ius/security-review/commit/bfa37432c688f8bb4e967df500ba2d79fe669c57))
+* **opengrep:** add OpenGrep scan adapter ([7d61652](https://github.com/cyr-ius/security-review/commit/7d616529c3f049aaaa700c842e31015a73386b8a))
+* **opengrep:** add secure YAML rule management API ([8c47439](https://github.com/cyr-ius/security-review/commit/8c474395470e41c5795c1434a797c1be59ac4383))
+* **opengrep:** add secure YAML rule management API ([1c2a2a5](https://github.com/cyr-ius/security-review/commit/1c2a2a51d0151d215c42f5fadc2041f013cd8ec4))
+* **opengrep:** add typed API client and Angular route ([1ee51e6](https://github.com/cyr-ius/security-review/commit/1ee51e6a70a7d742852b4bc97cdc8d3766cd8ab4))
+* **opengrep:** add typed API client and route ([efb18c7](https://github.com/cyr-ius/security-review/commit/efb18c7fc788d24f3a0ad9c88547cce178e9e484))
+* **opengrep:** add YAML rule editor to Angular UI ([43ada09](https://github.com/cyr-ius/security-review/commit/43ada09058b3777cedc8cb4ccef88cf4aa56c05a))
+* **opengrep:** add YAML rule editor to Angular UI ([7a8c189](https://github.com/cyr-ius/security-review/commit/7a8c189f4412fe3d891335e75242d1f9394edbed))
+* **opengrep:** bundle default OpenGrep rules with an install command ([7a358a4](https://github.com/cyr-ius/security-review/commit/7a358a45f927e514bc2bea5717cc5a3870db1656))
+* **opengrep:** install the default rules at start-up while OpenGrep is enabled ([2fb8674](https://github.com/cyr-ius/security-review/commit/2fb8674f8df97429a24472e3fafb668c62553692))
+* **opengrep:** integrate engine into codebase scans ([1d688dc](https://github.com/cyr-ius/security-review/commit/1d688dc1f294081190d3a7810908547ddad66e0c))
+* **opengrep:** let review agents propose OpenGrep rules for human approval ([0e9330e](https://github.com/cyr-ius/security-review/commit/0e9330e8337d6b054e28da8271cf24bd19ea0943))
+* **rules:** replace the Tree-sitter flow analyses with OpenGrep ([0a3ed61](https://github.com/cyr-ius/security-review/commit/0a3ed61805197b77ce5538c620ade324b5cfd859))
+
+
+### Bug Fixes
+
+* **ci:** lint file ([e15afad](https://github.com/cyr-ius/security-review/commit/e15afad822d270d3116acbd61b6337c7d5b45271))
+* **devcontainer:** mount workspace at /workspaces/security-review ([33ff202](https://github.com/cyr-ius/security-review/commit/33ff2027e4e9d5f26ca491f54788ea24741e9cd6))
+* **docker:** drop the -stdio image variant ([2486a4a](https://github.com/cyr-ius/security-review/commit/2486a4acb19c4a7affebb44c487b07182528e5ba))
+* **docker:** ship only the extracted OpenGrep bundle ([d1cff3d](https://github.com/cyr-ius/security-review/commit/d1cff3d466dd6036888ce4a937643e0ed99f909d))
+* **doc:** rename to security-review ([a407896](https://github.com/cyr-ius/security-review/commit/a4078960b4fc2f663e4012741822b00573c73e2b))
+* **doc:** rename to security-review ([1bcff25](https://github.com/cyr-ius/security-review/commit/1bcff25c6fd664b5d24dadbe52440595ed99ed35))
+* list the users who have every project among the members of a project ([145408e](https://github.com/cyr-ius/security-review/commit/145408e6a2db047d412c917c43f7405e19e9fc6e))
+* name the product Security Review (short name secreview) ([94b61c3](https://github.com/cyr-ius/security-review/commit/94b61c301068665d56145c71fbb936dcbd470414))
+* **opengrep:** bound concurrent scans and fix rule id ReDoS ([89048f4](https://github.com/cyr-ius/security-review/commit/89048f4f0f546ad0db848aad0581a7b86476fd3a))
+* **opengrep:** normalize relative result paths ([9f77b45](https://github.com/cyr-ius/security-review/commit/9f77b45cc24d9ff9d23599abf5ef6040c41a8e7f))
+* **opengrep:** resolve configured rules directory ([427d27e](https://github.com/cyr-ius/security-review/commit/427d27e4707d4d3d023eced1da6b7fc5b00ee244))
+* **opengrep:** type UI notices and complete translations ([9cb1930](https://github.com/cyr-ius/security-review/commit/9cb1930324af2785892f2f8eb5bf5fa3e4ef7583))
+* **opengrep:** use UTC timestamp consistently ([e76b3b8](https://github.com/cyr-ius/security-review/commit/e76b3b8d5b95ca2b3707a4b0bf264d8d3ea4caf1))
+* report a dependency issue once across a dependency review and a dependency scan ([7cb6288](https://github.com/cyr-ius/security-review/commit/7cb628856f3fe6d5108cf0061303e8f7bed1b9ec))
+
+
+### Documentation
+
+* **opengrep:** add engine page to documentation navigation ([0ded507](https://github.com/cyr-ius/security-review/commit/0ded5074c2ce60356da9a327f58f7810e6a47403))
+* **opengrep:** add French engine documentation ([23e855b](https://github.com/cyr-ius/security-review/commit/23e855b4ae2b297180188dc829fba71057980905))
+* **opengrep:** document optional static analysis engine ([3b7a99c](https://github.com/cyr-ius/security-review/commit/3b7a99c0ace3496c792f076be3940e46f6bd596f))
+* **opengrep:** document web rule management ([d360f86](https://github.com/cyr-ius/security-review/commit/d360f8654e3d4353df6361d8e0a25ee68ad148b7))
+* present Security Review as the MCP server for AI-assisted security code review ([c2840cb](https://github.com/cyr-ius/security-review/commit/c2840cb34f78c7ccae4bb9e2b78151f170fcd3bf))
+
 ## [10.0.1](https://github.com/cyr-ius/security-review/compare/v10.0.0...v10.0.1) (2026-10-30)
 
 
