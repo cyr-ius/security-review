@@ -2209,8 +2209,10 @@ def test_bulk_triage_is_all_or_nothing_and_in_the_scope_of_the_triager(accounts,
     assert sorted(e["target_id"] for e in events) == sorted([str(high), str(low)])
 
 
-def test_bulk_triage_never_dismisses_with_a_token(secured, reports):
+def test_bulk_triage_never_dismisses_with_a_token(secured, reports, monkeypatch):
     ids = [f.id for f in services.get_report(reports[0]).findings]
+    # The page size does not cap a bulk decision: the web interface selects every loaded finding
+    monkeypatch.setattr(get_settings(), "max_list_limit", 1)
     body = {"finding_ids": ids, "status": "false_positive"}
     response = secured.patch("/api/v1/findings", json=body, headers=auth("admin"))
     assert response.status_code == 403

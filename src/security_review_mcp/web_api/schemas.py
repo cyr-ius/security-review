@@ -17,6 +17,7 @@ from ..config import CONTROLLER_URL_MAX_CHARS, MAX_RETENTION_DAYS, REPORT_LANGUA
 from ..connectors import api as connectors_api
 from ..http_server import Role
 from ..observability import audit_syslog
+from ..reports import services
 from ..rules import opengrep_rule_store, rules_loader
 from ..storage.models import (
     MAX_AUTHOR_CHARS,
@@ -292,8 +293,8 @@ class FindingCommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
 
 
-# Hard cap of the ids of a bulk triage decision (SECREVIEW_MAX_LIST_LIMIT is also applied)
-MAX_BULK_FINDINGS = 1000
+# Hard cap of the ids of a bulk triage decision (the service counts distinct ids)
+MAX_BULK_FINDINGS = services.MAX_BULK_FINDINGS
 
 
 class FindingStatusUpdate(BaseModel):
@@ -314,8 +315,7 @@ class FindingStatusUpdate(BaseModel):
 class FindingBulkStatusUpdate(FindingStatusUpdate):
     """Body of PATCH /findings: the same triage decision for several findings, all or nothing.
 
-    At most SECREVIEW_MAX_LIST_LIMIT distinct findings (and never more than
-    MAX_BULK_FINDINGS ids in the body).
+    At most MAX_BULK_FINDINGS ids in the body.
     """
 
     finding_ids: list[Annotated[int, Field(ge=1)]] = Field(

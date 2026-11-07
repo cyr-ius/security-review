@@ -608,6 +608,11 @@ def update_finding_status(
         return FindingPublic.model_validate(finding, from_attributes=True)
 
 
+# Findings of one bulk triage decision, independent of the page size (SECREVIEW_MAX_LIST_LIMIT):
+# the web interface selects every loaded finding of a project
+MAX_BULK_FINDINGS = 1000
+
+
 def update_findings_status(
     finding_ids: Collection[int],
     status: FindingStatus,
@@ -622,7 +627,7 @@ def update_findings_status(
     Each finding is checked like by ``update_finding_status`` (an acceptance needs a reason and
     an expiry date when one of the findings is at or above
     SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY) and gets its own audit event. At most
-    SECREVIEW_MAX_LIST_LIMIT findings per call; repeated ids count once. A finding outside
+    MAX_BULK_FINDINGS findings per call; repeated ids count once. A finding outside
     ``allowed`` (the projects of a restricted caller, None: every project) counts as missing.
     Nothing is saved when one finding is refused.
 
@@ -637,9 +642,8 @@ def update_findings_status(
     ids = list(dict.fromkeys(finding_ids))
     if not ids:
         raise ValueError("At least one finding is required")
-    limit = get_settings().max_list_limit
-    if len(ids) > limit:
-        raise ValueError(f"At most {limit} findings can be triaged at once")
+    if len(ids) > MAX_BULK_FINDINGS:
+        raise ValueError(f"At most {MAX_BULK_FINDINGS} findings can be triaged at once")
     now = utcnow()
     with session_scope() as session:
         rows = session.exec(select(Finding).where(col(Finding.id).in_(ids))).all()

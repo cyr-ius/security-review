@@ -51,8 +51,8 @@ curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/
 ```
 
 `PATCH /api/v1/findings` applies the same decision (`status`, `reason`, `expires_on`, same
-rules as above) to every finding of `finding_ids`, at most `SECREVIEW_MAX_LIST_LIMIT` (`100`)
-distinct findings, all or nothing: when one finding is refused (`422`, the message names it) or
+rules as above) to every finding of `finding_ids`, at most 1000 findings (whatever
+the page size `SECREVIEW_MAX_LIST_LIMIT`), all or nothing: when one finding is refused (`422`, the message names it) or
 is out of the scope of the caller (`404`), nothing is saved. An acceptance needs a reason and an
 expiry date as soon as one of the findings is at or above
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`. Each finding gets its own `finding.status_changed`

@@ -113,6 +113,8 @@ export const projects = defineMessages({
     'projectFindings.bulkNotFound':
       'Nothing was saved: finding #{id} does not exist or is outside your scope.',
     'projectFindings.bulkFailed': 'Nothing was saved: the decision could not be recorded.',
+    'projectFindings.bulkTooMany':
+      'At most {max} findings per decision: narrow the selection with the filters or clear it.',
     'projects.approvedNoUser': 'Project {project} approved (no user to give access to).',
   },
   fr: {
@@ -227,6 +229,8 @@ export const projects = defineMessages({
       "Rien n'a été enregistré : le finding #{id} n'existe pas ou est hors de votre périmètre.",
     'projectFindings.bulkFailed':
       "Rien n'a été enregistré : la décision n'a pas pu être enregistrée.",
+    'projectFindings.bulkTooMany':
+      'Au plus {max} findings par décision : réduisez la sélection avec les filtres ou videz-la.',
     'projects.approvedNoUser': 'Projet {project} validé (aucun utilisateur à qui donner accès).',
   },
   es: {
@@ -340,6 +344,8 @@ export const projects = defineMessages({
     'projectFindings.bulkNotFound':
       'No se guardó nada: el hallazgo #{id} no existe o está fuera de su ámbito.',
     'projectFindings.bulkFailed': 'No se guardó nada: no se pudo registrar la decisión.',
+    'projectFindings.bulkTooMany':
+      'Como máximo {max} hallazgos por decisión: reduzca la selección con los filtros o vacíela.',
     'projects.approvedNoUser': 'Proyecto {project} aprobado (ningún usuario al que dar acceso).',
   },
 });
