@@ -166,6 +166,12 @@ database, and the review prompts tell the agent to propose a rule only after sav
 - The token must reach the project and hold `reports.write` on it (as for
   `save_security_report`). A new proposal with the identifier of a pending one replaces it; at
   most `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` proposals wait at the same time.
+- Duplicates are refused: a rule whose identifier is already installed, or that detects the
+  same code as an installed rule, a default rule or another pending proposal. Two rules detect
+  the same code when they differ only by their `id`, `message`, `metadata`, `severity` or
+  `fix`, their comments, indentation, spacing or the quotes around a value. The refusal names
+  the existing rule, or the proposal when it belongs to the same project; to correct a pending
+  proposal, the agent proposes it again with its identifier.
 - Pending proposals are listed at the top of the **OpenGrep rules** page for the users with
   `rules.manage`; their number is shown next to **OpenGrep rules** in the menu while some
   wait. **Review** opens one in the editor with its project, author, reason and test

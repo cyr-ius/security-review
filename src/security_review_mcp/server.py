@@ -901,7 +901,9 @@ def propose_opengrep_rule(
     """Propose an OpenGrep rule that detects a vulnerable pattern found during a review.
 
     The rule is not installed: a person validates it with OpenGrep and approves or rejects it
-    in the web interface. A proposal with the id of a pending one replaces it.
+    in the web interface. A proposal with the id of a pending one replaces it. A duplicate is
+    refused: an installed rule id, or the same detection as an installed or default rule or as
+    another pending proposal (the error names it).
     """
     services.check_project_scope(_caller_projects(ctx), project)
     writable = _caller_write_projects(ctx)

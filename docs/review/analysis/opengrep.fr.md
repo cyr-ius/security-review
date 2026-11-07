@@ -169,6 +169,13 @@ proposer une règle qu'après avoir enregistré le rapport.
   `save_security_report`). Une nouvelle proposition avec l'identifiant d'une proposition en
   attente la remplace ; au plus `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` propositions
   attendent en même temps.
+- Les doublons sont refusés : une règle dont l'identifiant est déjà installé, ou qui détecte le
+  même code qu'une règle installée, qu'une règle par défaut ou qu'une autre proposition en
+  attente. Deux règles détectent le même code quand elles ne diffèrent que par leur `id`,
+  `message`, `metadata`, `severity` ou `fix`, leurs commentaires, leur indentation, leurs
+  espaces ou les guillemets autour d'une valeur. Le refus nomme la règle existante, ou la
+  proposition quand elle appartient au même projet ; pour corriger une proposition en attente,
+  l'agent la propose de nouveau avec son identifiant.
 - Les propositions en attente sont listées en haut de la page **Règles OpenGrep** pour les
   utilisateurs disposant de `rules.manage` ; tant qu'il y en a, leur nombre s'affiche à côté de
   **Règles OpenGrep** dans le menu. **Examiner** en ouvre une dans l'éditeur avec son

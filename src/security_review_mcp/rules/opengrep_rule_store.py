@@ -56,6 +56,67 @@ def check_rule_file(rule_id: str, content: str) -> None:
         raise ValueError("Each file must contain one rule and its YAML id must match the file id")
 
 
+# Keys that do not change what a rule matches, ignored with their sub-tree by detection_signature
+_DESCRIPTIVE_KEYS = frozenset({"id", "message", "metadata", "severity", "fix"})
+# Indentation, optional list dash, key and value of a "key: value" YAML line
+_YAML_KEY = re.compile(r"^([ \t]*(?:-[ \t]+)?)([A-Za-z0-9_-]+):(.*)$")
+
+
+def detection_signature(content: str) -> str:
+    """Digest of what a YAML rule matches, to tell two copies of the same rule apart.
+
+    The lines of the rule are kept without its id, message, metadata, severity and fix (with
+    their nested lines), comments, blank lines, indentation, repeated blanks and the quotes
+    around a value: two rules with the same signature detect the same code.
+    """
+    lines: list[str] = []
+    skip_deeper_than: int | None = None
+    for raw in content.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" \t"))
+        if skip_deeper_than is not None:
+            if indent > skip_deeper_than:
+                continue
+            skip_deeper_than = None
+        match = _YAML_KEY.match(raw)
+        if match and match.group(2) in _DESCRIPTIVE_KEYS:
+            # Nested lines are deeper than the key itself (after a list dash)
+            skip_deeper_than = len(match.group(1))
+            continue
+        if match:
+            value = match.group(3).strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+                value = value[1:-1]
+            stripped = f"{match.group(1).strip()} {match.group(2)}: {value}".strip()
+        lines.append(" ".join(stripped.split()))
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+def known_rules() -> dict[str, str]:
+    """Contents of the default rules shipped with the package and of the installed rules, by id.
+
+    Unlike rules_dir, the rules directory is not created: the MCP server may not see it.
+    """
+    known = {
+        path.stem: path.read_text(encoding="utf-8")
+        for files in bundled_rules().values()
+        for path in files
+    }
+    directory = Path(get_settings().opengrep_rules_dir).expanduser()
+    if directory.is_symlink() or not directory.is_dir():
+        return known
+    for path in sorted((*directory.glob("*.yaml"), *directory.glob("*.yml"))):
+        if path.is_symlink() or not path.is_file() or not RULE_ID.fullmatch(path.stem):
+            continue
+        try:
+            known[path.stem] = path.read_text(encoding="utf-8")
+        except OSError, UnicodeError:
+            logger.warning("Could not read OpenGrep rule file %s", path.name)
+    return known
+
+
 def validate_rule(rule_id: str, content: str) -> str:
     """Validate the rule with the configured OpenGrep executable."""
     check_rule_file(rule_id, content)
