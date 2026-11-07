@@ -187,25 +187,25 @@
     </div>
   }
 
-  <!-- In a card, as the results of the other lists -->
-  <div class="card">
-    <div class="card-body">
-      @for (finding of visibleFindings(); track finding.id) {
-        <app-finding-card
-          [finding]="finding"
-          [canTriage]="auth.canTriage()"
-          [permanentAcceptance]="auth.permanentAcceptance()"
-          [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
-          [saving]="triage.saving() === finding.id"
-          [exportKinds]="exportKinds()"
-          [exporting]="exports.sending() === finding.id"
-          [systemNamesByKind]="systemNames()"
-          [highlighted]="finding.id === targetId()"
-          (decided)="decide(finding, $event)"
-          (proposalRejected)="decide(finding, null)"
-          (exportRequested)="exportFinding(finding, $event)"
-        />
-      } @empty {
+  <!-- Each finding is its own card; an empty list gets one card, as on the other lists -->
+  @for (finding of visibleFindings(); track finding.id) {
+    <app-finding-card
+      [finding]="finding"
+      [canTriage]="auth.canTriage()"
+      [permanentAcceptance]="auth.permanentAcceptance()"
+      [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
+      [saving]="triage.saving() === finding.id"
+      [exportKinds]="exportKinds()"
+      [exporting]="exports.sending() === finding.id"
+      [systemNamesByKind]="systemNames()"
+      [highlighted]="finding.id === targetId()"
+      (decided)="decide(finding, $event)"
+      (proposalRejected)="decide(finding, null)"
+      (exportRequested)="exportFinding(finding, $event)"
+    />
+  } @empty {
+    <div class="card">
+      <div class="card-body">
         <p class="text-body-secondary text-center my-4">
           <i class="bi bi-check2-circle" aria-hidden="true"></i>
           {{
@@ -215,9 +215,9 @@
             ) | t
           }}
         </p>
-      }
+      </div>
     </div>
-  </div>
+  }
 } @else {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
