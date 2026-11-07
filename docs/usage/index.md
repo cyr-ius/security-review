@@ -17,8 +17,8 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 ## Finding your way
 
-- The **sidebar** groups the pages in four sections: **Supervision** (projects and reports),
-  **Review** (findings and risk acceptances, with `reports.read`), **Reference** (rules,
+- The **sidebar** groups the pages in four sections: **Supervision** (projects),
+  **Review** (findings and risk acceptances, with `reports.read`, then reports), **Reference** (rules,
   checklists, standards) and **Administration**. You only see the pages your permissions
   allow. **Findings** shows the number of open findings in the projects you read.
 - At the top right, choose the language (English, French, Spanish) and the theme (automatic,
@@ -41,14 +41,14 @@ A page is missing? You do not hold its permission: ask an administrator (see
 |---|---|
 | **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
 | **Project** | Trend, worst and oldest open findings, SARIF export, **All reports** of the project |
-| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings, Markdown and SARIF download |
 
-**Review**, for the users holding `reports.read` (on the projects they read)
+**Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read), **Reports** for every user (on the projects they read)
 
 | Page | What for |
 |---|---|
 | **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file, description, project, branch) narrows the list; the status, severity and review type filters accept several values |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
+| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings, Markdown and SARIF download |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange TOML files)
 

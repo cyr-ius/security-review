@@ -66,7 +66,6 @@ export class LayoutComponent {
 
   readonly mainNav: readonly NavItem[] = [
     { path: '/projects', label: 'layout.projects', icon: 'bi-grid-1x2' },
-    { path: '/reports', label: 'layout.reports', icon: 'bi-file-earmark-text' },
   ];
 
   /** Review of the findings, in the projects whose reports the user reads. */
@@ -84,6 +83,8 @@ export class LayoutComponent {
       icon: 'bi-shield-exclamation',
       permission: 'reports.read',
     },
+    // The list is scoped to the projects of the user, without reports.read
+    { path: '/reports', label: 'layout.reports', icon: 'bi-file-earmark-text' },
   ];
 
   /** What the reviews rely on: scan rules, checklists and development standards. */
