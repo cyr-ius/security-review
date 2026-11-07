@@ -1363,13 +1363,38 @@ class ProxySettings(BaseModel):
     effective: ProxyEffective
 
 
+class OsvEcosystemsUpdate(BaseModel):
+    """Body of PUT /settings/osv-ecosystems: ecosystems downloaded by the controller.
+
+    ``null`` removes the stored value (SECREVIEW_OSV_ECOSYSTEMS, or its default, applies again).
+    Refused (422) when the variable is set, the list is empty or holds an unsupported ecosystem.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    ecosystems: list[Annotated[str, Field(max_length=20)]] | None = Field(max_length=20)
+
+
+class OsvEcosystemsSetting(BaseModel):
+    """Ecosystems of the OSV download: stored value, variable, whether the variable is set (it
+    then takes precedence over the stored value), effective value (comma separated) and the
+    ecosystems that can be chosen."""
+
+    value: list[str] | None
+    env: str
+    env_set: bool
+    effective: str
+    supported: list[str]
+
+
 class OsvSettings(BaseModel):
-    """Download of the OSV advisories (variables only)."""
+    """Download of the OSV advisories (variables; the ecosystems may be chosen in the web
+    interface while SECREVIEW_OSV_ECOSYSTEMS is not set)."""
 
     download_enabled: bool
     update_interval_hours: int
     url: str
-    ecosystems: str
+    ecosystems: OsvEcosystemsSetting
     cafile: str | None
     max_download_mb: int
 

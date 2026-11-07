@@ -22,6 +22,7 @@ from .schemas import (
     AuditSyslogUpdate,
     ControllerUrlUpdate,
     McpScanDelegationUpdate,
+    OsvEcosystemsUpdate,
     ProxyUpdate,
     ReportLanguageUpdate,
 )
@@ -148,6 +149,24 @@ async def set_proxy(body: ProxyUpdate, identity: SettingsManager) -> AppSettings
     # Names only: the URL may hold credentials
     logger.info("Proxy settings %s changed by %s", ", ".join(sorted(values)), identity.client)
     return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/osv-ecosystems")
+async def set_osv_ecosystems(body: OsvEcosystemsUpdate, identity: SettingsManager) -> AppSettings:
+    """Choose the ecosystems downloaded by the controller (applied at the next OSV update).
+
+    Refused (422) when SECREVIEW_OSV_ECOSYSTEMS is set: the variable takes precedence.
+    """
+    try:
+        await run_in_threadpool(app_settings.set_osv_ecosystems, body.ecosystems, identity.client)
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    described = await run_in_threadpool(app_settings.describe)
+    # The canonical names stored, never the raw body (it may hold line breaks)
+    logger.info(
+        "OSV ecosystems set to %s by %s", described["osv"]["ecosystems"]["value"], identity.client
+    )
+    return described
 
 
 def _advisory_overview(limit: int) -> dict:

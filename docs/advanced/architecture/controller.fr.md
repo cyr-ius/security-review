@@ -277,7 +277,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Réglages enregistrés en base
 
-Les pages **Général** (langue des rapports, adresse du serveur Controller, proxy sortant) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
+Les pages **Général** (langue des rapports, adresse du serveur Controller, proxy sortant), **Base OSV** (écosystèmes téléchargés) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
 enregistrent des réglages en base, partagés par le serveur MCP et le serveur Controller (permission
 `settings.manage` ; les anciennes adresses `/ui/settings`, `/ui/settings/language` et
 `/ui/settings/proxy` ouvrent **Général**). **Une variable d'environnement définie (environnement ou fichier `.env`, non vide)
@@ -285,8 +285,8 @@ est toujours prioritaire** : son champ est alors verrouillé et affiche la varia
 enregistrée avant que la variable soit définie est signalée comme ignorée, avec un bouton
 **Supprimer**. Un changement s'applique sans redémarrage : le serveur MCP lit l'adresse du
 serveur Controller en moins d'une minute (le changement est enregistré dans le journal d'audit,
-`controller_url.changed`), et le proxy s'applique au prochain téléchargement OSV et à la
-prochaine connexion OIDC. **Utiliser l'adresse actuelle** remplit l'adresse de ce serveur Controller.
+`controller_url.changed`), le proxy et les écosystèmes s'appliquent au prochain téléchargement
+OSV, le proxy aussi à la prochaine connexion OIDC. **Utiliser l'adresse actuelle** remplit l'adresse de ce serveur Controller.
 
 | Route | Effet |
 |---|---|
@@ -294,6 +294,7 @@ prochaine connexion OIDC. **Utiliser l'adresse actuelle** remplit l'adresse de c
 | `PUT /api/v1/settings/controller-url` | `value` (`null` la supprime) |
 | `PUT /api/v1/settings/mcp-scan-delegation` | `enabled` : délègue `scan_code` du serveur MCP à l'adresse du serveur Controller (`422` tant que l'adresse est inconnue ; audité, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` et `no_proxy` : `null` supprime la valeur enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé. Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré |
+| `PUT /api/v1/settings/osv-ecosystems` | `ecosystems` : liste des écosystèmes à télécharger, parmi `supported` de `GET /api/v1/settings` (`422` pour une liste vide ou un écosystème inconnu) ; `null` la supprime (`SECREVIEW_OSV_ECOSYSTEMS` ou sa valeur par défaut s'applique de nouveau) |
 
 Une valeur dont la variable est définie est refusée avec `422`. Les réglages OIDC ont leurs
 propres routes ([configuration OIDC](../oidc.md#configurer-le-oidc-dans-linterface)). Le thème choisi

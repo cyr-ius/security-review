@@ -6,8 +6,9 @@ prompt), the public URL of the controller (read by the MCP server for the client
 token, and by the connectors; SECREVIEW_PUBLIC_URL set on the controller is copied here at
 start, see sync_controller_url; the MCP server reads it there only), the delegation of the
 scan_code tool to that URL (see set_mcp_scan_delegation), the OAuth login of the MCP
-clients (see set_mcp_oauth), the proxy of the outgoing connections, the single sign-on settings
-and the syslog server of the audit log (read by the controller, see effective_settings). A
+clients (see set_mcp_oauth), the proxy of the outgoing connections, the ecosystems of the OSV
+download, the single sign-on settings and the syslog server of the audit log (read by the
+controller, see effective_settings). A
 variable that is set (environment or ``.env`` file) always wins: the web interface cannot change
 it, and a value stored before is ignored (see env_set).
 
@@ -35,6 +36,7 @@ from .config import (
     get_settings,
     web_ui_url,
 )
+from .deps import advisories
 from .observability import audit
 from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_proxy, masked_url
 from .storage.database import session_scope
@@ -67,6 +69,9 @@ ENV_ACTOR = "environment"
 # direct connection (when HTTPS_PROXY and HTTP_PROXY are not set).
 PROXY = "proxy"
 NO_PROXY = "no_proxy"
+# Key of the ecosystems of the OSV download (comma separated, canonical names), also the name of
+# its Settings field (see set_osv_ecosystems); SECREVIEW_OSV_ECOSYSTEMS wins
+OSV_ECOSYSTEMS = "osv_ecosystems"
 # Keys of the syslog settings of the audit log, also the names of their Settings fields
 SYSLOG_ADDRESS = "audit_syslog_address"
 SYSLOG_FACILITY = "audit_syslog_facility"
@@ -516,28 +521,59 @@ def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Setti
     }
 
 
+# ── Ecosystems of the OSV download ──────────────────────────────────────────
+
+
+def set_osv_ecosystems(
+    values: list[str] | None, updated_by: str, settings: Settings | None = None
+) -> None:
+    """Store the ecosystems downloaded by the controller (applied at the next OSV update);
+    None removes the stored value (SECREVIEW_OSV_ECOSYSTEMS, or its default, applies again).
+
+    Raises:
+        ValueError: If the list is empty, holds an unsupported ecosystem, or if
+            SECREVIEW_OSV_ECOSYSTEMS is set.
+    """
+    settings = settings or get_settings()
+    if values is None:
+        _write({OSV_ECOSYSTEMS: None}, updated_by)
+        return
+    _check_not_env(settings, OSV_ECOSYSTEMS, "SECREVIEW_OSV_ECOSYSTEMS")
+    canonical = []
+    for name in values:
+        ecosystem = advisories.canonical_ecosystem(name)
+        if ecosystem is None:
+            supported = sorted(advisories.SUPPORTED_ECOSYSTEMS.values())
+            raise ValueError(f"unsupported ecosystem {name!r}; use {supported}")
+        canonical.append(ecosystem)
+    if not canonical:
+        raise ValueError("choose at least one ecosystem")
+    _write({OSV_ECOSYSTEMS: ",".join(dict.fromkeys(canonical))}, updated_by)
+
+
 # ── Effective settings ───────────────────────────────────────────────────────
 
 
 def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
-    """Every stored value (controller URL, OAuth login, proxy, OIDC and syslog) whose variable is
-    not set."""
+    """Every stored value (controller URL, OAuth login, proxy, OSV ecosystems, OIDC and syslog)
+    whose variable is not set."""
     overrides = (
         _proxy_overrides(stored)
         | _oidc_overrides(stored)
         | _syslog_overrides(stored)
         | _mcp_oauth_overrides(stored)
     )
-    if CONTROLLER_URL in stored:
-        overrides[CONTROLLER_URL] = stored[CONTROLLER_URL]
+    for key in (CONTROLLER_URL, OSV_ECOSYSTEMS):
+        if key in stored:
+            overrides[key] = stored[key]
     return {key: value for key, value in overrides.items() if not env_set(settings, key)}
 
 
 def effective_settings(settings: Settings | None = None) -> Settings:
-    """Return ``settings`` with the controller URL, proxy, OIDC and syslog values stored in the web
-    interface applied where their variable is not set (read by the controller at each OSV
-    download, login, batch of audit events and export; the connections of the connectors are read by
-    connectors.connections)."""
+    """Return ``settings`` with the controller URL, proxy, OSV ecosystems, OIDC and syslog values
+    stored in the web interface applied where their variable is not set (read by the controller
+    at each OSV download, login, batch of audit events and export; the connections of the
+    connectors are read by connectors.connections)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored(), settings)
     effective = settings.model_copy(update=overrides) if overrides else settings
@@ -820,7 +856,13 @@ def describe(settings: Settings | None = None) -> dict:
             "download_enabled": settings.osv_auto_update,
             "update_interval_hours": settings.osv_update_interval_hours,
             "url": settings.osv_url,
-            "ecosystems": settings.osv_ecosystems,
+            "ecosystems": {
+                "value": stored[OSV_ECOSYSTEMS].split(",") if OSV_ECOSYSTEMS in stored else None,
+                "env": settings.osv_ecosystems,
+                "env_set": env_set(settings, OSV_ECOSYSTEMS),
+                "effective": effective.osv_ecosystems,
+                "supported": list(advisories.SUPPORTED_ECOSYSTEMS.values()),
+            },
             "cafile": settings.osv_cafile,
             "max_download_mb": settings.osv_max_download_mb,
         },

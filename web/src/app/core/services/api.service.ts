@@ -676,6 +676,11 @@ export class ApiService {
     return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);
   }
 
+  /** null removes the choice: SECREVIEW_OSV_ECOSYSTEMS (or its default) applies again. */
+  setOsvEcosystems(ecosystems: string[] | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/osv-ecosystems`, { ecosystems });
+  }
+
   auditSyslog(): Observable<AuditSyslogSettings> {
     return this.http.get<AuditSyslogSettings>(`${API_URL}/settings/audit-syslog`);
   }

@@ -75,7 +75,7 @@ qui les enregistre ou les annule.
 | **Utilisateurs**, **Rôles** | Les comptes, leurs rôles et leurs projets ([rôles et permissions](access-control.md)) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
 | **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
-| **Base OSV** | État et mise à jour de la base de vulnérabilités ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) |
+| **Base OSV** | État et mise à jour de la base de vulnérabilités, choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
 | **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
 

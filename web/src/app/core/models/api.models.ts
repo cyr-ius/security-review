@@ -1094,7 +1094,15 @@ export interface AppSettings {
     download_enabled: boolean;
     update_interval_hours: number;
     url: string;
-    ecosystems: string;
+    /** value: chosen in the web interface; env: SECREVIEW_OSV_ECOSYSTEMS; env_set: the variable
+     * is set and takes precedence; effective: comma separated; supported: those to choose from. */
+    ecosystems: {
+      value: string[] | null;
+      env: string;
+      env_set: boolean;
+      effective: string;
+      supported: string[];
+    };
     cafile: string | null;
     max_download_mb: number;
   };

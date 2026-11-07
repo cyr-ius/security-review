@@ -308,6 +308,8 @@ def test_updater_does_nothing_once_stopped(monkeypatch):
 
 def test_cli_update_imports_and_reports(opener, monkeypatch, capsys):
     opener.bodies = {url_of("npm"): osv_zip(osv("GHSA-1", package="lodash", ecosystem="npm"))}
+    # --ecosystem wins over the ecosystems chosen in the web interface
+    app_settings.set_osv_ecosystems(["PyPI"], "admin")
 
     assert cli.run(["advisories", "update", "--ecosystem", "npm"]) == cli.EXIT_PASSED
 
@@ -376,6 +378,19 @@ def test_update_reads_the_proxy_set_in_the_web_interface_at_each_run(monkeypatch
     advisory_sync.update_advisories(settings)
 
     assert used == [None, "http://web-proxy:3128"]
+
+
+def test_update_downloads_the_ecosystems_chosen_in_the_web_interface(opener):
+    opener.bodies = {
+        url_of("npm"): osv_zip(osv("GHSA-1", package="lodash", ecosystem="npm")),
+        url_of("Go"): osv_zip(),
+    }
+    app_settings.set_osv_ecosystems(["go", "npm"], "admin")
+
+    result = advisory_sync.update_advisories(make_settings())
+
+    assert list(result["ecosystems"]) == ["Go", "npm"]
+    assert [request.full_url for request in opener.requests] == [url_of("Go"), url_of("npm")]
 
 
 # ── history ──────────────────────────────────────────────────────────────────

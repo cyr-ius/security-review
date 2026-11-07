@@ -71,7 +71,7 @@ together. The changes go to the form, which still saves or cancels them.
 | **Users**, **Roles** | The accounts, their roles and their projects ([roles and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |
-| **OSV database** | State and update of the vulnerability database ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) |
+| **OSV database** | State and update of the vulnerability database, choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
 | **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
 

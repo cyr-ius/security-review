@@ -85,6 +85,15 @@ export const settings = defineMessages({
     'settings.downloadEvery': 'enabled, every {hours} h',
     'settings.downloadOff': 'disabled',
     'settings.ecosystems': 'Ecosystems',
+    'settings.ecosystemsTitle': 'Downloaded ecosystems',
+    'settings.ecosystemsHelp':
+      'Choose the ecosystems whose advisories the Controller server downloads. Without a choice made here, SECREVIEW_OSV_ECOSYSTEMS or its default applies.',
+    'settings.ecosystemsLockedHelp':
+      'Set by {variable}: change the variable to choose other ecosystems.',
+    'settings.ecosystemsStoredIgnored': 'The choice made here is ignored.',
+    'settings.ecosystemsReset': 'Restore the default',
+    'settings.ecosystemsMissing': 'Choose at least one ecosystem.',
+    'settings.ecosystemsSaved': 'Ecosystems saved: they apply to the next OSV update.',
     'settings.caBundle': 'CA bundle',
     'settings.systemCa': 'the system one',
     'settings.maxSize': 'Maximum size',
@@ -208,6 +217,16 @@ export const settings = defineMessages({
     'settings.downloadEvery': 'activé, toutes les {hours} h',
     'settings.downloadOff': 'désactivé',
     'settings.ecosystems': 'Écosystèmes',
+    'settings.ecosystemsTitle': 'Écosystèmes téléchargés',
+    'settings.ecosystemsHelp':
+      "Choisissez les écosystèmes dont le serveur Controller télécharge les avis. Sans choix fait ici, SECREVIEW_OSV_ECOSYSTEMS ou sa valeur par défaut s'applique.",
+    'settings.ecosystemsLockedHelp':
+      'Défini par {variable} : modifiez la variable pour choisir d’autres écosystèmes.',
+    'settings.ecosystemsStoredIgnored': 'Le choix fait ici est ignoré.',
+    'settings.ecosystemsReset': 'Revenir à la valeur par défaut',
+    'settings.ecosystemsMissing': 'Choisissez au moins un écosystème.',
+    'settings.ecosystemsSaved':
+      "Écosystèmes enregistrés : ils s'appliquent à la prochaine mise à jour OSV.",
     'settings.caBundle': 'Bundle de CA',
     'settings.systemCa': 'celui du système',
     'settings.maxSize': 'Taille maximale',
@@ -338,6 +357,15 @@ export const settings = defineMessages({
     'settings.downloadEvery': 'activada, cada {hours} h',
     'settings.downloadOff': 'desactivada',
     'settings.ecosystems': 'Ecosistemas',
+    'settings.ecosystemsTitle': 'Ecosistemas descargados',
+    'settings.ecosystemsHelp':
+      'Elija los ecosistemas cuyos avisos descarga el servidor Controller. Sin una elección hecha aquí, se aplica SECREVIEW_OSV_ECOSYSTEMS o su valor predeterminado.',
+    'settings.ecosystemsLockedHelp':
+      'Definido por {variable}: modifique la variable para elegir otros ecosistemas.',
+    'settings.ecosystemsStoredIgnored': 'La elección hecha aquí se ignora.',
+    'settings.ecosystemsReset': 'Volver al valor predeterminado',
+    'settings.ecosystemsMissing': 'Elija al menos un ecosistema.',
+    'settings.ecosystemsSaved': 'Ecosistemas guardados: se aplican a la próxima actualización OSV.',
     'settings.caBundle': 'Paquete de CA',
     'settings.systemCa': 'el del sistema',
     'settings.maxSize': 'Tamaño máximo',
