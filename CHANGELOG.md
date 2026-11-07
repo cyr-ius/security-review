@@ -1,5 +1,25 @@
 # Changelog
 
+## [11.2.0](https://github.com/cyr-ius/security-review/compare/v11.1.0...v11.2.0) (2026-11-07)
+
+
+### Features
+
+* **findings:** search the findings by text on the findings pages ([858f4f5](https://github.com/cyr-ius/security-review/commit/858f4f5ec1d61d6c228062ee0f049769cacf9fca))
+* **web:** drop the Reports entry from the sidebar ([3a98002](https://github.com/cyr-ius/security-review/commit/3a98002df54bbe66257865a025feee84c59dbf0e))
+* **web:** global search in the top bar ([9b5fa13](https://github.com/cyr-ius/security-review/commit/9b5fa1315a459f7a0da388b779935709954229a1))
+* **web:** move the Reports entry under Risk acceptances in the sidebar ([e3e2641](https://github.com/cyr-ius/security-review/commit/e3e264111e994428ec066b9073bd406b336ba63e))
+* **web:** multiple-choice filters with search and select all everywhere ([8d6b307](https://github.com/cyr-ius/security-review/commit/8d6b30761c5229872f411f48ec3de35ec9c8a622))
+* **web:** search projects, inside a report, with filters and live results ([65bb9cd](https://github.com/cyr-ius/security-review/commit/65bb9cdcdabc52f7ab461e6958d05f6d71d3dbdb))
+
+
+### Bug Fixes
+
+* **triage:** bulk decision no longer capped by the page size ([19d2c4f](https://github.com/cyr-ius/security-review/commit/19d2c4f6007d9798ed5a1d9d05586235c6f12dbc))
+* **web:** clearer examples in the help of the top bar search ([be9c967](https://github.com/cyr-ius/security-review/commit/be9c9671ad0472c2a2c4da53d4ba48ba6cb0797c))
+* **web:** one card per finding on the report page ([bc290a7](https://github.com/cyr-ius/security-review/commit/bc290a7afd0f84da4b1ca59fb58ede004fd9abf5))
+* **web:** small search field on the findings page ([b92f3d6](https://github.com/cyr-ius/security-review/commit/b92f3d67f44e40a65ea65b66800ee52dc0d1edb1))
+
 ## [11.1.0](https://github.com/cyr-ius/security-review/compare/v11.0.0...v11.1.0) (2026-11-07)
 
 
