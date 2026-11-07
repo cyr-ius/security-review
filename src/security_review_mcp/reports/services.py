@@ -412,6 +412,12 @@ def get_report(report_id: int) -> SecurityReportPublic:
         return SecurityReportPublic.model_validate(report, from_attributes=True)
 
 
+def _contains_pattern(search: str) -> str:
+    """ILIKE pattern matching ``search`` anywhere (first 200 characters, wildcards escaped)."""
+    escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 def list_reports(
     project: str | Collection[str] | None = None,
     risk_level: Severity | Collection[Severity] | None = None,
@@ -463,8 +469,7 @@ def list_reports(
         if author:
             statement = statement.where(SecurityReport.author == author)
         if search:
-            escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            pattern = f"%{escaped}%"
+            pattern = _contains_pattern(search)
             searched = [
                 SecurityReport.project,
                 SecurityReport.branch,
@@ -1001,6 +1006,7 @@ def list_project_findings(
     offset: int = 0,
     review_type: ReviewType | Collection[ReviewType] | None = None,
     projects: Collection[str] | None = None,
+    search: str | None = None,
 ) -> dict:
     """List the findings of a project (or of every project) across all reports, for a review.
 
@@ -1012,6 +1018,8 @@ def list_project_findings(
     ``review_type`` take one value or several (any of them matches; no status: open). ``project``
     None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
+    ``search`` keeps the findings whose title, rule, CWE, file, description, project or branch
+    contains it (case-insensitive, first 200 characters).
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
@@ -1027,6 +1035,18 @@ def list_project_findings(
         filters.append(col(Finding.severity).in_(severities))
     if types := _values(review_type):
         filters.append(col(SecurityReport.review_type).in_(types))
+    if search and search.strip():
+        pattern = _contains_pattern(search.strip())
+        searched = [
+            Finding.title,
+            Finding.rule_id,
+            Finding.cwe,
+            Finding.file_path,
+            Finding.description,
+            SecurityReport.project,
+            SecurityReport.branch,
+        ]
+        filters.append(or_(*(col(column).ilike(pattern, escape="\\") for column in searched)))
     rank = case(*((Finding.severity == s, r) for s, r in SEVERITY_RANK.items()), else_=0)
 
     with session_scope() as session:

@@ -254,6 +254,7 @@ async def project_findings(
     ] = None,
     severity: Annotated[list[Severity] | None, Query(max_length=len(Severity))] = None,
     review_type: Annotated[list[ReviewType] | None, Query(max_length=len(ReviewType))] = None,
+    search: Annotated[str | None, Query(max_length=200)] = None,
     limit: Annotated[int, Query(ge=1)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ProjectFindingPage:
@@ -261,7 +262,9 @@ async def project_findings(
 
     Gives an expert the whole list to review; without ``project``, lists the findings of every
     project in the scope of the caller. ``status``, ``severity`` and ``review_type`` may be
-    repeated (any of the values matches). limit is capped by SECREVIEW_MAX_LIST_LIMIT.
+    repeated (any of the values matches); ``search`` keeps the findings whose title, rule, CWE,
+    file, description, project or branch contains it. limit is capped by
+    SECREVIEW_MAX_LIST_LIMIT.
     """
     if project is not None:
         scoped_project(identity, project)
@@ -274,6 +277,7 @@ async def project_findings(
         offset,
         review_type,
         identity.projects,
+        search,
     )
 
 

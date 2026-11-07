@@ -595,6 +595,9 @@ export class ApiService {
     if (query.project) {
       params = params.set('project', query.project);
     }
+    if (query.search) {
+      params = params.set('search', query.search);
+    }
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }
 

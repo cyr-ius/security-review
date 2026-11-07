@@ -47,7 +47,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The status, severity and review type filters accept several values |
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file, description, project, branch) narrows the list; the status, severity and review type filters accept several values |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange TOML files)

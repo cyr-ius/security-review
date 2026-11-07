@@ -948,6 +948,8 @@ export interface ProjectFindingQuery {
   severity: readonly Severity[];
   /** Any of these review types (empty: every type). */
   reviewType: readonly ReviewType[];
+  /** Text in the title, rule, CWE, file, description, project or branch (omitted: no search). */
+  search?: string;
   limit: number;
   offset: number;
 }

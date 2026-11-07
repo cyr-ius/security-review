@@ -1,6 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
@@ -34,6 +42,9 @@ import { BulkTriageComponent } from './bulk-triage/bulk-triage.component';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
+
+/** Pause after the last key stroke before the search reloads the list. */
+const SEARCH_DELAY_MS = 300;
 
 /**
  * Every open finding of a project (or of every project, at /findings), across all reports, worst
@@ -72,6 +83,11 @@ export class ProjectFindingsComponent {
   readonly severityFilter = signal<Severity[]>([]);
   readonly reviewTypeFilter = signal<ReviewType[]>([]);
 
+  /** Text typed in the search field, and the search applied once typing pauses. */
+  readonly searchInput = signal('');
+  readonly search = signal('');
+  private searchTimer?: ReturnType<typeof setTimeout>;
+
   /** Statuses listed: the selected ones, or all of them. */
   private readonly statuses = computed(() =>
     this.statusFilter().length ? this.statusFilter() : FINDING_STATUSES,
@@ -102,7 +118,8 @@ export class ProjectFindingsComponent {
       this.statusFilter().length === 1 &&
       this.statusFilter()[0] === 'open' &&
       !this.severityFilter().length &&
-      !this.reviewTypeFilter().length,
+      !this.reviewTypeFilter().length &&
+      !this.search(),
   );
 
   /** First page for the current filters. */
@@ -112,6 +129,7 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
+      search: this.search() || undefined,
       limit: PAGE_SIZE,
       offset: 0,
     }),
@@ -164,6 +182,10 @@ export class ProjectFindingsComponent {
       this.triageable().length > 0 && this.selectedFindings().length === this.triageable().length,
   );
 
+  constructor() {
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.searchTimer));
+  }
+
   readonly forbidden = computed(() => {
     const error = this.firstPage.error();
     return error instanceof HttpErrorResponse && error.status === 404;
@@ -181,6 +203,14 @@ export class ProjectFindingsComponent {
     this.reviewTypeFilter.set(REVIEW_TYPES.filter((reviewType) => values.includes(reviewType)));
   }
 
+  /** Keep the typed text and search it once typing pauses. */
+  onSearch(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.searchInput.set(value);
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.search.set(value.trim()), SEARCH_DELAY_MS);
+  }
+
   /** Append the next page to the list. */
   async loadMore(): Promise<void> {
     this.loadingMore.set(true);
@@ -190,6 +220,7 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
+      search: this.search() || undefined,
       limit: PAGE_SIZE,
       // Triaged findings left the filtered set on the server: skipping them in the offset
       // keeps the next page from jumping over findings not yet seen

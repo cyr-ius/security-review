@@ -55,6 +55,19 @@
       }
     }
   </span>
+  <div class="input-group search">
+    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+    <input
+      id="findings-search"
+      type="search"
+      class="form-control"
+      maxlength="200"
+      [placeholder]="'projectFindings.search' | t"
+      [attr.aria-label]="'projectFindings.search' | t"
+      [value]="searchInput()"
+      (input)="onSearch($event)"
+    />
+  </div>
   <app-multi-select-dropdown
     class="filter"
     id="findings-filter-status"

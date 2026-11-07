@@ -50,7 +50,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 
 | Page | À quoi elle sert |
 |---|---|
-| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
+| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, fichier, description, projet, branche) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent des fichiers TOML)

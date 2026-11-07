@@ -402,6 +402,12 @@ def test_project_findings(client, reports):
         "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
     ).json()
     assert [f["id"] for f in dismissed["findings"]] == [first]
+    searched = client.get(
+        "/api/v1/findings", params={"project": "shop-api", "search": "weak HASH"}
+    ).json()
+    assert [f["title"] for f in searched["findings"]] == ["Weak hash"]
+    too_long = {"project": "shop-api", "search": "x" * 201}
+    assert client.get("/api/v1/findings", params=too_long).status_code == 422
 
     # Once expired, the false positive is listed with the open findings again
     with session_scope() as session:
