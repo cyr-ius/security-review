@@ -48,7 +48,11 @@ local workstation and port 4200 is forwarded automatically.
   `layout/`.
 - **Templates**: host bindings in `host: {}` (no `@HostListener`); a message that explains why a
   field is invalid is linked to it with `aria-describedby`.
-- **Tables**: `app-table-controls` holds the search and the filters; the sort is chosen on the
+- **Tables**: `app-table-controls` holds the search and the filters, on one line above the
+  table: the content it wraps (count, select-all box) on the left, the small search field and
+  the filters on the right (a single-value filter shows its label in front of its list; an
+  element marked `control`, a filter the page handles itself, comes right after the search). Do not
+  add a card header for the count, and no other search or filter row; the sort is chosen on the
   column headers (`<th [appSortHeader]="sort" sortKey="name">`), with a `TableSort` named after
   the table (`shared/utils/table-sort.ts`) that the browser remembers under
   `secreview.sort.<name>`.

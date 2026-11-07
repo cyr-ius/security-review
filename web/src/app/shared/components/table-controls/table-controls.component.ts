@@ -33,7 +33,11 @@ export interface TableControlMultiFilterChange {
   values: string[];
 }
 
-/** Search and filter controls shared by collection tables (columns sort: SortHeaderComponent). */
+/**
+ * Search and filter controls shared by collection tables (columns sort: SortHeaderComponent), on
+ * one line: the projected content (count, selection) on the left, the search and the filters on
+ * the right. An element marked ``control`` (a filter the page handles itself) follows the search.
+ */
 @Component({
   selector: 'app-table-controls',
   imports: [MultiSelectDropdownComponent, TranslatePipe],
@@ -43,6 +47,8 @@ export interface TableControlMultiFilterChange {
 export class TableControlsComponent {
   readonly idPrefix = input.required<string>();
   readonly search = input('');
+  /** Placeholder and accessible name of the search field (empty: "Search"). */
+  readonly searchPlaceholder = input('');
   readonly filters = input<TableControlFilter[]>([]);
   readonly multiFilters = input<TableControlMultiFilter[]>([]);
 

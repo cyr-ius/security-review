@@ -46,13 +46,12 @@
     [filters]="filters()"
     (searchChange)="setQuery($event)"
     (filterChange)="onTableFilter($event)"
-  />
+  >
+    <span aria-live="polite">{{
+      'standards.count' | t: { count: visibleStandards().length }
+    }}</span>
+  </app-table-controls>
   <div class="card">
-    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-      <span class="fw-semibold">{{
-        'standards.count' | t: { count: visibleStandards().length }
-      }}</span>
-    </div>
     @if (visibleStandards().length > 0) {
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">

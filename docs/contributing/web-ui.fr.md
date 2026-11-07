@@ -48,7 +48,12 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
   coquille de l'application est `layout/`.
 - **Templates** : liaisons de l'hôte dans `host: {}` (pas de `@HostListener`) ; un message qui
   explique pourquoi un champ est invalide lui est relié par `aria-describedby`.
-- **Tableaux** : `app-table-controls` porte la recherche et les filtres ; le tri se choisit sur les
+- **Tableaux** : `app-table-controls` porte la recherche et les filtres, sur une ligne au-dessus du
+  tableau : le contenu qu'il encadre (compteur, case « tout sélectionner ») à gauche, le petit
+  champ de recherche et les filtres à droite (un filtre à valeur unique affiche son libellé
+  devant sa liste ; un élément marqué `control`, filtre géré par la page elle-même, suit la
+  recherche). Pas d'en-tête de carte pour le compteur, ni d'autre ligne de recherche ou de
+  filtres ; le tri se choisit sur les
   en-têtes de colonne (`<th [appSortHeader]="sort" sortKey="name">`), avec un `TableSort` nommé
   d'après le tableau (`shared/utils/table-sort.ts`) que le navigateur mémorise sous
   `secreview.sort.<nom>`.

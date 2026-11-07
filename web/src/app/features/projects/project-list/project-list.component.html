@@ -138,14 +138,10 @@
     [filters]="filters()"
     (searchChange)="search.set($event)"
     (filterChange)="onProjectTableFilter($event)"
-  />
+  >
+    <span aria-live="polite">{{ 'projects.count' | t: { count: visible().length } }}</span>
+  </app-table-controls>
   <div class="card">
-    <div class="card-header">
-      <span class="ms-auto small text-body-secondary">{{
-        'projects.count' | t: { count: visible().length }
-      }}</span>
-    </div>
-
     @if (visible().length > 0) {
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">

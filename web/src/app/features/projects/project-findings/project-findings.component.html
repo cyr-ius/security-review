@@ -31,7 +31,14 @@
   <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
 </div>
 
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+<app-table-controls
+  idPrefix="findings"
+  [search]="searchInput()"
+  [searchPlaceholder]="'projectFindings.search' | t"
+  [multiFilters]="filters()"
+  (searchChange)="onSearch($event)"
+  (multiFilterChange)="onFilter($event)"
+>
   @if (auth.canTriage() && triageable().length) {
     <div class="form-check mb-0">
       <input
@@ -42,12 +49,12 @@
         [indeterminate]="selectedFindings().length > 0 && !allSelected()"
         (change)="selectAll($event)"
       />
-      <label class="form-check-label small" for="findings-select-all">{{
+      <label class="form-check-label text-body" for="findings-select-all">{{
         'projectFindings.bulkSelectAll' | t
       }}</label>
     </div>
   }
-  <span class="me-auto text-body-secondary small" aria-live="polite">
+  <span aria-live="polite">
     @if (firstPage.value()) {
       {{ 'projectFindings.count' | t: { shown: findings().length, total: total() } }}
       @if (triagedCount() > 0) {
@@ -55,47 +62,7 @@
       }
     }
   </span>
-  <div class="input-group input-group-sm search">
-    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-    <input
-      id="findings-search"
-      type="search"
-      class="form-control"
-      maxlength="200"
-      [placeholder]="'projectFindings.search' | t"
-      [attr.aria-label]="'projectFindings.search' | t"
-      [value]="searchInput()"
-      (input)="onSearch($event)"
-    />
-  </div>
-  <app-multi-select-dropdown
-    class="filter"
-    id="findings-filter-status"
-    [label]="'report.filterStatus' | t"
-    [allLabel]="'report.allStatuses' | t"
-    [options]="statusOptions()"
-    [selected]="statusFilter()"
-    (selectedChange)="onStatusFilter($event)"
-  />
-  <app-multi-select-dropdown
-    class="filter"
-    id="findings-filter-severity"
-    [label]="'report.filterSeverity' | t"
-    [allLabel]="'report.allSeverities' | t"
-    [options]="severityOptions()"
-    [selected]="severityFilter()"
-    (selectedChange)="onSeverityFilter($event)"
-  />
-  <app-multi-select-dropdown
-    class="filter"
-    id="findings-filter-review-type"
-    [label]="'report.filterReviewType' | t"
-    [allLabel]="'report.allReviewTypes' | t"
-    [options]="reviewTypeOptions()"
-    [selected]="reviewTypeFilter()"
-    (selectedChange)="onReviewTypeFilter($event)"
-  />
-</div>
+</app-table-controls>
 
 @if (triageError(); as message) {
   <div class="alert alert-danger alert-dismissible py-2" role="alert">

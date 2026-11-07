@@ -33,10 +33,12 @@ import { ExportService, kindsByProject, systemNames } from '../../../core/servic
 import { TriageChange, TriageService } from '../../../core/services/triage.service';
 import { ApiService } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
+import { MultiSelectOption } from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import {
-  MultiSelectDropdownComponent,
-  MultiSelectOption,
-} from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { BulkTriageComponent } from './bulk-triage/bulk-triage.component';
 
@@ -59,8 +61,8 @@ const SEARCH_DELAY_MS = 300;
     RouterLink,
     DatePipe,
     FindingCardComponent,
-    MultiSelectDropdownComponent,
     RefreshButtonComponent,
+    TableControlsComponent,
     TranslatePipe,
   ],
   templateUrl: './project-findings.component.html',
@@ -121,6 +123,31 @@ export class ProjectFindingsComponent {
       label: this.i18n.translate(REVIEW_TYPE_META[reviewType].label),
     })),
   );
+
+  /** Filters of the list (ids findings-filter-status, -severity and -review-type). */
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
+    {
+      key: 'status',
+      label: this.i18n.translate('report.filterStatus'),
+      allLabel: this.i18n.translate('report.allStatuses'),
+      values: this.statusFilter(),
+      options: this.statusOptions(),
+    },
+    {
+      key: 'severity',
+      label: this.i18n.translate('report.filterSeverity'),
+      allLabel: this.i18n.translate('report.allSeverities'),
+      values: this.severityFilter(),
+      options: this.severityOptions(),
+    },
+    {
+      key: 'review-type',
+      label: this.i18n.translate('report.filterReviewType'),
+      allLabel: this.i18n.translate('report.allReviewTypes'),
+      values: this.reviewTypeFilter(),
+      options: this.reviewTypeOptions(),
+    },
+  ]);
 
   /** No filter but the default one (open findings). */
   readonly defaultFilters = computed(
@@ -201,21 +228,18 @@ export class ProjectFindingsComponent {
     return error instanceof HttpErrorResponse && error.status === 404;
   });
 
-  onStatusFilter(values: string[]): void {
-    this.statusFilter.set(FINDING_STATUSES.filter((status) => values.includes(status)));
-  }
-
-  onSeverityFilter(values: string[]): void {
-    this.severityFilter.set(SEVERITIES.filter((severity) => values.includes(severity)));
-  }
-
-  onReviewTypeFilter(values: string[]): void {
-    this.reviewTypeFilter.set(REVIEW_TYPES.filter((reviewType) => values.includes(reviewType)));
+  onFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'status') {
+      this.statusFilter.set(FINDING_STATUSES.filter((status) => values.includes(status)));
+    } else if (key === 'severity') {
+      this.severityFilter.set(SEVERITIES.filter((severity) => values.includes(severity)));
+    } else if (key === 'review-type') {
+      this.reviewTypeFilter.set(REVIEW_TYPES.filter((reviewType) => values.includes(reviewType)));
+    }
   }
 
   /** Keep the typed text and search it once typing pauses. */
-  onSearch(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
+  onSearch(value: string): void {
     this.searchInput.set(value);
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.appliedSearch.set(value.trim()), SEARCH_DELAY_MS);
