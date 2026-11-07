@@ -33,9 +33,9 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
     |---|---|
     | `sql injection` | Rechercher le texte dans les findings (titre, règle, CWE, fichier, description, projet, branche) ou dans les rapports |
     | `#report:12` | Ouvrir le rapport 12 |
-    | `toto #report:12` | Ouvrir le rapport 12 en recherchant « toto » dans ses findings |
+    | `xss #report:12` | Ouvrir le rapport 12 en recherchant « xss » dans ses findings |
     | `#finding:34` | Ouvrir le finding 34 dans son rapport |
-    | `#report:texte`, `toto #finding:*` | Rechercher uniquement dans les rapports, ou dans les findings |
+    | `#report:texte`, `xss #finding:*` | Rechercher uniquement dans les rapports, ou dans les findings |
     | `#report:*`, `#finding:*`, `*` | Lister tous les rapports, tous les findings, ou proposer les deux |
     | `sql project:shop` | Uniquement dans le projet `shop` |
     | `severity:high,critical` (ou `sev:`) | Uniquement ces sévérités (niveau de risque des rapports) |

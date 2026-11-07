@@ -118,7 +118,7 @@ function parse(raw: string): ParsedSearch {
 /**
  * Targets of what the user typed, the first one opened by Enter. One qualifier, anywhere:
  * - ``#report:<number>``: that report, its findings searched for the rest of the text
- *   (``toto #report:1``: "toto" in report 1);
+ *   (``xss #report:1``: "xss" in report 1);
  * - ``#finding:<number>``: that finding, in its report;
  * - ``#report:*`` / ``#finding:*`` (or nothing after ``:``): the reports or the findings
  *   containing the rest of the text, every one without text;

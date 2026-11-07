@@ -52,7 +52,7 @@ const SECTION_TITLES: Record<SuggestionSection, MessageKey | null> = {
 const SYNTAX: readonly { example: string; label: MessageKey }[] = [
   { example: 'sql injection', label: 'layout.searchHelpText' },
   { example: '#report:12', label: 'layout.searchHelpReport' },
-  { example: 'toto #report:12', label: 'layout.searchHelpInReport' },
+  { example: 'xss #report:12', label: 'layout.searchHelpInReport' },
   { example: '#finding:34', label: 'layout.searchHelpFinding' },
   { example: '#report:*', label: 'layout.searchHelpAll' },
   { example: 'project:shop sev:high,critical', label: 'layout.searchHelpFilters' },
@@ -62,7 +62,7 @@ const SYNTAX: readonly { example: string; label: MessageKey }[] = [
 /**
  * Search field of the top bar: plain text searches the findings and the reports (the first ones
  * found are listed under the field) and offers the projects whose name contains it,
- * ``#report:<n>`` and ``#finding:<n>`` open one of them (``toto #report:<n>`` searches the
+ * ``#report:<n>`` and ``#finding:<n>`` open one of them (``xss #report:<n>`` searches the
  * report), ``project:``, ``severity:`` and ``status:`` filter, ``*`` lists them all. Ctrl+K (⌘K)
  * focuses it.
  */

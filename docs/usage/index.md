@@ -31,9 +31,9 @@ A page is missing? You do not hold its permission: ask an administrator (see
     |---|---|
     | `sql injection` | Search the findings (title, rule, CWE, file, description, project, branch), or the reports, for the text |
     | `#report:12` | Open report 12 |
-    | `toto #report:12` | Open report 12, its findings searched for "toto" |
+    | `xss #report:12` | Open report 12, its findings searched for "xss" |
     | `#finding:34` | Open finding 34 in its report |
-    | `#report:text`, `toto #finding:*` | Search only the reports, or only the findings |
+    | `#report:text`, `xss #finding:*` | Search only the reports, or only the findings |
     | `#report:*`, `#finding:*`, `*` | List every report, every finding, or offer both |
     | `sql project:shop` | Only in project `shop` |
     | `severity:high,critical` (or `sev:`) | Only these severities (risk level of the reports) |
