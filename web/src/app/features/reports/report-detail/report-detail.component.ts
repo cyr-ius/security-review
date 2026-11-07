@@ -29,7 +29,7 @@ import {
   Severity,
   ConnectorKind,
 } from '../../../core/models/api.models';
-import { Message } from '../../../core/i18n/i18n.service';
+import { I18nService, Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { AuthService } from '../../../core/services/auth.service';
 import { ExportService, kindsByProject, systemNames } from '../../../core/services/export.service';
@@ -37,16 +37,31 @@ import { TriageChange, TriageService } from '../../../core/services/triage.servi
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
+import {
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  TableControlsComponent,
+  knownValues,
+  matchesFilter,
+} from '../../../shared/components/table-controls/table-controls.component';
 
 /** One report: metadata, summary and findings, with triage for triagers. */
 @Component({
   selector: 'app-report-detail',
-  imports: [RouterLink, DatePipe, FindingCardComponent, SeverityBadgeComponent, TranslatePipe],
+  imports: [
+    RouterLink,
+    DatePipe,
+    FindingCardComponent,
+    SeverityBadgeComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './report-detail.component.html',
   styleUrl: './report-detail.component.css',
 })
 export class ReportDetailComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
   readonly triage = inject(TriageService);
   readonly exports = inject(ExportService);
@@ -54,10 +69,6 @@ export class ReportDetailComponent {
   /** Route parameter :id */
   readonly id = input.required<string>();
 
-  readonly severities = SEVERITIES;
-  readonly statuses = FINDING_STATUSES;
-  readonly severityMeta = SEVERITY_META;
-  readonly statusMeta = STATUS_META;
   readonly reviewTypeMeta = REVIEW_TYPE_META;
   readonly outcomeMeta = CHECKLIST_OUTCOME_META;
 
@@ -88,8 +99,37 @@ export class ReportDetailComponent {
   /** Local copy of the findings, updated in place after a triage decision. */
   readonly findings = linkedSignal<Finding[]>(() => this.report.value()?.findings ?? []);
 
-  readonly severityFilter = signal<Severity | ''>('');
-  readonly statusFilter = signal<FindingStatus | ''>('');
+  /** Query parameter ?search= (set by the search of the top bar: ``text #report:<id>``). */
+  readonly search = input<string>();
+  /** Text searched in the findings of the report (title, rule, CWE, file, description...). */
+  readonly searchInput = linkedSignal(() => this.search() ?? '');
+
+  readonly severityFilter = signal<Severity[]>([]);
+  readonly statusFilter = signal<FindingStatus[]>([]);
+
+  /** Filters of the findings of the report (ids report-findings-filter-severity and -status). */
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
+    {
+      key: 'severity',
+      label: this.i18n.translate('report.filterSeverity'),
+      allLabel: this.i18n.translate('report.allSeverities'),
+      values: this.severityFilter(),
+      options: SEVERITIES.map((severity) => ({
+        value: severity,
+        label: this.i18n.translate(SEVERITY_META[severity].label),
+      })),
+    },
+    {
+      key: 'status',
+      label: this.i18n.translate('report.filterStatus'),
+      allLabel: this.i18n.translate('report.allStatuses'),
+      values: this.statusFilter(),
+      options: FINDING_STATUSES.map((status) => ({
+        value: status,
+        label: this.i18n.translate(STATUS_META[status].label),
+      })),
+    },
+  ]);
 
   /** Last triage error. */
   readonly triageError = signal<Message | null>(null);
@@ -101,8 +141,9 @@ export class ReportDetailComponent {
 
   readonly visibleFindings = computed(() =>
     this.findings()
-      .filter((f) => !this.severityFilter() || f.severity === this.severityFilter())
-      .filter((f) => !this.statusFilter() || f.status === this.statusFilter())
+      .filter((f) => matchesFilter(this.severityFilter(), f.severity))
+      .filter((f) => matchesFilter(this.statusFilter(), f.status))
+      .filter((f) => matches(f, this.searchInput()))
       .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.id - b.id),
   );
 
@@ -158,12 +199,12 @@ export class ReportDetailComponent {
     });
   }
 
-  onSeverityFilter(event: Event): void {
-    this.severityFilter.set((event.target as HTMLSelectElement).value as Severity | '');
-  }
-
-  onStatusFilter(event: Event): void {
-    this.statusFilter.set((event.target as HTMLSelectElement).value as FindingStatus | '');
+  onFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'severity') {
+      this.severityFilter.set(knownValues(values, SEVERITIES));
+    } else if (key === 'status') {
+      this.statusFilter.set(knownValues(values, FINDING_STATUSES));
+    }
   }
 
   /** Save the triage decision of a finding card (``null``: reject the agent proposal). */
@@ -208,4 +249,23 @@ export class ReportDetailComponent {
     const id = this.reportId();
     saveBlob(await firstValueFrom(this.api.sarif({ report_id: id })), `report-${id}.sarif`);
   }
+}
+
+/** True when the finding contains the text (case-insensitive; no text: every finding). */
+function matches(finding: Finding, search: string): boolean {
+  const text = search.trim().toLowerCase();
+  if (!text) {
+    return true;
+  }
+  return [
+    finding.title,
+    finding.rule_id,
+    finding.cwe,
+    finding.owasp,
+    finding.category,
+    finding.file_path,
+    finding.description,
+    finding.evidence,
+    finding.recommendation,
+  ].some((value) => value?.toLowerCase().includes(text));
 }

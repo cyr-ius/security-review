@@ -45,16 +45,13 @@
   <app-table-controls
     idPrefix="checklists"
     [search]="search()"
-    [filters]="filters()"
+    [multiFilters]="filters()"
     (searchChange)="search.set($event)"
-    (filterChange)="onTableFilter($event)"
-  />
+    (multiFilterChange)="onTableFilter($event)"
+  >
+    <span aria-live="polite">{{ 'checklists.count' | t: { count: visibleItems().length } }}</span>
+  </app-table-controls>
   <div class="card">
-    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-      <span class="fw-semibold">{{
-        'checklists.count' | t: { count: visibleItems().length }
-      }}</span>
-    </div>
     @if (visibleItems().length > 0) {
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">

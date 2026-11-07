@@ -16,8 +16,10 @@ import {
   PackTransferComponent,
 } from '../../../shared/components/pack-transfer/pack-transfer.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
@@ -66,7 +68,7 @@ export class ChecklistListComponent {
   /** False for a user who may only read the checklists (rules.read). */
   readonly canManage = computed(() => this.auth.can('rules.manage'));
   readonly catalog = rxResource({ stream: () => this.api.checklistItems() });
-  readonly domainFilter = signal('');
+  readonly domainFilter = signal<string[]>([]);
   readonly search = signal('');
   readonly sort = new TableSort<ChecklistSortKey>(
     'checklists',
@@ -74,26 +76,24 @@ export class ChecklistListComponent {
     'domain',
     'asc',
   );
-  readonly originFilter = signal<'all' | 'builtin' | 'custom'>('all');
+  readonly originFilter = signal<('builtin' | 'custom')[]>([]);
   readonly domains = computed(() =>
     [...new Set((this.catalog.value()?.checklist_items ?? []).map((item) => item.domain))].sort(),
   );
-  readonly filters = computed<TableControlFilter[]>(() => [
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'domain',
       label: this.i18n.translate('checklists.domain'),
-      value: this.domainFilter(),
-      options: [
-        { value: '', label: this.i18n.translate('checklists.allDomains') },
-        ...this.domains().map((domain) => ({ value: domain, label: domain })),
-      ],
+      allLabel: this.i18n.translate('checklists.allDomains'),
+      values: this.domainFilter(),
+      options: this.domains().map((domain) => ({ value: domain, label: domain })),
     },
     {
       key: 'origin',
       label: this.i18n.translate('rules.origin'),
-      value: this.originFilter(),
+      allLabel: this.i18n.translate('common.all'),
+      values: this.originFilter(),
       options: [
-        { value: 'all', label: this.i18n.translate('common.all') },
         { value: 'builtin', label: this.i18n.translate('rules.builtin') },
         { value: 'custom', label: this.i18n.translate('rules.custom') },
       ],
@@ -103,7 +103,7 @@ export class ChecklistListComponent {
     const domain = this.domainFilter();
     const origin = this.originFilter();
     const items = (this.catalog.value()?.checklist_items ?? []).filter(
-      (item) => (!domain || item.domain === domain) && (origin === 'all' || item.origin === origin),
+      (item) => matchesFilter(domain, item.domain) && matchesFilter(origin, item.origin),
     );
     const sort = this.sort.key();
     return filterAndSortRows(
@@ -140,21 +140,11 @@ export class ChecklistListComponent {
   /** True while a pack is exported or imported. */
   readonly transferring = signal(false);
 
-  onDomainFilter(event: Event): void {
-    this.setDomainFilter((event.target as HTMLSelectElement).value);
-  }
-
-  setDomainFilter(value: string): void {
-    this.domainFilter.set(value);
-  }
-
-  onTableFilter(change: TableControlFilterChange): void {
-    if (change.key === 'domain') {
-      this.setDomainFilter(change.value);
-    } else if (change.key === 'origin') {
-      this.originFilter.set(
-        change.value === 'builtin' || change.value === 'custom' ? change.value : 'all',
-      );
+  onTableFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'domain') {
+      this.domainFilter.set(knownValues(values, this.domains()));
+    } else if (key === 'origin') {
+      this.originFilter.set(knownValues(values, ['builtin', 'custom'] as const));
     }
   }
 

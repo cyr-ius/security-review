@@ -18,8 +18,10 @@ import { HelpLinkComponent } from '../../../shared/components/help-link/help-lin
 import { AdvisoryEcosystemResult, AdvisoryUpdate } from '../../../core/models/api.models';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
@@ -79,15 +81,15 @@ export class AdvisorySettingsComponent extends SettingsPage {
     'started',
     'desc',
   );
-  readonly historyStatusFilter = signal<AdvisoryUpdate['status'] | ''>('');
-  readonly historyTriggerFilter = signal<AdvisoryUpdate['trigger'] | ''>('');
-  readonly historyFilters = computed<TableControlFilter[]>(() => [
+  readonly historyStatusFilter = signal<AdvisoryUpdate['status'][]>([]);
+  readonly historyTriggerFilter = signal<AdvisoryUpdate['trigger'][]>([]);
+  readonly historyFilters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'status',
       label: this.i18n.translate('settings.status'),
-      value: this.historyStatusFilter(),
+      allLabel: this.i18n.translate('common.all'),
+      values: this.historyStatusFilter(),
       options: [
-        { value: '', label: this.i18n.translate('common.all') },
         ...Object.entries(this.statusMeta).map(([value, meta]) => ({
           value,
           label: this.i18n.translate(meta.label),
@@ -97,9 +99,9 @@ export class AdvisorySettingsComponent extends SettingsPage {
     {
       key: 'trigger',
       label: this.i18n.translate('settings.trigger'),
-      value: this.historyTriggerFilter(),
+      allLabel: this.i18n.translate('common.all'),
+      values: this.historyTriggerFilter(),
       options: [
-        { value: '', label: this.i18n.translate('common.all') },
         ...Object.entries(this.triggerLabels).map(([value, label]) => ({
           value,
           label: this.i18n.translate(label),
@@ -111,7 +113,7 @@ export class AdvisorySettingsComponent extends SettingsPage {
     const status = this.historyStatusFilter();
     const trigger = this.historyTriggerFilter();
     const updates = (this.advisories.value()?.updates ?? []).filter(
-      (update) => (!status || update.status === status) && (!trigger || update.trigger === trigger),
+      (update) => matchesFilter(status, update.status) && matchesFilter(trigger, update.trigger),
     );
     const sort = this.historySort.key();
     return filterAndSortRows(
@@ -200,15 +202,13 @@ export class AdvisorySettingsComponent extends SettingsPage {
 
   private pollTimer: ReturnType<typeof setTimeout> | undefined;
 
-  onHistoryFilter(change: TableControlFilterChange): void {
-    if (change.key === 'status') {
-      this.historyStatusFilter.set(
-        change.value in this.statusMeta ? (change.value as AdvisoryUpdate['status']) : '',
-      );
-    } else if (change.key === 'trigger') {
-      this.historyTriggerFilter.set(
-        change.value in this.triggerLabels ? (change.value as AdvisoryUpdate['trigger']) : '',
-      );
+  onHistoryFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'status') {
+      const statuses = Object.keys(this.statusMeta) as AdvisoryUpdate['status'][];
+      this.historyStatusFilter.set(knownValues(values, statuses));
+    } else if (key === 'trigger') {
+      const triggers = Object.keys(this.triggerLabels) as AdvisoryUpdate['trigger'][];
+      this.historyTriggerFilter.set(knownValues(values, triggers));
     }
   }
 

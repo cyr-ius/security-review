@@ -1,0 +1,108 @@
+<div class="global-search" role="search" (focusout)="onFocusOut($event)">
+  <div class="input-group input-group-sm">
+    <span class="input-group-text">
+      @if (loading()) {
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+      } @else {
+        <i class="bi bi-search" aria-hidden="true"></i>
+      }
+    </span>
+    <input
+      #field
+      id="global-search"
+      type="search"
+      class="form-control"
+      role="combobox"
+      autocomplete="off"
+      aria-autocomplete="list"
+      aria-controls="global-search-list"
+      [attr.aria-expanded]="open()"
+      [attr.aria-activedescendant]="
+        open() && suggestions().length ? 'global-search-option-' + active() : null
+      "
+      [attr.maxlength]="maxLength"
+      [placeholder]="'layout.searchPlaceholder' | t"
+      [attr.aria-label]="'layout.search' | t"
+      [value]="query()"
+      (input)="onInput($event)"
+      (keydown)="onKeydown($event)"
+      (focus)="onFocus()"
+    />
+    <span class="input-group-text shortcut d-none d-xl-inline-flex" aria-hidden="true">
+      {{ 'layout.searchShortcut' | t }}
+    </span>
+  </div>
+
+  <!-- mousedown keeps the focus in the field, so that a click is not lost on blur -->
+  <div
+    class="dropdown-menu w-100 shadow-sm"
+    [class.show]="open()"
+    (mousedown)="$event.preventDefault()"
+  >
+    @if (error(); as failure) {
+      <p class="px-3 py-1 mb-1 small text-danger" role="alert">
+        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+        {{ failure.label | t: failure.params }}
+      </p>
+    }
+    <div id="global-search-list" role="listbox" [attr.aria-label]="'layout.search' | t">
+      @for (group of groups(); track group.section) {
+        <div role="group" [attr.aria-label]="sectionTitles[group.section] ?? 'layout.search' | t">
+          @if (sectionTitles[group.section]; as title) {
+            <p class="dropdown-header mb-0" aria-hidden="true">{{ title | t }}</p>
+          }
+          @for (entry of group.entries; track entry.suggestion.key) {
+            @let item = entry.suggestion;
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center gap-2"
+              role="option"
+              tabindex="-1"
+              [id]="'global-search-option-' + entry.index"
+              [class.active]="entry.index === active()"
+              [attr.aria-selected]="entry.index === active()"
+              (click)="go(item.target)"
+              (mouseenter)="select(entry.index)"
+            >
+              <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+              <span class="entry-text d-flex flex-column flex-grow-1">
+                <span class="text-truncate">
+                  @if (item.label) {
+                    {{ item.label | t: item.params }}
+                  } @else {
+                    {{ item.text }}
+                  }
+                </span>
+                @if (item.detail) {
+                  <span class="detail small text-truncate">
+                    {{ item.detail }}
+                    @if (item.date) {
+                      · {{ item.date | date: 'mediumDate' }}
+                    }
+                  </span>
+                }
+              </span>
+              @if (item.severity) {
+                <app-severity-badge class="small text-nowrap" [severity]="item.severity" />
+              }
+              @if (item.count !== undefined) {
+                <span class="badge rounded-pill text-bg-secondary">{{ item.count }}</span>
+              }
+            </button>
+          }
+        </div>
+      }
+    </div>
+    @if (!query().trim()) {
+      <p class="dropdown-header mb-0">{{ 'layout.searchHelp' | t }}</p>
+      <dl class="syntax small mb-0 px-3 pb-1">
+        @for (entry of syntax; track entry.example) {
+          <dt>
+            <code>{{ entry.example }}</code>
+          </dt>
+          <dd class="text-body-secondary">{{ entry.label | t }}</dd>
+        }
+      </dl>
+    }
+  </div>
+</div>

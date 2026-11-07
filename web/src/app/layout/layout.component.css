@@ -207,7 +207,8 @@ a.icon-btn {
   position: sticky;
   top: 0;
   z-index: 1020;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 36rem) 1fr;
   align-items: center;
   gap: 0.5rem;
   height: 3.75rem;

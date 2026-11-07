@@ -182,28 +182,33 @@
 
   <div class="main">
     <header class="topbar">
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-secondary"
-        (click)="toggleSidebar()"
-        aria-controls="app-sidebar"
-        [attr.aria-expanded]="!rail()"
-        [attr.aria-label]="(rail() ? 'layout.expandMenu' : 'layout.collapseMenu') | t"
-        [title]="(rail() ? 'layout.expandMenu' : 'layout.collapseMenu') | t"
-      >
-        <i
-          class="bi"
-          [class]="rail() ? 'bi-layout-sidebar' : 'bi-layout-sidebar-inset'"
-          aria-hidden="true"
-        ></i>
-      </button>
-      <span class="ms-auto"></span>
-      <span class="status-pill d-none d-md-inline-flex">
-        <span class="dot" aria-hidden="true"></span>
-        {{ 'layout.connected' | t }}
-      </span>
-      <app-language-select />
-      <app-theme-button />
+      <!-- Grid cell: the button stays on the left -->
+      <div>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="toggleSidebar()"
+          aria-controls="app-sidebar"
+          [attr.aria-expanded]="!rail()"
+          [attr.aria-label]="(rail() ? 'layout.expandMenu' : 'layout.collapseMenu') | t"
+          [title]="(rail() ? 'layout.expandMenu' : 'layout.collapseMenu') | t"
+        >
+          <i
+            class="bi"
+            [class]="rail() ? 'bi-layout-sidebar' : 'bi-layout-sidebar-inset'"
+            aria-hidden="true"
+          ></i>
+        </button>
+      </div>
+      <app-global-search />
+      <div class="d-flex align-items-center justify-content-end gap-2">
+        <span class="status-pill d-none d-md-inline-flex">
+          <span class="dot" aria-hidden="true"></span>
+          {{ 'layout.connected' | t }}
+        </span>
+        <app-language-select />
+        <app-theme-button />
+      </div>
     </header>
 
     @if (controllerUrl.missing()) {

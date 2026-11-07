@@ -6,31 +6,12 @@
 <app-table-controls
   idPrefix="reports"
   [search]="search() ?? ''"
+  [multiFilters]="filters()"
   (searchChange)="onSearch($event)"
+  (multiFilterChange)="onFilter($event)"
 />
 
 <div class="card">
-  <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-    <app-multi-select-dropdown
-      class="filter"
-      id="reports-filter-project"
-      [label]="'reportTable.project' | t"
-      [allLabel]="'reports.allProjects' | t"
-      [options]="projectOptions()"
-      [selected]="projectFilter()"
-      (selectedChange)="onProjects($event)"
-    />
-    <app-multi-select-dropdown
-      class="filter"
-      id="reports-filter-risk"
-      [label]="'reports.riskLevel' | t"
-      [allLabel]="'reports.allRisks' | t"
-      [options]="riskOptions()"
-      [selected]="riskLevels()"
-      (selectedChange)="onRisks($event)"
-    />
-  </div>
-
   @if (reports.error()) {
     <div class="card-body text-danger">
       <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>

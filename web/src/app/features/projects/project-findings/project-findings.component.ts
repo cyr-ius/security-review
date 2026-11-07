@@ -1,6 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
@@ -25,15 +33,20 @@ import { ExportService, kindsByProject, systemNames } from '../../../core/servic
 import { TriageChange, TriageService } from '../../../core/services/triage.service';
 import { ApiService } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
+import { MultiSelectOption } from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import {
-  MultiSelectDropdownComponent,
-  MultiSelectOption,
-} from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { BulkTriageComponent } from './bulk-triage/bulk-triage.component';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
+
+/** Pause after the last key stroke before the search reloads the list. */
+const SEARCH_DELAY_MS = 300;
 
 /**
  * Every open finding of a project (or of every project, at /findings), across all reports, worst
@@ -48,8 +61,8 @@ const PAGE_SIZE = 50;
     RouterLink,
     DatePipe,
     FindingCardComponent,
-    MultiSelectDropdownComponent,
     RefreshButtonComponent,
+    TableControlsComponent,
     TranslatePipe,
   ],
   templateUrl: './project-findings.component.html',
@@ -67,10 +80,25 @@ export class ProjectFindingsComponent {
 
   readonly reviewTypeMeta = REVIEW_TYPE_META;
 
+  /** Query parameters ?status=&severity= (set by the search of the top bar, may be repeated). */
+  readonly status = input<string | string[]>();
+  readonly severity = input<string | string[]>();
+
   /** Selected values of each filter (none: no filter, every status for the status). */
-  readonly statusFilter = signal<FindingStatus[]>(['open']);
-  readonly severityFilter = signal<Severity[]>([]);
+  readonly statusFilter = linkedSignal<FindingStatus[]>(() => {
+    const statuses = known(this.status(), FINDING_STATUSES);
+    return statuses.length ? statuses : ['open'];
+  });
+  readonly severityFilter = linkedSignal<Severity[]>(() => known(this.severity(), SEVERITIES));
   readonly reviewTypeFilter = signal<ReviewType[]>([]);
+
+  /** Query parameter ?search= (set by the search field of the top bar). */
+  readonly search = input<string>();
+
+  /** Text typed in the search field, and the search applied once typing pauses. */
+  readonly searchInput = linkedSignal(() => this.search() ?? '');
+  readonly appliedSearch = linkedSignal(() => (this.search() ?? '').trim());
+  private searchTimer?: ReturnType<typeof setTimeout>;
 
   /** Statuses listed: the selected ones, or all of them. */
   private readonly statuses = computed(() =>
@@ -96,13 +124,39 @@ export class ProjectFindingsComponent {
     })),
   );
 
+  /** Filters of the list (ids findings-filter-status, -severity and -review-type). */
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
+    {
+      key: 'status',
+      label: this.i18n.translate('report.filterStatus'),
+      allLabel: this.i18n.translate('report.allStatuses'),
+      values: this.statusFilter(),
+      options: this.statusOptions(),
+    },
+    {
+      key: 'severity',
+      label: this.i18n.translate('report.filterSeverity'),
+      allLabel: this.i18n.translate('report.allSeverities'),
+      values: this.severityFilter(),
+      options: this.severityOptions(),
+    },
+    {
+      key: 'review-type',
+      label: this.i18n.translate('report.filterReviewType'),
+      allLabel: this.i18n.translate('report.allReviewTypes'),
+      values: this.reviewTypeFilter(),
+      options: this.reviewTypeOptions(),
+    },
+  ]);
+
   /** No filter but the default one (open findings). */
   readonly defaultFilters = computed(
     () =>
       this.statusFilter().length === 1 &&
       this.statusFilter()[0] === 'open' &&
       !this.severityFilter().length &&
-      !this.reviewTypeFilter().length,
+      !this.reviewTypeFilter().length &&
+      !this.appliedSearch(),
   );
 
   /** First page for the current filters. */
@@ -112,6 +166,7 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
+      search: this.appliedSearch() || undefined,
       limit: PAGE_SIZE,
       offset: 0,
     }),
@@ -164,21 +219,30 @@ export class ProjectFindingsComponent {
       this.triageable().length > 0 && this.selectedFindings().length === this.triageable().length,
   );
 
+  constructor() {
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.searchTimer));
+  }
+
   readonly forbidden = computed(() => {
     const error = this.firstPage.error();
     return error instanceof HttpErrorResponse && error.status === 404;
   });
 
-  onStatusFilter(values: string[]): void {
-    this.statusFilter.set(FINDING_STATUSES.filter((status) => values.includes(status)));
+  onFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'status') {
+      this.statusFilter.set(FINDING_STATUSES.filter((status) => values.includes(status)));
+    } else if (key === 'severity') {
+      this.severityFilter.set(SEVERITIES.filter((severity) => values.includes(severity)));
+    } else if (key === 'review-type') {
+      this.reviewTypeFilter.set(REVIEW_TYPES.filter((reviewType) => values.includes(reviewType)));
+    }
   }
 
-  onSeverityFilter(values: string[]): void {
-    this.severityFilter.set(SEVERITIES.filter((severity) => values.includes(severity)));
-  }
-
-  onReviewTypeFilter(values: string[]): void {
-    this.reviewTypeFilter.set(REVIEW_TYPES.filter((reviewType) => values.includes(reviewType)));
+  /** Keep the typed text and search it once typing pauses. */
+  onSearch(value: string): void {
+    this.searchInput.set(value);
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.appliedSearch.set(value.trim()), SEARCH_DELAY_MS);
   }
 
   /** Append the next page to the list. */
@@ -190,6 +254,7 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
+      search: this.appliedSearch() || undefined,
       limit: PAGE_SIZE,
       // Triaged findings left the filtered set on the server: skipping them in the offset
       // keeps the next page from jumping over findings not yet seen
@@ -274,4 +339,10 @@ export class ProjectFindingsComponent {
     this.triageError.set(null);
     this.findings.update((all) => all.map((f) => (f.id === updated.id ? { ...f, ...updated } : f)));
   }
+}
+
+/** Known values of a query parameter given once or repeated, in their usual order. */
+function known<T extends string>(value: string | string[] | undefined, values: readonly T[]): T[] {
+  const given = Array.isArray(value) ? value : [value ?? ''];
+  return values.filter((item) => given.includes(item));
 }

@@ -412,6 +412,12 @@ def get_report(report_id: int) -> SecurityReportPublic:
         return SecurityReportPublic.model_validate(report, from_attributes=True)
 
 
+def _contains_pattern(search: str) -> str:
+    """ILIKE pattern matching ``search`` anywhere (first 200 characters, wildcards escaped)."""
+    escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 def list_reports(
     project: str | Collection[str] | None = None,
     risk_level: Severity | Collection[Severity] | None = None,
@@ -463,8 +469,7 @@ def list_reports(
         if author:
             statement = statement.where(SecurityReport.author == author)
         if search:
-            escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            pattern = f"%{escaped}%"
+            pattern = _contains_pattern(search)
             searched = [
                 SecurityReport.project,
                 SecurityReport.branch,
@@ -608,6 +613,11 @@ def update_finding_status(
         return FindingPublic.model_validate(finding, from_attributes=True)
 
 
+# Findings of one bulk triage decision, independent of the page size (SECREVIEW_MAX_LIST_LIMIT):
+# the web interface selects every loaded finding of a project
+MAX_BULK_FINDINGS = 1000
+
+
 def update_findings_status(
     finding_ids: Collection[int],
     status: FindingStatus,
@@ -622,7 +632,7 @@ def update_findings_status(
     Each finding is checked like by ``update_finding_status`` (an acceptance needs a reason and
     an expiry date when one of the findings is at or above
     SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY) and gets its own audit event. At most
-    SECREVIEW_MAX_LIST_LIMIT findings per call; repeated ids count once. A finding outside
+    MAX_BULK_FINDINGS findings per call; repeated ids count once. A finding outside
     ``allowed`` (the projects of a restricted caller, None: every project) counts as missing.
     Nothing is saved when one finding is refused.
 
@@ -637,9 +647,8 @@ def update_findings_status(
     ids = list(dict.fromkeys(finding_ids))
     if not ids:
         raise ValueError("At least one finding is required")
-    limit = get_settings().max_list_limit
-    if len(ids) > limit:
-        raise ValueError(f"At most {limit} findings can be triaged at once")
+    if len(ids) > MAX_BULK_FINDINGS:
+        raise ValueError(f"At most {MAX_BULK_FINDINGS} findings can be triaged at once")
     now = utcnow()
     with session_scope() as session:
         rows = session.exec(select(Finding).where(col(Finding.id).in_(ids))).all()
@@ -997,6 +1006,7 @@ def list_project_findings(
     offset: int = 0,
     review_type: ReviewType | Collection[ReviewType] | None = None,
     projects: Collection[str] | None = None,
+    search: str | None = None,
 ) -> dict:
     """List the findings of a project (or of every project) across all reports, for a review.
 
@@ -1008,6 +1018,8 @@ def list_project_findings(
     ``review_type`` take one value or several (any of them matches; no status: open). ``project``
     None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
+    ``search`` keeps the findings whose title, rule, CWE, file, description, project or branch
+    contains it (case-insensitive, first 200 characters).
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
@@ -1023,6 +1035,18 @@ def list_project_findings(
         filters.append(col(Finding.severity).in_(severities))
     if types := _values(review_type):
         filters.append(col(SecurityReport.review_type).in_(types))
+    if search and search.strip():
+        pattern = _contains_pattern(search.strip())
+        searched = [
+            Finding.title,
+            Finding.rule_id,
+            Finding.cwe,
+            Finding.file_path,
+            Finding.description,
+            SecurityReport.project,
+            SecurityReport.branch,
+        ]
+        filters.append(or_(*(col(column).ilike(pattern, escape="\\") for column in searched)))
     rank = case(*((Finding.severity == s, r) for s, r in SEVERITY_RANK.items()), else_=0)
 
     with session_scope() as session:
@@ -1040,18 +1064,40 @@ def list_project_findings(
             .offset(offset)
             .limit(limit)
         ).all()
-        findings = [
-            {
-                **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
-                "project": report.project,
-                "branch": report.branch,
-                "commit_sha": report.commit_sha,
-                "review_type": report.review_type,
-                "report_created_at": report.created_at,
-            }
-            for finding, report in rows
-        ]
+        findings = [_project_finding(finding, report) for finding, report in rows]
     return {"project": project, "total": total, "findings": findings}
+
+
+def _project_finding(finding: Finding, report: SecurityReport) -> dict:
+    """A finding with the context of its report (project, branch, commit, review type, date)."""
+    return {
+        **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
+        "project": report.project,
+        "branch": report.branch,
+        "commit_sha": report.commit_sha,
+        "review_type": report.review_type,
+        "report_created_at": report.created_at,
+    }
+
+
+def get_project_finding(finding_id: int, projects: Collection[str] | None = None) -> dict:
+    """Return one finding with the context of its report.
+
+    ``projects`` (the scope of a restricted caller) hides the findings of other projects, with
+    the error of a missing finding.
+
+    Raises:
+        NotFoundError: If the finding does not exist or is outside ``projects``.
+    """
+    with session_scope() as session:
+        row = session.exec(
+            select(Finding, SecurityReport)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(Finding.id == finding_id)
+        ).first()
+        if row is None or (projects is not None and row[1].project not in projects):
+            raise NotFoundError(f"Finding {finding_id} not found")
+        return _project_finding(*row)
 
 
 def list_risk_acceptances(

@@ -1,0 +1,41 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.global-search {
+  position: relative;
+  width: 100%;
+}
+
+.shortcut {
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+}
+
+/* Below the field, as wide as it */
+.dropdown-menu {
+  top: calc(100% + 0.25rem);
+  left: 0;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.syntax {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+}
+
+.syntax dd {
+  margin: 0;
+}
+
+/* The text of an entry shrinks (ellipsis) before its badges */
+.entry-text {
+  min-width: 0;
+}
+
+.detail {
+  opacity: 0.75;
+}

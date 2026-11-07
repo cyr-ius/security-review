@@ -65,8 +65,8 @@ outil MCP ni aucune route ne les change.
 
 Les administrateurs le consultent dans la page **Journal d'audit** de l'interface web (filtres
 par événement et par projet), avec `GET /api/v1/audit` (permission `audit.read` ; paramètres `action`,
-`project`, `actor`, `since`, `limit`, `offset`, du plus récent au plus ancien) ou en ligne de
-commande :
+`project`, `actor`, `since`, `limit`, `offset`, `action` répétable : l'un des événements suffit ;
+du plus récent au plus ancien) ou en ligne de commande :
 
 ```bash
 security-review-controller audit list --action token.rotated --since 2026-10-01

@@ -1,56 +1,44 @@
+<!--
+  The projected content (count, selection) on the left, the search and the filters on the right;
+  an element marked "control" (a filter the page handles itself) comes right after the search.
+-->
 <div
-  class="row g-2 align-items-end mb-3"
+  class="d-flex flex-wrap align-items-center gap-2 mb-3"
   role="group"
   [attr.aria-label]="'common.tableControls' | t"
 >
-  <div class="col-12 col-md-4">
-    <label class="form-label small" [for]="idPrefix() + '-search'">{{ 'common.search' | t }}</label>
-    <div class="input-group input-group-sm">
-      <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-      <input
-        [id]="idPrefix() + '-search'"
-        type="search"
-        class="form-control"
-        maxlength="200"
-        [placeholder]="'common.search' | t"
-        [value]="search()"
-        [attr.aria-label]="'common.search' | t"
-        (input)="onSearch($event)"
-      />
-    </div>
+  <div class="me-auto d-flex flex-wrap align-items-center gap-2 small text-body-secondary">
+    <ng-content />
   </div>
 
-  @for (filter of filters(); track filter.key) {
-    <div class="col-6 col-md-2">
-      <label class="form-label small" [for]="idPrefix() + '-filter-' + filter.key">
-        {{ filter.label }}
-      </label>
-      <select
-        [id]="idPrefix() + '-filter-' + filter.key"
-        class="form-select form-select-sm"
-        [value]="filter.value"
-        (change)="onFilter(filter.key, $event)"
-      >
-        @for (option of filter.options; track option.value) {
-          <option [value]="option.value">{{ option.label }}</option>
-        }
-      </select>
-    </div>
-  }
+  <div class="input-group input-group-sm search">
+    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+    <input
+      [id]="idPrefix() + '-search'"
+      type="search"
+      class="form-control"
+      maxlength="200"
+      [placeholder]="searchPlaceholder() || ('common.search' | t)"
+      [attr.aria-label]="searchPlaceholder() || ('common.search' | t)"
+      [value]="search()"
+      (input)="onSearch($event)"
+    />
+  </div>
+
+  <ng-content select="[control]" />
 
   @for (filter of multiFilters(); track filter.key) {
-    <div class="col-6 col-md-2">
-      <label class="form-label small" [for]="idPrefix() + '-filter-' + filter.key">
-        {{ filter.label }}
-      </label>
-      <app-multi-select-dropdown
-        [id]="idPrefix() + '-filter-' + filter.key"
-        [label]="filter.label"
-        [allLabel]="filter.allLabel"
-        [options]="filter.options"
-        [selected]="filter.values"
-        (selectedChange)="multiFilterChange.emit({ key: filter.key, values: $event })"
-      />
-    </div>
+    <app-multi-select-dropdown
+      class="filter"
+      [id]="idPrefix() + '-filter-' + filter.key"
+      [label]="filter.label"
+      [allLabel]="filter.allLabel"
+      [options]="filter.options"
+      [selected]="filter.values"
+      [searchLabel]="filter.options.length > searchFrom ? ('common.search' | t) : null"
+      [filterLocally]="true"
+      [toggleAll]="true"
+      (selectedChange)="multiFilterChange.emit({ key: filter.key, values: $event })"
+    />
   }
 </div>

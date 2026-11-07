@@ -123,7 +123,9 @@ Ses changements de statut se limitent à `open` et `fixed`, comme ceux d'un jeto
 
 L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, chacun répétable :
-l'une des valeurs suffit ; `limit` plafonné par `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
+l'une des valeurs suffit ; `search`, 200 caractères au plus, garde les findings dont le titre,
+la règle, la CWE, le fichier, la description, le projet ou la branche le contient, sans
+distinguer majuscules et minuscules ; `limit` plafonné par `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
 Sans `project`, elle liste les findings de tous les projets que lit l'appelant
 (`"project": null`) :
 
@@ -132,6 +134,9 @@ curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&severity=critical&severity=high&limit=50"
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
+
+`GET /api/v1/findings/{id}` renvoie un finding sous la même forme, avec son `report_id` ; un
+finding hors des projets de l'appelant répond `404`, comme un finding inexistant.
 
 `GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
 `author` ; les trois premiers sont répétables, 50 projets au plus), chacun avec son `author` et son `submitted_by`. L'`author` n'est renvoyé, filtré,

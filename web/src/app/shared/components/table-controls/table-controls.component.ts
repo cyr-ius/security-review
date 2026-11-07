@@ -7,18 +7,6 @@ export interface TableControlOption {
   label: string;
 }
 
-export interface TableControlFilter {
-  key: string;
-  label: string;
-  value: string;
-  options: TableControlOption[];
-}
-
-export interface TableControlFilterChange {
-  key: string;
-  value: string;
-}
-
 /** Filter keeping several values at once (none selected: no filter, ``allLabel``). */
 export interface TableControlMultiFilter {
   key: string;
@@ -33,7 +21,14 @@ export interface TableControlMultiFilterChange {
   values: string[];
 }
 
-/** Search and filter controls shared by collection tables (columns sort: SortHeaderComponent). */
+/** A filter menu offers a search field only beyond this number of options. */
+const FILTER_SEARCH_FROM = 5;
+
+/**
+ * Search and filter controls shared by collection tables (columns sort: SortHeaderComponent), on
+ * one line: the projected content (count, selection) on the left, the search and the filters on
+ * the right. An element marked ``control`` (a filter the page handles itself) follows the search.
+ */
 @Component({
   selector: 'app-table-controls',
   imports: [MultiSelectDropdownComponent, TranslatePipe],
@@ -43,18 +38,25 @@ export interface TableControlMultiFilterChange {
 export class TableControlsComponent {
   readonly idPrefix = input.required<string>();
   readonly search = input('');
-  readonly filters = input<TableControlFilter[]>([]);
+  /** Placeholder and accessible name of the search field (empty: "Search"). */
+  readonly searchPlaceholder = input('');
   readonly multiFilters = input<TableControlMultiFilter[]>([]);
+  readonly searchFrom = FILTER_SEARCH_FROM;
 
   readonly searchChange = output<string>();
-  readonly filterChange = output<TableControlFilterChange>();
   readonly multiFilterChange = output<TableControlMultiFilterChange>();
 
   onSearch(event: Event): void {
     this.searchChange.emit((event.target as HTMLInputElement).value);
   }
+}
 
-  onFilter(key: string, event: Event): void {
-    this.filterChange.emit({ key, value: (event.target as HTMLSelectElement).value });
-  }
+/** The known values among those of a filter, in the order of ``known`` (others dropped). */
+export function knownValues<T extends string>(values: readonly string[], known: readonly T[]): T[] {
+  return known.filter((value) => values.includes(value));
+}
+
+/** True when no value is selected (no filter) or when ``value`` is one of them. */
+export function matchesFilter<T>(selected: readonly T[], value: T): boolean {
+  return selected.length === 0 || selected.includes(value);
 }

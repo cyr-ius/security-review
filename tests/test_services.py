@@ -199,6 +199,13 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert {f["project"] for f in every["findings"]} == {"shop", "other"}
     assert services.list_project_findings(None, projects=["other"])["total"] == 1
     assert services.list_project_findings("shop", projects=["other"])["total"] == 0
+    # Search: title, project or branch, case-insensitive; LIKE wildcards match literally
+    assert [
+        f["title"] for f in services.list_project_findings("shop", search=" rce ")["findings"]
+    ] == ["RCE"]
+    assert services.list_project_findings(None, search="OTHER")["total"] == 1
+    assert services.list_project_findings("shop", search="main")["total"] == 1
+    assert services.list_project_findings("shop", search="%")["total"] == 0
     assert services.list_project_findings("unknown") == {
         "project": "unknown",
         "total": 0,

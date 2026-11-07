@@ -95,9 +95,9 @@
     <app-table-controls
       idPrefix="roles"
       [search]="tableSearch()"
-      [filters]="tableFilters()"
+      [multiFilters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
-      (filterChange)="onRoleTableFilter($event)"
+      (multiFilterChange)="onRoleTableFilter($event)"
     />
     @if (visibleRoles().length) {
       <div class="table-responsive">

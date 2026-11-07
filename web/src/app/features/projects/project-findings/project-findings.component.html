@@ -31,7 +31,14 @@
   <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
 </div>
 
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+<app-table-controls
+  idPrefix="findings"
+  [search]="searchInput()"
+  [searchPlaceholder]="'projectFindings.search' | t"
+  [multiFilters]="filters()"
+  (searchChange)="onSearch($event)"
+  (multiFilterChange)="onFilter($event)"
+>
   @if (auth.canTriage() && triageable().length) {
     <div class="form-check mb-0">
       <input
@@ -42,12 +49,12 @@
         [indeterminate]="selectedFindings().length > 0 && !allSelected()"
         (change)="selectAll($event)"
       />
-      <label class="form-check-label small" for="findings-select-all">{{
+      <label class="form-check-label text-body" for="findings-select-all">{{
         'projectFindings.bulkSelectAll' | t
       }}</label>
     </div>
   }
-  <span class="me-auto text-body-secondary small" aria-live="polite">
+  <span aria-live="polite">
     @if (firstPage.value()) {
       {{ 'projectFindings.count' | t: { shown: findings().length, total: total() } }}
       @if (triagedCount() > 0) {
@@ -55,34 +62,7 @@
       }
     }
   </span>
-  <app-multi-select-dropdown
-    class="filter"
-    id="findings-filter-status"
-    [label]="'report.filterStatus' | t"
-    [allLabel]="'report.allStatuses' | t"
-    [options]="statusOptions()"
-    [selected]="statusFilter()"
-    (selectedChange)="onStatusFilter($event)"
-  />
-  <app-multi-select-dropdown
-    class="filter"
-    id="findings-filter-severity"
-    [label]="'report.filterSeverity' | t"
-    [allLabel]="'report.allSeverities' | t"
-    [options]="severityOptions()"
-    [selected]="severityFilter()"
-    (selectedChange)="onSeverityFilter($event)"
-  />
-  <app-multi-select-dropdown
-    class="filter"
-    id="findings-filter-review-type"
-    [label]="'report.filterReviewType' | t"
-    [allLabel]="'report.allReviewTypes' | t"
-    [options]="reviewTypeOptions()"
-    [selected]="reviewTypeFilter()"
-    (selectedChange)="onReviewTypeFilter($event)"
-  />
-</div>
+</app-table-controls>
 
 @if (triageError(); as message) {
   <div class="alert alert-danger alert-dismissible py-2" role="alert">
@@ -115,68 +95,73 @@
     {{ 'projectFindings.loadError' | t }}
   </div>
 } @else if (firstPage.hasValue()) {
-  @for (finding of findings(); track finding.id) {
-    <app-finding-card
-      [finding]="finding"
-      [canTriage]="auth.canTriage()"
-      [permanentAcceptance]="auth.permanentAcceptance()"
-      [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
-      [saving]="triage.saving() === finding.id"
-      [exportKinds]="exportKinds().get(finding.project) ?? noKinds"
-      [exporting]="exports.sending() === finding.id"
-      [systemNamesByKind]="systemNames()"
-      [selectable]="auth.canTriage()"
-      [selected]="selectedIds().has(finding.id)"
-      (selectedChange)="select(finding, $event)"
-      (decided)="decide(finding, $event)"
-      (proposalRejected)="decide(finding, null)"
-      (exportRequested)="exportFinding(finding, $event)"
-    >
-      @if (!project()) {
-        <a [routerLink]="['/projects', finding.project]" class="text-break">
-          <i class="bi bi-folder" aria-hidden="true"></i> {{ finding.project }}
-        </a>
+  <!-- In a card, as the results of the other lists -->
+  <div class="card">
+    <div class="card-body">
+      @for (finding of findings(); track finding.id) {
+        <app-finding-card
+          [finding]="finding"
+          [canTriage]="auth.canTriage()"
+          [permanentAcceptance]="auth.permanentAcceptance()"
+          [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
+          [saving]="triage.saving() === finding.id"
+          [exportKinds]="exportKinds().get(finding.project) ?? noKinds"
+          [exporting]="exports.sending() === finding.id"
+          [systemNamesByKind]="systemNames()"
+          [selectable]="auth.canTriage()"
+          [selected]="selectedIds().has(finding.id)"
+          (selectedChange)="select(finding, $event)"
+          (decided)="decide(finding, $event)"
+          (proposalRejected)="decide(finding, null)"
+          (exportRequested)="exportFinding(finding, $event)"
+        >
+          @if (!project()) {
+            <a [routerLink]="['/projects', finding.project]" class="text-break">
+              <i class="bi bi-folder" aria-hidden="true"></i> {{ finding.project }}
+            </a>
+          }
+          <a [routerLink]="['/reports', finding.report_id]">
+            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+            {{ 'report.title' | t: { id: finding.report_id } }}
+          </a>
+          <span>{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</span>
+          @if (finding.review_type; as reviewType) {
+            <span [attr.title]="'report.reviewType' | t">
+              <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
+              {{ reviewTypeMeta[reviewType].label | t }}
+            </span>
+          }
+          @if (finding.branch) {
+            <span><i class="bi bi-diagram-2" aria-hidden="true"></i> {{ finding.branch }}</span>
+          }
+          @if (finding.commit_sha) {
+            <code>{{ finding.commit_sha.slice(0, 12) }}</code>
+          }
+        </app-finding-card>
+      } @empty {
+        <p class="text-body-secondary text-center my-4">
+          <i class="bi bi-check2-circle" aria-hidden="true"></i>
+          {{ (defaultFilters() ? 'projectFindings.none' : 'report.noneFiltered') | t }}
+        </p>
       }
-      <a [routerLink]="['/reports', finding.report_id]">
-        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
-        {{ 'report.title' | t: { id: finding.report_id } }}
-      </a>
-      <span>{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</span>
-      @if (finding.review_type; as reviewType) {
-        <span [attr.title]="'report.reviewType' | t">
-          <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
-          {{ reviewTypeMeta[reviewType].label | t }}
-        </span>
-      }
-      @if (finding.branch) {
-        <span><i class="bi bi-diagram-2" aria-hidden="true"></i> {{ finding.branch }}</span>
-      }
-      @if (finding.commit_sha) {
-        <code>{{ finding.commit_sha.slice(0, 12) }}</code>
-      }
-    </app-finding-card>
-  } @empty {
-    <p class="text-body-secondary text-center my-4">
-      <i class="bi bi-check2-circle" aria-hidden="true"></i>
-      {{ (defaultFilters() ? 'projectFindings.none' : 'report.noneFiltered') | t }}
-    </p>
-  }
 
-  @if (hasMore()) {
-    <div class="text-center my-3">
-      <button
-        type="button"
-        class="btn btn-outline-secondary"
-        (click)="loadMore()"
-        [disabled]="loadingMore()"
-      >
-        {{ 'projectFindings.loadMore' | t }}
-      </button>
-      @if (loadMoreFailed()) {
-        <p class="text-danger small mt-2 mb-0">{{ 'projectFindings.loadError' | t }}</p>
+      @if (hasMore()) {
+        <div class="text-center my-3">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            (click)="loadMore()"
+            [disabled]="loadingMore()"
+          >
+            {{ 'projectFindings.loadMore' | t }}
+          </button>
+          @if (loadMoreFailed()) {
+            <p class="text-danger small mt-2 mb-0">{{ 'projectFindings.loadError' | t }}</p>
+          }
+        </div>
       }
     </div>
-  }
+  </div>
 } @else {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>

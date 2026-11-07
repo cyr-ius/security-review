@@ -57,12 +57,12 @@
     [multiFilters]="filters()"
     (searchChange)="search.set($event)"
     (multiFilterChange)="onFilter($event)"
-  />
-  <div class="card">
-    <div class="card-header small text-body-secondary" aria-live="polite">
+  >
+    <span aria-live="polite">
       {{ 'acceptances.count' | t: { shown: visible().length, total: total() - removedCount() } }}
-    </div>
-
+    </span>
+  </app-table-controls>
+  <div class="card">
     @if (visible().length > 0) {
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">

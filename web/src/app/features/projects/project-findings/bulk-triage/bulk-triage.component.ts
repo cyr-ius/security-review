@@ -18,6 +18,8 @@ const DEFAULT_DISMISSAL_DAYS = 90;
 const MIN_REASON_CHARS = 10;
 /** Longest reason accepted by the server (models.MAX_STATUS_REASON_CHARS). */
 const MAX_REASON_CHARS = 1000;
+/** Most findings of one decision accepted by the server (services.MAX_BULK_FINDINGS). */
+const MAX_BULK_FINDINGS = 1000;
 
 /** One decision for every selected finding. */
 interface BulkFormModel {
@@ -73,6 +75,10 @@ export class BulkTriageComponent {
   readonly statuses = FINDING_STATUSES;
   readonly statusMeta = STATUS_META;
   readonly minExpiry = isoDay(1);
+  readonly maxFindings = MAX_BULK_FINDINGS;
+
+  /** More findings are selected than one decision accepts. */
+  readonly tooMany = computed(() => this.findings().length > MAX_BULK_FINDINGS);
 
   readonly model = signal<BulkFormModel>(newModel());
   readonly bulkForm = form(this.model, (path) => {
@@ -114,7 +120,7 @@ export class BulkTriageComponent {
 
   submit(event: Event): void {
     event.preventDefault();
-    if (!this.findings().length || this.bulkForm().invalid()) {
+    if (!this.findings().length || this.tooMany() || this.bulkForm().invalid()) {
       this.bulkForm().markAsTouched();
       return;
     }

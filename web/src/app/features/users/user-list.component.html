@@ -184,9 +184,9 @@
     <app-table-controls
       idPrefix="users"
       [search]="tableSearch()"
-      [filters]="tableFilters()"
+      [multiFilters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
-      (filterChange)="onUserTableFilter($event)"
+      (multiFilterChange)="onUserTableFilter($event)"
     />
     @if (visibleUsers().length) {
       <div class="table-responsive">
@@ -324,9 +324,9 @@
     <app-table-controls
       idPrefix="revoked-users"
       [search]="revokedSearch()"
-      [filters]="revokedFilters()"
+      [multiFilters]="revokedFilters()"
       (searchChange)="revokedSearch.set($event)"
-      (filterChange)="onRevokedFilter($event)"
+      (multiFilterChange)="onRevokedFilter($event)"
     />
     @if (visibleRevoked().length) {
       <div class="table-responsive">

@@ -51,8 +51,8 @@ curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/
 ```
 
 `PATCH /api/v1/findings` applique la même décision (`status`, `reason`, `expires_on`, mêmes
-règles que ci-dessus) à chaque finding de `finding_ids`, au plus `SECREVIEW_MAX_LIST_LIMIT`
-(`100`) findings distincts, tout ou rien : si un finding est refusé (`422`, le message le
+règles que ci-dessus) à chaque finding de `finding_ids`, au plus 1000 findings
+(quelle que soit la taille de page `SECREVIEW_MAX_LIST_LIMIT`), tout ou rien : si un finding est refusé (`422`, le message le
 désigne) ou hors du périmètre de l'appelant (`404`), rien n'est enregistré. Une acceptation
 exige un motif et une date d'expiration dès que l'un des findings atteint
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`. Chaque finding a son propre événement

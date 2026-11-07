@@ -11,8 +11,10 @@ import { AccessRole, Permission } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
@@ -64,14 +66,14 @@ export class RoleListComponent {
     'name',
     'asc',
   );
-  readonly roleTypeFilter = signal<'all' | 'system' | 'custom'>('all');
-  readonly tableFilters = computed<TableControlFilter[]>(() => [
+  readonly roleTypeFilter = signal<('system' | 'custom')[]>([]);
+  readonly tableFilters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'type',
       label: this.i18n.translate('roles.type'),
-      value: this.roleTypeFilter(),
+      allLabel: this.i18n.translate('roles.all'),
+      values: this.roleTypeFilter(),
       options: [
-        { value: 'all', label: this.i18n.translate('roles.all') },
         { value: 'system', label: this.i18n.translate('roles.system') },
         { value: 'custom', label: this.i18n.translate('roles.custom') },
       ],
@@ -79,8 +81,8 @@ export class RoleListComponent {
   ]);
   readonly visibleRoles = computed(() => {
     const type = this.roleTypeFilter();
-    const roles = (this.roles.value() ?? []).filter(
-      (role) => type === 'all' || role.system === (type === 'system'),
+    const roles = (this.roles.value() ?? []).filter((role) =>
+      matchesFilter(type, role.system ? 'system' : 'custom'),
     );
     const sort = this.tableSort.key();
     return filterAndSortRows(
@@ -129,11 +131,9 @@ export class RoleListComponent {
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
-  onRoleTableFilter(change: TableControlFilterChange): void {
-    if (change.key === 'type') {
-      this.roleTypeFilter.set(
-        change.value === 'system' || change.value === 'custom' ? change.value : 'all',
-      );
+  onRoleTableFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'type') {
+      this.roleTypeFilter.set(knownValues(values, ['system', 'custom'] as const));
     }
   }
 

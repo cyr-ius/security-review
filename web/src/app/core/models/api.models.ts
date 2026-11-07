@@ -404,7 +404,8 @@ export interface AuditPage {
 
 /** Filters of the audit log. */
 export interface AuditQuery {
-  action?: AuditAction | null;
+  /** Any of these kinds of event (empty: every kind). */
+  action?: readonly AuditAction[];
   project?: string | null;
   search?: string | null;
   sort_by?: 'created_at' | 'action' | 'actor' | 'target' | 'project';
@@ -948,6 +949,8 @@ export interface ProjectFindingQuery {
   severity: readonly Severity[];
   /** Any of these review types (empty: every type). */
   reviewType: readonly ReviewType[];
+  /** Text in the title, rule, CWE, file, description, project or branch (omitted: no search). */
+  search?: string;
   limit: number;
   offset: number;
 }

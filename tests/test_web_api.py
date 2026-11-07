@@ -402,6 +402,12 @@ def test_project_findings(client, reports):
         "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
     ).json()
     assert [f["id"] for f in dismissed["findings"]] == [first]
+    searched = client.get(
+        "/api/v1/findings", params={"project": "shop-api", "search": "weak HASH"}
+    ).json()
+    assert [f["title"] for f in searched["findings"]] == ["Weak hash"]
+    too_long = {"project": "shop-api", "search": "x" * 201}
+    assert client.get("/api/v1/findings", params=too_long).status_code == 422
 
     # Once expired, the false positive is listed with the open findings again
     with session_scope() as session:
@@ -450,6 +456,15 @@ def test_findings_of_every_project_stay_in_the_scope_of_a_project_reader(secured
     assert {f["project"] for f in page["findings"]} == {"shop-api"}
     refused = secured.get("/api/v1/findings", params={"project": "billing"}, headers=headers)
     assert refused.status_code == 404
+
+    # One finding by its id (search #finding:<id>): with its report, hidden outside the scope
+    own = page["findings"][0]
+    found = secured.get(f"/api/v1/findings/{own['id']}", headers=headers)
+    assert found.status_code == 200
+    assert (found.json()["report_id"], found.json()["project"]) == (reports[0], "shop-api")
+    other = services.list_project_findings("billing")["findings"][0]["id"]
+    assert secured.get(f"/api/v1/findings/{other}", headers=headers).status_code == 404
+    assert secured.get("/api/v1/findings/99999", headers=headers).status_code == 404
 
 
 def test_findings_and_reports_show_and_filter_the_review_type(client):
@@ -2209,8 +2224,10 @@ def test_bulk_triage_is_all_or_nothing_and_in_the_scope_of_the_triager(accounts,
     assert sorted(e["target_id"] for e in events) == sorted([str(high), str(low)])
 
 
-def test_bulk_triage_never_dismisses_with_a_token(secured, reports):
+def test_bulk_triage_never_dismisses_with_a_token(secured, reports, monkeypatch):
     ids = [f.id for f in services.get_report(reports[0]).findings]
+    # The page size does not cap a bulk decision: the web interface selects every loaded finding
+    monkeypatch.setattr(get_settings(), "max_list_limit", 1)
     body = {"finding_ids": ids, "status": "false_positive"}
     response = secured.patch("/api/v1/findings", json=body, headers=auth("admin"))
     assert response.status_code == 403
@@ -3002,6 +3019,11 @@ def test_audit_route_filters_and_permissions(secured, web_sessions, reports):
     assert body["events"][0]["details"]["label"] == "ci"
     params = {"action": "token.revoked"}
     assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
+    # Several actions: any of them matches; an unknown one is refused
+    params = {"action": ["token.revoked", "token.created"], "project": "shop-api"}
+    assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 1
+    params = {"action": ["token.created", "unknown"]}
+    assert secured.get(url, params=params, headers=auth("admin")).status_code == 422
     params = {"since": "2999-01-01"}
     assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
     params = {"action": "unknown"}

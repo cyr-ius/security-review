@@ -41,6 +41,7 @@ import {
   PersonalTokenRole,
   Preferences,
   ProjectDeleted,
+  ProjectFinding,
   ProjectFindingPage,
   ProjectFindingQuery,
   PendingProject,
@@ -526,10 +527,11 @@ export class ApiService {
   }
 
   auditEvents(query: AuditQuery): Observable<AuditPage> {
-    let params = new HttpParams().set('limit', query.limit).set('offset', query.offset);
-    if (query.action) {
-      params = params.set('action', query.action);
-    }
+    // Repeated parameter: any of the actions matches
+    let params = new HttpParams()
+      .set('limit', query.limit)
+      .set('offset', query.offset)
+      .appendAll({ action: [...(query.action ?? [])] });
     if (query.project) {
       params = params.set('project', query.project);
     }
@@ -595,7 +597,15 @@ export class ApiService {
     if (query.project) {
       params = params.set('project', query.project);
     }
+    if (query.search) {
+      params = params.set('search', query.search);
+    }
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
+  }
+
+  /** One finding with the context of its report (404 outside the scope of the caller). */
+  projectFinding(id: number): Observable<ProjectFinding> {
+    return this.http.get<ProjectFinding>(`${API_URL}/findings/${id}`);
   }
 
   /** Record a triage decision (accepted needs a reason and an expiry, false_positive neither). */
