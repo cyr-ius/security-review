@@ -46,7 +46,7 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 # Build stage: resolve dependencies from uv.lock into a self-contained venv
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 COPY --from=uv /uv /bin/uv
 
@@ -92,7 +92,7 @@ ADD --checksum=sha256:2b713a29a00237f85408b83002fc111db5b94c7fa8d263f0a93184a960
 # registries reuse it from one version to the next.
 FROM opengrep-${TARGETARCH} AS opengrep-binary
 
-FROM python:3.14-slim AS opengrep-bundle
+FROM python:3.15-slim AS opengrep-bundle
 COPY --from=opengrep-binary /opengrep /tmp/opengrep
 RUN XDG_CACHE_HOME=/tmp/cache HOME=/tmp /tmp/opengrep --version \
     && mv /tmp/cache/opengrep/v* /opt/opengrep \
@@ -102,7 +102,7 @@ RUN XDG_CACHE_HOME=/tmp/cache HOME=/tmp /tmp/opengrep --version \
 # ---------------------------------------------------------------------------
 # Runtime stage: no build tools, no sources, non-root user
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 LABEL org.opencontainers.image.title="security-review" \
       org.opencontainers.image.description="Security code review: MCP server and controller (REST API, web interface, CI/CD gate)"
