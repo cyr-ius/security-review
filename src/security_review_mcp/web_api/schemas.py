@@ -1656,6 +1656,8 @@ class OpenGrepRuleProposalList(BaseModel):
     """OpenGrep rules proposed by agents, newest first."""
 
     proposals: list[OpenGrepRuleProposalPublic]
+    # Proposals of the requested status, beyond the page
+    total: int
 
 
 class OpenGrepRuleApproval(BaseModel):

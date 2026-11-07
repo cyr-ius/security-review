@@ -2229,6 +2229,7 @@ def test_only_a_logged_in_person_decides_on_a_proposed_opengrep_rule(secured, mo
 
     listed = secured.get("/api/v1/opengrep/proposals", headers=auth("admin")).json()
     assert [item["rule_id"] for item in listed["proposals"]] == [rule_id]
+    assert listed["total"] == 1
     # A bearer token, which an agent may hold, never installs a rule it proposed
     assert secured.post(url, json={}, headers=auth("admin")).status_code == 403
     response = secured.post(url, json={}, headers={"Authorization": f"Bearer {session}"})

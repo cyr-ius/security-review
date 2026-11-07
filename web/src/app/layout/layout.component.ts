@@ -35,6 +35,8 @@ interface NavItem {
   icon: string;
   /** Shown only to the users that hold it (the route has the same permission guard). */
   permission?: Permission;
+  /** Tooltip of the number shown next to the entry, if any. */
+  badgeTitle?: MessageKey;
 }
 
 /** Application shell: sidebar navigation, top bar and the routed page. */
@@ -74,6 +76,7 @@ export class LayoutComponent {
       label: 'layout.findings',
       icon: 'bi-shield-check',
       permission: 'reports.read',
+      badgeTitle: 'layout.openFindings',
     },
     {
       path: '/risk-acceptances',
@@ -91,6 +94,7 @@ export class LayoutComponent {
       label: 'layout.opengrepRules',
       icon: 'bi-filetype-yml',
       permission: 'rules.read',
+      badgeTitle: 'layout.pendingProposals',
     },
     {
       path: '/checklists',
@@ -163,11 +167,22 @@ export class LayoutComponent {
       this.api.projectFindings({ status: [], severity: [], reviewType: [], limit: 1, offset: 0 }),
   });
 
+  /** OpenGrep rules proposed by agents and waiting for a decision (only rules.manage decides). */
+  private readonly pendingProposals = rxResource({
+    params: () => (this.auth.can('rules.manage') ? { navigation: this.navigations() } : undefined),
+    stream: () => this.api.opengrepProposals(),
+  });
+
   /** Number shown next to an entry of the sidebar (null: no badge). */
   badge(item: NavItem): number | null {
-    return item.path === '/findings' && this.openFindings.hasValue()
-      ? this.openFindings.value().total
-      : null;
+    if (item.path === '/findings') {
+      return this.openFindings.hasValue() ? this.openFindings.value().total : null;
+    }
+    if (item.path === '/opengrep-rules' && this.pendingProposals.hasValue()) {
+      // Shown only while proposals wait for a review
+      return this.pendingProposals.value().total || null;
+    }
+    return null;
   }
 
   /** Entries of the Référentiel section the current user may open. */

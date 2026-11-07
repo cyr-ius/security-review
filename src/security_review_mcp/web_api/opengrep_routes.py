@@ -151,7 +151,8 @@ async def list_proposals(
     proposals = await run_in_threadpool(
         opengrep_proposals.list_proposals, proposal_status, limit, offset
     )
-    return OpenGrepRuleProposalList.model_validate({"proposals": proposals})
+    total = await run_in_threadpool(opengrep_proposals.count_proposals, proposal_status)
+    return OpenGrepRuleProposalList.model_validate({"proposals": proposals, "total": total})
 
 
 @router.post("/proposals/{proposal_id}/approve", response_model=OpenGrepRuleProposalPublic)

@@ -162,6 +162,15 @@ def list_proposals(
         return [_public(row) for row in rows]
 
 
+def count_proposals(status: RuleProposalStatus | None = RuleProposalStatus.PENDING) -> int:
+    """Number of proposals, optionally of one status (the badge of the sidebar)."""
+    query = select(func.count()).select_from(OpenGrepRuleProposal)
+    if status is not None:
+        query = query.where(OpenGrepRuleProposal.status == status)
+    with session_scope() as session:
+        return session.exec(query).one()
+
+
 def _pending(session: Any, proposal_id: int) -> OpenGrepRuleProposal:
     """The pending proposal ``proposal_id``.
 

@@ -575,6 +575,8 @@ export interface OpenGrepRuleProposal {
 
 export interface OpenGrepRuleProposalList {
   proposals: OpenGrepRuleProposal[];
+  /** Proposals of the requested status, beyond the page. */
+  total: number;
 }
 
 /** Origin of a stored checklist item. */

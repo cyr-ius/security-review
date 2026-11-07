@@ -62,7 +62,7 @@
                   <span
                     class="badge rounded-pill text-bg-secondary ms-auto"
                     [class.visually-hidden]="rail()"
-                    [title]="'layout.openFindings' | t: { count }"
+                    [title]="item.badgeTitle! | t: { count }"
                   >
                     {{ count }}
                   </span>
@@ -92,6 +92,16 @@
               >
                 <i class="bi" [class]="item.icon" aria-hidden="true"></i>
                 <span class="nav-label" [class.visually-hidden]="rail()">{{ item.label | t }}</span>
+                @let count = badge(item);
+                @if (count !== null) {
+                  <span
+                    class="badge rounded-pill text-bg-warning ms-auto"
+                    [class.visually-hidden]="rail()"
+                    [title]="item.badgeTitle! | t: { count }"
+                  >
+                    {{ count }}
+                  </span>
+                }
               </a>
             </li>
           }
