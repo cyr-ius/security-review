@@ -57,6 +57,7 @@ from .schemas import (
     ProjectAutojoinUpdate,
     ProjectCreate,
     ProjectDeleted,
+    ProjectFinding,
     ProjectFindingPage,
     ProjectPosture,
     ProjectSummary,
@@ -279,6 +280,12 @@ async def project_findings(
         identity.projects,
         search,
     )
+
+
+@router.get("/findings/{finding_id}")
+async def project_finding(finding_id: int, identity: CurrentIdentity) -> ProjectFinding:
+    """Return one finding with the context of its report (404 outside the scope of the caller)."""
+    return await run_in_threadpool(services.get_project_finding, finding_id, identity.projects)
 
 
 @router.get("/risk-acceptances")

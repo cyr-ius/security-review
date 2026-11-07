@@ -23,6 +23,18 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
   **Référentiel** (règles, checklists, normes) et **Administration**. Vous ne voyez que les
   pages permis par vos permissions. **Findings** affiche le nombre de findings ouverts dans les
   projets que vous lisez.
+- Le **champ de recherche** au milieu de la barre du haut (Ctrl+K, ⌘K sur Mac) cherche dans les
+  findings et les rapports de vos projets ; Entrée ouvre la première suggestion :
+
+    | Saisie | Pour |
+    |---|---|
+    | `sql injection` | Rechercher le texte dans les findings (titre, règle, CWE, fichier, description, projet, branche) ou dans les rapports |
+    | `#report:12` | Ouvrir le rapport 12 |
+    | `#finding:34` | Ouvrir le finding 34 dans son rapport |
+    | `#report:texte`, `#finding:texte` | Rechercher uniquement dans les rapports, ou dans les findings |
+    | `#report:*`, `#finding:*`, `*` | Lister tous les rapports, tous les findings, ou proposer les deux |
+
+    Les findings exigent `reports.read`.
 - En haut à droite, choisissez la langue (anglais, français, espagnol) et le thème
   (automatique, clair, sombre). La langue ne change que l'interface : celle des rapports se règle
   dans **Général**.

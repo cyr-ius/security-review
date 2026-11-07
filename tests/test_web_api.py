@@ -457,6 +457,15 @@ def test_findings_of_every_project_stay_in_the_scope_of_a_project_reader(secured
     refused = secured.get("/api/v1/findings", params={"project": "billing"}, headers=headers)
     assert refused.status_code == 404
 
+    # One finding by its id (search #finding:<id>): with its report, hidden outside the scope
+    own = page["findings"][0]
+    found = secured.get(f"/api/v1/findings/{own['id']}", headers=headers)
+    assert found.status_code == 200
+    assert (found.json()["report_id"], found.json()["project"]) == (reports[0], "shop-api")
+    other = services.list_project_findings("billing")["findings"][0]["id"]
+    assert secured.get(f"/api/v1/findings/{other}", headers=headers).status_code == 404
+    assert secured.get("/api/v1/findings/99999", headers=headers).status_code == 404
+
 
 def test_findings_and_reports_show_and_filter_the_review_type(client):
     services.save_report(

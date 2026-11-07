@@ -83,9 +83,12 @@ export class ProjectFindingsComponent {
   readonly severityFilter = signal<Severity[]>([]);
   readonly reviewTypeFilter = signal<ReviewType[]>([]);
 
+  /** Query parameter ?search= (set by the search field of the top bar). */
+  readonly search = input<string>();
+
   /** Text typed in the search field, and the search applied once typing pauses. */
-  readonly searchInput = signal('');
-  readonly search = signal('');
+  readonly searchInput = linkedSignal(() => this.search() ?? '');
+  readonly appliedSearch = linkedSignal(() => (this.search() ?? '').trim());
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   /** Statuses listed: the selected ones, or all of them. */
@@ -119,7 +122,7 @@ export class ProjectFindingsComponent {
       this.statusFilter()[0] === 'open' &&
       !this.severityFilter().length &&
       !this.reviewTypeFilter().length &&
-      !this.search(),
+      !this.appliedSearch(),
   );
 
   /** First page for the current filters. */
@@ -129,7 +132,7 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
-      search: this.search() || undefined,
+      search: this.appliedSearch() || undefined,
       limit: PAGE_SIZE,
       offset: 0,
     }),
@@ -208,7 +211,7 @@ export class ProjectFindingsComponent {
     const value = (event.target as HTMLInputElement).value;
     this.searchInput.set(value);
     clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => this.search.set(value.trim()), SEARCH_DELAY_MS);
+    this.searchTimer = setTimeout(() => this.appliedSearch.set(value.trim()), SEARCH_DELAY_MS);
   }
 
   /** Append the next page to the list. */
@@ -220,7 +223,7 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
-      search: this.search() || undefined,
+      search: this.appliedSearch() || undefined,
       limit: PAGE_SIZE,
       // Triaged findings left the filtered set on the server: skipping them in the offset
       // keeps the next page from jumping over findings not yet seen

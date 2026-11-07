@@ -14,6 +14,7 @@ import { ThemeService } from '../core/services/theme.service';
 import { LanguageSelectComponent } from '../shared/components/language-select/language-select.component';
 import { ThemeButtonComponent } from '../shared/components/theme-button/theme-button.component';
 import { describeGrants } from '../shared/utils/permission-utils';
+import { GlobalSearchComponent } from './global-search/global-search.component';
 import { SessionExpiredComponent } from './session-expired/session-expired.component';
 
 /** Below Bootstrap's lg breakpoint the sidebar is a rail of icons. */
@@ -43,6 +44,7 @@ interface NavItem {
 @Component({
   selector: 'app-layout',
   imports: [
+    GlobalSearchComponent,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,

@@ -41,6 +41,7 @@ import {
   PersonalTokenRole,
   Preferences,
   ProjectDeleted,
+  ProjectFinding,
   ProjectFindingPage,
   ProjectFindingQuery,
   PendingProject,
@@ -599,6 +600,11 @@ export class ApiService {
       params = params.set('search', query.search);
     }
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
+  }
+
+  /** One finding with the context of its report (404 outside the scope of the caller). */
+  projectFinding(id: number): Observable<ProjectFinding> {
+    return this.http.get<ProjectFinding>(`${API_URL}/findings/${id}`);
   }
 
   /** Record a triage decision (accepted needs a reason and an expiry, false_positive neither). */

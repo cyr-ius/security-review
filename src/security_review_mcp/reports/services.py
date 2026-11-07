@@ -1064,18 +1064,40 @@ def list_project_findings(
             .offset(offset)
             .limit(limit)
         ).all()
-        findings = [
-            {
-                **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
-                "project": report.project,
-                "branch": report.branch,
-                "commit_sha": report.commit_sha,
-                "review_type": report.review_type,
-                "report_created_at": report.created_at,
-            }
-            for finding, report in rows
-        ]
+        findings = [_project_finding(finding, report) for finding, report in rows]
     return {"project": project, "total": total, "findings": findings}
+
+
+def _project_finding(finding: Finding, report: SecurityReport) -> dict:
+    """A finding with the context of its report (project, branch, commit, review type, date)."""
+    return {
+        **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
+        "project": report.project,
+        "branch": report.branch,
+        "commit_sha": report.commit_sha,
+        "review_type": report.review_type,
+        "report_created_at": report.created_at,
+    }
+
+
+def get_project_finding(finding_id: int, projects: Collection[str] | None = None) -> dict:
+    """Return one finding with the context of its report.
+
+    ``projects`` (the scope of a restricted caller) hides the findings of other projects, with
+    the error of a missing finding.
+
+    Raises:
+        NotFoundError: If the finding does not exist or is outside ``projects``.
+    """
+    with session_scope() as session:
+        row = session.exec(
+            select(Finding, SecurityReport)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(Finding.id == finding_id)
+        ).first()
+        if row is None or (projects is not None and row[1].project not in projects):
+            raise NotFoundError(f"Finding {finding_id} not found")
+        return _project_finding(*row)
 
 
 def list_risk_acceptances(

@@ -135,6 +135,9 @@ curl -H "Authorization: Bearer $TOKEN" \
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
+`GET /api/v1/findings/{id}` renvoie un finding sous la même forme, avec son `report_id` ; un
+finding hors des projets de l'appelant répond `404`, comme un finding inexistant.
+
 `GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
 `author` ; les trois premiers sont répétables, 50 projets au plus), chacun avec son `author` et son `submitted_by`. L'`author` n'est renvoyé, filtré,
 recherché et trié que pour un appelant qui détient `users.manage` ou `tokens.manage` : pour les

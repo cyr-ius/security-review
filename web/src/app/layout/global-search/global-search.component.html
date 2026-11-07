@@ -1,0 +1,81 @@
+<div class="global-search" role="search" (focusout)="onFocusOut($event)">
+  <div class="input-group input-group-sm">
+    <span class="input-group-text">
+      @if (busy()) {
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+      } @else {
+        <i class="bi bi-search" aria-hidden="true"></i>
+      }
+    </span>
+    <input
+      #field
+      id="global-search"
+      type="search"
+      class="form-control"
+      role="combobox"
+      autocomplete="off"
+      aria-autocomplete="list"
+      aria-controls="global-search-list"
+      [attr.aria-expanded]="open()"
+      [attr.aria-activedescendant]="
+        open() && suggestions().length ? 'global-search-option-' + active() : null
+      "
+      [attr.maxlength]="maxLength"
+      [placeholder]="'layout.searchPlaceholder' | t"
+      [attr.aria-label]="'layout.search' | t"
+      [value]="query()"
+      (input)="onInput($event)"
+      (keydown)="onKeydown($event)"
+      (focus)="open.set(true)"
+    />
+    <span class="input-group-text shortcut d-none d-xl-inline-flex" aria-hidden="true">
+      {{ 'layout.searchShortcut' | t }}
+    </span>
+  </div>
+
+  <!-- mousedown keeps the focus in the field, so that a click is not lost on blur -->
+  <div
+    class="dropdown-menu w-100 shadow-sm"
+    [class.show]="open()"
+    (mousedown)="$event.preventDefault()"
+  >
+    @if (error(); as failure) {
+      <p class="px-3 py-1 mb-1 small text-danger" role="alert">
+        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+        {{ failure.label | t: failure.params }}
+      </p>
+    }
+    <div id="global-search-list" role="listbox" [attr.aria-label]="'layout.search' | t">
+      @for (item of suggestions(); track $index) {
+        <button
+          type="button"
+          class="dropdown-item d-flex align-items-center gap-2"
+          role="option"
+          tabindex="-1"
+          [id]="'global-search-option-' + $index"
+          [class.active]="$index === active()"
+          [attr.aria-selected]="$index === active()"
+          (click)="go(item.target)"
+          (mouseenter)="active.set($index)"
+        >
+          <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+          <span class="text-truncate">{{ item.label | t: item.params }}</span>
+          @if ($index === active()) {
+            <i class="bi bi-arrow-return-left ms-auto small" aria-hidden="true"></i>
+          }
+        </button>
+      }
+    </div>
+    @if (!query().trim()) {
+      <p class="dropdown-header mb-0">{{ 'layout.searchHelp' | t }}</p>
+      <dl class="syntax small mb-0 px-3 pb-1">
+        @for (entry of syntax; track entry.example) {
+          <dt>
+            <code>{{ entry.example }}</code>
+          </dt>
+          <dd class="text-body-secondary">{{ entry.label | t }}</dd>
+        }
+      </dl>
+    }
+  </div>
+</div>

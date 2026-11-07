@@ -21,6 +21,18 @@ A page is missing? You do not hold its permission: ask an administrator (see
   **Review** (findings and risk acceptances, with `reports.read`, then reports), **Reference** (rules,
   checklists, standards) and **Administration**. You only see the pages your permissions
   allow. **Findings** shows the number of open findings in the projects you read.
+- The **search field** in the middle of the top bar (Ctrl+K, ⌘K on a Mac) searches the
+  findings and the reports in your projects; Enter opens the first suggestion:
+
+    | Type | To |
+    |---|---|
+    | `sql injection` | Search the findings (title, rule, CWE, file, description, project, branch), or the reports, for the text |
+    | `#report:12` | Open report 12 |
+    | `#finding:34` | Open finding 34 in its report |
+    | `#report:text`, `#finding:text` | Search only the reports, or only the findings |
+    | `#report:*`, `#finding:*`, `*` | List every report, every finding, or offer both |
+
+    The findings need `reports.read`.
 - At the top right, choose the language (English, French, Spanish) and the theme (automatic,
   light, dark). The language only changes the interface: the language of the reports is set in
   **General**.

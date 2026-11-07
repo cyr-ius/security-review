@@ -130,6 +130,9 @@ curl -H "Authorization: Bearer $TOKEN" \
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
+`GET /api/v1/findings/{id}` returns one finding in the same form, with its `report_id`; a
+finding outside the projects of the caller answers `404`, like a missing one.
+
 `GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
 filter; the first three are repeatable, at most 50 projects), each with its `author` and `submitted_by`. The `author` is returned, filtered, searched
 and sorted only for a caller holding `users.manage` or `tokens.manage`: for the others it is
