@@ -30,3 +30,12 @@
 .syntax dd {
   margin: 0;
 }
+
+/* The text of an entry shrinks (ellipsis) before its badges */
+.entry-text {
+  min-width: 0;
+}
+
+.detail {
+  opacity: 0.75;
+}

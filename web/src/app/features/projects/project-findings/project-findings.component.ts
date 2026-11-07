@@ -78,9 +78,16 @@ export class ProjectFindingsComponent {
 
   readonly reviewTypeMeta = REVIEW_TYPE_META;
 
+  /** Query parameters ?status=&severity= (set by the search of the top bar, may be repeated). */
+  readonly status = input<string | string[]>();
+  readonly severity = input<string | string[]>();
+
   /** Selected values of each filter (none: no filter, every status for the status). */
-  readonly statusFilter = signal<FindingStatus[]>(['open']);
-  readonly severityFilter = signal<Severity[]>([]);
+  readonly statusFilter = linkedSignal<FindingStatus[]>(() => {
+    const statuses = known(this.status(), FINDING_STATUSES);
+    return statuses.length ? statuses : ['open'];
+  });
+  readonly severityFilter = linkedSignal<Severity[]>(() => known(this.severity(), SEVERITIES));
   readonly reviewTypeFilter = signal<ReviewType[]>([]);
 
   /** Query parameter ?search= (set by the search field of the top bar). */
@@ -308,4 +315,10 @@ export class ProjectFindingsComponent {
     this.triageError.set(null);
     this.findings.update((all) => all.map((f) => (f.id === updated.id ? { ...f, ...updated } : f)));
   }
+}
+
+/** Known values of a query parameter given once or repeated, in their usual order. */
+function known<T extends string>(value: string | string[] | undefined, values: readonly T[]): T[] {
+  const given = Array.isArray(value) ? value : [value ?? ''];
+  return values.filter((item) => given.includes(item));
 }

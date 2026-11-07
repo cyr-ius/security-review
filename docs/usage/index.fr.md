@@ -24,17 +24,28 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
   pages permis par vos permissions. **Findings** affiche le nombre de findings ouverts dans les
   projets que vous lisez.
 - Le **champ de recherche** au milieu de la barre du haut (Ctrl+K, ⌘K sur Mac) cherche dans les
-  findings et les rapports de vos projets ; Entrée ouvre la première suggestion :
+  findings et les rapports de vos projets, et propose les projets dont le nom contient le texte
+  (ouvrir le projet, ses findings ou ses rapports). Pendant la saisie, la liste affiche les
+  premiers findings ouverts (5) et les derniers rapports (3) trouvés, avec le nombre de findings
+  correspondants ; Entrée ouvre la première suggestion :
 
     | Saisie | Pour |
     |---|---|
     | `sql injection` | Rechercher le texte dans les findings (titre, règle, CWE, fichier, description, projet, branche) ou dans les rapports |
     | `#report:12` | Ouvrir le rapport 12 |
+    | `toto #report:12` | Ouvrir le rapport 12 en recherchant « toto » dans ses findings |
     | `#finding:34` | Ouvrir le finding 34 dans son rapport |
-    | `#report:texte`, `#finding:texte` | Rechercher uniquement dans les rapports, ou dans les findings |
+    | `#report:texte`, `toto #finding:*` | Rechercher uniquement dans les rapports, ou dans les findings |
     | `#report:*`, `#finding:*`, `*` | Lister tous les rapports, tous les findings, ou proposer les deux |
+    | `sql project:shop` | Uniquement dans le projet `shop` |
+    | `severity:high,critical` (ou `sev:`) | Uniquement ces sévérités (niveau de risque des rapports) |
+    | `status:accepted` | Les findings de ce statut (`open`, `fixed`, `accepted`, `false_positive`) au lieu des ouverts |
+    | `rule:PY-004`, `cwe:89` | Recherchés comme du texte |
 
-    Les findings exigent `reports.read`.
+    Filtres et texte se combinent dans n'importe quel ordre : `sql project:shop sev:high #finding:*`.
+    Un seul `#report:` ou `#finding:` par recherche ; le reste du texte est recherché. Une valeur
+    de filtre inconnue (`sev:urgent`) est recherchée comme du texte. Un nom de projet saisi en
+    entier passe en premier. Les findings exigent `reports.read`.
 - En haut à droite, choisissez la langue (anglais, français, espagnol) et le thème
   (automatique, clair, sombre). La langue ne change que l'interface : celle des rapports se règle
   dans **Général**.
@@ -63,7 +74,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 |---|---|
 | **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, fichier, description, projet, branche) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
-| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings, téléchargement Markdown et SARIF |
+| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings (recherche par texte, filtres de sévérité et de statut), téléchargement Markdown et SARIF |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent des fichiers TOML)
 

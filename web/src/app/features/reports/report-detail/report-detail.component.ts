@@ -88,6 +88,11 @@ export class ReportDetailComponent {
   /** Local copy of the findings, updated in place after a triage decision. */
   readonly findings = linkedSignal<Finding[]>(() => this.report.value()?.findings ?? []);
 
+  /** Query parameter ?search= (set by the search of the top bar: ``text #report:<id>``). */
+  readonly search = input<string>();
+  /** Text searched in the findings of the report (title, rule, CWE, file, description...). */
+  readonly searchInput = linkedSignal(() => this.search() ?? '');
+
   readonly severityFilter = signal<Severity | ''>('');
   readonly statusFilter = signal<FindingStatus | ''>('');
 
@@ -103,6 +108,7 @@ export class ReportDetailComponent {
     this.findings()
       .filter((f) => !this.severityFilter() || f.severity === this.severityFilter())
       .filter((f) => !this.statusFilter() || f.status === this.statusFilter())
+      .filter((f) => matches(f, this.searchInput()))
       .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.id - b.id),
   );
 
@@ -158,6 +164,10 @@ export class ReportDetailComponent {
     });
   }
 
+  onSearch(event: Event): void {
+    this.searchInput.set((event.target as HTMLInputElement).value);
+  }
+
   onSeverityFilter(event: Event): void {
     this.severityFilter.set((event.target as HTMLSelectElement).value as Severity | '');
   }
@@ -208,4 +218,23 @@ export class ReportDetailComponent {
     const id = this.reportId();
     saveBlob(await firstValueFrom(this.api.sarif({ report_id: id })), `report-${id}.sarif`);
   }
+}
+
+/** True when the finding contains the text (case-insensitive; no text: every finding). */
+function matches(finding: Finding, search: string): boolean {
+  const text = search.trim().toLowerCase();
+  if (!text) {
+    return true;
+  }
+  return [
+    finding.title,
+    finding.rule_id,
+    finding.cwe,
+    finding.owasp,
+    finding.category,
+    finding.file_path,
+    finding.description,
+    finding.evidence,
+    finding.recommendation,
+  ].some((value) => value?.toLowerCase().includes(text));
 }
