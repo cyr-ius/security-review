@@ -1,5 +1,22 @@
 # Changelog
 
+## [11.1.0](https://github.com/cyr-ius/security-review/compare/v11.0.0...v11.1.0) (2026-11-07)
+
+
+### Features
+
+* **advisories:** choose the downloaded OSV ecosystems in the web interface ([4ff73a7](https://github.com/cyr-ius/security-review/commit/4ff73a717576d7d75d237fbaa3128f4e8acd7990))
+* **mcp:** delegate scan_code to the Controller server ([4de0c39](https://github.com/cyr-ius/security-review/commit/4de0c39fbc9ee6f81b7ddc2b43786e505765e475))
+* **settings:** delegate scan_code to the Controller server address from the web interface ([fd0d4da](https://github.com/cyr-ius/security-review/commit/fd0d4da1ff9fcc89e3a49a664a61e2521b9bf79f))
+* **triage:** record one decision on several findings at once ([a7f8a0d](https://github.com/cyr-ius/security-review/commit/a7f8a0dc534514c268ec94a440d9df4c033daef1))
+* **web:** show the pending OpenGrep rule proposals in the menu ([3045248](https://github.com/cyr-ius/security-review/commit/3045248f27eef71cdb43f4fb55d7b0acf04e1a83))
+
+
+### Bug Fixes
+
+* **opengrep:** give the scan_code fragments their own scan slots ([8b98356](https://github.com/cyr-ius/security-review/commit/8b983560cc0c064d571143d7dabd715f98655cb7))
+* **opengrep:** refuse a proposed rule that duplicates an existing one ([243823e](https://github.com/cyr-ius/security-review/commit/243823ef4e53a3811fd858542bcf480f14961b09))
+
 ## [11.0.0](https://github.com/cyr-ius/security-review/compare/v10.0.1...v11.0.0) (2026-11-01)
 
 
