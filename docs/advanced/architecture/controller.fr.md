@@ -292,6 +292,7 @@ prochaine connexion OIDC. **Utiliser l'adresse actuelle** remplit l'adresse de c
 |---|---|
 | `GET /api/v1/settings` | Pour chaque réglage : la valeur enregistrée `value`, la variable `env`, `env_set` (la variable est définie et prioritaire) et la valeur effective |
 | `PUT /api/v1/settings/controller-url` | `value` (`null` la supprime) |
+| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled` : délègue `scan_code` du serveur MCP à l'adresse du serveur Controller (`422` tant que l'adresse est inconnue ; audité, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` et `no_proxy` : `null` supprime la valeur enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé. Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré |
 
 Une valeur dont la variable est définie est refusée avec `422`. Les réglages OIDC ont leurs

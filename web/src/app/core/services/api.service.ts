@@ -661,6 +661,11 @@ export class ApiService {
     return this.http.put<AppSettings>(`${API_URL}/settings/controller-url`, { value });
   }
 
+  /** Delegate scan_code of the MCP server to the public URL of the controller, or stop. */
+  setMcpScanDelegation(enabled: boolean): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/mcp-scan-delegation`, { enabled });
+  }
+
   /** A field left out is unchanged; null restores the variable, url '' connects directly. */
   setProxy(values: ProxyUpdate): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);

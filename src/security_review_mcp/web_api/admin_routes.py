@@ -21,6 +21,7 @@ from .schemas import (
     AuditSyslogSettings,
     AuditSyslogUpdate,
     ControllerUrlUpdate,
+    McpScanDelegationUpdate,
     ProxyUpdate,
     ReportLanguageUpdate,
 )
@@ -116,6 +117,22 @@ async def set_controller_url(body: ControllerUrlUpdate, identity: SettingsManage
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Controller URL set to %r by %s", body.value, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/mcp-scan-delegation")
+async def set_mcp_scan_delegation(
+    body: McpScanDelegationUpdate, identity: SettingsManager
+) -> AppSettings:
+    """Delegate scan_code of the MCP server to the public URL of the controller, or stop (read
+    by the MCP server at each scan; recorded in the audit log)."""
+    try:
+        await run_in_threadpool(
+            app_settings.set_mcp_scan_delegation, body.enabled, actor_of(identity)
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("scan_code delegation set to %s by %s", body.enabled, identity.client)
     return await run_in_threadpool(app_settings.describe)
 
 

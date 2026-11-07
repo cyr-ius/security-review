@@ -540,13 +540,20 @@ def scan_code(
         raise ValueError(f"Content too large ({len(content)} chars); the limit is {limit}")
     language = scanner.normalize_language(language)
     # Delegated to the Controller server when configured (its rules and OpenGrep rules), with the
-    # token of the caller; scanned here with stdio or when the Controller server fails
+    # token of the caller: SECREVIEW_MCP_SCAN_CONTROLLER_URL, else the controller URL when the
+    # delegation is turned on in the web interface; scanned here with stdio or when the Controller
+    # server fails
     result = controller_error = None
     authorization = _caller_authorization(ctx)
-    if settings.mcp_scan_controller_url and authorization:
+    controller_url = (
+        settings.mcp_scan_controller_url or app_settings.mcp_scan_controller_url()
+        if authorization
+        else None
+    )
+    if controller_url:
         try:
             result = remote_scan.scan(
-                settings.mcp_scan_controller_url,
+                controller_url,
                 authorization,
                 content,
                 language,

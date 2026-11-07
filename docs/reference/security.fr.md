@@ -113,7 +113,8 @@
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du serveur Controller qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. Seule exception, désactivée par défaut : avec
-  `SECREVIEW_MCP_SCAN_CONTROLLER_URL`, `scan_code` envoie son fragment au serveur Controller avec le
+  `SECREVIEW_MCP_SCAN_CONTROLLER_URL` (ou la délégation activée par un administrateur dans la page
+  **Général**, auditée), `scan_code` envoie son fragment au serveur Controller avec le
   jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
   journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
   un jeton `mcp` n'atteint que cette route. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active

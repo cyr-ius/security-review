@@ -81,6 +81,9 @@ class AuditAction(StrEnum):
     AUDIT_SYSLOG_CHANGED = "audit_syslog.changed"
     # Public URL of the controller, given to the clients without a token (see app_settings)
     CONTROLLER_URL_CHANGED = "controller_url.changed"
+    # scan_code of the MCP server delegated to the controller URL, turned on or off in the web
+    # interface (see app_settings.set_mcp_scan_delegation)
+    MCP_SCAN_DELEGATION_CHANGED = "mcp_scan_delegation.changed"
     # Connectors (see connectors): a finding exported (record created or reused), the
     # destination of a project, the connection of a system
     FINDING_EXPORTED = "finding.exported"

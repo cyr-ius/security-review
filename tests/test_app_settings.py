@@ -89,6 +89,23 @@ def test_controller_url_set_on_the_controller_is_copied_for_the_mcp_server(monke
     ]
 
 
+def test_scan_delegation_needs_the_controller_url_and_is_audited():
+    with pytest.raises(ValueError, match="public URL of the controller"):
+        app_settings.set_mcp_scan_delegation(True, "user:alice")
+    app_settings.set_controller_url("https://secreview.example", "user:alice", make_settings())
+    app_settings.set_mcp_scan_delegation(True, "user:alice")
+    assert app_settings.mcp_scan_controller_url() == "https://secreview.example"
+
+    # The tokens of the agents never follow a changed URL: the delegation is turned off
+    app_settings.set_controller_url("https://evil.example", "user:bob", make_settings())
+    assert app_settings.mcp_scan_controller_url() is None
+    events = audit.list_events(action="mcp_scan_delegation.changed")["events"]
+    assert [(e["actor"], e["details"]["enabled"]) for e in events] == [
+        ("user:bob", False),
+        ("user:alice", True),
+    ]
+
+
 @pytest.mark.parametrize(
     "value",
     ["javascript:alert(1)", "https://bob:pw@evil.example", "https://secreview.example/ui/"],

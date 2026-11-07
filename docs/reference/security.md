@@ -106,7 +106,8 @@
   [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the Controller server that make them (advisory download, OIDC, syslog, connectors, version check):
-  a test checks it. Only exception, disabled by default: with `SECREVIEW_MCP_SCAN_CONTROLLER_URL`,
+  a test checks it. Only exception, disabled by default: with `SECREVIEW_MCP_SCAN_CONTROLLER_URL`
+  (or the delegation turned on by an administrator on the **General** page, audited),
   `scan_code` sends its fragment to the Controller server with the token of the agent, to that URL
   only, without proxy nor redirect, answer bounded, token never logged (see
   [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); an `mcp` token reaches

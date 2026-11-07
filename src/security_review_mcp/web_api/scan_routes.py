@@ -1,8 +1,9 @@
 """Scan delegated by the scan_code tool of the MCP server (``POST /api/v1/scan/content``).
 
-When SECREVIEW_MCP_SCAN_CONTROLLER_URL is set, the MCP server sends the fragment given to
-scan_code here, with the token of its caller, so that the agent gets the matches of the rules and
-of the OpenGrep rules of the controller. The route reads and stores nothing: it is the only one
+When SECREVIEW_MCP_SCAN_CONTROLLER_URL is set, or the delegation is turned on in the web
+interface, the MCP server sends the fragment given to scan_code here, with the token of its
+caller, so that the agent gets the matches of the rules and of the OpenGrep rules of the
+controller. The route reads and stores nothing: it is the only one
 an ``mcp`` token reaches (see http_server.BearerAuthMiddleware.role_allowed), and its body is
 bounded by SECREVIEW_MAX_CONTENT_CHARS (see body_limit).
 """

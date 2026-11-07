@@ -14,6 +14,14 @@ fragment to `POST /api/v1/scan/content` of the Controller server with the token 
 Controller server applies its rules, then its OpenGrep rules when the engine is enabled, and stores
 nothing. The answer tells the engines that ran (`engines`: `rules`, `opengrep`).
 
+Without the variable, an administrator can turn on the delegation in the web interface: on the
+**General** page, under **Controller server address**, the **Delegate the scan_code tool to this
+Controller server** switch sends the fragments to that public address (the MCP server must reach
+it). It is off by default, needs a known address, applies at the next `scan_code` call, and is turned off when the address
+changes (turn it on again for the new address: the tokens never follow a changed address). Each
+change is recorded in the audit log (`mcp_scan_delegation.changed`). The variable, when set on the
+MCP server, takes precedence.
+
 - The token of the agent is relayed as is: an `mcp` or `admin` token reaches this route only, not the
   rest of the REST API.
 - Without a caller token (stdio, open server), or when the Controller server does not answer
@@ -159,7 +167,8 @@ database, and the review prompts tell the agent to propose a rule only after sav
   `save_security_report`). A new proposal with the identifier of a pending one replaces it; at
   most `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` proposals wait at the same time.
 - Pending proposals are listed at the top of the **OpenGrep rules** page for the users with
-  `rules.manage`. **Review** opens one in the editor with its project, author, reason and test
+  `rules.manage`; their number is shown next to **OpenGrep rules** in the menu while some
+  wait. **Review** opens one in the editor with its project, author, reason and test
   code: the approver may correct the YAML (not its identifier), validate it with OpenGrep, then
   **Approve and install** it or **Reject** it with an optional reason.
 - Only a person logged in to the web interface decides: a bearer token, which an agent may
@@ -169,6 +178,6 @@ database, and the review prompts tell the agent to propose a rule only after sav
 
 | Route | Permission | Role |
 |---|---|---|
-| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Proposals of a status (`pending` by default, `approved`, `rejected`), newest first |
+| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Proposals of a status (`pending` by default, `approved`, `rejected`), newest first, with their `total` |
 | `POST /api/v1/opengrep/proposals/{id}/approve` | `rules.manage`, web session | Body `{"content": null}` (or the corrected YAML): validates and installs the rule |
 | `POST /api/v1/opengrep/proposals/{id}/reject` | `rules.manage`, web session | Body `{"reason": null}`: the rule is not installed |

@@ -384,11 +384,16 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     async with Client(mcp) as client:
         # Not configured: no outgoing connection
         alone = json.loads(text_of(await client.call_tool("scan_code", content)))
-        monkeypatch.setattr(get_settings(), "mcp_scan_controller_url", "http://controller:8080")
+        # Turned on in the web interface: the public URL of the controller
+        app_settings.set_controller_url("https://sr.example", "admin")
+        app_settings.set_mcp_scan_delegation(True, "admin")
         delegated = json.loads(text_of(await client.call_tool("scan_code", content)))
+        # SECREVIEW_MCP_SCAN_CONTROLLER_URL on the MCP server takes precedence
+        monkeypatch.setattr(get_settings(), "mcp_scan_controller_url", "http://controller:8080")
         failed = json.loads(text_of(await client.call_tool("scan_code", content)))
 
-    assert sent[0] == ("http://controller:8080", "Bearer agent-token", "python")
+    assert [url for url, *_ in sent] == ["https://sr.example", "http://controller:8080"]
+    assert sent[0][1:] == ("Bearer agent-token", "python")
     assert (alone["engines"], alone["controller_error"]) == (["rules"], None)
     assert delegated["engines"] == ["rules", "opengrep"]
     assert delegated["matches"] == [opengrep_match]

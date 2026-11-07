@@ -281,6 +281,7 @@ address** fills in the address of this Controller server.
 |---|---|
 | `GET /api/v1/settings` | For each setting: the stored `value`, the variable `env`, `env_set` (the variable is set and takes precedence) and the effective value |
 | `PUT /api/v1/settings/controller-url` | `value` (`null` deletes it) |
+| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown; audited, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` and `no_proxy`: `null` deletes the stored value, `"url": ""` forces the direct connection, a missing field is unchanged. Passwords are never shown again (`***`): sending `***` back keeps the stored one |
 
 A value whose variable is set is refused with `422`. The OIDC settings have their own routes

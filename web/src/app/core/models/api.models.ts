@@ -320,6 +320,7 @@ export type AuditAction =
   | 'user.logout'
   | 'audit_syslog.changed'
   | 'controller_url.changed'
+  | 'mcp_scan_delegation.changed'
   | 'finding.exported'
   | 'connector.target_changed'
   | 'connector.changed'
@@ -367,6 +368,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.logout',
   'audit_syslog.changed',
   'controller_url.changed',
+  'mcp_scan_delegation.changed',
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
@@ -1067,6 +1069,12 @@ export interface AppSettings {
     /** SECREVIEW_PUBLIC_URL is set on the controller: it takes precedence over this screen. */
     env_set: boolean;
     effective: string | null;
+  };
+  /** scan_code of the MCP server delegated to the public URL of the controller. */
+  mcp_scan_delegation: {
+    enabled: boolean;
+    /** URL used, null while off or while the controller URL is unknown. */
+    url: string | null;
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {

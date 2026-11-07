@@ -1266,6 +1266,17 @@ class ControllerUrlUpdate(BaseModel):
     value: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)
 
 
+class McpScanDelegationUpdate(BaseModel):
+    """Body of PUT /settings/mcp-scan-delegation: delegate scan_code of the MCP server to the
+    public URL of the controller (the MCP server relays the token of its callers there). Refused
+    (422) when turned on while that URL is unknown. SECREVIEW_MCP_SCAN_CONTROLLER_URL, when set on
+    the MCP server, takes precedence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+
+
 class ProxyUpdate(BaseModel):
     """Body of PUT /settings/proxy: proxy of the outgoing connections of the controller.
 
@@ -1300,6 +1311,14 @@ class ControllerUrlSetting(BaseModel):
     env: str | None
     env_set: bool
     effective: str | None
+
+
+class McpScanDelegationSetting(BaseModel):
+    """Delegation of scan_code to the public URL of the controller: whether it is turned on, and
+    the URL used (None while off or while the URL is unknown)."""
+
+    enabled: bool
+    url: str | None
 
 
 class ProxyValue(BaseModel):
@@ -1386,6 +1405,7 @@ class AppSettings(BaseModel):
 
     report_language: ReportLanguageSetting
     controller_url: ControllerUrlSetting
+    mcp_scan_delegation: McpScanDelegationSetting
     proxy: ProxySettings
     osv: OsvSettings
 

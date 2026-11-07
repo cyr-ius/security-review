@@ -67,7 +67,7 @@ together. The changes go to the form, which still saves or cancels them.
 
 | Page | What for |
 |---|---|
-| **General** | Report language, Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
+| **General** | Report language, Controller server address (and delegation of `scan_code` to it) and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
 | **Users**, **Roles** | The accounts, their roles and their projects ([roles and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |

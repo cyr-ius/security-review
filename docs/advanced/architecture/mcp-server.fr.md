@@ -166,7 +166,8 @@ sans argument, qui expliquent comment obtenir un jeton.
 - Il ne fait **aucune connexion sortante** (la base OSV est importée par le serveur Controller), et ne
   charge aucun module du serveur Controller. Seule exception, désactivée par défaut : `scan_code`
   [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)
-  (`SECREVIEW_MCP_SCAN_CONTROLLER_URL`), avec le jeton de l'agent.
+  (`SECREVIEW_MCP_SCAN_CONTROLLER_URL`, ou l'interrupteur de la page **Général**), avec le jeton
+  de l'agent.
 - Ses outils **ne lisent jamais le disque** à partir d'un chemin donné par le client : ils
   travaillent sur le contenu transmis.
 - Toute entrée est bornée (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,

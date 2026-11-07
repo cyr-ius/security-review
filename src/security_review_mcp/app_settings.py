@@ -4,7 +4,8 @@ A stored value applies when its variable is not set, for both processes since th
 database: the language of the review reports (read by the MCP server when it builds a review
 prompt), the public URL of the controller (read by the MCP server for the clients without a
 token, and by the connectors; SECREVIEW_PUBLIC_URL set on the controller is copied here at
-start, see sync_controller_url; the MCP server reads it there only), the OAuth login of the MCP
+start, see sync_controller_url; the MCP server reads it there only), the delegation of the
+scan_code tool to that URL (see set_mcp_scan_delegation), the OAuth login of the MCP
 clients (see set_mcp_oauth), the proxy of the outgoing connections, the single sign-on settings
 and the syslog server of the audit log (read by the controller, see effective_settings). A
 variable that is set (environment or ``.env`` file) always wins: the web interface cannot change
@@ -56,6 +57,9 @@ PERSONAL_MCP_TOKENS = "personal_mcp_tokens"
 # sync_personal_mcp_tokens): the personal mcp and ci tokens and the OAuth grants are then refused
 # by both processes (see token_store)
 PERSONAL_TOKENS_ENABLED = "personal_tokens_enabled"
+# Key stored ("true") while scan_code of the MCP server is delegated to the stored controller URL
+# (see set_mcp_scan_delegation); SECREVIEW_MCP_SCAN_CONTROLLER_URL on the MCP server wins
+MCP_SCAN_DELEGATION = "mcp_scan_delegation"
 # Author of the URL copied from SECREVIEW_PUBLIC_URL by the controller (see
 # sync_controller_url)
 ENV_ACTOR = "environment"
@@ -164,7 +168,9 @@ def web_url() -> str | None:
 
 def _store_controller_url(value: str | None, actor: str) -> None:
     """Store the URL (None removes it) and record the change in the audit log, in the same
-    transaction: the URL is shown to the clients without a token, every change leaves a trace."""
+    transaction: the URL is shown to the clients without a token, every change leaves a trace.
+    A change turns off the delegation of scan_code, which must be turned on again for the new
+    URL: the tokens of the agents never follow a changed URL silently."""
     with session_scope() as session:
         row = session.get(AppSetting, CONTROLLER_URL)
         if (row.value if row is not None else None) == value:
@@ -178,6 +184,8 @@ def _store_controller_url(value: str | None, actor: str) -> None:
             CONTROLLER_URL,
             details={"url": value},
         )
+        if session.get(AppSetting, MCP_SCAN_DELEGATION) is not None:
+            _record_scan_delegation(session, False, actor)
 
 
 def set_controller_url(value: str | None, actor: str, settings: Settings | None = None) -> None:
@@ -197,6 +205,54 @@ def sync_controller_url(settings: Settings | None = None) -> None:
     settings = settings or get_settings()
     if env_set(settings, CONTROLLER_URL):
         _store_controller_url(settings.controller_url, ENV_ACTOR)
+
+
+# ── scan_code delegated to the controller ────────────────────────────────────
+
+
+def mcp_scan_controller_url() -> str | None:
+    """URL of the controller that scan_code delegates to when the delegation is turned on in the
+    web interface: the stored controller URL, None while off or unknown. The MCP server reads it
+    here when SECREVIEW_MCP_SCAN_CONTROLLER_URL is not set."""
+    with session_scope() as session:
+        row = session.get(AppSetting, MCP_SCAN_DELEGATION)
+        if row is None or row.value != "true":
+            return None
+        url = session.get(AppSetting, CONTROLLER_URL)
+        return url.value if url is not None else None
+
+
+def set_mcp_scan_delegation(enabled: bool, actor: str) -> None:
+    """Turn on or off the delegation of scan_code to the stored controller URL; the change is
+    recorded in the audit log, in the same transaction (the MCP server then sends the token of
+    its callers to that URL).
+
+    Raises:
+        ValueError: If turned on while the controller URL is unknown.
+    """
+    with session_scope() as session:
+        row = session.get(AppSetting, MCP_SCAN_DELEGATION)
+        if (row is not None and row.value == "true") == enabled:
+            return
+        if enabled and session.get(AppSetting, CONTROLLER_URL) is None:
+            raise ValueError(
+                "the delegation of scan_code needs the public URL of the controller: set "
+                "SECREVIEW_PUBLIC_URL or the Controller server address in the settings"
+            )
+        _record_scan_delegation(session, enabled, actor)
+
+
+def _record_scan_delegation(session: Session, enabled: bool, actor: str) -> None:
+    """Store the delegation of scan_code and record the change in the audit log."""
+    _apply(session, {MCP_SCAN_DELEGATION: "true" if enabled else None}, actor)
+    audit.record(
+        session,
+        audit.AuditAction.MCP_SCAN_DELEGATION_CHANGED,
+        actor,
+        "setting",
+        MCP_SCAN_DELEGATION,
+        details={"enabled": enabled},
+    )
 
 
 # ── OAuth login of the MCP clients ───────────────────────────────────────────
@@ -754,6 +810,10 @@ def describe(settings: Settings | None = None) -> dict:
             "env": settings.controller_url,
             "env_set": env_set(settings, CONTROLLER_URL),
             "effective": effective.controller_url,
+        },
+        "mcp_scan_delegation": {
+            "enabled": stored.get(MCP_SCAN_DELEGATION) == "true",
+            "url": mcp_scan_controller_url(),
         },
         "proxy": _describe_proxy(settings, stored, effective),
         "osv": {

@@ -14,6 +14,14 @@ racine du serveur Controller, par exemple `http://controller:8080` dans Compose)
 applique ses règles, puis ses règles OpenGrep quand le moteur est activé, et n'enregistre rien. La
 réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`).
 
+Sans la variable, un administrateur peut activer la délégation dans l'interface web : dans la page
+**Général**, sous **Adresse du serveur Controller**, l'interrupteur **Déléguer l'outil scan_code à ce
+serveur Controller** envoie les fragments à cette adresse publique (le serveur MCP doit la joindre).
+Il est désactivé par défaut, exige une adresse connue, s'applique au prochain appel de `scan_code`,
+et se désactive quand l'adresse change (réactivez-le pour la nouvelle adresse : les jetons ne
+suivent jamais une adresse modifiée). Chaque changement est enregistré dans le journal d'audit (`mcp_scan_delegation.changed`). La
+variable, si elle est définie sur le serveur MCP, est prioritaire.
+
 - Le jeton de l'agent est relayé tel quel : un jeton `mcp` ou `admin` n'atteint que cette route, pas
   le reste de l'API REST.
 - Sans jeton d'appelant (stdio, serveur ouvert), ou quand le serveur Controller ne répond pas
@@ -162,7 +170,8 @@ proposer une règle qu'après avoir enregistré le rapport.
   attente la remplace ; au plus `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` propositions
   attendent en même temps.
 - Les propositions en attente sont listées en haut de la page **Règles OpenGrep** pour les
-  utilisateurs disposant de `rules.manage`. **Examiner** en ouvre une dans l'éditeur avec son
+  utilisateurs disposant de `rules.manage` ; tant qu'il y en a, leur nombre s'affiche à côté de
+  **Règles OpenGrep** dans le menu. **Examiner** en ouvre une dans l'éditeur avec son
   projet, son auteur, son motif et son code de test : l'approbateur peut corriger le YAML (pas
   son identifiant), le valider avec OpenGrep, puis l'**Approuver et installer** ou la
   **Rejeter** avec un motif facultatif.
@@ -173,6 +182,6 @@ proposer une règle qu'après avoir enregistré le rapport.
 
 | Route | Permission | Rôle |
 |---|---|---|
-| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Propositions d'un statut (`pending` par défaut, `approved`, `rejected`), les plus récentes d'abord |
+| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Propositions d'un statut (`pending` par défaut, `approved`, `rejected`), les plus récentes d'abord, avec leur nombre `total` |
 | `POST /api/v1/opengrep/proposals/{id}/approve` | `rules.manage`, session web | Corps `{"content": null}` (ou le YAML corrigé) : valide et installe la règle |
 | `POST /api/v1/opengrep/proposals/{id}/reject` | `rules.manage`, session web | Corps `{"reason": null}` : la règle n'est pas installée |
