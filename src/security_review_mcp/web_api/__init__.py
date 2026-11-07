@@ -62,6 +62,7 @@ from . import (
     opengrep_routes,
     report_routes,
     rule_routes,
+    scan_routes,
     token_routes,
 )
 from .auth_routes import OidcLogins
@@ -328,6 +329,7 @@ def create_app(
     app.include_router(auth_routes.router)
     app.include_router(api_router)
     app.include_router(ci_routes.router)
+    app.include_router(scan_routes.router)
     if settings.ci_client_download_enabled:
         app.include_router(ci_client_routes.router)
 

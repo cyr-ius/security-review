@@ -57,6 +57,8 @@ Read by `security-review-mcp` only.
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Report language](../review/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen on the [**Report language**](../usage/index.md#pages) page |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |
+| `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Root URL of the Controller server (`http://controller:8080` inside Compose) to which `scan_code` [delegates its scan](../review/analysis/opengrep.md#fragment-scans-scan_code) with the token of the agent, to apply the OpenGrep rules too; takes precedence over the delegation turned on on the **General** page; unset: no delegation (unless turned on there), no outgoing connection |
+| `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` | `120` | Maximum duration of a delegated scan, OpenGrep included (1 to 7200); beyond, `scan_code` scans with the rules of the MCP server |
 
 ## Controller server
 
@@ -129,7 +131,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) of the OSV database by `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Age of the database beyond which `serve` updates it (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source of the `<URL>/<ecosystem>/all.zip` exports (HTTPS only, mirror possible) |
-| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Downloaded ecosystems, comma separated |
+| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Downloaded ecosystems, comma separated; while unset, they can be chosen on the **OSV database** page |
 | `SECREVIEW_OSV_CAFILE` | — | CA bundle used instead of the system one (internal mirror, proxy that inspects TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Maximum size of a downloaded archive |
 
@@ -179,15 +181,16 @@ Read by `security-review-controller` only.
 
 ### OpenGrep engine
 
-Engine of the Controller server for `scan-code`, enabled by default and skipped while no rule is installed (binary shipped in the `-opengrep` Docker image, disabled in the default image), see [OpenGrep](../review/analysis/opengrep.md).
+Engine of the Controller server for `scan-code`, disabled by default and skipped while no rule is installed (binary shipped in the `-opengrep` Docker image, which enables it), see [OpenGrep](../review/analysis/opengrep.md).
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_OPENGREP_ENABLED` | `true` | Also run OpenGrep on the files of `scan-code` |
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Also run OpenGrep on the files of `scan-code` |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory of the OpenGrep YAML rules |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one scan (1 to 7200) |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans running at the same time in one Controller server process (`503` beyond) |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments of `scan_code` [delegated by the MCP server](../review/analysis/opengrep.md#fragment-scans-scan_code) scanned at the same time, in their own slots (`503` beyond); `0`: rules only for the fragments |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one scan |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one scan (`0`: no limit) |
 | `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | MCP server: OpenGrep rules proposed by agents (`propose_opengrep_rule`) and waiting for a decision at the same time; a new proposal is refused beyond |

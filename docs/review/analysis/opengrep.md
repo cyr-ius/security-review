@@ -2,7 +2,35 @@
 
 The Controller server runs OpenGrep as a second static-analysis engine during a
 whole-codebase scan (`security-review-ci scan-code`). The built-in scanner remains enabled and
-unchanged. Fragment scans (`scan_code`) do not start an external process.
+unchanged. On the MCP server, fragment scans (`scan_code`) only use OpenGrep when they are
+[delegated to the Controller server](#fragment-scans-scan_code).
+
+## Fragment scans (`scan_code`)
+
+By default, the `scan_code` tool scans the fragment it receives with the rules of the MCP server
+only, and starts no external process. With `SECREVIEW_MCP_SCAN_CONTROLLER_URL` set on the MCP server
+(root URL of the Controller server, for example `http://controller:8080` inside Compose), it sends the
+fragment to `POST /api/v1/scan/content` of the Controller server with the token of the agent: the
+Controller server applies its rules, then its OpenGrep rules when the engine is enabled, and stores
+nothing. The answer tells the engines that ran (`engines`: `rules`, `opengrep`).
+
+Without the variable, an administrator can turn on the delegation in the web interface: on the
+**General** page, under **Controller server address**, the **Delegate the scan_code tool to this
+Controller server** switch sends the fragments to that public address (the MCP server must reach
+it). It is off by default, needs a known address, applies at the next `scan_code` call, and is turned off when the address
+changes (turn it on again for the new address: the tokens never follow a changed address). Each
+change is recorded in the audit log (`mcp_scan_delegation.changed`). The variable, when set on the
+MCP server, takes precedence.
+
+- The token of the agent is relayed as is: an `mcp` or `admin` token reaches this route only, not the
+  rest of the REST API.
+- Without a caller token (stdio, open server), or when the Controller server does not answer
+  (unreachable, busy OpenGrep, `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` exceeded), `scan_code` scans with
+  the rules of the MCP server and gives the reason in `controller_error`.
+- The call goes to the configured URL only, without proxy nor redirect, with a bounded answer; use an
+  `https://` URL when the Controller server is not on the same private network.
+- The fragments have their own OpenGrep slots (`SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`):
+  agents that call `scan_code` many times never make the codebase scans of the pipelines wait.
 
 ## Docker image
 
@@ -10,23 +38,24 @@ The [`-opengrep` image](../../advanced/deployment/docker.md#published-images) (`
 `X.Y.Z-opengrep`) ships a pinned OpenGrep release in `/usr/local/bin/opengrep`, checked against its
 SHA-256 digest at build time (`opengrep` target of the `Dockerfile`) and unpacked there, read-only,
 so that a scan never extracts it: use it for the Controller server. The
-[default rules](#default-rules) are installed and kept up to date at each start. The default image does not contain OpenGrep and sets `SECREVIEW_OPENGREP_ENABLED=false`. With an installation from
-the PyPI package, install OpenGrep yourself and set `SECREVIEW_OPENGREP_BINARY` if it is not in
+[default rules](#default-rules) are installed and kept up to date at each start. The `-opengrep` image sets `SECREVIEW_OPENGREP_ENABLED=true`; the default image does not contain OpenGrep. With an installation from
+the PyPI package, install OpenGrep yourself, set `SECREVIEW_OPENGREP_ENABLED=true` and set `SECREVIEW_OPENGREP_BINARY` if it is not in
 `/usr/local/bin`.
 
 ## Configuration
 
-The engine is enabled by default (except in the default Docker image, without OpenGrep), but it only runs once at least one YAML rule is installed:
-without any rule, `scan-code` runs the built-in scanner only. Set
-`SECREVIEW_OPENGREP_ENABLED=false` to turn it off. Environment variables of the Controller server:
+The engine is disabled by default and enabled in the `-opengrep` image; set
+`SECREVIEW_OPENGREP_ENABLED=true` to turn it on elsewhere. Once enabled, it only runs once at least one YAML rule is installed:
+without any rule, `scan-code` runs the built-in scanner only. Environment variables of the Controller server:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SECREVIEW_OPENGREP_ENABLED` | `true` | Enable OpenGrep for whole-codebase scans |
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Enable OpenGrep for whole-codebase scans |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory containing OpenGrep YAML rule packs |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one OpenGrep scan |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | OpenGrep scans running at the same time in one Controller server process; a scan beyond is refused with `503` and `Retry-After` |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments of [`scan_code`](#fragment-scans-scan_code) scanned with OpenGrep at the same time, in their own slots so that the agents never take those of the codebase scans (`503` beyond: the MCP server scans with its rules); `0`: fragments are scanned with the rules only |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one OpenGrep scan (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one OpenGrep scan (`--max-memory`, `0`: no limit) |
 
@@ -137,8 +166,15 @@ database, and the review prompts tell the agent to propose a rule only after sav
 - The token must reach the project and hold `reports.write` on it (as for
   `save_security_report`). A new proposal with the identifier of a pending one replaces it; at
   most `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` proposals wait at the same time.
+- Duplicates are refused: a rule whose identifier is already installed, or that detects the
+  same code as an installed rule, a default rule or another pending proposal. Two rules detect
+  the same code when they differ only by their `id`, `message`, `metadata`, `severity` or
+  `fix`, their comments, indentation, spacing or the quotes around a value. The refusal names
+  the existing rule, or the proposal when it belongs to the same project; to correct a pending
+  proposal, the agent proposes it again with its identifier.
 - Pending proposals are listed at the top of the **OpenGrep rules** page for the users with
-  `rules.manage`. **Review** opens one in the editor with its project, author, reason and test
+  `rules.manage`; their number is shown next to **OpenGrep rules** in the menu while some
+  wait. **Review** opens one in the editor with its project, author, reason and test
   code: the approver may correct the YAML (not its identifier), validate it with OpenGrep, then
   **Approve and install** it or **Reject** it with an optional reason.
 - Only a person logged in to the web interface decides: a bearer token, which an agent may
@@ -148,6 +184,6 @@ database, and the review prompts tell the agent to propose a rule only after sav
 
 | Route | Permission | Role |
 |---|---|---|
-| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Proposals of a status (`pending` by default, `approved`, `rejected`), newest first |
+| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Proposals of a status (`pending` by default, `approved`, `rejected`), newest first, with their `total` |
 | `POST /api/v1/opengrep/proposals/{id}/approve` | `rules.manage`, web session | Body `{"content": null}` (or the corrected YAML): validates and installs the rule |
 | `POST /api/v1/opengrep/proposals/{id}/reject` | `rules.manage`, web session | Body `{"reason": null}`: the rule is not installed |

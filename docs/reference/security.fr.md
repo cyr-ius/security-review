@@ -112,7 +112,12 @@
   [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du serveur Controller qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
-  de nouvelle version) : un test le vérifie. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
+  de nouvelle version) : un test le vérifie. Seule exception, désactivée par défaut : avec
+  `SECREVIEW_MCP_SCAN_CONTROLLER_URL` (ou la délégation activée par un administrateur dans la page
+  **Général**, auditée), `scan_code` envoie son fragment au serveur Controller avec le
+  jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
+  journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
+  un jeton `mcp` n'atteint que cette route. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
@@ -343,7 +348,9 @@
   guidé par les checklists, et de vos outils SAST/SCA.
 - Les flux de données (analyse de propagation, *taint*) ne sont suivis que par le
   [moteur OpenGrep](../review/analysis/opengrep.md), sur le serveur Controller, lors d'un scan du
-  dépôt : l'outil `scan_code` n'applique que les motifs ligne par ligne.
+  dépôt, ou pour `scan_code` quand il est
+  [délégué au serveur Controller](../review/analysis/opengrep.md#scans-de-fragments-scan_code) ;
+  sinon l'outil `scan_code` n'applique que les motifs ligne par ligne.
 - La [couverture d'une revue](../review/prompts-tools.md#couverture-de-la-revue) (résultats de
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier

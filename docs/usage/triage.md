@@ -28,6 +28,15 @@ Worth knowing:
 - A triager may also send a finding to Jira or ServiceNow when its project has a destination
   ([connectors](connectors/index.md#sending-a-finding)).
 
+## Several findings at once
+
+On the **Findings to review** page, a triager ticks the findings to decide on (or
+**Select the loaded findings**), then chooses a **New status** and clicks **Apply to N
+finding(s)**. The bar asks what a single decision asks: a **Reason** and an **Expiry date** to
+accept a risk when one of the findings needs them, an optional **Reason** for a false positive.
+The decision is saved for all the findings or for none: when one finding is refused, nothing
+changes and the message names it. Each finding gets its own entry in the audit log.
+
 ## Finding reported again
 
 When a later report raises the same issue again (same project, rule, file and title, whatever

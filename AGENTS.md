@@ -121,7 +121,7 @@ l'utiliser.
 |---|---|
 | Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
 | Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
-| Moteur de scan, masquage des secrets | `rules/scanner.py` |
+| Moteur de scan, masquage des secrets ; `scan_code` délégué au contrôleur (client du serveur MCP, route du contrôleur) | `rules/scanner.py` ; `rules/remote_scan.py`, `web_api/scan_routes.py`, `rules/codescan.py` (`scan_content`) |
 | Règles et checklists par défaut (copiées en base au premier lancement) ; règles OpenGrep par défaut (une par fichier, installées par `security-review-controller opengrep install`, ou au démarrage du contrôleur quand OpenGrep est activé et son exécutable présent (image `-opengrep`), sans toucher une règle modifiée ou supprimée) et leur gestion ; règles OpenGrep proposées par un agent (`propose_opengrep_rule`), approuvées ou rejetées par une personne | `rules/default_rules.toml` ; `rules/opengrep/<langage>/*.yaml`, `rules/opengrep_rule_store.py`, `engines/opengrep.py` ; `rules/opengrep_proposals.py` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
 | CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
@@ -214,7 +214,11 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   `update_check`, `web_api`), même indirectement ; `tests/test_server.py` le vérifie. Un module partagé par les
   deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
-  CLI. Exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
+  CLI. Seule exception du serveur MCP : `scan_code` délégué au contrôleur (`rules/remote_scan.py`,
+  **désactivé par défaut**, `SECREVIEW_MCP_SCAN_CONTROLLER_URL`), qui relaie le jeton de l'appelant
+  à `POST /api/v1/scan/content` (seule route du contrôleur ouverte au rôle `mcp`, qui ne lit ni
+  n'enregistre rien), sans proxy ni redirection, réponse bornée, jeton jamais journalisé, et revient
+  aux règles locales en cas d'échec. Autres exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le OIDC) jamais journalisé
   avec ses identifiants, et la
   connexion OIDC du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le

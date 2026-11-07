@@ -292,6 +292,10 @@ class FindingCommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
 
 
+# Hard cap of the ids of a bulk triage decision (SECREVIEW_MAX_LIST_LIMIT is also applied)
+MAX_BULK_FINDINGS = 1000
+
+
 class FindingStatusUpdate(BaseModel):
     """Body of PATCH /findings/{id}: a triage decision.
 
@@ -305,6 +309,18 @@ class FindingStatusUpdate(BaseModel):
     status: FindingStatus
     reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
     expires_on: date | None = None
+
+
+class FindingBulkStatusUpdate(FindingStatusUpdate):
+    """Body of PATCH /findings: the same triage decision for several findings, all or nothing.
+
+    At most SECREVIEW_MAX_LIST_LIMIT distinct findings (and never more than
+    MAX_BULK_FINDINGS ids in the body).
+    """
+
+    finding_ids: list[Annotated[int, Field(ge=1)]] = Field(
+        min_length=1, max_length=MAX_BULK_FINDINGS
+    )
 
 
 class FindingSeverityUpdate(BaseModel):
@@ -478,6 +494,32 @@ class CodeMatch(BaseModel):
     line: int
     excerpt: str
     advice: str
+
+
+class ContentScanRequest(BaseModel):
+    """Fragment sent by the scan_code tool of the MCP server (SECREVIEW_MCP_SCAN_CONTROLLER_URL)."""
+
+    # Bounded by SECREVIEW_MAX_CONTENT_CHARS once received
+    content: str
+    language: str = Field(min_length=1, max_length=40)
+
+
+class ContentMatch(CodeMatch):
+    """A match of a fragment; an OpenGrep match also gives its last line and its message."""
+
+    line_end: int | None = None
+    description: str | None = None
+
+
+class ContentScanResult(BaseModel):
+    """Matches of a fragment (leads to verify, secrets masked), and the engines that ran."""
+
+    language: str
+    lines_scanned: int
+    matches: list[ContentMatch]
+    # Matches hidden by a secreview:ignore marker, reported so that they can be audited
+    suppressed: list[ContentMatch]
+    engines: list[Literal["rules", "opengrep"]]
 
 
 class CodeScanFile(BaseModel):
@@ -1240,6 +1282,17 @@ class ControllerUrlUpdate(BaseModel):
     value: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)
 
 
+class McpScanDelegationUpdate(BaseModel):
+    """Body of PUT /settings/mcp-scan-delegation: delegate scan_code of the MCP server to the
+    public URL of the controller (the MCP server relays the token of its callers there). Refused
+    (422) when turned on while that URL is unknown. SECREVIEW_MCP_SCAN_CONTROLLER_URL, when set on
+    the MCP server, takes precedence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+
+
 class ProxyUpdate(BaseModel):
     """Body of PUT /settings/proxy: proxy of the outgoing connections of the controller.
 
@@ -1276,6 +1329,14 @@ class ControllerUrlSetting(BaseModel):
     effective: str | None
 
 
+class McpScanDelegationSetting(BaseModel):
+    """Delegation of scan_code to the public URL of the controller: whether it is turned on, and
+    the URL used (None while off or while the URL is unknown)."""
+
+    enabled: bool
+    url: str | None
+
+
 class ProxyValue(BaseModel):
     """A proxy setting: stored in the web interface, variable, and whether the variable is set
     (it then takes precedence over the stored value)."""
@@ -1302,13 +1363,38 @@ class ProxySettings(BaseModel):
     effective: ProxyEffective
 
 
+class OsvEcosystemsUpdate(BaseModel):
+    """Body of PUT /settings/osv-ecosystems: ecosystems downloaded by the controller.
+
+    ``null`` removes the stored value (SECREVIEW_OSV_ECOSYSTEMS, or its default, applies again).
+    Refused (422) when the variable is set, the list is empty or holds an unsupported ecosystem.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    ecosystems: list[Annotated[str, Field(max_length=20)]] | None = Field(max_length=20)
+
+
+class OsvEcosystemsSetting(BaseModel):
+    """Ecosystems of the OSV download: stored value, variable, whether the variable is set (it
+    then takes precedence over the stored value), effective value (comma separated) and the
+    ecosystems that can be chosen."""
+
+    value: list[str] | None
+    env: str
+    env_set: bool
+    effective: str
+    supported: list[str]
+
+
 class OsvSettings(BaseModel):
-    """Download of the OSV advisories (variables only)."""
+    """Download of the OSV advisories (variables; the ecosystems may be chosen in the web
+    interface while SECREVIEW_OSV_ECOSYSTEMS is not set)."""
 
     download_enabled: bool
     update_interval_hours: int
     url: str
-    ecosystems: str
+    ecosystems: OsvEcosystemsSetting
     cafile: str | None
     max_download_mb: int
 
@@ -1360,6 +1446,7 @@ class AppSettings(BaseModel):
 
     report_language: ReportLanguageSetting
     controller_url: ControllerUrlSetting
+    mcp_scan_delegation: McpScanDelegationSetting
     proxy: ProxySettings
     osv: OsvSettings
 
@@ -1610,6 +1697,8 @@ class OpenGrepRuleProposalList(BaseModel):
     """OpenGrep rules proposed by agents, newest first."""
 
     proposals: list[OpenGrepRuleProposalPublic]
+    # Proposals of the requested status, beyond the page
+    total: int
 
 
 class OpenGrepRuleApproval(BaseModel):

@@ -32,6 +32,21 @@
 </div>
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  @if (auth.canTriage() && triageable().length) {
+    <div class="form-check mb-0">
+      <input
+        type="checkbox"
+        class="form-check-input"
+        id="findings-select-all"
+        [checked]="allSelected()"
+        [indeterminate]="selectedFindings().length > 0 && !allSelected()"
+        (change)="selectAll($event)"
+      />
+      <label class="form-check-label small" for="findings-select-all">{{
+        'projectFindings.bulkSelectAll' | t
+      }}</label>
+    </div>
+  }
   <span class="me-auto text-body-secondary small" aria-live="polite">
     @if (firstPage.value()) {
       {{ 'projectFindings.count' | t: { shown: findings().length, total: total() } }}
@@ -81,6 +96,17 @@
   </div>
 }
 
+@if (auth.canTriage() && selectedFindings().length) {
+  <app-bulk-triage
+    [findings]="selectedFindings()"
+    [permanentAcceptance]="auth.permanentAcceptance()"
+    [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
+    [saving]="triage.savingMany()"
+    (decided)="decideMany($event)"
+    (cleared)="clearSelection()"
+  />
+}
+
 @if (forbidden()) {
   <div class="alert alert-warning" role="alert">{{ 'projectFindings.notFound' | t }}</div>
 } @else if (firstPage.error()) {
@@ -99,6 +125,9 @@
       [exportKinds]="exportKinds().get(finding.project) ?? noKinds"
       [exporting]="exports.sending() === finding.id"
       [systemNamesByKind]="systemNames()"
+      [selectable]="auth.canTriage()"
+      [selected]="selectedIds().has(finding.id)"
+      (selectedChange)="select(finding, $event)"
       (decided)="decide(finding, $event)"
       (proposalRejected)="decide(finding, null)"
       (exportRequested)="exportFinding(finding, $event)"

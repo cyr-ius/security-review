@@ -89,6 +89,9 @@ SCAN_ROUTE_ROLES = frozenset({Role.CI, Role.ADMIN})
 # Roles accepted by the Prometheus endpoint of the controller
 METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 
+# Scan of the scan_code tool, delegated by the MCP server with the token of its caller: the only
+# route of the controller an ``mcp`` token reaches (it reads and stores nothing)
+CONTENT_SCAN_PATH = "/api/v1/scan/content"
 # Pipeline routes of the controller, the only ones a ``ci`` token reaches
 CI_PREFIX = "/api/v1/ci/"
 UI_PREFIX = "/ui"
@@ -375,9 +378,11 @@ class BearerAuthMiddleware:
         """True when a token of this role may reach ``path`` on this process.
 
         A ``ci`` token only reaches the pipeline routes of the controller, a ``metrics`` token
-        only its Prometheus endpoint.
+        only its Prometheus endpoint, an ``mcp`` token only the scan delegated by scan_code.
         """
         if not self.web:
+            return role in MCP_ROLES
+        if path == CONTENT_SCAN_PATH:
             return role in MCP_ROLES
         if path == METRICS_PATH:
             return role in METRICS_ROLES

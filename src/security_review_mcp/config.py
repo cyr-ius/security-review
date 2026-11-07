@@ -106,6 +106,36 @@ def check_mcp_url(value: str | None) -> str | None:
     return value.rstrip("/")
 
 
+def check_scan_controller_url(value: str | None) -> str | None:
+    """Return the root URL of the controller that scan_code delegates to, without trailing
+    slash; None when empty.
+
+    Raises:
+        ValueError: If the value is not an http(s) URL without credentials, path, query nor
+            fragment.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
+        raise ValueError(
+            f"SECREVIEW_MCP_SCAN_CONTROLLER_URL must be a URL of at most "
+            f"{CONTROLLER_URL_MAX_CHARS} chars"
+        )
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("SECREVIEW_MCP_SCAN_CONTROLLER_URL must be an http(s) URL")
+    if parts.username or parts.password or parts.query or parts.fragment:
+        raise ValueError(
+            "SECREVIEW_MCP_SCAN_CONTROLLER_URL must not contain credentials, a query or a fragment"
+        )
+    if parts.path.strip("/"):
+        raise ValueError(
+            "SECREVIEW_MCP_SCAN_CONTROLLER_URL is the root URL of the controller, without a path"
+        )
+    return value.rstrip("/")
+
+
 def redirect_schemes(value: str) -> list[str]:
     """Custom URI schemes of SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES, lowercase.
 
@@ -455,20 +485,34 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    # Controller only: OpenGrep engine for whole-codebase scans (binary shipped in the
-    # "-opengrep" Docker image), skipped while no rule is installed. Rules are managed
-    # separately from the built-in TOML rules and are never downloaded implicitly.
-    opengrep_enabled: bool = True
+    # Controller only: OpenGrep engine for whole-codebase scans, disabled by default (a PyPI
+    # installation has no OpenGrep executable) and enabled by the "-opengrep" Docker image that
+    # ships it; skipped while no rule is installed. Rules are managed separately from the
+    # built-in TOML rules and are never downloaded implicitly.
+    opengrep_enabled: bool = False
     opengrep_binary: str = "/usr/local/bin/opengrep"
     opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
     opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
     # Scans run at the same time (503 beyond), cores and memory (MiB, 0: no limit) of one scan
     opengrep_max_concurrent_scans: int = Field(default=1, ge=1, le=64)
+    # Fragments of scan_code delegated by the MCP server (SECREVIEW_MCP_SCAN_CONTROLLER_URL) scanned
+    # with OpenGrep at the same time, in their own slots (503 beyond: the MCP server then scans
+    # with its rules); 0: the fragments are scanned with the rules only
+    opengrep_max_concurrent_fragment_scans: int = Field(default=1, ge=0, le=64)
     opengrep_jobs: int = Field(default=2, ge=1, le=256)
     opengrep_max_memory_mb: int = Field(default=2048, ge=0)
     # MCP server: OpenGrep rules proposed by agents (propose_opengrep_rule) and waiting for a
     # person at the same time; a new proposal is refused beyond
     opengrep_max_pending_proposals: int = Field(default=100, ge=1, le=10_000)
+    # HTTP MCP server only: root URL of the controller (e.g. http://controller:8080 inside
+    # Compose) to which scan_code delegates its scan, so that the agents get the matches of the
+    # rules and of the OpenGrep rules of the controller (POST /api/v1/scan/content). The MCP
+    # server relays the bearer token of the caller, without redirect nor proxy; without a caller
+    # token (stdio) or when the controller cannot answer, scan_code scans with its own rules.
+    # Unset (default): no delegation, the MCP server makes no outgoing connection.
+    mcp_scan_controller_url: str | None = None
+    # Time limit of a delegated scan, OpenGrep included (seconds)
+    mcp_scan_timeout_seconds: int = Field(default=120, ge=1, le=7200)
 
     @field_validator(
         "proxy",
@@ -531,6 +575,12 @@ class Settings(BaseSettings):
     def _check_mcp_url(cls, value: str | None) -> str | None:
         """Accept an http(s) URL without credentials, query nor fragment."""
         return check_mcp_url(value)
+
+    @field_validator("mcp_scan_controller_url")
+    @classmethod
+    def _check_scan_controller_url(cls, value: str | None) -> str | None:
+        """Accept the root http(s) URL of the controller; empty counts as unset."""
+        return check_scan_controller_url(value)
 
     @field_validator("mcp_oauth_redirect_hosts")
     @classmethod

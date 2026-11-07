@@ -11,6 +11,7 @@ import { HelpLinkComponent } from '../../../shared/components/help-link/help-lin
 import {
   FINDING_STATUSES,
   Finding,
+  FindingDecision,
   FindingStatus,
   ProjectFinding,
   REVIEW_TYPES,
@@ -29,6 +30,7 @@ import {
   MultiSelectOption,
 } from '../../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
+import { BulkTriageComponent } from './bulk-triage/bulk-triage.component';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -41,6 +43,7 @@ const PAGE_SIZE = 50;
 @Component({
   selector: 'app-project-findings',
   imports: [
+    BulkTriageComponent,
     HelpLinkComponent,
     RouterLink,
     DatePipe,
@@ -141,6 +144,26 @@ export class ProjectFindingsComponent {
     () => this.findings().filter((f) => !this.statuses().includes(f.status)).length,
   );
 
+  /** Ids picked for a bulk decision (cleared when the filters change or the list reloads). */
+  readonly selectedIds = linkedSignal<unknown, ReadonlySet<number>>({
+    source: () => this.firstPage.value(),
+    computation: () => new Set(),
+  });
+
+  /** Loaded findings a decision applies to (a finding reported again is triaged on its latest). */
+  readonly triageable = computed(() => this.findings().filter((f) => f.superseded_by === null));
+
+  /** Loaded findings picked for a bulk decision. */
+  readonly selectedFindings = computed(() =>
+    this.triageable().filter((f) => this.selectedIds().has(f.id)),
+  );
+
+  /** Every loaded finding that can be triaged is picked. */
+  readonly allSelected = computed(
+    () =>
+      this.triageable().length > 0 && this.selectedFindings().length === this.triageable().length,
+  );
+
   readonly forbidden = computed(() => {
     const error = this.firstPage.error();
     return error instanceof HttpErrorResponse && error.status === 404;
@@ -192,6 +215,47 @@ export class ProjectFindingsComponent {
     } else {
       this.onUpdated(result.finding);
     }
+  }
+
+  /** Pick or leave a finding for a bulk decision. */
+  select(finding: Finding, picked: boolean): void {
+    this.selectedIds.update((ids) => {
+      const next = new Set(ids);
+      if (picked) {
+        next.add(finding.id);
+      } else {
+        next.delete(finding.id);
+      }
+      return next;
+    });
+  }
+
+  /** Pick every loaded finding that can be triaged, or none. */
+  selectAll(event: Event): void {
+    const picked = (event.target as HTMLInputElement).checked;
+    this.selectedIds.set(new Set(picked ? this.triageable().map((f) => f.id) : []));
+  }
+
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
+  }
+
+  /** Save the same decision on every picked finding (all or nothing), then clear the pick. */
+  async decideMany(decision: FindingDecision): Promise<void> {
+    this.triageError.set(null);
+    const result = await this.triage.decideMany(this.selectedFindings(), decision);
+    if ('error' in result) {
+      this.triageError.set(result.error);
+      return;
+    }
+    const saved = new Map(result.findings.map((f) => [f.id, f]));
+    this.findings.update((all) =>
+      all.map((f) => {
+        const updated = saved.get(f.id);
+        return updated ? { ...f, ...updated } : f;
+      }),
+    );
+    this.clearSelection();
   }
 
   /** Send a finding through a connector and show its record. */

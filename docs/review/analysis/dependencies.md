@@ -91,7 +91,10 @@ HTTPS_PROXY=http://user:password@proxy.example.com:3128
 - **Mirror**: `SECREVIEW_OSV_URL` replaces the source (Nexus, Artifactory, internal bucket…) as
   long as it serves `<URL>/<ecosystem>/all.zip` over HTTPS. Plain HTTP, credentials in the URL
   and redirects to anything other than HTTPS are refused.
-- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven,Go,crates.io,NuGet` by default) limits the downloaded exports; every
+- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven,Go,crates.io,NuGet` by default) limits the downloaded exports.
+  While this variable is not set, an administrator can tick the ecosystems to download on the
+  **OSV database** page (**Downloaded ecosystems**), applied at the next update; the variable,
+  when set, takes precedence. Every
   archive is bounded by `SECREVIEW_OSV_MAX_DOWNLOAD_MB` (1024 MiB), written to a temporary
   folder then deleted.
 - A failed ecosystem (network, size, invalid archive) does not prevent the others; it is logged

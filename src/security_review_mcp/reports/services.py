@@ -598,73 +598,137 @@ def update_finding_status(
     approver = approver.strip()
     if not approver:
         raise ValueError("An approver is required")
-    now = utcnow()
     with session_scope() as session:
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
-        _check_current(finding)
-        if status in DISMISSED_STATUSES:
-            settings = get_settings()
-            plain = status == FindingStatus.ACCEPTED and not needs_formal_acceptance(
-                finding.severity
-            )
-            # A false positive states a fact about the code: it needs no reason nor expiry date
-            formal = status == FindingStatus.ACCEPTED and not plain
-            reason = _check_reason(reason, required=formal)
-            if expires_at is None:
-                if formal and not settings.permanent_acceptance_enabled:
-                    raise ValueError(f"An expiry date is required for the status '{status.value}'")
-            else:
-                expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
-        else:
-            if expires_at is not None:
-                raise ValueError(f"The status '{status.value}' takes no expiry date")
-            reason = _check_reason(reason, required=False) if status != FindingStatus.OPEN else None
-        previous = effective_status(finding.status, finding.status_expires_at, now)
-        if previous != status:
-            finding.status_changed_at = now
-        # The reason of an acceptance opens its comments: a new one is added when the risk is
-        # accepted or its reason changes, not when only the expiry date does
-        if (
-            status == FindingStatus.ACCEPTED
-            and reason
-            and (finding.status != status or finding.status_reason != reason)
-        ):
-            session.add(
-                FindingComment(
-                    finding_id=finding_id, author=approver[:200], body=reason, created_at=now
-                )
-            )
-        proposal = finding.proposed_status
-        finding.status = status
-        reopened = status == FindingStatus.OPEN
-        finding.status_reason = reason
-        finding.status_approver = None if reopened else approver[:200]
-        finding.status_expires_at = expires_at
-        finding.proposed_status = None
-        finding.proposed_reason = None
-        finding.proposed_by = None
-        finding.proposed_at = None
-        session.add(finding)
-        audit.record(
-            session,
-            audit.AuditAction.FINDING_STATUS_CHANGED,
-            actor or approver,
-            "finding",
-            finding_id,
-            finding.report.project,
-            {
-                "previous_status": FindingStatus(previous).value,
-                "status": status.value,
-                "reason": reason,
-                "expires_at": expires_at.isoformat() if expires_at else None,
-                "proposal": FindingStatus(proposal).value if proposal else None,
-            },
-        )
+        _apply_status(session, finding, status, approver, reason, expires_at, actor, utcnow())
         session.flush()
         logger.info("Finding %s set to %s", finding_id, status)
         return FindingPublic.model_validate(finding, from_attributes=True)
+
+
+def update_findings_status(
+    finding_ids: Collection[int],
+    status: FindingStatus,
+    approver: str,
+    reason: str | None = None,
+    expires_at: datetime | None = None,
+    actor: str | None = None,
+    allowed: Collection[str] | None = None,
+) -> list[FindingPublic]:
+    """Record the same triage decision on several findings at once, all or nothing.
+
+    Each finding is checked like by ``update_finding_status`` (an acceptance needs a reason and
+    an expiry date when one of the findings is at or above
+    SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY) and gets its own audit event. At most
+    SECREVIEW_MAX_LIST_LIMIT findings per call; repeated ids count once. A finding outside
+    ``allowed`` (the projects of a restricted caller, None: every project) counts as missing.
+    Nothing is saved when one finding is refused.
+
+    Raises:
+        NotFoundError: If a finding does not exist or is out of ``allowed``.
+        ValueError: If there are no findings or too many, or a decision is invalid for one of
+            them (the message names it).
+    """
+    approver = approver.strip()
+    if not approver:
+        raise ValueError("An approver is required")
+    ids = list(dict.fromkeys(finding_ids))
+    if not ids:
+        raise ValueError("At least one finding is required")
+    limit = get_settings().max_list_limit
+    if len(ids) > limit:
+        raise ValueError(f"At most {limit} findings can be triaged at once")
+    now = utcnow()
+    with session_scope() as session:
+        rows = session.exec(select(Finding).where(col(Finding.id).in_(ids))).all()
+        by_id = {row.id: row for row in rows}
+        for finding_id in ids:
+            finding = by_id.get(finding_id)
+            if finding is None or (allowed is not None and finding.report.project not in allowed):
+                raise NotFoundError(f"Finding {finding_id} not found")
+            try:
+                _apply_status(session, finding, status, approver, reason, expires_at, actor, now)
+            except ValueError as exc:
+                raise ValueError(f"Finding {finding_id}: {exc}") from exc
+        session.flush()
+        logger.info("%s findings set to %s", len(ids), status)
+        return [FindingPublic.model_validate(by_id[i], from_attributes=True) for i in ids]
+
+
+def _apply_status(
+    session: Session,
+    finding: Finding,
+    status: FindingStatus,
+    approver: str,
+    reason: str | None,
+    expires_at: datetime | None,
+    actor: str | None,
+    now: datetime,
+) -> None:
+    """Check and apply a triage decision to ``finding``, with its audit event (no commit).
+
+    Raises:
+        ValueError: If the reason or the expiry date is missing or invalid for this finding.
+    """
+    _check_current(finding)
+    if status in DISMISSED_STATUSES:
+        settings = get_settings()
+        plain = status == FindingStatus.ACCEPTED and not needs_formal_acceptance(finding.severity)
+        # A false positive states a fact about the code: it needs no reason nor expiry date
+        formal = status == FindingStatus.ACCEPTED and not plain
+        reason = _check_reason(reason, required=formal)
+        if expires_at is None:
+            if formal and not settings.permanent_acceptance_enabled:
+                raise ValueError(f"An expiry date is required for the status '{status.value}'")
+        else:
+            expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
+    else:
+        if expires_at is not None:
+            raise ValueError(f"The status '{status.value}' takes no expiry date")
+        reason = _check_reason(reason, required=False) if status != FindingStatus.OPEN else None
+    previous = effective_status(finding.status, finding.status_expires_at, now)
+    if previous != status:
+        finding.status_changed_at = now
+    # The reason of an acceptance opens its comments: a new one is added when the risk is
+    # accepted or its reason changes, not when only the expiry date does
+    if (
+        status == FindingStatus.ACCEPTED
+        and reason
+        and (finding.status != status or finding.status_reason != reason)
+    ):
+        session.add(
+            FindingComment(
+                finding_id=finding.id, author=approver[:200], body=reason, created_at=now
+            )
+        )
+    proposal = finding.proposed_status
+    finding.status = status
+    reopened = status == FindingStatus.OPEN
+    finding.status_reason = reason
+    finding.status_approver = None if reopened else approver[:200]
+    finding.status_expires_at = expires_at
+    finding.proposed_status = None
+    finding.proposed_reason = None
+    finding.proposed_by = None
+    finding.proposed_at = None
+    session.add(finding)
+    audit.record(
+        session,
+        audit.AuditAction.FINDING_STATUS_CHANGED,
+        actor or approver,
+        "finding",
+        finding.id,
+        finding.report.project,
+        {
+            "previous_status": FindingStatus(previous).value,
+            "status": status.value,
+            "reason": reason,
+            "expires_at": expires_at.isoformat() if expires_at else None,
+            "proposal": FindingStatus(proposal).value if proposal else None,
+        },
+    )
 
 
 def update_finding_severity(

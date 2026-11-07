@@ -368,6 +368,40 @@ async def test_review_tools_give_the_report_language_to_reviews_without_a_prompt
     assert "in **French**" in text_of(checklist)
 
 
+async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_caller(monkeypatch):
+    content = {"content": "subprocess.run(cmd, shell=True)\n", "language": "py"}
+    sent = []
+    opengrep_match = {"rule_id": "OPENGREP:secreview.python.shell", "line": 1}
+
+    def controller(url, authorization, text, language, timeout):
+        sent.append((url, authorization, language))
+        if len(sent) > 1:
+            raise server.remote_scan.RemoteScanError("the controller answered HTTP 503")
+        return {"matches": [opengrep_match], "suppressed": [], "engines": ["rules", "opengrep"]}
+
+    monkeypatch.setattr(server.remote_scan, "scan", controller)
+    monkeypatch.setattr(server, "_caller_authorization", lambda ctx: "Bearer agent-token")
+    async with Client(mcp) as client:
+        # Not configured: no outgoing connection
+        alone = json.loads(text_of(await client.call_tool("scan_code", content)))
+        # Turned on in the web interface: the public URL of the controller
+        app_settings.set_controller_url("https://sr.example", "admin")
+        app_settings.set_mcp_scan_delegation(True, "admin")
+        delegated = json.loads(text_of(await client.call_tool("scan_code", content)))
+        # SECREVIEW_MCP_SCAN_CONTROLLER_URL on the MCP server takes precedence
+        monkeypatch.setattr(get_settings(), "mcp_scan_controller_url", "http://controller:8080")
+        failed = json.loads(text_of(await client.call_tool("scan_code", content)))
+
+    assert [url for url, *_ in sent] == ["https://sr.example", "http://controller:8080"]
+    assert sent[0][1:] == ("Bearer agent-token", "python")
+    assert (alone["engines"], alone["controller_error"]) == (["rules"], None)
+    assert delegated["engines"] == ["rules", "opengrep"]
+    assert delegated["matches"] == [opengrep_match]
+    # The Controller server failed: the rules of the MCP server still scan the content
+    assert failed["controller_error"].endswith("HTTP 503")
+    assert "PY-004" in {m["rule_id"] for m in failed["matches"]}
+
+
 async def test_triage_prompt_sets_the_report_language():
     saved = services.save_report(project="demo", summary="Seeded", findings=[])
     async with Client(mcp) as client:

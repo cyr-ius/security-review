@@ -9,6 +9,7 @@ refused before its body is read.
 
 from .. import standards
 from ..config import get_settings
+from ..http_server import CONTENT_SCAN_PATH
 
 # Body of any route of the controller, unless a prefix below gives another bound
 MAX_BODY_BYTES = 512 * 1024
@@ -23,6 +24,10 @@ def body_limit(path: str) -> tuple[int, str]:
     if path.startswith(SCAN_PREFIX):
         limit = get_settings().max_scan_request_mb * 1024 * 1024
         return limit, "SECREVIEW_MAX_SCAN_REQUEST_MB): exclude files or raise the limit"
+    if path == CONTENT_SCAN_PATH:
+        # A JSON string may escape each character on 6 bytes (\uXXXX)
+        limit = 6 * get_settings().max_content_chars + MAX_BODY_BYTES
+        return limit, "SECREVIEW_MAX_CONTENT_CHARS)"
     if path.startswith(PACK_PREFIX):
         return MAX_PACK_BODY_BYTES, "TOML pack)"
     return MAX_BODY_BYTES, "JSON request)"

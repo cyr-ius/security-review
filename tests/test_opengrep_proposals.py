@@ -17,6 +17,8 @@ RULE = f"""rules:
     pattern: render_template_string(request.$X.get(...))
 """
 REASON = "Server-side template injection missed by the scan rules"
+OTHER_ID = "acme.python.other"
+OTHER = RULE.replace(RULE_ID, OTHER_ID).replace("render_template_string", "Template")
 TEST_CODE = (
     f"# ruleid: {RULE_ID}\nrender_template_string(request.args.get('t'))\n"
     f"# ok: {RULE_ID}\nrender_template('page.html')\n"
@@ -64,10 +66,11 @@ def test_a_proposed_rule_is_installed_only_by_an_approval_and_never_over_a_rule(
     with pytest.raises(ValueError, match="already decided"):
         opengrep_proposals.reject_proposal(first["id"], "alice", "user:alice")
 
-    # The same rule proposed again cannot replace the installed one: nothing is recorded
-    again = propose()
+    # An approval never replaces a rule installed meanwhile: nothing is recorded
+    other = propose(OTHER_ID, OTHER)
+    (rules_dir / f"{OTHER_ID}.yaml").write_text(OTHER, encoding="utf-8")
     with pytest.raises(FileExistsError):
-        opengrep_proposals.approve_proposal(again["id"], "alice", "user:alice")
+        opengrep_proposals.approve_proposal(other["id"], "alice", "user:alice")
     assert opengrep_proposals.list_proposals()[0]["status"] == "pending"
     assert actions() == [
         "opengrep_rule.proposed",
@@ -75,6 +78,39 @@ def test_a_proposed_rule_is_installed_only_by_an_approval_and_never_over_a_rule(
         "opengrep_rule.proposed",
         "opengrep_rule.proposed",
     ]
+
+
+def test_a_rule_already_installed_or_proposed_is_refused(rules_dir):
+    # Same detection as a pending proposal, under another id and another layout
+    propose()
+    copy = (
+        RULE.replace(RULE_ID, "acme.python.copy")
+        .replace("Template rendered from user input", "SSTI")
+        .replace("  - id", "  # a comment\n  - id")
+        .replace(
+            "pattern: render_template_string(request.$X.get(...))",
+            'pattern:   "render_template_string(request.$X.get(...))"',
+        )
+    )
+    with pytest.raises(ValueError, match=f"pending proposal .*'{RULE_ID}'"):
+        propose("acme.python.copy", copy)
+    # Not named to another project
+    with pytest.raises(ValueError, match="another pending proposal$"):
+        opengrep_proposals.propose_rule(
+            "other", "acme.python.copy", copy, REASON, TEST_CODE, "agent-token"
+        )
+    opengrep_proposals.approve_proposal(propose()["id"], "alice", "user:alice")
+    # The installed rule, under its id or another one, and a default rule
+    with pytest.raises(ValueError, match="already installed"):
+        propose()
+    with pytest.raises(ValueError, match=f"same code as the OpenGrep rule '{RULE_ID}'"):
+        propose("acme.python.copy", copy)
+    bundled = next(iter(opengrep_rule_store.bundled_rules().values()))[0]
+    content = bundled.read_text(encoding="utf-8").replace(bundled.stem, "acme.default.copy")
+    with pytest.raises(ValueError, match=f"'{bundled.stem}'"):
+        propose("acme.default.copy", content)
+    # Another pattern is a new rule
+    assert propose(OTHER_ID, OTHER)["status"] == "pending"
 
 
 @pytest.mark.parametrize(
@@ -98,7 +134,7 @@ def test_pending_proposals_are_bounded(monkeypatch):
     try:
         propose()
         with pytest.raises(ValueError, match="Too many"):
-            propose("acme.python.other", RULE.replace(RULE_ID, "acme.python.other"))
+            propose(OTHER_ID, OTHER)
         # Replacing the pending proposal stays possible
         assert propose()["rule_id"] == RULE_ID
     finally:

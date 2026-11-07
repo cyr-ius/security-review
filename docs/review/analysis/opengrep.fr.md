@@ -2,7 +2,35 @@
 
 Le serveur Controller lance OpenGrep comme second moteur d'analyse statique lors d'un scan de code complet
 (`security-review-ci scan-code`). Le scanner intégré reste actif et inchangé. Les scans de fragments
-(`scan_code`) ne lancent aucun processus externe.
+(`scan_code`) du serveur MCP n'utilisent OpenGrep que lorsqu'ils sont
+[délégués au serveur Controller](#scans-de-fragments-scan_code).
+
+## Scans de fragments (`scan_code`)
+
+Par défaut, l'outil `scan_code` scanne le fragment reçu avec les seules règles du serveur MCP, sans
+lancer de processus externe. Avec `SECREVIEW_MCP_SCAN_CONTROLLER_URL` défini sur le serveur MCP (URL
+racine du serveur Controller, par exemple `http://controller:8080` dans Compose), il envoie le fragment
+à `POST /api/v1/scan/content` du serveur Controller avec le jeton de l'agent : le serveur Controller
+applique ses règles, puis ses règles OpenGrep quand le moteur est activé, et n'enregistre rien. La
+réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`).
+
+Sans la variable, un administrateur peut activer la délégation dans l'interface web : dans la page
+**Général**, sous **Adresse du serveur Controller**, l'interrupteur **Déléguer l'outil scan_code à ce
+serveur Controller** envoie les fragments à cette adresse publique (le serveur MCP doit la joindre).
+Il est désactivé par défaut, exige une adresse connue, s'applique au prochain appel de `scan_code`,
+et se désactive quand l'adresse change (réactivez-le pour la nouvelle adresse : les jetons ne
+suivent jamais une adresse modifiée). Chaque changement est enregistré dans le journal d'audit (`mcp_scan_delegation.changed`). La
+variable, si elle est définie sur le serveur MCP, est prioritaire.
+
+- Le jeton de l'agent est relayé tel quel : un jeton `mcp` ou `admin` n'atteint que cette route, pas
+  le reste de l'API REST.
+- Sans jeton d'appelant (stdio, serveur ouvert), ou quand le serveur Controller ne répond pas
+  (injoignable, OpenGrep occupé, `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` dépassé), `scan_code` scanne avec
+  les règles du serveur MCP et en donne la raison dans `controller_error`.
+- L'appel ne va qu'à l'URL configurée, sans proxy ni redirection, avec une réponse bornée ; utilisez
+  une URL `https://` quand le serveur Controller n'est pas sur le même réseau privé.
+- Les fragments ont leurs propres créneaux OpenGrep (`SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`) :
+  des agents qui appellent souvent `scan_code` ne font jamais attendre les scans du dépôt des pipelines.
 
 ## Image Docker
 
@@ -10,23 +38,24 @@ L'[image `-opengrep`](../../advanced/deployment/docker.md#images-publiees) (`lat
 `X.Y.Z-opengrep`) contient une version épinglée d'OpenGrep dans `/usr/local/bin/opengrep`, vérifiée par son
 empreinte SHA-256 à la construction (cible `opengrep` du `Dockerfile`) et décompactée à ce moment, en
 lecture seule, pour qu'un scan ne l'extraie jamais : utilisez-la pour le serveur Controller. Les
-[règles par défaut](#regles-par-defaut) sont installées et tenues à jour à chaque démarrage. L'image par défaut ne contient pas OpenGrep et définit `SECREVIEW_OPENGREP_ENABLED=false`. Avec une installation du paquet
-PyPI, installez OpenGrep vous-même et définissez `SECREVIEW_OPENGREP_BINARY` s'il n'est pas dans
+[règles par défaut](#regles-par-defaut) sont installées et tenues à jour à chaque démarrage. L'image `-opengrep` définit `SECREVIEW_OPENGREP_ENABLED=true` ; l'image par défaut ne contient pas OpenGrep. Avec une installation du paquet
+PyPI, installez OpenGrep vous-même, définissez `SECREVIEW_OPENGREP_ENABLED=true` et `SECREVIEW_OPENGREP_BINARY` s'il n'est pas dans
 `/usr/local/bin`.
 
 ## Configuration
 
-Le moteur est activé par défaut (sauf dans l'image Docker par défaut, sans OpenGrep), mais il ne s'exécute qu'une fois au moins une règle YAML installée : sans
-règle, `scan-code` n'exécute que le scanner intégré. Définissez `SECREVIEW_OPENGREP_ENABLED=false` pour le
-désactiver. Variables d'environnement du serveur Controller :
+Le moteur est désactivé par défaut et activé dans l'image `-opengrep` ; définissez
+`SECREVIEW_OPENGREP_ENABLED=true` pour l'activer ailleurs. Une fois activé, il ne s'exécute qu'une fois au moins une règle YAML installée : sans
+règle, `scan-code` n'exécute que le scanner intégré. Variables d'environnement du serveur Controller :
 
 | Variable | Valeur par défaut | Description |
 | --- | --- | --- |
-| `SECREVIEW_OPENGREP_ENABLED` | `true` | Active OpenGrep pour les scans de code complet |
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Active OpenGrep pour les scans de code complet |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Chemin de l'exécutable OpenGrep |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des packs de règles YAML |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan OpenGrep |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans OpenGrep simultanés dans un processus du serveur Controller ; un scan au-delà est refusé avec `503` et `Retry-After` |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de [`scan_code`](#scans-de-fragments-scan_code) scannés par OpenGrep en même temps, dans leurs propres créneaux pour que les agents ne prennent jamais ceux des scans du dépôt (`503` au-delà : le serveur MCP scanne avec ses règles) ; `0` : les fragments ne sont scannés qu'avec les règles |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan OpenGrep (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
 
@@ -140,8 +169,16 @@ proposer une règle qu'après avoir enregistré le rapport.
   `save_security_report`). Une nouvelle proposition avec l'identifiant d'une proposition en
   attente la remplace ; au plus `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` propositions
   attendent en même temps.
+- Les doublons sont refusés : une règle dont l'identifiant est déjà installé, ou qui détecte le
+  même code qu'une règle installée, qu'une règle par défaut ou qu'une autre proposition en
+  attente. Deux règles détectent le même code quand elles ne diffèrent que par leur `id`,
+  `message`, `metadata`, `severity` ou `fix`, leurs commentaires, leur indentation, leurs
+  espaces ou les guillemets autour d'une valeur. Le refus nomme la règle existante, ou la
+  proposition quand elle appartient au même projet ; pour corriger une proposition en attente,
+  l'agent la propose de nouveau avec son identifiant.
 - Les propositions en attente sont listées en haut de la page **Règles OpenGrep** pour les
-  utilisateurs disposant de `rules.manage`. **Examiner** en ouvre une dans l'éditeur avec son
+  utilisateurs disposant de `rules.manage` ; tant qu'il y en a, leur nombre s'affiche à côté de
+  **Règles OpenGrep** dans le menu. **Examiner** en ouvre une dans l'éditeur avec son
   projet, son auteur, son motif et son code de test : l'approbateur peut corriger le YAML (pas
   son identifiant), le valider avec OpenGrep, puis l'**Approuver et installer** ou la
   **Rejeter** avec un motif facultatif.
@@ -152,6 +189,6 @@ proposer une règle qu'après avoir enregistré le rapport.
 
 | Route | Permission | Rôle |
 |---|---|---|
-| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Propositions d'un statut (`pending` par défaut, `approved`, `rejected`), les plus récentes d'abord |
+| `GET /api/v1/opengrep/proposals?status=pending` | `rules.manage` | Propositions d'un statut (`pending` par défaut, `approved`, `rejected`), les plus récentes d'abord, avec leur nombre `total` |
 | `POST /api/v1/opengrep/proposals/{id}/approve` | `rules.manage`, session web | Corps `{"content": null}` (ou le YAML corrigé) : valide et installe la règle |
 | `POST /api/v1/opengrep/proposals/{id}/reject` | `rules.manage`, session web | Corps `{"reason": null}` : la règle n'est pas installée |

@@ -1790,6 +1790,7 @@ def test_project_triager_only_changes_findings_of_its_project(secured, reports):
         ("get", "/api/v1/settings"),
         ("put", "/api/v1/settings/report-language"),
         ("put", "/api/v1/settings/controller-url"),
+        ("put", "/api/v1/settings/mcp-scan-delegation"),
         ("put", "/api/v1/settings/proxy"),
         ("get", "/api/v1/settings/audit-syslog"),
         ("put", "/api/v1/settings/audit-syslog"),
@@ -1830,8 +1831,14 @@ def test_admin_sets_the_controller_url(client):
     assert response.status_code == 200
     assert response.json()["controller_url"]["effective"] == "https://sr.example"
     assert client.put(url, json={"value": "ftp://sr.example"}).status_code == 422
+    delegation = client.put("/api/v1/settings/mcp-scan-delegation", json={"enabled": True})
+    assert delegation.json()["mcp_scan_delegation"] == {
+        "enabled": True,
+        "url": "https://sr.example",
+    }
     reset = client.put(url, json={"value": None}).json()
     assert reset["controller_url"]["effective"] is None
+    assert reset["mcp_scan_delegation"] == {"enabled": False, "url": None}
 
 
 def test_settings_whose_variable_is_set_are_refused(client, monkeypatch):
@@ -2160,6 +2167,59 @@ def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, report
     assert "expiry date is required" in response.text
 
 
+def test_bulk_triage_is_all_or_nothing_and_in_the_scope_of_the_triager(accounts, reports):
+    shop = services.get_report(reports[0]).findings
+    high, low = shop[0].id, shop[1].id
+    billing = services.save_report("billing", "Billing review", [make_finding()])
+    billing_finding = services.get_report(billing["report_id"]).findings[0].id
+    make_user("tess", USER_PASSWORD, "triager", ["shop-api"])
+    headers = session_headers(accounts, "tess")
+    services.propose_finding_status(high, FindingStatus.ACCEPTED, "Internal tool only", "ci")
+
+    def statuses() -> list[str]:
+        return [f.status for f in services.get_report(reports[0]).findings]
+
+    # The high finding needs a reason to be accepted: nothing is saved, the low one neither
+    response = accounts.patch(
+        "/api/v1/findings", json={"finding_ids": [low, high], "status": "accepted"}, headers=headers
+    )
+    assert response.status_code == 422
+    assert f"Finding {high}" in response.text
+    assert statuses() == ["open", "open"]
+    # A finding of another project counts as missing
+    body = {"finding_ids": [high, billing_finding], "status": "fixed"}
+    assert accounts.patch("/api/v1/findings", json=body, headers=headers).status_code == 404
+    assert statuses() == ["open", "open"]
+
+    in_30_days = (date.today() + timedelta(days=30)).isoformat()
+    body = {
+        "finding_ids": [high, low, high],
+        "status": "accepted",
+        "reason": "Internal tool only",
+        "expires_on": in_30_days,
+    }
+    response = accounts.patch("/api/v1/findings", json=body, headers=headers)
+    assert response.status_code == 200
+    assert [(f["id"], f["status"], f["status_approver"]) for f in response.json()] == [
+        (high, "accepted", "tess"),
+        (low, "accepted", "tess"),
+    ]
+    assert response.json()[0]["proposed_status"] is None
+    events = audit.list_events(action="finding.status_changed")["events"]
+    assert sorted(e["target_id"] for e in events) == sorted([str(high), str(low)])
+
+
+def test_bulk_triage_never_dismisses_with_a_token(secured, reports):
+    ids = [f.id for f in services.get_report(reports[0]).findings]
+    body = {"finding_ids": ids, "status": "false_positive"}
+    response = secured.patch("/api/v1/findings", json=body, headers=auth("admin"))
+    assert response.status_code == 403
+    response = secured.patch(
+        "/api/v1/findings", json={"finding_ids": ids, "status": "fixed"}, headers=auth("admin")
+    )
+    assert [f["status"] for f in response.json()] == ["fixed", "fixed"]
+
+
 def test_triager_rejects_an_agent_proposal(secured, web_sessions, reports):
     report = services.get_report(reports[0])
     finding_id = report.findings[0].id
@@ -2222,6 +2282,7 @@ def test_only_a_logged_in_person_decides_on_a_proposed_opengrep_rule(secured, mo
 
     listed = secured.get("/api/v1/opengrep/proposals", headers=auth("admin")).json()
     assert [item["rule_id"] for item in listed["proposals"]] == [rule_id]
+    assert listed["total"] == 1
     # A bearer token, which an agent may hold, never installs a rule it proposed
     assert secured.post(url, json={}, headers=auth("admin")).status_code == 403
     response = secured.post(url, json={}, headers={"Authorization": f"Bearer {session}"})
@@ -3096,6 +3157,24 @@ def test_scans_need_a_ci_or_admin_token(secured, web_sessions, ci_token):
     assert secured.post("/api/v1/ci/scan/code", json=code_scan_body()).status_code == 401
     admin = secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=auth("admin"))
     assert admin.status_code == 200
+
+
+def test_the_delegated_content_scan_is_the_only_route_of_an_mcp_token(
+    secured, web_sessions, ci_token
+):
+    body = {"content": "subprocess.run(cmd, shell=True)\n", "language": "py"}
+
+    scan = secured.post("/api/v1/scan/content", json=body, headers=auth("mcp"))
+
+    assert scan.status_code == 200, scan.text
+    assert scan.json()["engines"] == ["rules"]
+    assert "PY-004" in {m["rule_id"] for m in scan.json()["matches"]}
+    for role in ("reader", "ci", "metrics"):
+        response = secured.post("/api/v1/scan/content", json=body, headers=auth(role))
+        assert response.status_code == 403, role
+    assert secured.post("/api/v1/scan/content", json=body).status_code == 401
+    # The token of the agent reaches nothing else of the Controller server
+    assert secured.get("/api/v1/reports", headers=auth("mcp")).status_code == 403
 
 
 def test_scans_refuse_a_web_session(accounts):

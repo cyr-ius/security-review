@@ -603,6 +603,11 @@ export class ApiService {
     return this.http.patch<Finding>(`${API_URL}/findings/${id}`, decision);
   }
 
+  /** Record the same triage decision on several findings, all or nothing. */
+  updateFindingsStatus(ids: readonly number[], decision: FindingDecision): Observable<Finding[]> {
+    return this.http.patch<Finding[]>(`${API_URL}/findings`, { ...decision, finding_ids: ids });
+  }
+
   /** Raise the severity of a finding, with the justification of the analyst. */
   updateFindingSeverity(id: number, change: FindingSeverityChange): Observable<Finding> {
     return this.http.patch<Finding>(`${API_URL}/findings/${id}/severity`, change);
@@ -661,9 +666,19 @@ export class ApiService {
     return this.http.put<AppSettings>(`${API_URL}/settings/controller-url`, { value });
   }
 
+  /** Delegate scan_code of the MCP server to the public URL of the controller, or stop. */
+  setMcpScanDelegation(enabled: boolean): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/mcp-scan-delegation`, { enabled });
+  }
+
   /** A field left out is unchanged; null restores the variable, url '' connects directly. */
   setProxy(values: ProxyUpdate): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);
+  }
+
+  /** null removes the choice: SECREVIEW_OSV_ECOSYSTEMS (or its default) applies again. */
+  setOsvEcosystems(ecosystems: string[] | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/osv-ecosystems`, { ecosystems });
   }
 
   auditSyslog(): Observable<AuditSyslogSettings> {

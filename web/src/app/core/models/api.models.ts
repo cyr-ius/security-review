@@ -320,6 +320,7 @@ export type AuditAction =
   | 'user.logout'
   | 'audit_syslog.changed'
   | 'controller_url.changed'
+  | 'mcp_scan_delegation.changed'
   | 'finding.exported'
   | 'connector.target_changed'
   | 'connector.changed'
@@ -367,6 +368,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.logout',
   'audit_syslog.changed',
   'controller_url.changed',
+  'mcp_scan_delegation.changed',
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
@@ -573,6 +575,8 @@ export interface OpenGrepRuleProposal {
 
 export interface OpenGrepRuleProposalList {
   proposals: OpenGrepRuleProposal[];
+  /** Proposals of the requested status, beyond the page. */
+  total: number;
 }
 
 /** Origin of a stored checklist item. */
@@ -1068,6 +1072,12 @@ export interface AppSettings {
     env_set: boolean;
     effective: string | null;
   };
+  /** scan_code of the MCP server delegated to the public URL of the controller. */
+  mcp_scan_delegation: {
+    enabled: boolean;
+    /** URL used, null while off or while the controller URL is unknown. */
+    url: string | null;
+  };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {
     /** value: set in the web interface ('': direct connection); env: HTTPS_PROXY (else
@@ -1084,7 +1094,15 @@ export interface AppSettings {
     download_enabled: boolean;
     update_interval_hours: number;
     url: string;
-    ecosystems: string;
+    /** value: chosen in the web interface; env: SECREVIEW_OSV_ECOSYSTEMS; env_set: the variable
+     * is set and takes precedence; effective: comma separated; supported: those to choose from. */
+    ecosystems: {
+      value: string[] | null;
+      env: string;
+      env_set: boolean;
+      effective: string;
+      supported: string[];
+    };
     cafile: string | null;
     max_download_mb: number;
   };

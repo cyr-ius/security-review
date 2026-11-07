@@ -13,6 +13,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/api/v1/auth/` | the login page: password and [OIDC](../oidc.md) login | none |
 | `/api/v1/` | the web interface, scripts, Swagger | web session, `admin` or `api` token |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token (personal or not) |
+| `/api/v1/scan/content` | the MCP server: `scan_code` [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code) (reads and stores nothing) | `mcp` or `admin` token of the agent, relayed |
 | `/metrics` | Prometheus ([metrics](../../reference/metrics.md)) | `metrics` or `admin` token |
 | `/api/docs` | Swagger: OpenAPI documentation of the REST API, without data, only with `SECREVIEW_SWAGGER_ENABLED=true` | none (the calls need an [API token](../../usage/tokens.md#api-tokens)) |
 | `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller-server), unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | none |
@@ -265,7 +266,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Settings stored in the database
 
-The **General** (report language, Controller server address, outgoing proxy) and **Sign-in** (OIDC) pages of the
+The **General** (report language, Controller server address, outgoing proxy), **OSV database** (downloaded ecosystems) and **Sign-in** (OIDC) pages of the
 [web interface](../../usage/index.md) store settings in the database, shared by the MCP
 server and the Controller server (`settings.manage` permission; the former `/ui/settings`,
 `/ui/settings/language` and `/ui/settings/proxy` addresses open **General**). **An environment variable that is set
@@ -273,14 +274,16 @@ server and the Controller server (`settings.manage` permission; the former `/ui/
 shows the variable, and a value stored before the variable was set is marked as ignored, with a
 **Delete** button. A change applies without restart: the MCP server reads the Controller server
 address within a minute (the change is recorded in the audit log, `controller_url.changed`),
-and the proxy applies to the next OSV download and the next OIDC login. **Use the current
+and the proxy and the ecosystems apply to the next OSV download, the proxy also to the next OIDC login. **Use the current
 address** fills in the address of this Controller server.
 
 | Route | Effect |
 |---|---|
 | `GET /api/v1/settings` | For each setting: the stored `value`, the variable `env`, `env_set` (the variable is set and takes precedence) and the effective value |
 | `PUT /api/v1/settings/controller-url` | `value` (`null` deletes it) |
+| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown; audited, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` and `no_proxy`: `null` deletes the stored value, `"url": ""` forces the direct connection, a missing field is unchanged. Passwords are never shown again (`***`): sending `***` back keeps the stored one |
+| `PUT /api/v1/settings/osv-ecosystems` | `ecosystems`: list of the ecosystems to download, among `supported` of `GET /api/v1/settings` (`422` for an empty list or an unknown ecosystem); `null` deletes it (`SECREVIEW_OSV_ECOSYSTEMS` or its default applies again) |
 
 A value whose variable is set is refused with `422`. The OIDC settings have their own routes
 ([OIDC configuration](../oidc.md#configuring-oidc-in-the-interface)). The theme chosen by a

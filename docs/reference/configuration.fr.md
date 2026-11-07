@@ -57,6 +57,8 @@ Lues par `security-review-mcp` uniquement.
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](../review/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans la page [**Langue des rapports**](../usage/index.md#pages) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code`, et de chaque texte d'un rapport (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |
+| `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | URL racine du serveur Controller (`http://controller:8080` dans Compose) à qui `scan_code` [délègue son scan](../review/analysis/opengrep.md#scans-de-fragments-scan_code) avec le jeton de l'agent, pour appliquer aussi les règles OpenGrep ; prioritaire sur la délégation activée dans la page **Général** ; non définie : aucune délégation (sauf si elle y est activée), aucune connexion sortante |
+| `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` | `120` | Durée maximale d'un scan délégué, OpenGrep compris (1 à 7200) ; au-delà, `scan_code` scanne avec les règles du serveur MCP |
 
 ## Serveur Controller
 
@@ -129,7 +131,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Mise à jour quotidienne](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) de la base OSV par `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
-| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Écosystèmes téléchargés, séparés par des virgules |
+| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Écosystèmes téléchargés, séparés par des virgules ; non définie, ils se choisissent sur la page **Base OSV** |
 | `SECREVIEW_OSV_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Taille maximale d'une archive téléchargée |
 
@@ -179,15 +181,16 @@ Lues par `security-review-controller` uniquement.
 
 ### Moteur OpenGrep
 
-Moteur du serveur Controller pour `scan-code`, activé par défaut et ignoré tant qu'aucune règle n'est installée (binaire fourni dans l'image Docker `-opengrep`, désactivé dans l'image par défaut), voir [OpenGrep](../review/analysis/opengrep.md).
+Moteur du serveur Controller pour `scan-code`, désactivé par défaut et ignoré tant qu'aucune règle n'est installée (binaire fourni dans l'image Docker `-opengrep`, qui l'active), voir [OpenGrep](../review/analysis/opengrep.md).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_OPENGREP_ENABLED` | `true` | Lance aussi OpenGrep sur les fichiers de `scan-code` |
+| `SECREVIEW_OPENGREP_ENABLED` | `false` | Lance aussi OpenGrep sur les fichiers de `scan-code` |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Exécutable OpenGrep |
 | `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des règles YAML d'OpenGrep |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan (1 à 7200) |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans simultanés dans un processus du serveur Controller (`503` au-delà) |
+| `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de `scan_code` [délégués par le serveur MCP](../review/analysis/opengrep.md#scans-de-fragments-scan_code) scannés en même temps, dans leurs propres créneaux (`503` au-delà) ; `0` : règles seules pour les fragments |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan (`0` : sans limite) |
 | `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | Serveur MCP : règles OpenGrep proposées par les agents (`propose_opengrep_rule`) en attente de décision en même temps ; une nouvelle proposition est refusée au-delà |

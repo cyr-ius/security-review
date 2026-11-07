@@ -1,5 +1,14 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  linkedSignal,
+  signal,
+} from '@angular/core';
+import { FieldTree, FormField, form } from '@angular/forms/signals';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { msg } from '../../../core/i18n/i18n.service';
@@ -39,14 +48,16 @@ export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], MessageKey> = {
 };
 
 /**
- * Administrator page: state of the OSV advisory database, its download configuration, history
- * of its updates and manual update.
+ * Administrator page: state of the OSV advisory database, its download configuration (the
+ * downloaded ecosystems may be chosen here while SECREVIEW_OSV_ECOSYSTEMS is not set), history of
+ * its updates and manual update.
  */
 @Component({
   selector: 'app-advisory-settings',
   imports: [
     HelpLinkComponent,
     DatePipe,
+    FormField,
     DecimalPipe,
     RefreshButtonComponent,
     SortHeaderComponent,
@@ -145,6 +156,47 @@ export class AdvisorySettingsComponent extends SettingsPage {
       a.localeCompare(b),
     ),
   );
+
+  /** Ecosystems that can be downloaded, in the order of the server. */
+  readonly supportedEcosystems = computed(
+    () => this.settings.value()?.osv.ecosystems.supported ?? [],
+  );
+
+  /** Filled with the effective ecosystems each time they are loaded, then edited by the form. */
+  readonly ecosystemsModel = linkedSignal<Record<string, boolean>>(() => {
+    const ecosystems = this.settings.value()?.osv.ecosystems;
+    const chosen = new Set((ecosystems?.effective ?? '').split(',').map((name) => name.trim()));
+    return Object.fromEntries(
+      (ecosystems?.supported ?? []).map((name) => [name, chosen.has(name)]),
+    );
+  });
+  readonly ecosystemsForm = form(this.ecosystemsModel);
+
+  /** Checkbox of an ecosystem. */
+  ecosystemField(name: string): FieldTree<boolean> {
+    return this.ecosystemsForm[name] as FieldTree<boolean>;
+  }
+
+  async saveEcosystems(event: Event): Promise<void> {
+    event.preventDefault();
+    const chosen = this.supportedEcosystems().filter((name) => this.ecosystemsModel()[name]);
+    if (!chosen.length) {
+      this.error.set(msg('settings.ecosystemsMissing'));
+      return;
+    }
+    await this.run(
+      () => firstValueFrom(this.api.setOsvEcosystems(chosen)),
+      msg('settings.ecosystemsSaved'),
+    );
+  }
+
+  /** Delete the stored choice: SECREVIEW_OSV_ECOSYSTEMS (or its default) applies again. */
+  async resetEcosystems(): Promise<void> {
+    await this.run(
+      () => firstValueFrom(this.api.setOsvEcosystems(null)),
+      msg('settings.storedDeleted'),
+    );
+  }
 
   private pollTimer: ReturnType<typeof setTimeout> | undefined;
 

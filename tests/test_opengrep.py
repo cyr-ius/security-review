@@ -13,9 +13,10 @@ from security_review_mcp.rules import codescan, opengrep_rule_store
 from security_review_mcp.rules.codescan import SourceFile
 
 
-def test_engine_enabled_by_default_runs_only_once_rules_are_installed(tmp_path, monkeypatch):
-    # Enabled by default, but skipped without any rule: scan-code works out of the box
-    assert Settings().opengrep_enabled is True
+def test_engine_disabled_by_default_runs_only_once_rules_are_installed(tmp_path, monkeypatch):
+    # Disabled by default (a PyPI installation has no executable); once enabled, skipped
+    # without any rule: scan-code works out of the box
+    assert Settings().opengrep_enabled is False
     rules = tmp_path / "rules"
     settings = SimpleNamespace(
         opengrep_enabled=True,
@@ -126,6 +127,7 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
         opengrep_rules_dir=str(rules),
         opengrep_timeout_seconds=1,
         opengrep_max_concurrent_scans=1,
+        opengrep_max_concurrent_fragment_scans=1,
         opengrep_jobs=1,
         opengrep_max_memory_mb=0,
     )
@@ -145,6 +147,14 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
         opengrep.scan_files([("app.py", "print('ok')")])
     with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
         opengrep.scan_files([("app.py", "print('ok')")])
+    # The fragments of scan_code have their own slots: they never take those of the pipelines
+    with opengrep._scan_slot(1), pytest.raises(opengrep.OpenGrepError, match="scan failed"):
+        opengrep.scan_files([("app.py", "print('ok')")], fragment=True)
+    with opengrep._scan_slot(1, "fragment"):
+        with pytest.raises(opengrep.OpenGrepBusyError, match="busy"):
+            opengrep.scan_files([("app.py", "print('ok')")], fragment=True)
+        with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
+            opengrep.scan_files([("app.py", "print('ok')")])
 
 
 def test_codebase_scan_merges_opengrep_findings(monkeypatch):

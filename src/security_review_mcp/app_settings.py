@@ -4,9 +4,11 @@ A stored value applies when its variable is not set, for both processes since th
 database: the language of the review reports (read by the MCP server when it builds a review
 prompt), the public URL of the controller (read by the MCP server for the clients without a
 token, and by the connectors; SECREVIEW_PUBLIC_URL set on the controller is copied here at
-start, see sync_controller_url; the MCP server reads it there only), the OAuth login of the MCP
-clients (see set_mcp_oauth), the proxy of the outgoing connections, the single sign-on settings
-and the syslog server of the audit log (read by the controller, see effective_settings). A
+start, see sync_controller_url; the MCP server reads it there only), the delegation of the
+scan_code tool to that URL (see set_mcp_scan_delegation), the OAuth login of the MCP
+clients (see set_mcp_oauth), the proxy of the outgoing connections, the ecosystems of the OSV
+download, the single sign-on settings and the syslog server of the audit log (read by the
+controller, see effective_settings). A
 variable that is set (environment or ``.env`` file) always wins: the web interface cannot change
 it, and a value stored before is ignored (see env_set).
 
@@ -34,6 +36,7 @@ from .config import (
     get_settings,
     web_ui_url,
 )
+from .deps import advisories
 from .observability import audit
 from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_proxy, masked_url
 from .storage.database import session_scope
@@ -56,6 +59,9 @@ PERSONAL_MCP_TOKENS = "personal_mcp_tokens"
 # sync_personal_mcp_tokens): the personal mcp and ci tokens and the OAuth grants are then refused
 # by both processes (see token_store)
 PERSONAL_TOKENS_ENABLED = "personal_tokens_enabled"
+# Key stored ("true") while scan_code of the MCP server is delegated to the stored controller URL
+# (see set_mcp_scan_delegation); SECREVIEW_MCP_SCAN_CONTROLLER_URL on the MCP server wins
+MCP_SCAN_DELEGATION = "mcp_scan_delegation"
 # Author of the URL copied from SECREVIEW_PUBLIC_URL by the controller (see
 # sync_controller_url)
 ENV_ACTOR = "environment"
@@ -63,6 +69,9 @@ ENV_ACTOR = "environment"
 # direct connection (when HTTPS_PROXY and HTTP_PROXY are not set).
 PROXY = "proxy"
 NO_PROXY = "no_proxy"
+# Key of the ecosystems of the OSV download (comma separated, canonical names), also the name of
+# its Settings field (see set_osv_ecosystems); SECREVIEW_OSV_ECOSYSTEMS wins
+OSV_ECOSYSTEMS = "osv_ecosystems"
 # Keys of the syslog settings of the audit log, also the names of their Settings fields
 SYSLOG_ADDRESS = "audit_syslog_address"
 SYSLOG_FACILITY = "audit_syslog_facility"
@@ -164,7 +173,9 @@ def web_url() -> str | None:
 
 def _store_controller_url(value: str | None, actor: str) -> None:
     """Store the URL (None removes it) and record the change in the audit log, in the same
-    transaction: the URL is shown to the clients without a token, every change leaves a trace."""
+    transaction: the URL is shown to the clients without a token, every change leaves a trace.
+    A change turns off the delegation of scan_code, which must be turned on again for the new
+    URL: the tokens of the agents never follow a changed URL silently."""
     with session_scope() as session:
         row = session.get(AppSetting, CONTROLLER_URL)
         if (row.value if row is not None else None) == value:
@@ -178,6 +189,8 @@ def _store_controller_url(value: str | None, actor: str) -> None:
             CONTROLLER_URL,
             details={"url": value},
         )
+        if session.get(AppSetting, MCP_SCAN_DELEGATION) is not None:
+            _record_scan_delegation(session, False, actor)
 
 
 def set_controller_url(value: str | None, actor: str, settings: Settings | None = None) -> None:
@@ -197,6 +210,54 @@ def sync_controller_url(settings: Settings | None = None) -> None:
     settings = settings or get_settings()
     if env_set(settings, CONTROLLER_URL):
         _store_controller_url(settings.controller_url, ENV_ACTOR)
+
+
+# ── scan_code delegated to the controller ────────────────────────────────────
+
+
+def mcp_scan_controller_url() -> str | None:
+    """URL of the controller that scan_code delegates to when the delegation is turned on in the
+    web interface: the stored controller URL, None while off or unknown. The MCP server reads it
+    here when SECREVIEW_MCP_SCAN_CONTROLLER_URL is not set."""
+    with session_scope() as session:
+        row = session.get(AppSetting, MCP_SCAN_DELEGATION)
+        if row is None or row.value != "true":
+            return None
+        url = session.get(AppSetting, CONTROLLER_URL)
+        return url.value if url is not None else None
+
+
+def set_mcp_scan_delegation(enabled: bool, actor: str) -> None:
+    """Turn on or off the delegation of scan_code to the stored controller URL; the change is
+    recorded in the audit log, in the same transaction (the MCP server then sends the token of
+    its callers to that URL).
+
+    Raises:
+        ValueError: If turned on while the controller URL is unknown.
+    """
+    with session_scope() as session:
+        row = session.get(AppSetting, MCP_SCAN_DELEGATION)
+        if (row is not None and row.value == "true") == enabled:
+            return
+        if enabled and session.get(AppSetting, CONTROLLER_URL) is None:
+            raise ValueError(
+                "the delegation of scan_code needs the public URL of the controller: set "
+                "SECREVIEW_PUBLIC_URL or the Controller server address in the settings"
+            )
+        _record_scan_delegation(session, enabled, actor)
+
+
+def _record_scan_delegation(session: Session, enabled: bool, actor: str) -> None:
+    """Store the delegation of scan_code and record the change in the audit log."""
+    _apply(session, {MCP_SCAN_DELEGATION: "true" if enabled else None}, actor)
+    audit.record(
+        session,
+        audit.AuditAction.MCP_SCAN_DELEGATION_CHANGED,
+        actor,
+        "setting",
+        MCP_SCAN_DELEGATION,
+        details={"enabled": enabled},
+    )
 
 
 # ── OAuth login of the MCP clients ───────────────────────────────────────────
@@ -460,28 +521,59 @@ def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Setti
     }
 
 
+# ── Ecosystems of the OSV download ──────────────────────────────────────────
+
+
+def set_osv_ecosystems(
+    values: list[str] | None, updated_by: str, settings: Settings | None = None
+) -> None:
+    """Store the ecosystems downloaded by the controller (applied at the next OSV update);
+    None removes the stored value (SECREVIEW_OSV_ECOSYSTEMS, or its default, applies again).
+
+    Raises:
+        ValueError: If the list is empty, holds an unsupported ecosystem, or if
+            SECREVIEW_OSV_ECOSYSTEMS is set.
+    """
+    settings = settings or get_settings()
+    if values is None:
+        _write({OSV_ECOSYSTEMS: None}, updated_by)
+        return
+    _check_not_env(settings, OSV_ECOSYSTEMS, "SECREVIEW_OSV_ECOSYSTEMS")
+    canonical = []
+    for name in values:
+        ecosystem = advisories.canonical_ecosystem(name)
+        if ecosystem is None:
+            supported = sorted(advisories.SUPPORTED_ECOSYSTEMS.values())
+            raise ValueError(f"unsupported ecosystem {name!r}; use {supported}")
+        canonical.append(ecosystem)
+    if not canonical:
+        raise ValueError("choose at least one ecosystem")
+    _write({OSV_ECOSYSTEMS: ",".join(dict.fromkeys(canonical))}, updated_by)
+
+
 # ── Effective settings ───────────────────────────────────────────────────────
 
 
 def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
-    """Every stored value (controller URL, OAuth login, proxy, OIDC and syslog) whose variable is
-    not set."""
+    """Every stored value (controller URL, OAuth login, proxy, OSV ecosystems, OIDC and syslog)
+    whose variable is not set."""
     overrides = (
         _proxy_overrides(stored)
         | _oidc_overrides(stored)
         | _syslog_overrides(stored)
         | _mcp_oauth_overrides(stored)
     )
-    if CONTROLLER_URL in stored:
-        overrides[CONTROLLER_URL] = stored[CONTROLLER_URL]
+    for key in (CONTROLLER_URL, OSV_ECOSYSTEMS):
+        if key in stored:
+            overrides[key] = stored[key]
     return {key: value for key, value in overrides.items() if not env_set(settings, key)}
 
 
 def effective_settings(settings: Settings | None = None) -> Settings:
-    """Return ``settings`` with the controller URL, proxy, OIDC and syslog values stored in the web
-    interface applied where their variable is not set (read by the controller at each OSV
-    download, login, batch of audit events and export; the connections of the connectors are read by
-    connectors.connections)."""
+    """Return ``settings`` with the controller URL, proxy, OSV ecosystems, OIDC and syslog values
+    stored in the web interface applied where their variable is not set (read by the controller
+    at each OSV download, login, batch of audit events and export; the connections of the
+    connectors are read by connectors.connections)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored(), settings)
     effective = settings.model_copy(update=overrides) if overrides else settings
@@ -755,12 +847,22 @@ def describe(settings: Settings | None = None) -> dict:
             "env_set": env_set(settings, CONTROLLER_URL),
             "effective": effective.controller_url,
         },
+        "mcp_scan_delegation": {
+            "enabled": stored.get(MCP_SCAN_DELEGATION) == "true",
+            "url": mcp_scan_controller_url(),
+        },
         "proxy": _describe_proxy(settings, stored, effective),
         "osv": {
             "download_enabled": settings.osv_auto_update,
             "update_interval_hours": settings.osv_update_interval_hours,
             "url": settings.osv_url,
-            "ecosystems": settings.osv_ecosystems,
+            "ecosystems": {
+                "value": stored[OSV_ECOSYSTEMS].split(",") if OSV_ECOSYSTEMS in stored else None,
+                "env": settings.osv_ecosystems,
+                "env_set": env_set(settings, OSV_ECOSYSTEMS),
+                "effective": effective.osv_ecosystems,
+                "supported": list(advisories.SUPPORTED_ECOSYSTEMS.values()),
+            },
             "cafile": settings.osv_cafile,
             "max_download_mb": settings.osv_max_download_mb,
         },

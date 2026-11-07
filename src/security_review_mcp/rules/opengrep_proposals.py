@@ -80,6 +80,37 @@ def _check_rule(rule_id: str, content: str) -> None:
         raise ValueError("The rule holds invisible characters: remove them")
 
 
+def _check_duplicate(session: Any, project: str, rule_id: str, content: str) -> None:
+    """Refuse a rule already installed, or that detects the same code as an installed or
+    default rule or as another pending proposal (see opengrep_rule_store.detection_signature).
+    A proposal of another project is not named.
+
+    Raises:
+        ValueError: Naming the rule or the proposal it duplicates.
+    """
+    signature = opengrep_rule_store.detection_signature(content)
+    for known_id, known in opengrep_rule_store.known_rules().items():
+        if known_id == rule_id:
+            raise ValueError(f"The OpenGrep rule '{rule_id}' is already installed")
+        if opengrep_rule_store.detection_signature(known) == signature:
+            raise ValueError(f"This rule detects the same code as the OpenGrep rule '{known_id}'")
+    pending = session.exec(
+        select(OpenGrepRuleProposal).where(
+            OpenGrepRuleProposal.status == RuleProposalStatus.PENDING,
+            OpenGrepRuleProposal.rule_id != rule_id,
+        )
+    ).all()
+    for row in pending:
+        if opengrep_rule_store.detection_signature(row.content) != signature:
+            continue
+        if row.project != project:  # never named to a token that may not reach its project
+            raise ValueError("This rule detects the same code as another pending proposal")
+        raise ValueError(
+            f"This rule detects the same code as the pending proposal {row.id} "
+            f"('{row.rule_id}'): propose it again with that id to replace it"
+        )
+
+
 def propose_rule(
     project: str,
     rule_id: str,
@@ -95,8 +126,9 @@ def propose_rule(
     (``actor``, default the token ``proposed_by``).
 
     Raises:
-        ValueError: If the rule, the reason or the test code is invalid, or if too many
-            proposals are pending (SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS).
+        ValueError: If the rule, the reason or the test code is invalid, if the rule duplicates
+            an installed rule or another pending proposal, or if too many proposals are
+            pending (SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS).
     """
     settings = get_settings()
     project = normalize_project(project)
@@ -105,6 +137,7 @@ def propose_rule(
     checked_test = _check_text(test_code, "test code", 0, settings.max_content_chars)
     proposed_by = (proposed_by.strip() or "unknown")[:200]
     with session_scope() as session:
+        _check_duplicate(session, project, rule_id, content)
         row = session.exec(
             select(OpenGrepRuleProposal).where(
                 OpenGrepRuleProposal.rule_id == rule_id,
@@ -160,6 +193,15 @@ def list_proposals(
     with session_scope() as session:
         rows = session.exec(query.offset(max(0, offset)).limit(limit)).all()
         return [_public(row) for row in rows]
+
+
+def count_proposals(status: RuleProposalStatus | None = RuleProposalStatus.PENDING) -> int:
+    """Number of proposals, optionally of one status (the badge of the sidebar)."""
+    query = select(func.count()).select_from(OpenGrepRuleProposal)
+    if status is not None:
+        query = query.where(OpenGrepRuleProposal.status == status)
+    with session_scope() as session:
+        return session.exec(query).one()
 
 
 def _pending(session: Any, proposal_id: int) -> OpenGrepRuleProposal:

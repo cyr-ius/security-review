@@ -21,6 +21,8 @@ from .schemas import (
     AuditSyslogSettings,
     AuditSyslogUpdate,
     ControllerUrlUpdate,
+    McpScanDelegationUpdate,
+    OsvEcosystemsUpdate,
     ProxyUpdate,
     ReportLanguageUpdate,
 )
@@ -119,6 +121,22 @@ async def set_controller_url(body: ControllerUrlUpdate, identity: SettingsManage
     return await run_in_threadpool(app_settings.describe)
 
 
+@router.put("/settings/mcp-scan-delegation")
+async def set_mcp_scan_delegation(
+    body: McpScanDelegationUpdate, identity: SettingsManager
+) -> AppSettings:
+    """Delegate scan_code of the MCP server to the public URL of the controller, or stop (read
+    by the MCP server at each scan; recorded in the audit log)."""
+    try:
+        await run_in_threadpool(
+            app_settings.set_mcp_scan_delegation, body.enabled, actor_of(identity)
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("scan_code delegation set to %s by %s", body.enabled, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
 @router.put("/settings/proxy")
 async def set_proxy(body: ProxyUpdate, identity: SettingsManager) -> AppSettings:
     """Set the proxy of the OSV download and of the OIDC provider (applied at the next download
@@ -131,6 +149,24 @@ async def set_proxy(body: ProxyUpdate, identity: SettingsManager) -> AppSettings
     # Names only: the URL may hold credentials
     logger.info("Proxy settings %s changed by %s", ", ".join(sorted(values)), identity.client)
     return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/osv-ecosystems")
+async def set_osv_ecosystems(body: OsvEcosystemsUpdate, identity: SettingsManager) -> AppSettings:
+    """Choose the ecosystems downloaded by the controller (applied at the next OSV update).
+
+    Refused (422) when SECREVIEW_OSV_ECOSYSTEMS is set: the variable takes precedence.
+    """
+    try:
+        await run_in_threadpool(app_settings.set_osv_ecosystems, body.ecosystems, identity.client)
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    described = await run_in_threadpool(app_settings.describe)
+    # The canonical names stored, never the raw body (it may hold line breaks)
+    logger.info(
+        "OSV ecosystems set to %s by %s", described["osv"]["ecosystems"]["value"], identity.client
+    )
+    return described
 
 
 def _advisory_overview(limit: int) -> dict:
