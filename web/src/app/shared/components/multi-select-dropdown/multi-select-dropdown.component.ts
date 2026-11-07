@@ -72,6 +72,8 @@ export class MultiSelectDropdownComponent {
   readonly search = model('');
   /** End the menu with a select all / none button instead of the clearing of the selection. */
   readonly toggleAll = input(false);
+  /** The search field filters the options itself (by label), instead of the parent. */
+  readonly filterLocally = input(false);
   /** Text shown under the options (loading, no result, search to refine). */
   readonly note = input<string | null>(null);
 
@@ -119,8 +121,18 @@ export class MultiSelectDropdownComponent {
     return this.i18n.translate('common.selectedCount', { count: selected.length });
   });
 
+  /** Options listed in the menu: those containing the search when the menu filters them. */
+  readonly shownOptions = computed(() => {
+    const search = this.search().trim().toLowerCase();
+    return this.filterLocally() && search
+      ? this.options().filter((o) => o.label.toLowerCase().includes(search))
+      : this.options();
+  });
+
   /** An option the select all / none button can tick. */
-  readonly hasSelectable = computed(() => this.options().some((o) => !o.standalone && !o.disabled));
+  readonly hasSelectable = computed(() =>
+    this.shownOptions().some((o) => !o.standalone && !o.disabled),
+  );
 
   isSelected(value: string): boolean {
     return this.selected().includes(value);
@@ -145,10 +157,13 @@ export class MultiSelectDropdownComponent {
     this.selectedChange.emit([]);
   }
 
-  /** Select every option, or none when they all are; a standalone option keeps its state. */
+  /**
+   * Select every listed option, or none when they all are; a standalone option keeps its state,
+   * and so does an option the search hides.
+   */
   selectAllOrNone(): void {
     const selected = this.selected();
-    const values = this.options()
+    const values = this.shownOptions()
       .filter((o) => !o.standalone && !o.disabled)
       .map((o) => o.value);
     const every = values.every((value) => selected.includes(value));
@@ -174,12 +189,20 @@ export class MultiSelectDropdownComponent {
     }
     this.position();
     this.open.set(true);
-    afterNextRender(() => this.searchInput()?.nativeElement.focus(), {
-      injector: this.injector,
-    });
+    afterNextRender(
+      () => {
+        // The width of the menu is known once shown: keep it inside the window
+        this.position();
+        this.searchInput()?.nativeElement.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
-  /** Place the menu under the button, or above it when the window lacks room below. */
+  /**
+   * Place the menu under the button, or above it when the window lacks room below; aligned on
+   * the left of the button, moved to the left when it would go past the right of the window.
+   */
   private position(): void {
     const rect = this.button().nativeElement.getBoundingClientRect();
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -187,10 +210,17 @@ export class MultiSelectDropdownComponent {
     const below = window.innerHeight - rect.bottom - VIEWPORT_MARGIN_PX;
     const above = rect.top - VIEWPORT_MARGIN_PX;
     const upward = below < wanted && above > below;
+    const room = window.innerWidth - 2 * VIEWPORT_MARGIN_PX;
+    const width = Math.min(this.menu()?.nativeElement.offsetWidth ?? rect.width, room);
+    const left = Math.max(
+      Math.min(rect.left, window.innerWidth - VIEWPORT_MARGIN_PX - width),
+      VIEWPORT_MARGIN_PX,
+    );
     const style: Record<string, string> = {
       position: 'fixed',
-      left: `${rect.left}px`,
-      'min-width': `${rect.width}px`,
+      left: `${left}px`,
+      'min-width': `${Math.min(rect.width, room)}px`,
+      'max-width': `${room}px`,
       'max-height': `${Math.max(Math.min(wanted, upward ? above : below), 0)}px`,
     };
     if (upward) {

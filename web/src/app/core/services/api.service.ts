@@ -527,10 +527,11 @@ export class ApiService {
   }
 
   auditEvents(query: AuditQuery): Observable<AuditPage> {
-    let params = new HttpParams().set('limit', query.limit).set('offset', query.offset);
-    if (query.action) {
-      params = params.set('action', query.action);
-    }
+    // Repeated parameter: any of the actions matches
+    let params = new HttpParams()
+      .set('limit', query.limit)
+      .set('offset', query.offset)
+      .appendAll({ action: [...(query.action ?? [])] });
     if (query.project) {
       params = params.set('project', query.project);
     }

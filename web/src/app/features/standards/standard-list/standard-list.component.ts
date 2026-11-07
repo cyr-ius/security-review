@@ -18,8 +18,10 @@ import {
   PackTransferComponent,
 } from '../../../shared/components/pack-transfer/pack-transfer.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
@@ -84,14 +86,14 @@ export class StandardListComponent {
     'title',
     'asc',
   );
-  readonly statusFilter = signal<'' | 'enabled' | 'disabled'>('');
-  readonly filters = computed<TableControlFilter[]>(() => [
+  readonly statusFilter = signal<('enabled' | 'disabled')[]>([]);
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'status',
       label: this.i18n.translate('rules.state'),
-      value: this.statusFilter(),
+      allLabel: this.i18n.translate('common.all'),
+      values: this.statusFilter(),
       options: [
-        { value: '', label: this.i18n.translate('common.all') },
         { value: 'enabled', label: this.i18n.translate('rules.enabled') },
         { value: 'disabled', label: this.i18n.translate('rules.disabled') },
       ],
@@ -99,8 +101,8 @@ export class StandardListComponent {
   ]);
   readonly visibleStandards = computed(() => {
     const status = this.statusFilter();
-    const standards = (this.catalog.value()?.standards ?? []).filter(
-      (item) => !status || item.enabled === (status === 'enabled'),
+    const standards = (this.catalog.value()?.standards ?? []).filter((item) =>
+      matchesFilter(status, item.enabled ? 'enabled' : 'disabled'),
     );
     const sort = this.sort.key();
     return filterAndSortRows(
@@ -123,11 +125,9 @@ export class StandardListComponent {
     );
   });
 
-  onTableFilter(change: TableControlFilterChange): void {
-    if (change.key === 'status') {
-      this.statusFilter.set(
-        change.value === 'enabled' || change.value === 'disabled' ? change.value : '',
-      );
+  onTableFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'status') {
+      this.statusFilter.set(knownValues(values, ['enabled', 'disabled'] as const));
     }
   }
 

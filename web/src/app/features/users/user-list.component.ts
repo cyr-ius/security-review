@@ -23,8 +23,10 @@ import {
 } from '../../shared/components/project-picker/project-picker.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../shared/components/sort-header/sort-header.component';
@@ -87,14 +89,14 @@ export class UserListComponent {
     'username',
     'asc',
   );
-  readonly sourceFilter = signal<AuthSource | ''>('');
-  readonly tableFilters = computed<TableControlFilter[]>(() => [
+  readonly sourceFilter = signal<AuthSource[]>([]);
+  readonly tableFilters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'source',
       label: this.i18n.translate('users.type'),
-      value: this.sourceFilter(),
+      allLabel: this.i18n.translate('common.all'),
+      values: this.sourceFilter(),
       options: [
-        { value: '', label: this.i18n.translate('common.all') },
         { value: 'local', label: this.i18n.translate('users.localPassword') },
         { value: 'oidc', label: 'OIDC' },
       ],
@@ -102,8 +104,8 @@ export class UserListComponent {
   ]);
   readonly visibleUsers = computed(() => {
     const source = this.sourceFilter();
-    const users = (this.users.value() ?? []).filter(
-      (user) => !source || user.auth_source === source,
+    const users = (this.users.value() ?? []).filter((user) =>
+      matchesFilter(source, user.auth_source),
     );
     const sort = this.tableSort.key();
     return filterAndSortRows(
@@ -138,24 +140,28 @@ export class UserListComponent {
     'revoked_at',
     'desc',
   );
-  readonly revokedByFilter = signal('');
-  readonly revokedFilters = computed<TableControlFilter[]>(() => [
+  readonly revokedByFilter = signal<string[]>([]);
+  /** Users who revoked an account, offered by the filter of the revoked accounts. */
+  private readonly revokers = computed(() => [
+    ...new Set(
+      (this.revoked.value() ?? [])
+        .map((user) => user.revoked_by)
+        .filter((username): username is string => Boolean(username)),
+    ),
+  ]);
+  readonly revokedFilters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'revoked_by',
       label: this.i18n.translate('users.revokedBy'),
-      value: this.revokedByFilter(),
-      options: [
-        { value: '', label: this.i18n.translate('common.all') },
-        ...[
-          ...new Set((this.revoked.value() ?? []).map((user) => user.revoked_by).filter(Boolean)),
-        ].map((username) => ({ value: username as string, label: username as string })),
-      ],
+      allLabel: this.i18n.translate('common.all'),
+      values: this.revokedByFilter(),
+      options: this.revokers().map((username) => ({ value: username, label: username })),
     },
   ]);
   readonly visibleRevoked = computed(() => {
     const revokedBy = this.revokedByFilter();
-    const users = (this.revoked.value() ?? []).filter(
-      (user) => !revokedBy || user.revoked_by === revokedBy,
+    const users = (this.revoked.value() ?? []).filter((user) =>
+      matchesFilter(revokedBy, user.revoked_by ?? ''),
     );
     const sort = this.revokedSort.key();
     return filterAndSortRows(
@@ -213,17 +219,15 @@ export class UserListComponent {
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
-  onUserTableFilter(change: TableControlFilterChange): void {
-    if (change.key === 'source') {
-      this.sourceFilter.set(
-        change.value === 'local' || change.value === 'oidc' ? change.value : '',
-      );
+  onUserTableFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'source') {
+      this.sourceFilter.set(knownValues(values, ['local', 'oidc'] as const));
     }
   }
 
-  onRevokedFilter(change: TableControlFilterChange): void {
-    if (change.key === 'revoked_by') {
-      this.revokedByFilter.set(change.value);
+  onRevokedFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'revoked_by') {
+      this.revokedByFilter.set(knownValues(values, this.revokers()));
     }
   }
 

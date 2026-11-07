@@ -11,42 +11,46 @@
   </div>
 </div>
 
-<div class="card card-body mb-4">
-  <app-table-controls
-    idPrefix="audit"
-    [search]="search()"
-    [filters]="filters()"
-    (searchChange)="search.set($event)"
-    (filterChange)="onTableFilter($event)"
-  >
-    <!-- Searched by the server once typed (Enter or leaving the field) -->
-    <div control class="input-group input-group-sm w-auto">
-      <label for="audit-project" class="input-group-text">{{ 'reportTable.project' | t }}</label>
-      <input
-        id="audit-project"
-        class="form-control"
-        maxlength="200"
-        autocomplete="off"
-        [placeholder]="'audit.allProjects' | t"
-        [value]="projectFilter()"
-        (change)="onProjectFilter($event)"
-      />
-    </div>
-  </app-table-controls>
+<app-table-controls
+  idPrefix="audit"
+  [search]="search()"
+  [multiFilters]="filters()"
+  (searchChange)="search.set($event)"
+  (multiFilterChange)="onTableFilter($event)"
+>
+  @if (events().length) {
+    <span aria-live="polite">
+      {{ 'audit.count' | t: { shown: events().length, total: total() } }}
+    </span>
+  }
+  <!-- Searched by the server once typed (Enter or leaving the field) -->
+  <div control class="input-group input-group-sm w-auto">
+    <label for="audit-project" class="input-group-text">{{ 'reportTable.project' | t }}</label>
+    <input
+      id="audit-project"
+      class="form-control"
+      maxlength="200"
+      autocomplete="off"
+      [placeholder]="'audit.allProjects' | t"
+      [value]="projectFilter()"
+      (change)="onProjectFilter($event)"
+    />
+  </div>
+</app-table-controls>
 
+<div class="card mb-4">
   @if (firstPage.error()) {
-    <div class="alert alert-danger" role="alert">{{ 'audit.loadError' | t }}</div>
+    <div class="card-body">
+      <div class="alert alert-danger mb-0" role="alert">{{ 'audit.loadError' | t }}</div>
+    </div>
   } @else if (firstPage.isLoading() && !firstPage.hasValue()) {
     <div class="text-center my-4">
       <span class="spinner-border text-secondary" aria-hidden="true"></span>
       <span class="visually-hidden">{{ 'common.loading' | t }}</span>
     </div>
   } @else if (events().length) {
-    <p class="small text-body-secondary">
-      {{ 'audit.count' | t: { shown: events().length, total: total() } }}
-    </p>
     <div class="table-responsive">
-      <table class="table table-hover align-middle">
+      <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
             <th scope="col" [appSortHeader]="sort" sortKey="created_at">{{ 'audit.date' | t }}</th>
@@ -78,20 +82,24 @@
         </tbody>
       </table>
     </div>
-    @if (loadMoreFailed()) {
-      <div class="alert alert-danger py-2" role="alert">{{ 'audit.loadError' | t }}</div>
-    }
-    @if (hasMore()) {
-      <button
-        type="button"
-        class="btn btn-outline-secondary"
-        [disabled]="loadingMore()"
-        (click)="loadMore()"
-      >
-        {{ 'audit.loadMore' | t }}
-      </button>
+    @if (loadMoreFailed() || hasMore()) {
+      <div class="card-footer">
+        @if (loadMoreFailed()) {
+          <div class="alert alert-danger py-2" role="alert">{{ 'audit.loadError' | t }}</div>
+        }
+        @if (hasMore()) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            [disabled]="loadingMore()"
+            (click)="loadMore()"
+          >
+            {{ 'audit.loadMore' | t }}
+          </button>
+        }
+      </div>
     }
   } @else {
-    <p class="text-body-secondary">{{ 'audit.empty' | t }}</p>
+    <p class="card-body text-body-secondary mb-0">{{ 'audit.empty' | t }}</p>
   }
 </div>

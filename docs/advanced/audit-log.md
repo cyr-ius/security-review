@@ -65,7 +65,8 @@ changes them.
 
 Administrators read it on the **Audit log** page of the web interface (filters by event and
 project), with `GET /api/v1/audit` (`audit.read` permission; `action`, `project`, `actor`, `since`,
-`limit`, `offset` parameters, newest first) or on the command line:
+`limit`, `offset` parameters, `action` repeatable: any of the events matches; newest first) or on
+the command line:
 
 ```bash
 security-review-controller audit list --action token.rotated --since 2026-10-01

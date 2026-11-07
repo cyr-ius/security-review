@@ -164,42 +164,16 @@
     </div>
   }
 
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <h2 class="h5 mb-0 me-auto">{{ 'report.findings' | t }}</h2>
-    <div class="input-group input-group-sm search">
-      <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-      <input
-        id="report-findings-search"
-        type="search"
-        class="form-control"
-        maxlength="200"
-        [placeholder]="'report.search' | t"
-        [attr.aria-label]="'report.search' | t"
-        [value]="searchInput()"
-        (input)="onSearch($event)"
-      />
-    </div>
-    <select
-      class="form-select form-select-sm filter"
-      [attr.aria-label]="'report.filterSeverity' | t"
-      (change)="onSeverityFilter($event)"
-    >
-      <option value="">{{ 'report.allSeverities' | t }}</option>
-      @for (severity of severities; track severity) {
-        <option [value]="severity">{{ severityMeta[severity].label | t }}</option>
-      }
-    </select>
-    <select
-      class="form-select form-select-sm filter"
-      [attr.aria-label]="'report.filterStatus' | t"
-      (change)="onStatusFilter($event)"
-    >
-      <option value="">{{ 'report.allStatuses' | t }}</option>
-      @for (status of statuses; track status) {
-        <option [value]="status">{{ statusMeta[status].label | t }}</option>
-      }
-    </select>
-  </div>
+  <app-table-controls
+    idPrefix="report-findings"
+    [search]="searchInput()"
+    [searchPlaceholder]="'report.search' | t"
+    [multiFilters]="filters()"
+    (searchChange)="searchInput.set($event)"
+    (multiFilterChange)="onFilter($event)"
+  >
+    <h2 class="h5 mb-0 text-body">{{ 'report.findings' | t }}</h2>
+  </app-table-controls>
 
   @if (triageError(); as message) {
     <div class="alert alert-danger alert-dismissible py-2" role="alert">
@@ -213,32 +187,37 @@
     </div>
   }
 
-  @for (finding of visibleFindings(); track finding.id) {
-    <app-finding-card
-      [finding]="finding"
-      [canTriage]="auth.canTriage()"
-      [permanentAcceptance]="auth.permanentAcceptance()"
-      [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
-      [saving]="triage.saving() === finding.id"
-      [exportKinds]="exportKinds()"
-      [exporting]="exports.sending() === finding.id"
-      [systemNamesByKind]="systemNames()"
-      [highlighted]="finding.id === targetId()"
-      (decided)="decide(finding, $event)"
-      (proposalRejected)="decide(finding, null)"
-      (exportRequested)="exportFinding(finding, $event)"
-    />
-  } @empty {
-    <p class="text-body-secondary text-center my-4">
-      <i class="bi bi-check2-circle" aria-hidden="true"></i>
-      {{
-        (severityFilter() || statusFilter() || searchInput().trim()
-          ? 'report.noneFiltered'
-          : 'report.none'
-        ) | t
-      }}
-    </p>
-  }
+  <!-- In a card, as the results of the other lists -->
+  <div class="card">
+    <div class="card-body">
+      @for (finding of visibleFindings(); track finding.id) {
+        <app-finding-card
+          [finding]="finding"
+          [canTriage]="auth.canTriage()"
+          [permanentAcceptance]="auth.permanentAcceptance()"
+          [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
+          [saving]="triage.saving() === finding.id"
+          [exportKinds]="exportKinds()"
+          [exporting]="exports.sending() === finding.id"
+          [systemNamesByKind]="systemNames()"
+          [highlighted]="finding.id === targetId()"
+          (decided)="decide(finding, $event)"
+          (proposalRejected)="decide(finding, null)"
+          (exportRequested)="exportFinding(finding, $event)"
+        />
+      } @empty {
+        <p class="text-body-secondary text-center my-4">
+          <i class="bi bi-check2-circle" aria-hidden="true"></i>
+          {{
+            (severityFilter().length || statusFilter().length || searchInput().trim()
+              ? 'report.noneFiltered'
+              : 'report.none'
+            ) | t
+          }}
+        </p>
+      }
+    </div>
+  </div>
 } @else {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>

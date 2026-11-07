@@ -13,6 +13,7 @@ the old ones. The controller may also forward them to syslog (see audit_syslog).
 
 import json
 import logging
+from collections.abc import Collection
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any, Literal
@@ -175,7 +176,7 @@ def public_event(event: AuditEvent) -> dict[str, Any]:
 
 
 def list_events(
-    action: str | None = None,
+    action: str | Collection[str] | None = None,
     project: str | None = None,
     actor: str | None = None,
     since: datetime | None = None,
@@ -187,20 +188,22 @@ def list_events(
 ) -> dict[str, Any]:
     """Return audit events, newest first, and the number of matching events.
 
+    ``action`` takes one kind of event or several (any of them matches; none: every kind).
     ``limit`` is capped by SECREVIEW_MAX_LIST_LIMIT.
 
     Raises:
-        ValueError: If ``action`` is not a known kind of event or a bound is negative.
+        ValueError: If an ``action`` is not a known kind of event or a bound is negative.
     """
-    if action is not None and action not in {item.value for item in AuditAction}:
+    actions = [action] if isinstance(action, str) else list(action or [])
+    for unknown in set(actions) - {item.value for item in AuditAction}:
         allowed = ", ".join(item.value for item in AuditAction)
-        raise ValueError(f"Unknown audit action '{action}' (allowed: {allowed})")
+        raise ValueError(f"Unknown audit action '{unknown}' (allowed: {allowed})")
     if limit < 1 or offset < 0:
         raise ValueError("limit must be at least 1 and offset at least 0")
     limit = min(limit, get_settings().max_list_limit)
     conditions = []
-    if action is not None:
-        conditions.append(AuditEvent.action == action)
+    if actions:
+        conditions.append(col(AuditEvent.action).in_(actions))
     if project is not None:
         conditions.append(AuditEvent.project == normalize_project(project))
     if actor is not None:

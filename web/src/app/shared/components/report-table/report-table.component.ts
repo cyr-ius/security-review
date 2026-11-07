@@ -15,8 +15,10 @@ import { compareTableText, filterAndSortRows } from '../../utils/table-utils';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
 import { SortHeaderComponent } from '../sort-header/sort-header.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../table-controls/table-controls.component';
 
@@ -75,27 +77,25 @@ export class ReportTableComponent {
     'desc',
   );
   readonly sort = computed(() => this.serverSort() ?? this.localSort);
-  readonly riskFilter = signal<Severity | ''>('');
-  readonly filters = computed<TableControlFilter[]>(() => [
+  readonly riskFilter = signal<Severity[]>([]);
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'risk',
       label: this.i18n.translate('reportTable.risk'),
-      value: this.riskFilter(),
-      options: [
-        { value: '', label: this.i18n.translate('common.all') },
-        ...SEVERITIES.map((severity) => ({
-          value: severity,
-          label: this.i18n.translate(`severity.${severity}` as const),
-        })),
-      ],
+      allLabel: this.i18n.translate('common.all'),
+      values: this.riskFilter(),
+      options: SEVERITIES.map((severity) => ({
+        value: severity,
+        label: this.i18n.translate(`severity.${severity}` as const),
+      })),
     },
   ]);
   readonly visibleReports = computed(() => {
     if (this.serverSort()) {
       return this.reports();
     }
-    const risk = this.enableControls() ? this.riskFilter() : '';
-    const reports = this.reports().filter((report) => !risk || report.risk_level === risk);
+    const risk = this.enableControls() ? this.riskFilter() : [];
+    const reports = this.reports().filter((report) => matchesFilter(risk, report.risk_level));
     const sort = this.localSort.key();
     return filterAndSortRows(
       reports,
@@ -143,11 +143,9 @@ export class ReportTableComponent {
 
   readonly reviewTypeMeta = REVIEW_TYPE_META;
 
-  onFilter(change: TableControlFilterChange): void {
-    if (change.key === 'risk') {
-      this.riskFilter.set(
-        SEVERITIES.includes(change.value as Severity) ? (change.value as Severity) : '',
-      );
+  onFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'risk') {
+      this.riskFilter.set(knownValues(values, SEVERITIES));
     }
   }
 }

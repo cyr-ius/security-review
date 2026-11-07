@@ -35,7 +35,9 @@ router = APIRouter(tags=["administration"])
 @router.get("/audit")
 async def audit_events(
     identity: AuditReader,
-    action: Annotated[audit.AuditAction | None, Query()] = None,
+    action: Annotated[
+        list[audit.AuditAction] | None, Query(max_length=len(audit.AuditAction))
+    ] = None,
     project: Annotated[ProjectName | None, Query()] = None,
     actor: Annotated[str | None, Query(min_length=1, max_length=audit.MAX_ACTOR_CHARS)] = None,
     search: Annotated[str | None, Query(max_length=200)] = None,
@@ -47,13 +49,13 @@ async def audit_events(
 ) -> AuditPage:
     """Audit log, newest first: triage decisions, agent proposals, tokens and enrollments.
 
-    ``since`` keeps the events from that day (00:00 UTC); limit is capped by
-    SECREVIEW_MAX_LIST_LIMIT.
+    ``action`` may be repeated (any of the kinds matches); ``since`` keeps the events from that
+    day (00:00 UTC); limit is capped by SECREVIEW_MAX_LIST_LIMIT.
     """
     start = None if since is None else datetime.combine(since, time.min, UTC)
     return await run_in_threadpool(
         audit.list_events,
-        action.value if action else None,
+        [item.value for item in action or []],
         project,
         actor,
         start,

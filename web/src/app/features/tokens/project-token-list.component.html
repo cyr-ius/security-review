@@ -151,9 +151,9 @@
     <app-table-controls
       idPrefix="tokens"
       [search]="tokenSearch()"
-      [filters]="tokenFilters()"
+      [multiFilters]="tokenFilters()"
       (searchChange)="tokenSearch.set($event)"
-      (filterChange)="onTokenFilter($event)"
+      (multiFilterChange)="onTokenFilter($event)"
     />
     @if (visibleTokens().length) {
       <div class="table-responsive">

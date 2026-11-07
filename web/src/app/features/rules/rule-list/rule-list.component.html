@@ -52,9 +52,9 @@
   <app-table-controls
     idPrefix="rules"
     [search]="search()"
-    [filters]="filters()"
+    [multiFilters]="filters()"
     (searchChange)="search.set($event)"
-    (filterChange)="onTableFilter($event)"
+    (multiFilterChange)="onTableFilter($event)"
   >
     <span aria-live="polite">{{ 'rules.count' | t: { count: visibleRules().length } }}</span>
   </app-table-controls>

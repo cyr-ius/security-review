@@ -26,8 +26,10 @@ import {
 } from '../../../shared/components/pack-transfer/pack-transfer.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
@@ -57,6 +59,9 @@ const EMPTY_RULE: RuleFormModel = {
 };
 
 type RuleSortKey = 'id' | 'severity' | 'updated';
+
+/** Origins of a rule, in the order of the filter. */
+const RULE_ORIGINS: readonly RuleOrigin[] = ['builtin', 'custom'];
 
 /** Admin view for the scan rules stored in the database (default and custom). */
 @Component({
@@ -88,17 +93,17 @@ export class RuleListComponent {
   readonly severityMeta = SEVERITY_META;
   readonly catalog = rxResource({ stream: () => this.api.customRules() });
   /** Origin filter of the table ('' shows every rule). */
-  readonly originFilter = signal<RuleOrigin | ''>('');
+  readonly originFilter = signal<RuleOrigin[]>([]);
   readonly search = signal('');
   readonly sort = new TableSort<RuleSortKey>('rules', ['id', 'severity', 'updated'], 'id', 'asc');
-  readonly severityFilter = signal<Severity | ''>('');
-  readonly filters = computed<TableControlFilter[]>(() => [
+  readonly severityFilter = signal<Severity[]>([]);
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'origin',
       label: this.i18n.translate('rules.origin'),
-      value: this.originFilter(),
+      allLabel: this.i18n.translate('rules.allOrigins'),
+      values: this.originFilter(),
       options: [
-        { value: '', label: this.i18n.translate('rules.allOrigins') },
         { value: 'builtin', label: this.i18n.translate('rules.builtinPlural') },
         { value: 'custom', label: this.i18n.translate('rules.customPlural') },
       ],
@@ -106,14 +111,12 @@ export class RuleListComponent {
     {
       key: 'severity',
       label: this.i18n.translate('rules.severity'),
-      value: this.severityFilter(),
-      options: [
-        { value: '', label: this.i18n.translate('common.all') },
-        ...SEVERITIES.map((severity) => ({
-          value: severity,
-          label: this.i18n.translate(this.severityMeta[severity].label),
-        })),
-      ],
+      allLabel: this.i18n.translate('common.all'),
+      values: this.severityFilter(),
+      options: SEVERITIES.map((severity) => ({
+        value: severity,
+        label: this.i18n.translate(this.severityMeta[severity].label),
+      })),
     },
   ]);
   readonly visibleRules = computed(() => {
@@ -121,7 +124,7 @@ export class RuleListComponent {
     const origin = this.originFilter();
     const severity = this.severityFilter();
     const filtered = rules.filter(
-      (rule) => (!origin || rule.origin === origin) && (!severity || rule.severity === severity),
+      (rule) => matchesFilter(origin, rule.origin) && matchesFilter(severity, rule.severity),
     );
     const sort = this.sort.key();
     return filterAndSortRows(
@@ -264,21 +267,11 @@ export class RuleListComponent {
     }
   }
 
-  onOriginFilter(event: Event): void {
-    this.setOriginFilter((event.target as HTMLSelectElement).value);
-  }
-
-  setOriginFilter(value: string): void {
-    this.originFilter.set(value === 'builtin' || value === 'custom' ? value : '');
-  }
-
-  onTableFilter(change: TableControlFilterChange): void {
-    if (change.key === 'origin') {
-      this.setOriginFilter(change.value);
-    } else if (change.key === 'severity') {
-      this.severityFilter.set(
-        SEVERITIES.includes(change.value as Severity) ? (change.value as Severity) : '',
-      );
+  onTableFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'origin') {
+      this.originFilter.set(knownValues(values, RULE_ORIGINS));
+    } else if (key === 'severity') {
+      this.severityFilter.set(knownValues(values, SEVERITIES));
     }
   }
 

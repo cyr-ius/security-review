@@ -135,9 +135,9 @@
   <app-table-controls
     idPrefix="projects"
     [search]="search()"
-    [filters]="filters()"
+    [multiFilters]="filters()"
     (searchChange)="search.set($event)"
-    (filterChange)="onProjectTableFilter($event)"
+    (multiFilterChange)="onProjectTableFilter($event)"
   >
     <span aria-live="polite">{{ 'projects.count' | t: { count: visible().length } }}</span>
   </app-table-controls>

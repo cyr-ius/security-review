@@ -25,8 +25,10 @@ import { ApiService } from '../../core/services/api.service';
 import { OAuthClientsComponent } from './oauth-clients/oauth-clients.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../shared/components/sort-header/sort-header.component';
@@ -34,6 +36,9 @@ import { TableSort } from '../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
 
 type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
+
+/** Usages of a token offered by the filter of the list. */
+const TOKEN_FILTER_ROLES: readonly ProjectTokenRole[] = ['mcp', 'ci', 'api'];
 
 /**
  * Administrator page for tokens: creation of MCP, CI/CD or REST API tokens (an api token holds
@@ -72,24 +77,22 @@ export class ProjectTokenListComponent {
     'created',
     'desc',
   );
-  readonly tokenRoleFilter = signal<'' | ProjectTokenRole>('');
-  readonly tokenFilters = computed<TableControlFilter[]>(() => [
+  readonly tokenRoleFilter = signal<ProjectTokenRole[]>([]);
+  readonly tokenFilters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'role',
       label: this.i18n.translate('tokens.usage'),
-      value: this.tokenRoleFilter(),
-      options: [
-        { value: '', label: this.i18n.translate('common.all') },
-        ...(['mcp', 'ci', 'api'] as ProjectTokenRole[]).map((role) => ({
-          value: role,
-          label: this.i18n.translate(this.roleLabel(role)),
-        })),
-      ],
+      allLabel: this.i18n.translate('common.all'),
+      values: this.tokenRoleFilter(),
+      options: TOKEN_FILTER_ROLES.map((role) => ({
+        value: role,
+        label: this.i18n.translate(this.roleLabel(role)),
+      })),
     },
   ]);
   readonly visibleTokens = computed(() => {
     const role = this.tokenRoleFilter();
-    const items = (this.tokens.value() ?? []).filter((token) => !role || token.role === role);
+    const items = (this.tokens.value() ?? []).filter((token) => matchesFilter(role, token.role));
     const sort = this.tokenSort.key();
     return filterAndSortRows(
       items,
@@ -168,11 +171,9 @@ export class ProjectTokenListComponent {
   /** Hours during which the previous secret keeps working after a rotation. */
   readonly graceHours = signal(0);
 
-  onTokenFilter(change: TableControlFilterChange): void {
-    if (change.key === 'role') {
-      this.tokenRoleFilter.set(
-        ['mcp', 'ci'].includes(change.value) ? (change.value as ProjectTokenRole) : '',
-      );
+  onTokenFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'role') {
+      this.tokenRoleFilter.set(knownValues(values, TOKEN_FILTER_ROLES));
     }
   }
 

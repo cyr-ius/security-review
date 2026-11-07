@@ -11,8 +11,9 @@ import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
@@ -50,7 +51,7 @@ export class AuditLogComponent {
   readonly canManageSyslog = computed(() => this.auth.can('settings.manage'));
 
   readonly actions = AUDIT_ACTIONS;
-  readonly actionFilter = signal<AuditAction | ''>('');
+  readonly actionFilter = signal<AuditAction[]>([]);
   readonly projectFilter = signal('');
   readonly search = signal('');
   readonly sort = new TableSort<AuditSortKey>(
@@ -59,25 +60,23 @@ export class AuditLogComponent {
     'created_at',
     'desc',
   );
-  readonly filters = computed<TableControlFilter[]>(() => [
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'action',
       label: this.i18n.translate('audit.action'),
-      value: this.actionFilter(),
-      options: [
-        { value: '', label: this.i18n.translate('audit.allActions') },
-        ...this.actions.map((action) => ({
-          value: action,
-          label: this.i18n.translate(this.actionLabel(action)),
-        })),
-      ],
+      allLabel: this.i18n.translate('audit.allActions'),
+      values: this.actionFilter(),
+      options: this.actions.map((action) => ({
+        value: action,
+        label: this.i18n.translate(this.actionLabel(action)),
+      })),
     },
   ]);
 
   /** First page for the current filters. */
   readonly firstPage = rxResource({
     params: () => ({
-      action: this.actionFilter() || null,
+      action: this.actionFilter(),
       project: this.projectFilter().trim() || null,
       search: this.search().trim() || null,
       sort_by: this.sort.key(),
@@ -108,15 +107,9 @@ export class AuditLogComponent {
       .join(' · ');
   }
 
-  onActionFilter(event: Event): void {
-    this.actionFilter.set((event.target as HTMLSelectElement).value as AuditAction | '');
-  }
-
-  onTableFilter(change: TableControlFilterChange): void {
-    if (change.key === 'action') {
-      this.actionFilter.set(
-        this.actions.includes(change.value as AuditAction) ? (change.value as AuditAction) : '',
-      );
+  onTableFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'action') {
+      this.actionFilter.set(knownValues(values, this.actions));
     }
   }
 
@@ -129,7 +122,7 @@ export class AuditLogComponent {
     this.loadingMore.set(true);
     this.loadMoreFailed.set(false);
     const request = this.api.auditEvents({
-      action: this.actionFilter() || null,
+      action: this.actionFilter(),
       project: this.projectFilter().trim() || null,
       search: this.search().trim() || null,
       sort_by: this.sort.key(),

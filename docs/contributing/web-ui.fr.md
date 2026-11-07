@@ -50,9 +50,12 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
   explique pourquoi un champ est invalide lui est relié par `aria-describedby`.
 - **Tableaux** : `app-table-controls` porte la recherche et les filtres, sur une ligne au-dessus du
   tableau : le contenu qu'il encadre (compteur, case « tout sélectionner ») à gauche, le petit
-  champ de recherche et les filtres à droite (un filtre à valeur unique affiche son libellé
-  devant sa liste ; un élément marqué `control`, filtre géré par la page elle-même, suit la
-  recherche). Pas d'en-tête de carte pour le compteur, ni d'autre ligne de recherche ou de
+  champ de recherche et les filtres à droite ; un élément marqué `control`, filtre géré par la
+  page elle-même, suit la recherche. Chaque filtre est à choix multiples
+  (`TableControlMultiFilter`, rien de coché : pas de filtre), avec un bouton tout / rien
+  sélectionner dans son menu, et un champ de recherche au-delà de 5 options ; `knownValues` et `matchesFilter` gardent ses
+  valeurs et testent une ligne. Pas d'en-tête de carte pour le compteur, ni d'autre ligne de
+  recherche ou de
   filtres ; le tri se choisit sur les
   en-têtes de colonne (`<th [appSortHeader]="sort" sortKey="name">`), avec un `TableSort` nommé
   d'après le tableau (`shared/utils/table-sort.ts`) que le navigateur mémorise sous

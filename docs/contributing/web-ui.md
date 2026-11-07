@@ -50,8 +50,11 @@ local workstation and port 4200 is forwarded automatically.
   field is invalid is linked to it with `aria-describedby`.
 - **Tables**: `app-table-controls` holds the search and the filters, on one line above the
   table: the content it wraps (count, select-all box) on the left, the small search field and
-  the filters on the right (a single-value filter shows its label in front of its list; an
-  element marked `control`, a filter the page handles itself, comes right after the search). Do not
+  the filters on the right; an element marked `control`, a filter the page handles itself, comes
+  right after the search. Every filter is a multiple choice (`TableControlMultiFilter`, nothing
+  ticked: no filter) with a select all / none button in its menu, and a search field beyond 5
+  options;
+  `knownValues` and `matchesFilter` keep its values and test a row. Do not
   add a card header for the count, and no other search or filter row; the sort is chosen on the
   column headers (`<th [appSortHeader]="sort" sortKey="name">`), with a `TableSort` named after
   the table (`shared/utils/table-sort.ts`) that the browser remembers under

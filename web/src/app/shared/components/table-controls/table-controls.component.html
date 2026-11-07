@@ -27,24 +27,6 @@
 
   <ng-content select="[control]" />
 
-  @for (filter of filters(); track filter.key) {
-    <div class="input-group input-group-sm filter">
-      <label class="input-group-text" [for]="idPrefix() + '-filter-' + filter.key">
-        {{ filter.label }}
-      </label>
-      <select
-        [id]="idPrefix() + '-filter-' + filter.key"
-        class="form-select"
-        [value]="filter.value"
-        (change)="onFilter(filter.key, $event)"
-      >
-        @for (option of filter.options; track option.value) {
-          <option [value]="option.value">{{ option.label }}</option>
-        }
-      </select>
-    </div>
-  }
-
   @for (filter of multiFilters(); track filter.key) {
     <app-multi-select-dropdown
       class="filter"
@@ -53,6 +35,9 @@
       [allLabel]="filter.allLabel"
       [options]="filter.options"
       [selected]="filter.values"
+      [searchLabel]="filter.options.length > searchFrom ? ('common.search' | t) : null"
+      [filterLocally]="true"
+      [toggleAll]="true"
       (selectedChange)="multiFilterChange.emit({ key: filter.key, values: $event })"
     />
   }

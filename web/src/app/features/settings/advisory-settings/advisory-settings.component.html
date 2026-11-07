@@ -196,9 +196,9 @@
         <app-table-controls
           idPrefix="advisory-history"
           [search]="historySearch()"
-          [filters]="historyFilters()"
+          [multiFilters]="historyFilters()"
           (searchChange)="historySearch.set($event)"
-          (filterChange)="onHistoryFilter($event)"
+          (multiFilterChange)="onHistoryFilter($event)"
         />
         @if (visibleUpdates().length) {
           <div class="table-responsive">

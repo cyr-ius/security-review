@@ -43,9 +43,9 @@
   <app-table-controls
     idPrefix="standards"
     [search]="query()"
-    [filters]="filters()"
+    [multiFilters]="filters()"
     (searchChange)="setQuery($event)"
-    (filterChange)="onTableFilter($event)"
+    (multiFilterChange)="onTableFilter($event)"
   >
     <span aria-live="polite">{{
       'standards.count' | t: { count: visibleStandards().length }

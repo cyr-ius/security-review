@@ -45,9 +45,9 @@
   <app-table-controls
     idPrefix="checklists"
     [search]="search()"
-    [filters]="filters()"
+    [multiFilters]="filters()"
     (searchChange)="search.set($event)"
-    (filterChange)="onTableFilter($event)"
+    (multiFilterChange)="onTableFilter($event)"
   >
     <span aria-live="polite">{{ 'checklists.count' | t: { count: visibleItems().length } }}</span>
   </app-table-controls>

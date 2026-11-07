@@ -3019,6 +3019,11 @@ def test_audit_route_filters_and_permissions(secured, web_sessions, reports):
     assert body["events"][0]["details"]["label"] == "ci"
     params = {"action": "token.revoked"}
     assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
+    # Several actions: any of them matches; an unknown one is refused
+    params = {"action": ["token.revoked", "token.created"], "project": "shop-api"}
+    assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 1
+    params = {"action": ["token.created", "unknown"]}
+    assert secured.get(url, params=params, headers=auth("admin")).status_code == 422
     params = {"since": "2999-01-01"}
     assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
     params = {"action": "unknown"}

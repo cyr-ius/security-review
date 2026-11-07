@@ -3,9 +3,9 @@
     <app-table-controls
       idPrefix="project-reports"
       [search]="search()"
-      [filters]="filters()"
+      [multiFilters]="filters()"
       (searchChange)="search.set($event)"
-      (filterChange)="onFilter($event)"
+      (multiFilterChange)="onFilter($event)"
     />
   }
   @if (visibleReports().length) {

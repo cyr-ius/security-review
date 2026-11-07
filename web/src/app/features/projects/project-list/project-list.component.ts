@@ -25,8 +25,10 @@ import { SeverityBadgeComponent } from '../../../shared/components/severity-badg
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
 import {
-  TableControlFilter,
-  TableControlFilterChange,
+  TableControlMultiFilter,
+  TableControlMultiFilterChange,
+  knownValues,
+  matchesFilter,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { TableSort } from '../../../shared/utils/table-sort';
@@ -111,14 +113,14 @@ export class ProjectListComponent {
     'risk',
     'desc',
   );
-  readonly severityFilter = signal<Severity | 'none' | ''>('');
-  readonly filters = computed<TableControlFilter[]>(() => [
+  readonly severityFilter = signal<(Severity | 'none')[]>([]);
+  readonly filters = computed<TableControlMultiFilter[]>(() => [
     {
       key: 'severity',
       label: this.i18n.translate('projects.worst'),
-      value: this.severityFilter(),
+      allLabel: this.i18n.translate('common.all'),
+      values: this.severityFilter(),
       options: [
-        { value: '', label: this.i18n.translate('common.all') },
         ...SEVERITIES.map((severity) => ({
           value: severity,
           label: this.i18n.translate(this.severityMeta[severity].label),
@@ -146,12 +148,8 @@ export class ProjectListComponent {
 
   readonly visible = computed(() => {
     const severity = this.severityFilter();
-    const rows = (this.projects.value() ?? []).filter(
-      (project) =>
-        !severity ||
-        (severity === 'none'
-          ? project.worst_open_severity === null
-          : project.worst_open_severity === severity),
+    const rows = (this.projects.value() ?? []).filter((project) =>
+      matchesFilter(severity, project.worst_open_severity ?? 'none'),
     );
     const sort = this.sort.key();
     return filterAndSortRows(
@@ -359,13 +357,9 @@ export class ProjectListComponent {
     }
   }
 
-  onProjectTableFilter(change: TableControlFilterChange): void {
-    if (change.key === 'severity') {
-      this.severityFilter.set(
-        change.value === 'none' || SEVERITIES.includes(change.value as Severity)
-          ? (change.value as Severity | 'none')
-          : '',
-      );
+  onProjectTableFilter({ key, values }: TableControlMultiFilterChange): void {
+    if (key === 'severity') {
+      this.severityFilter.set(knownValues(values, [...SEVERITIES, 'none' as const]));
     }
   }
 }
