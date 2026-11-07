@@ -101,6 +101,18 @@ export const projects = defineMessages({
     'projectFindings.loadError': 'Could not load the findings.',
     'projectFindings.notFound': 'This project does not exist or is outside your scope.',
     'projectFindings.none': 'No open findings: nothing to review.',
+    'projectFindings.bulkTitle': 'Decision for the selected findings',
+    'projectFindings.bulkSelectAll': 'Select the loaded findings',
+    'projectFindings.bulkPick': 'Select finding #{id}',
+    'projectFindings.bulkSelected': '{count} finding(s) selected',
+    'projectFindings.bulkStatus': 'New status',
+    'projectFindings.bulkApply': 'Apply to {count} finding(s)',
+    'projectFindings.bulkClear': 'Clear the selection',
+    'projectFindings.bulkInvalid':
+      'Nothing was saved: the decision was refused for finding #{id} (check the reason, 10 characters or more, and the expiry date).',
+    'projectFindings.bulkNotFound':
+      'Nothing was saved: finding #{id} does not exist or is outside your scope.',
+    'projectFindings.bulkFailed': 'Nothing was saved: the decision could not be recorded.',
     'projects.approvedNoUser': 'Project {project} approved (no user to give access to).',
   },
   fr: {
@@ -202,6 +214,19 @@ export const projects = defineMessages({
     'projectFindings.loadError': 'Impossible de charger les findings.',
     'projectFindings.notFound': "Ce projet n'existe pas ou est hors de votre périmètre.",
     'projectFindings.none': 'Aucun finding ouvert : rien à revoir.',
+    'projectFindings.bulkTitle': 'Décision pour les findings sélectionnés',
+    'projectFindings.bulkSelectAll': 'Sélectionner les findings chargés',
+    'projectFindings.bulkPick': 'Sélectionner le finding #{id}',
+    'projectFindings.bulkSelected': '{count} finding(s) sélectionné(s)',
+    'projectFindings.bulkStatus': 'Nouveau statut',
+    'projectFindings.bulkApply': 'Appliquer à {count} finding(s)',
+    'projectFindings.bulkClear': 'Vider la sélection',
+    'projectFindings.bulkInvalid':
+      "Rien n'a été enregistré : la décision a été refusée pour le finding #{id} (vérifiez le motif, 10 caractères ou plus, et la date d'expiration).",
+    'projectFindings.bulkNotFound':
+      "Rien n'a été enregistré : le finding #{id} n'existe pas ou est hors de votre périmètre.",
+    'projectFindings.bulkFailed':
+      "Rien n'a été enregistré : la décision n'a pas pu être enregistrée.",
     'projects.approvedNoUser': 'Projet {project} validé (aucun utilisateur à qui donner accès).',
   },
   es: {
@@ -303,6 +328,18 @@ export const projects = defineMessages({
     'projectFindings.loadError': 'No se pudieron cargar los hallazgos.',
     'projectFindings.notFound': 'Este proyecto no existe o está fuera de su ámbito.',
     'projectFindings.none': 'No hay hallazgos abiertos: nada que revisar.',
+    'projectFindings.bulkTitle': 'Decisión para los hallazgos seleccionados',
+    'projectFindings.bulkSelectAll': 'Seleccionar los hallazgos cargados',
+    'projectFindings.bulkPick': 'Seleccionar el hallazgo #{id}',
+    'projectFindings.bulkSelected': '{count} hallazgo(s) seleccionado(s)',
+    'projectFindings.bulkStatus': 'Nuevo estado',
+    'projectFindings.bulkApply': 'Aplicar a {count} hallazgo(s)',
+    'projectFindings.bulkClear': 'Vaciar la selección',
+    'projectFindings.bulkInvalid':
+      'No se guardó nada: la decisión fue rechazada para el hallazgo #{id} (compruebe el motivo, 10 caracteres o más, y la fecha de caducidad).',
+    'projectFindings.bulkNotFound':
+      'No se guardó nada: el hallazgo #{id} no existe o está fuera de su ámbito.',
+    'projectFindings.bulkFailed': 'No se guardó nada: no se pudo registrar la decisión.',
     'projects.approvedNoUser': 'Proyecto {project} aprobado (ningún usuario al que dar acceso).',
   },
 });

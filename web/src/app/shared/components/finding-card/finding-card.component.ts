@@ -86,6 +86,10 @@ export class FindingCardComponent {
   readonly systemNamesByKind = input<ReadonlyMap<string, string>>(new Map());
   /** The finding is the one a link points to (anchor ``#finding-<id>``). */
   readonly highlighted = input(false);
+  /** Show a checkbox to pick the finding for a bulk decision (only when it can be triaged). */
+  readonly selectable = input(false);
+  /** The finding is picked for a bulk decision. */
+  readonly selected = input(false);
 
   /** A triage decision (status or raised severity) to save. */
   readonly decided = output<TriageChange>();
@@ -93,6 +97,8 @@ export class FindingCardComponent {
   readonly proposalRejected = output<void>();
   /** Send the finding through a connector. */
   readonly exportRequested = output<ConnectorKind>();
+  /** The finding is picked (true) or left (false) for a bulk decision. */
+  readonly selectedChange = output<boolean>();
 
   readonly statuses = FINDING_STATUSES;
   readonly statusMeta = STATUS_META;
@@ -105,6 +111,11 @@ export class FindingCardComponent {
 
   /** Triage offered: a finding reported again is triaged on its latest occurrence. */
   readonly triageable = computed(() => this.canTriage() && this.finding().superseded_by === null);
+
+  /** Toggle the pick of the finding for a bulk decision. */
+  toggleSelected(event: Event): void {
+    this.selectedChange.emit((event.target as HTMLInputElement).checked);
+  }
 
   /** Connectors offered: those without a record for this finding yet (none once reported again). */
   readonly sendableKinds = computed(() => {

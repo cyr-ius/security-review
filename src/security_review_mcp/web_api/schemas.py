@@ -292,6 +292,10 @@ class FindingCommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
 
 
+# Hard cap of the ids of a bulk triage decision (SECREVIEW_MAX_LIST_LIMIT is also applied)
+MAX_BULK_FINDINGS = 1000
+
+
 class FindingStatusUpdate(BaseModel):
     """Body of PATCH /findings/{id}: a triage decision.
 
@@ -305,6 +309,18 @@ class FindingStatusUpdate(BaseModel):
     status: FindingStatus
     reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
     expires_on: date | None = None
+
+
+class FindingBulkStatusUpdate(FindingStatusUpdate):
+    """Body of PATCH /findings: the same triage decision for several findings, all or nothing.
+
+    At most SECREVIEW_MAX_LIST_LIMIT distinct findings (and never more than
+    MAX_BULK_FINDINGS ids in the body).
+    """
+
+    finding_ids: list[Annotated[int, Field(ge=1)]] = Field(
+        min_length=1, max_length=MAX_BULK_FINDINGS
+    )
 
 
 class FindingSeverityUpdate(BaseModel):

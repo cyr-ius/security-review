@@ -41,6 +41,23 @@ Without `expires_on`, a false positive never expires, nor does an acceptance, un
 `accepted` (`{"status": "accepted"}` is enough); `GET /api/v1/me` returns this threshold as
 `risk_acceptance_min_severity` (`null`: every acceptance needs them).
 
+## Several findings at once
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings \
+  -d '{"finding_ids": [42, 43, 57], "status": "false_positive", "reason": "Test fixtures, never deployed"}'
+# [{"id": 42, "status": "false_positive", "status_approver": "alice", …}, {"id": 43, …}, {"id": 57, …}]
+```
+
+`PATCH /api/v1/findings` applies the same decision (`status`, `reason`, `expires_on`, same
+rules as above) to every finding of `finding_ids`, at most `SECREVIEW_MAX_LIST_LIMIT` (`100`)
+distinct findings, all or nothing: when one finding is refused (`422`, the message names it) or
+is out of the scope of the caller (`404`), nothing is saved. An acceptance needs a reason and an
+expiry date as soon as one of the findings is at or above
+`SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`. Each finding gets its own `finding.status_changed`
+event in the audit log.
+
 ## Finding reported again
 
 The server recognizes an issue by its fingerprint: project, rule or CWE, file and title,

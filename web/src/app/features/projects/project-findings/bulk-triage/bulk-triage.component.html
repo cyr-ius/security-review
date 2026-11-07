@@ -1,0 +1,80 @@
+<form
+  class="border rounded p-3 mb-3 bg-body-tertiary"
+  (submit)="submit($event)"
+  novalidate
+  [attr.aria-label]="'projectFindings.bulkTitle' | t"
+>
+  <div class="d-flex flex-wrap align-items-end gap-2">
+    <span class="fw-semibold me-auto" aria-live="polite">
+      {{ 'projectFindings.bulkSelected' | t: { count: findings().length } }}
+    </span>
+    <div>
+      <label class="form-label small mb-1" for="bulk-status">{{
+        'projectFindings.bulkStatus' | t
+      }}</label>
+      <select class="form-select form-select-sm" id="bulk-status" [formField]="bulkForm.status">
+        @for (status of statuses; track status) {
+          <option [value]="status">{{ statusMeta[status].label | t }}</option>
+        }
+      </select>
+    </div>
+    <button
+      type="submit"
+      class="btn btn-sm btn-primary"
+      [disabled]="saving() || !findings().length || bulkForm().invalid()"
+    >
+      {{ 'projectFindings.bulkApply' | t: { count: findings().length } }}
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cleared.emit()">
+      {{ 'projectFindings.bulkClear' | t }}
+    </button>
+  </div>
+
+  @if (reasonAsked()) {
+    <div class="mt-2">
+      <label class="form-label small" for="bulk-reason">{{ 'report.dismissReason' | t }}</label>
+      <textarea
+        class="form-control form-control-sm"
+        id="bulk-reason"
+        rows="2"
+        aria-describedby="bulk-reason-help"
+        [formField]="bulkForm.reason"
+        [class.is-invalid]="bulkForm.reason().touched() && bulkForm.reason().invalid()"
+      ></textarea>
+      <div class="form-text" id="bulk-reason-help">{{ reasonHelp() | t }}</div>
+    </div>
+  }
+
+  @if (expiryAsked()) {
+    <div class="mt-2">
+      <label class="form-label small" for="bulk-expiry">{{ 'report.dismissExpiry' | t }}</label>
+      @if (!withoutExpiry()) {
+        <input
+          type="date"
+          class="form-control form-control-sm w-auto"
+          id="bulk-expiry"
+          [min]="minExpiry"
+          aria-describedby="bulk-expiry-help"
+          [formField]="bulkForm.expiresOn"
+          [class.is-invalid]="bulkForm.expiresOn().touched() && bulkForm.expiresOn().invalid()"
+        />
+      }
+      @if (permanentAcceptance()) {
+        <div class="form-check mt-1">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            id="bulk-no-expiry"
+            [formField]="bulkForm.noExpiry"
+          />
+          <label class="form-check-label" for="bulk-no-expiry">{{
+            'report.dismissNoExpiry' | t
+          }}</label>
+        </div>
+      }
+      <div class="form-text" id="bulk-expiry-help">
+        {{ (withoutExpiry() ? 'report.dismissNoExpiryHelp' : 'report.dismissExpiryHelp') | t }}
+      </div>
+    </div>
+  }
+</form>

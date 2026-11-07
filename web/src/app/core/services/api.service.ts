@@ -603,6 +603,11 @@ export class ApiService {
     return this.http.patch<Finding>(`${API_URL}/findings/${id}`, decision);
   }
 
+  /** Record the same triage decision on several findings, all or nothing. */
+  updateFindingsStatus(ids: readonly number[], decision: FindingDecision): Observable<Finding[]> {
+    return this.http.patch<Finding[]>(`${API_URL}/findings`, { ...decision, finding_ids: ids });
+  }
+
   /** Raise the severity of a finding, with the justification of the analyst. */
   updateFindingSeverity(id: number, change: FindingSeverityChange): Observable<Finding> {
     return this.http.patch<Finding>(`${API_URL}/findings/${id}/severity`, change);

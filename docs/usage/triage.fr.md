@@ -31,6 +31,16 @@ Pour utiliser l'API REST, voir [Triage par l'API REST](../advanced/reports/triag
 - Un trieur peut aussi envoyer un finding vers Jira ou ServiceNow quand son projet a une
   destination ([connecteurs](connectors/index.md#envoi-dun-finding)).
 
+## Plusieurs findings à la fois
+
+Sur la page **Findings à revoir**, un trieur coche les findings à traiter (ou
+**Sélectionner les findings chargés**), choisit un **Nouveau statut** puis clique sur
+**Appliquer à N finding(s)**. La barre demande ce que demande une décision unique : un
+**Motif** et une **Date d'expiration** pour accepter un risque quand l'un des findings les
+exige, un **Motif** facultatif pour un faux positif. La décision est enregistrée pour tous les
+findings ou pour aucun : si un finding est refusé, rien ne change et le message le désigne.
+Chaque finding a sa propre entrée au journal d'audit.
+
 ## Finding signalé de nouveau
 
 Quand un rapport ultérieur signale de nouveau le même problème (même projet, règle, fichier et

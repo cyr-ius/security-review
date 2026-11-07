@@ -45,10 +45,12 @@ from .deps import (
     web_user_id,
 )
 from .schemas import (
+    FindingBulkStatusUpdate,
     FindingCommentCreate,
     FindingSeverityUpdate,
     FindingStatusUpdate,
     Granularity,
+    Identity,
     PendingProject,
     PendingProjectApproved,
     ProjectAutojoin,
@@ -398,6 +400,48 @@ async def report_markdown(report_id: int, identity: CurrentIdentity) -> PlainTex
     )
 
 
+def _check_dismissal_session(identity: Identity, finding_status: FindingStatus) -> None:
+    """Refuse an acceptance or a false positive decided with a bearer token (an agent may hold
+    one): only a person logged in to the web interface may make them."""
+    if finding_status in DISMISSED_STATUSES and identity.auth_source is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only a person logged in to the web interface can accept a risk or mark a "
+            "false positive",
+        )
+
+
+def _expiry(body: FindingStatusUpdate) -> datetime | None:
+    """Expiry of a decision: 00:00 UTC of its day."""
+    return None if body.expires_on is None else datetime.combine(body.expires_on, time.min, UTC)
+
+
+@router.patch("/findings")
+async def update_findings(body: FindingBulkStatusUpdate, identity: Triager) -> list[FindingPublic]:
+    """Record the same triage decision on several findings at once, all or nothing.
+
+    Same rules as PATCH /findings/{id} for each finding (a bearer token never accepts a risk
+    nor marks a false positive), one audit event per finding. A finding out of the scope of
+    the caller counts as missing (404); nothing is saved when one finding is refused.
+    """
+    _check_dismissal_session(identity, body.status)
+    try:
+        findings = await run_in_threadpool(
+            services.update_findings_status,
+            body.finding_ids,
+            body.status,
+            identity.client,
+            body.reason,
+            _expiry(body),
+            actor_of(identity),
+            permission_scope(identity, Permission.FINDINGS_TRIAGE),
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("%s findings set to %s by %s", len(findings), body.status, identity.client)
+    return findings
+
+
 @router.patch("/findings/{finding_id}")
 async def update_finding(
     finding_id: int,
@@ -409,20 +453,13 @@ async def update_finding(
     Only a person logged in to the web interface may accept a risk or mark a false positive:
     a bearer token, which an agent may hold, is refused.
     """
-    if body.status in DISMISSED_STATUSES and identity.auth_source is None:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "Only a person logged in to the web interface can accept a risk or mark a "
-            "false positive",
-        )
+    _check_dismissal_session(identity, body.status)
     await run_in_threadpool(
         services.check_finding_scope,
         permission_scope(identity, Permission.FINDINGS_TRIAGE),
         finding_id,
     )
-    expires_at = (
-        None if body.expires_on is None else datetime.combine(body.expires_on, time.min, UTC)
-    )
+    expires_at = _expiry(body)
     try:
         finding = await run_in_threadpool(
             services.update_finding_status,

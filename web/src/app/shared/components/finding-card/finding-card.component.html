@@ -5,6 +5,15 @@
   [id]="'finding-' + finding().id"
 >
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
+    @if (selectable() && triageable()) {
+      <input
+        type="checkbox"
+        class="form-check-input mt-0"
+        [checked]="selected()"
+        [attr.aria-label]="'projectFindings.bulkPick' | t: { id: finding().id }"
+        (change)="toggleSelected($event)"
+      />
+    }
     <app-severity-badge [severity]="finding().severity" />
     <h3 class="h6 mb-0 me-auto">{{ finding().title }}</h3>
     @if (triageable()) {
