@@ -19,7 +19,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 ## Se repérer
 
 - La **barre latérale** regroupe les pages en quatre sections : **Supervision** (projets),
-  **Revue** (findings et acceptations de risque, avec `reports.read`, puis rapports),
+  **Revue** (findings et acceptations de risque, avec `reports.read`),
   **Référentiel** (règles, checklists, normes) et **Administration**. Vous ne voyez que les
   pages permis par vos permissions. **Findings** affiche le nombre de findings ouverts dans les
   projets que vous lisez.
@@ -57,7 +57,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 | **Projets** | Tous les projets avec leurs findings ouverts par sévérité. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
 | **Projet** | Tendance, findings ouverts les plus graves et le plus ancien, export SARIF, **Tous les rapports** du projet |
 
-**Revue** : **Findings** et **Acceptations de risque** pour les utilisateurs qui ont `reports.read` (sur les projets qu'ils lisent), **Rapports** pour tout utilisateur (sur les projets qu'il lit)
+**Revue** : **Findings** et **Acceptations de risque** pour les utilisateurs qui ont `reports.read` (sur les projets qu'ils lisent) ; **Rapports** pour tout utilisateur (sur les projets qu'il lit), ouvert depuis le champ de recherche (`#report:*`) ou **Tous les rapports** d'un projet
 
 | Page | À quoi elle sert |
 |---|---|

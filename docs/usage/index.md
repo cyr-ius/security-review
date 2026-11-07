@@ -18,7 +18,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 ## Finding your way
 
 - The **sidebar** groups the pages in four sections: **Supervision** (projects),
-  **Review** (findings and risk acceptances, with `reports.read`, then reports), **Reference** (rules,
+  **Review** (findings and risk acceptances, with `reports.read`), **Reference** (rules,
   checklists, standards) and **Administration**. You only see the pages your permissions
   allow. **Findings** shows the number of open findings in the projects you read.
 - The **search field** in the middle of the top bar (Ctrl+K, ⌘K on a Mac) searches the
@@ -54,7 +54,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 | **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
 | **Project** | Trend, worst and oldest open findings, SARIF export, **All reports** of the project |
 
-**Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read), **Reports** for every user (on the projects they read)
+**Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read); **Reports** for every user (on the projects they read), opened from the search field (`#report:*`) or **All reports** of a project
 
 | Page | What for |
 |---|---|

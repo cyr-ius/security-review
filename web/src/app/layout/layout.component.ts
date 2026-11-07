@@ -85,8 +85,6 @@ export class LayoutComponent {
       icon: 'bi-shield-exclamation',
       permission: 'reports.read',
     },
-    // The list is scoped to the projects of the user, without reports.read
-    { path: '/reports', label: 'layout.reports', icon: 'bi-file-earmark-text' },
   ];
 
   /** What the reviews rely on: scan rules, checklists and development standards. */
