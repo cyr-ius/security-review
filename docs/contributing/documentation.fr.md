@@ -29,7 +29,8 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
   fichier absent fait échouer le build). Dans un lien vers un fichier du dépôt, écrivez
   `\{{ release_tag }}` au lieu de `master` : le hook `scripts/mkdocs_hooks.py` le remplace par le
   tag de la version de `pyproject.toml` (`v3.0.0`), pour que les commandes copiées récupèrent les
-  fichiers de la version documentée.
+  fichiers de la version documentée. Pour épingler le paquet (`security-review==3.0.0`), écrivez
+  `\{{ release_version }}`, remplacé par la version elle-même.
 
 ## Règles de rédaction
 

@@ -28,7 +28,8 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
   missing file fails the build). In a link to a file of the repository, write
   `\{{ release_tag }}` instead of `master`: the hook `scripts/mkdocs_hooks.py` replaces it with the
   tag of the version of `pyproject.toml` (`v3.0.0`), so that the copied commands fetch the files
-  of the documented release.
+  of the documented release. To pin the package (`security-review==3.0.0`), write
+  `\{{ release_version }}`, replaced with the version itself.
 
 ## Writing rules
 

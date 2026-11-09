@@ -245,7 +245,11 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif ; un faux positif n'exige ni motif ni date ;
   sous
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, une acceptation n'exige ni motif ni date) ; une décision expirée
-  compte comme ouverte (gate, posture, SARIF, tendances).
+  compte comme ouverte (gate, posture, SARIF, tendances). Seule exception, en mode local
+  (stdio, sans interface web) : `decide_finding_status`, enregistré uniquement par
+  `register_local_tools` pour le transport stdio, applique une décision énoncée par le
+  développeur une fois qu'il l'a confirmée par l'hôte (elicitation MCP, approbateur
+  `local:<utilisateur>`) ; il n'existe jamais en HTTP.
 - **Un agent n'installe jamais une règle de scan** : `propose_opengrep_rule` enregistre seulement
   une proposition en base (préfixe `secreview.` refusé, ni secret ni caractère invisible, nombre
   en attente borné) ; seule une personne connectée à l'interface (session, jamais un jeton

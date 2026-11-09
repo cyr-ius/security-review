@@ -58,10 +58,12 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type, with pagination |
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
+| `decide_finding_status` | **Local mode (stdio) only**: applies a triage decision the developer stated in the conversation, once they confirm it in the host ([decision of the developer in local mode](#decision-of-the-developer-in-local-mode)) |
 | `propose_opengrep_rule` | **Proposes** an [OpenGrep rule](analysis/opengrep.md#rules-proposed-by-agents) for a vulnerable pattern the scan missed; installed only once a person approves it |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
+| `export_findings_report` | Current findings of a project as one Markdown document (`detail`: `compact` by default, one line per finding, or `full`), shown to the developer or written by the agent to `SECURITY_REPORT.md` ([findings report](../getting-started/stdio.md#findings-report-security_reportmd)) |
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
@@ -233,8 +235,30 @@ what it hands back to the agent and reports injected instructions
   reason, an approver (the logged-in user) and an expiry date; from that date the finding counts
   as open again.
 
-This holds for every token role, `admin` included: the MCP server has no tool that changes a
-status.
+This holds for every token role, `admin` included: over HTTP, the MCP server has no tool that
+changes a status.
+
+#### Decision of the developer in local mode
+
+In [local mode (stdio)](../getting-started/stdio.md) there is no web interface, but the
+developer sits at the host. When they state a decision in the conversation (*"line 12 of
+app/db.py is a false positive, the query is bound"*), the agent calls `decide_finding_status`
+with the findings, the status (`fixed`, `accepted` or `false_positive`), the reason and, to
+accept a risk, the expiry date the developer gave (at most 50 findings at once). The status
+does not change yet: the server asks the developer to confirm through the host (MCP
+**elicitation**), with a message that lists the findings, the status, the reason and the
+expiry date.
+
+- The answer comes from the developer through the host, not from the model: a prompt
+  injection can make the agent call the tool, not confirm the decision.
+- Declined or cancelled: nothing changes (`applied: false`). A host without elicitation gets
+  an error and nothing changes: use `propose_finding_status`.
+- Confirmed: the decision follows the same rules as in the web interface (reason and expiry
+  date of an acceptance), the approver is `local:<user of the workstation>` and the decision is
+  written to the audit log.
+
+The tool is only registered by `security-review-mcp local` (and `serve --transport stdio`):
+over HTTP it does not exist and decisions stay in the web interface.
 
 !!! info "Secret masking"
     Secrets found in `summary`, `description`, `evidence` and `recommendation` (passwords,

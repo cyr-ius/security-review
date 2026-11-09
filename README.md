@@ -30,7 +30,7 @@ and a report database (SQLite or PostgreSQL) usable in pipelines.
 | | |
 |---|---|
 | **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report`, `development-standards` |
-| **Tools** | checklists, `scan_code`, `scan_dependencies`, saving and reading of reports with their [checklist coverage](https://cyr-ius.github.io/security-review/review/prompts-tools/#review-coverage) (grouped by a [normalized project name](https://cyr-ius.github.io/security-review/review/prompts-tools/#project-name)), [status proposals](https://cyr-ius.github.io/security-review/review/prompts-tools/#status-of-a-finding) (`propose_finding_status`: an agent never closes a finding), [OpenGrep rule proposals](https://cyr-ius.github.io/security-review/review/analysis/opengrep/#rules-proposed-by-agents) (`propose_opengrep_rule`, installed once a person approves them), project posture and gate, SARIF export, trends, rule management |
+| **Tools** | checklists, `scan_code`, `scan_dependencies`, saving and reading of reports with their [checklist coverage](https://cyr-ius.github.io/security-review/review/prompts-tools/#review-coverage) (grouped by a [normalized project name](https://cyr-ius.github.io/security-review/review/prompts-tools/#project-name)), [status proposals](https://cyr-ius.github.io/security-review/review/prompts-tools/#status-of-a-finding) (`propose_finding_status`: an agent never closes a finding; in local mode, [`decide_finding_status`](https://cyr-ius.github.io/security-review/review/prompts-tools/#decision-of-the-developer-in-local-mode) applies the decision of the developer once confirmed in the host), [OpenGrep rule proposals](https://cyr-ius.github.io/security-review/review/analysis/opengrep/#rules-proposed-by-agents) (`propose_opengrep_rule`, installed once a person approves them), project posture and gate, SARIF export, [Markdown findings report](https://cyr-ius.github.io/security-review/getting-started/stdio/#findings-report-security_reportmd) (`SECURITY_REPORT.md`), trends, rule management |
 | **CLI** | `security-review-mcp` (MCP server: `serve`, `local` for the local mode) and `security-review-controller` (`serve`, `db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `audit`), exit codes 0 / 1 / 2 |
 | **Pipelines** | [`security-review-ci`](https://cyr-ius.github.io/security-review/advanced/architecture/ci/) (`gate`, `sarif`, `trend`, [`scan-code`](https://cyr-ius.github.io/security-review/review/analysis/code-scan/), [`scan-deps`](https://cyr-ius.github.io/security-review/review/analysis/dependencies/#scan-in-a-pipeline-security-review-ci-scan-deps), which store their reports through the API): lightweight client of the REST API for Jenkins, GitLab or GitHub, with a `ci` token restricted to the selected projects, no database driver, [installed alone](https://cyr-ius.github.io/security-review/advanced/architecture/ci/#installation) without Python (`uv tool install security-review-ci`, or [from the Controller server](https://cyr-ius.github.io/security-review/advanced/architecture/ci/#from-the-controller-server) without PyPI); on a workstation (commit hook), with a [personal `ci` token](https://cyr-ius.github.io/security-review/review/analysis/dependencies/#scan-from-a-workstation-commit-hook); [`agent-review`](https://cyr-ius.github.io/security-review/advanced/architecture/ci/#agent-review-of-each-commit): review of each commit by the coding agent of the developer (Claude Code, Copilot or Codex) |
 | **Rules** | More than 200 rules and more than 120 checklist items: Python, Java, Go, C#, Rust, TypeScript / Node.js backend, Angular, Docker, Kubernetes, configuration, GitLab CI, Jenkins, Spring, FastAPI, [prompt injection aimed at AI assistants](https://cyr-ius.github.io/security-review/review/rules/#default-rules-by-platform) (hidden characters, injected instructions; [read guard](https://cyr-ius.github.io/security-review/review/analysis/read-guard/) `security-review-ci guard`, a hook for Claude Code, Copilot or Codex), copied into the database at first start, plus your own [rules](https://cyr-ius.github.io/security-review/review/rules/) and [checklists](https://cyr-ius.github.io/security-review/review/checklists/) (TOML import/export from the CLI or the web interface); [OpenGrep](https://cyr-ius.github.io/security-review/review/analysis/opengrep/) YAML rules run by `scan-code` (binary included in the `-opengrep` Docker image), with [90 default rules](https://cyr-ius.github.io/security-review/review/analysis/opengrep/#default-rules) (taint analysis from the request to SQL, commands, files, URLs...) installed at start-up by the `-opengrep` image or by `security-review-controller opengrep install` |
@@ -54,46 +54,47 @@ Details: [how a review works](https://cyr-ius.github.io/security-review/review/)
 
 ## Quick start
 
-The product runs as **two services** sharing one database: the **MCP server**
-(`security-review-mcp`), used by the agents and the CI, and the **Controller server**
-(`security-review-controller`), used by people: web interface, REST API, tokens and accounts.
-See [two services, two roles](https://cyr-ius.github.io/security-review/#two-services-two-roles).
+The product runs as **three services**: the **MCP server** (`security-review-mcp`), used by the
+agents, the **Controller server** (`security-review-controller`), used by people (web interface,
+REST API, tokens and accounts), on one shared database, and the pipeline client
+(`security-review-ci`). See
+[three services, three roles](https://cyr-ius.github.io/security-review/services/).
+
+In an empty folder, this block starts PostgreSQL, the Controller server and the MCP server
+with Docker Compose and resets the password of the `admin` account:
 
 ```bash
-uv venv && source .venv/bin/activate
-uv pip install security-review         # Python ≥ 3.14; [postgres] extra for PostgreSQL
-
-# from the same directory (shared SQLite file)
-security-review-controller db upgrade                              # schema (Alembic)
-security-review-controller user create admin --role admin --all-projects   # web interface account
-security-review-controller token create --label alice              # token of the agent
-security-review-controller serve --port 8080                       # /ui interface and REST API
-security-review-mcp serve --port 8000                              # /mcp endpoint (streamable HTTP)
-
-security-review-ci gate --url http://localhost:8080 --project portal  # block a pipeline (ci token: SECREVIEW_CI_TOKEN)
+mkdir secreview && cd secreview
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/master/examples/docker/docker-compose.yml
+(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
+docker compose up -d --wait
+docker compose exec controller security-review-controller user reset-password admin   # password shown once
+# web interface: http://127.0.0.1:8080/ui/   MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 
-Host configuration (VS Code with a token, `.vscode/mcp.json`; Claude and `.mcp.json`: see
-[connecting the host](https://cyr-ius.github.io/security-review/getting-started/host/)):
+Log in to the web interface as `admin`. On the **General** page, enter `http://127.0.0.1:8080`
+as **Public URL of the Controller server**; on the **Tokens** page, enter
+`http://127.0.0.1:8000/mcp` as **MCP endpoint** and turn on **Enable OAuth login**
+([OAuth login of MCP clients](https://cyr-ius.github.io/security-review/advanced/mcp-oauth/)). Declare the server in
+`.mcp.json` at the root of the repository (VS Code, GitHub Copilot, Claude Code), without a
+token: at the first connection, the host opens the browser to sign in. These `127.0.0.1` URLs
+in plain HTTP are for a test on the same machine: for the team, enable HTTPS.
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "security-review": {
       "type": "http",
-      "url": "http://127.0.0.1:8000/mcp",
-      "headers": { "Authorization": "Bearer ${input:secreview-token}" }
+      "url": "http://127.0.0.1:8000/mcp"
     }
-  },
-  "inputs": [
-    { "id": "secreview-token", "type": "promptString", "description": "Token", "password": true }
-  ]
+  }
 }
 ```
 
 Step by step: [deploying the server](https://cyr-ius.github.io/security-review/getting-started/deploy/),
 [connecting the host](https://cyr-ius.github.io/security-review/getting-started/host/) (VS Code, Claude, enrollment).
-Other cases: [offline installation](https://cyr-ius.github.io/security-review/advanced/deployment/installation/),
+Other cases: [without containers](https://cyr-ius.github.io/security-review/advanced/deployment/manual-install/),
+[offline installation](https://cyr-ius.github.io/security-review/advanced/deployment/installation/),
 [local mode (stdio)](https://cyr-ius.github.io/security-review/getting-started/stdio/),
 [Bearer tokens](https://cyr-ius.github.io/security-review/advanced/bearer-tokens/), [TLS](https://cyr-ius.github.io/security-review/advanced/tls/),
 [Docker images](https://cyr-ius.github.io/security-review/advanced/deployment/docker/#published-images) (`ghcr.io/cyr-ius/security-review`, `docker.io/cyrius44/security-review`) and [Docker Compose with PostgreSQL](https://cyr-ius.github.io/security-review/advanced/deployment/docker/#docker-compose-with-postgresql),
@@ -111,7 +112,7 @@ The scan produces leads, with false positives. It replaces neither a full SAST o
 uv sync --extra dev && uv run pytest && uv run ruff check .
 ```
 
-Development happens on `dev`, and a version is released by pushing a `vX.Y.Z` tag on `master`.
+Development happens on `dev`; a version (`vX.Y.Z` tag on `master`) is created by Release Please.
 See the [contribution guide](https://cyr-ius.github.io/security-review/contributing/) and
 [`AGENTS.md`](AGENTS.md) (instructions for AI agents).
 

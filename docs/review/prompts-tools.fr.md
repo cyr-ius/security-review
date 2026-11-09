@@ -59,10 +59,12 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
+| `decide_finding_status` | **Mode local (stdio) uniquement** : applique une décision de triage énoncée par le développeur dans la conversation, une fois qu'il l'a confirmée dans l'hôte ([décision du développeur en mode local](#decision-du-developpeur-en-mode-local)) |
 | `propose_opengrep_rule` | **Propose** une [règle OpenGrep](analysis/opengrep.md#regles-proposees-par-les-agents) pour un motif vulnérable que le scan n'a pas relevé ; installée seulement après l'approbation d'une personne |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
+| `export_findings_report` | Findings actuels d'un projet en un document Markdown (`detail` : `compact` par défaut, une ligne par finding, ou `full`), affiché au développeur ou écrit par l'agent dans `SECURITY_REPORT.md` ([rapport des findings](../getting-started/stdio.md#rapport-des-findings-security_reportmd)) |
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
@@ -239,8 +241,30 @@ injectées ([injection de prompt](../reference/security.md#securite-du-serveur-l
   exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir
   de cette date, le finding est de nouveau compté comme ouvert.
 
-C'est vrai pour tous les rôles de jeton, `admin` compris : le serveur MCP n'a aucun outil qui
-change un statut.
+C'est vrai pour tous les rôles de jeton, `admin` compris : en HTTP, le serveur MCP n'a aucun
+outil qui change un statut.
+
+#### Décision du développeur en mode local
+
+En [mode local (stdio)](../getting-started/stdio.md), il n'y a pas d'interface web, mais le
+développeur est devant l'hôte. Quand il énonce une décision dans la conversation (*« la
+ligne 12 de app/db.py est un faux positif, la requête est paramétrée »*), l'agent appelle
+`decide_finding_status` avec les findings, le statut (`fixed`, `accepted` ou `false_positive`),
+le motif et, pour accepter un risque, la date d'expiration donnée par le développeur (50
+findings au plus à la fois). Le statut ne change pas encore : le serveur demande au développeur
+de confirmer par l'hôte (**elicitation** MCP), avec un message qui liste les findings, le
+statut, le motif et la date d'expiration.
+
+- La réponse vient du développeur par l'hôte, pas du modèle : une injection de prompt peut
+  amener l'agent à appeler l'outil, pas à confirmer la décision.
+- Refus ou annulation : rien ne change (`applied: false`). Un hôte sans elicitation reçoit une
+  erreur et rien ne change : utilisez `propose_finding_status`.
+- Confirmation : la décision suit les mêmes règles que dans l'interface web (motif et date
+  d'expiration d'une acceptation), l'approbateur est `local:<utilisateur du poste>` et la
+  décision est écrite dans le journal d'audit.
+
+L'outil n'est enregistré que par `security-review-mcp local` (et `serve --transport stdio`) :
+en HTTP, il n'existe pas et les décisions restent dans l'interface web.
 
 !!! info "Masquage des secrets"
     Les secrets présents dans `summary`, `description`, `evidence` et `recommendation`

@@ -81,8 +81,8 @@ Accessed via the `security-review-ci` command.
 ## Quick start (shared mode)
 
 The repository provides a ready-to-use `docker-compose.yml` file in `examples/docker/`. This
-block starts everything (PostgreSQL, Controller server, MCP server), resets the password of the `admin`
-account and creates a token for your agent:
+block starts everything (PostgreSQL, Controller server, MCP server) and resets the password of
+the `admin` account:
 
 ```bash
 mkdir secreview && cd secreview
@@ -90,35 +90,65 @@ curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # password shown once
-docker compose exec controller security-review-controller token create --label alice   # mcp token, shown once
 # web interface: http://127.0.0.1:8080/ui/   MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 
-Then declare the MCP server in your host, for example in VS Code with `.vscode/mcp.json` (the
-only file where VS Code can ask for the token), and paste the token when VS Code asks for it:
+Then turn on the [OAuth login of MCP clients](advanced/mcp-oauth.md), so that the developers
+sign in through the browser instead of copying a token:
+
+1. Log in to the web interface with the `admin` account and choose a new password.
+2. On the **General** page, enter `http://127.0.0.1:8080` as **Public URL of the Controller
+   server** (or click **Use the current address**) and save: the OAuth login needs it.
+3. On the **Tokens** page, in the **MCP clients (OAuth login)** section, enter
+   `http://127.0.0.1:8000/mcp` as **MCP endpoint** and turn on **Enable OAuth login**.
+
+Declare the MCP server in the `.mcp.json` file at the root of the repository, read by VS Code,
+GitHub Copilot and Claude Code. It holds the URL only, no token:
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "security-review": {
       "type": "http",
-      "url": "http://127.0.0.1:8000/mcp",
-      "headers": { "Authorization": "Bearer ${input:secreview-token}" }
+      "url": "http://127.0.0.1:8000/mcp"
     }
-  },
-  "inputs": [
-    { "id": "secreview-token", "type": "promptString", "description": "Token", "password": true }
-  ]
+  }
 }
 ```
+
+At the first connection, the host opens the browser: sign in and approve the client on the
+**Connect an MCP client** page. The host then renews its tokens by itself.
 
 In the chat, run the `security-review` prompt (or `codebase-review` for the whole repository).
 The agent reads the code, relies on the checklists and saves its report with
 `save_security_report`.
-Log in to the web interface with the `admin` account to read and triage it.
+Read and triage it in the web interface.
 
-The ports are open on every interface of the server, in plain HTTP. Before the team uses it,
-remember to set up your certificates to enable HTTPS. See [Deploying the server](getting-started/deploy.md).
+This set-up works from the machine that runs the containers only: the URLs are on `127.0.0.1`,
+in plain HTTP, which the OAuth login accepts on localhost only. Before the team uses it, enable
+HTTPS and give the public URLs of the two servers: see [Deploying the server](getting-started/deploy.md)
+and [OAuth login of MCP clients](advanced/mcp-oauth.md#enabling-it).
+
+## Quick start (local mode)
+
+To try the prompts alone, without a server: the host starts the MCP server itself with
+[uv](https://docs.astral.sh/uv/getting-started/installation/), and the reports are kept in a
+SQLite database of the workstation, without web interface or token. Declare it in the
+`.mcp.json` file at the root of the repository:
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "security-review=={{ release_version }}", "security-review-mcp", "local"]
+    }
+  }
+}
+```
+
+See [Local mode (stdio)](getting-started/stdio.md).
 
 ## Where to go next
 

@@ -1290,6 +1290,49 @@ def _coverage_markdown(report: SecurityReportPublic) -> list[str]:
     return lines
 
 
+def _finding_location(finding: FindingPublic) -> str:
+    """Return ``path:start-end`` of a finding (empty without a file path)."""
+    location = ""
+    if finding.file_path:
+        location = finding.file_path
+        if finding.line_start:
+            location += f":{finding.line_start}"
+            if finding.line_end and finding.line_end != finding.line_start:
+                location += f"-{finding.line_end}"
+    return location
+
+
+def _finding_markdown(finding: FindingPublic, report_line: str | None = None) -> list[str]:
+    """Render one finding as a Markdown section (title, location, references, details)."""
+    location = _finding_location(finding)
+    refs = ", ".join(x for x in (finding.cwe, finding.owasp) if x)
+    lines = [
+        "",
+        f"### [{finding.severity.value.upper()}] {finding.title} (#{finding.id}, "
+        f"{finding.status.value})",
+    ]
+    if location:
+        lines.append(f"- **Location**: `{location}`")
+    if refs:
+        lines.append(f"- **References**: {refs}")
+    if report_line:
+        lines.append(f"- **Report**: {report_line}")
+    if finding.original_severity:
+        # On one line: the justification is free text typed by a person
+        reason = " ".join((finding.severity_reason or "").split())
+        lines.append(
+            f"- **Severity raised** from {finding.original_severity.value} by "
+            f"{finding.severity_changed_by}: {reason}"
+        )
+    lines += ["", finding.description]
+    if finding.evidence:
+        # The evidence comes from the reviewed code: it must not close its block
+        lines += ["", fenced(finding.evidence)]
+    if finding.recommendation:
+        lines += ["", f"**Recommendation**: {finding.recommendation}"]
+    return lines
+
+
 def render_report_markdown(report: SecurityReportPublic) -> str:
     """Render a stored report as Markdown (for humans, MRs and tickets)."""
     lines = [
@@ -1318,36 +1361,76 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
     if not ordered:
         lines += ["", "No finding recorded."]
     for finding in ordered:
-        location = ""
-        if finding.file_path:
-            location = finding.file_path
-            if finding.line_start:
-                location += f":{finding.line_start}"
-                if finding.line_end and finding.line_end != finding.line_start:
-                    location += f"-{finding.line_end}"
-        refs = ", ".join(x for x in (finding.cwe, finding.owasp) if x)
+        lines += _finding_markdown(finding)
+    return "\n".join(lines) + "\n"
+
+
+# File name suggested to the developer for the findings report of a project
+FINDINGS_REPORT_FILE = "SECURITY_REPORT.md"
+
+
+def render_findings_markdown(
+    project: str,
+    include_resolved: bool = False,
+    projects: Collection[str] | None = None,
+    compact: bool = False,
+) -> str:
+    """Render the current findings of a project as one Markdown document (SECURITY_REPORT.md).
+
+    Open findings by default (an expired decision counts as open), every status with
+    ``include_resolved``; an issue reported again is listed once, worst severity first. At most
+    SECREVIEW_MAX_LIST_LIMIT findings are detailed: the document says how many are left out.
+    ``projects`` is the scope of a restricted caller. ``compact`` gives one line per finding
+    (severity, title, location, id) instead of its details: a much smaller document.
+    """
+    project = normalize_project(project)
+    check_project_scope(projects, project)
+    statuses = list(FindingStatus) if include_resolved else [FindingStatus.OPEN]
+    posture = project_posture(project)
+    listed = list_project_findings(
+        project, statuses, limit=get_settings().max_list_limit, projects=projects
+    )
+    counts = posture["open_findings_by_severity"]
+    worst = posture["worst_open_severity"]
+    lines = [
+        f"# Security report - {project}",
+        "",
+        f"- **Generated**: {utcnow().replace(microsecond=0).isoformat()}",
+        f"- **Reports**: {posture['reports_total']}",
+        f"- **Open findings**: {posture['open_findings_total']}"
+        + (f" (worst: {worst.upper()})" if worst else ""),
+        "",
+        "| Severity | Open |",
+        "|---|---|",
+        *(f"| {severity.value} | {counts[severity.value]} |" for severity in Severity),
+        "",
+        f"## {'Findings' if include_resolved else 'Open findings'} ({listed['total']})",
+    ]
+    if not listed["findings"]:
+        lines += ["", "No finding recorded." if include_resolved else "No open finding."]
+    elif compact:
+        lines.append("")
+    for item in listed["findings"]:
+        context = [f"#{item['report_id']}", as_utc(item["report_created_at"]).date().isoformat()]
+        context += [value for value in (item["branch"], item["commit_sha"]) if value]
+        finding = FindingPublic.model_validate(item)
+        # An expired acceptance is listed as open, as the gate counts it
+        finding.status = effective_status(finding.status, finding.status_expires_at)
+        if compact:
+            location = _finding_location(finding)
+            lines.append(
+                f"- [{finding.severity.value.upper()}] {finding.title}"
+                + (f" - `{location}`" if location else "")
+                + f" (#{finding.id}, {finding.status.value})"
+            )
+        else:
+            lines += _finding_markdown(finding, ", ".join(context))
+    if listed["total"] > len(listed["findings"]):
         lines += [
             "",
-            f"### [{finding.severity.value.upper()}] {finding.title} (#{finding.id}, "
-            f"{finding.status.value})",
+            f"_{listed['total'] - len(listed['findings'])} more findings are not listed here "
+            "(SECREVIEW_MAX_LIST_LIMIT): see the web interface or export_sarif._",
         ]
-        if location:
-            lines.append(f"- **Location**: `{location}`")
-        if refs:
-            lines.append(f"- **References**: {refs}")
-        if finding.original_severity:
-            # On one line: the justification is free text typed by a person
-            reason = " ".join((finding.severity_reason or "").split())
-            lines.append(
-                f"- **Severity raised** from {finding.original_severity.value} by "
-                f"{finding.severity_changed_by}: {reason}"
-            )
-        lines += ["", finding.description]
-        if finding.evidence:
-            # The evidence comes from the reviewed code: it must not close its block
-            lines += ["", fenced(finding.evidence)]
-        if finding.recommendation:
-            lines += ["", f"**Recommendation**: {finding.recommendation}"]
     return "\n".join(lines) + "\n"
 
 
