@@ -1,5 +1,6 @@
 """Shared fixtures: an isolated in-memory database (with the default rules) and a clean registry."""
 
+import contextlib
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -146,6 +147,22 @@ def clean_registry():
     registry.reset()
     yield
     registry.reset()
+
+
+@pytest.fixture(autouse=True)
+def drop_local_tools():
+    """Remove the tools of the local mode after every test.
+
+    The stdio entry point (``serve --transport stdio``, ``local``) registers them on the shared
+    server: without this, a later test on the same worker sees them, as if it were in local mode.
+    """
+    yield
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from security_review_mcp.server import mcp
+
+    with contextlib.suppress(ToolError):
+        mcp.remove_tool("decide_finding_status")
 
 
 @pytest.fixture
