@@ -83,3 +83,24 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
 
 Pour lancer le serveur depuis un conteneur (commande `mcp` avec `SECREVIEW_TRANSPORT=stdio`), voir
 [Docker : choisir le processus](../advanced/deployment/docker.md#choisir-le-processus).
+
+## Rapport des findings (SECURITY_REPORT.md)
+
+Sans interface web, demandez à l'assistant les findings du projet, par exemple *« Montre-moi
+les findings de sécurité de ce projet »* ou *« Écris les findings de sécurité dans
+SECURITY_REPORT.md »*. Il appelle l'outil `export_findings_report`, qui renvoie un document
+Markdown : findings ouverts par sévérité, puis les findings, le plus grave d'abord. Deux niveaux
+de détail :
+
+| `detail` | Contenu de chaque finding | Taille |
+|---|---|---|
+| `compact` (par défaut) | Une ligne : sévérité, titre, emplacement, identifiant et statut | Réduite : quelques tokens par finding |
+| `full` | Son rapport (identifiant, date, branche, commit), sa description, sa preuve masquée et sa recommandation | Bien plus grande : à demander seulement quand vous avez besoin du détail |
+
+Avec `include_resolved`, les findings corrigés, acceptés et faux positifs sont listés aussi.
+
+Le serveur renvoie seulement le texte et n'écrit jamais sur le disque : l'assistant l'affiche,
+ou écrit `SECURITY_REPORT.md` à la racine du dépôt avec ses propres outils (l'hôte vous demande
+d'approuver l'écriture). L'outil fonctionne aussi en mode partagé (HTTP), sur les projets
+qu'atteint le jeton. Le fichier contient des extraits de code des findings : ajoutez-le au
+`.gitignore` s'il ne doit pas être commité.

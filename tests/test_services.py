@@ -198,6 +198,7 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert (every["project"], every["total"]) == (None, 3)
     assert {f["project"] for f in every["findings"]} == {"shop", "other"}
     assert services.list_project_findings(None, projects=["other"])["total"] == 1
+
     assert services.list_project_findings("shop", projects=["other"])["total"] == 0
     # Search: title, project or branch, case-insensitive; LIKE wildcards match literally
     assert [
@@ -218,6 +219,37 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert [f["severity"] for f in second_page["findings"]] == [Severity.HIGH]
     monkeypatch.setattr(services.get_settings(), "max_list_limit", 1)
     assert len(services.list_project_findings("shop", limit=50)["findings"]) == 1
+
+
+def test_findings_report_lists_the_current_findings_of_one_project(triage):
+    secret = "ghp_" + "b" * 36
+    first = services.save_report(
+        "shop",
+        "first",
+        [make_finding(Severity.LOW, title="Weak hash"), make_finding(Severity.HIGH)],
+        branch="main",
+    )
+    services.save_report(
+        "shop", "second", [make_finding(Severity.CRITICAL, title="RCE", evidence=secret)]
+    )
+    services.save_report("other", "other project", [make_finding(Severity.MEDIUM, title="XSS")])
+    low = next(
+        f for f in services.get_report(first["report_id"]).findings if f.title == "Weak hash"
+    )
+    triage(low.id, FindingStatus.ACCEPTED)
+
+    report = services.render_findings_markdown("Shop")
+    assert report.startswith("# Security report - shop\n")
+    assert "## Open findings (2)" in report and "| critical | 1 |" in report
+    # Worst severity first, with the report it comes from; masked evidence in its own block
+    assert report.index("[CRITICAL] RCE") < report.index("[HIGH]")
+    assert f"- **Report**: #{first['report_id']}" in report and "main" in report
+    assert secret not in report and "```" in report
+    assert "Weak hash" not in report and "XSS" not in report
+    everything = services.render_findings_markdown("shop", include_resolved=True)
+    assert "## Findings (3)" in everything and f"Weak hash (#{low.id}, accepted)" in everything
+    with pytest.raises(services.NotFoundError):
+        services.render_findings_markdown("shop", projects=["other"])
 
 
 def test_a_finding_reported_again_replaces_its_previous_occurrence(triage):

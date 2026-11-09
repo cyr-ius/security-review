@@ -210,6 +210,35 @@ async def test_the_author_of_a_report_is_stored_but_never_read_back():
     assert "may only contain" in text_of(control)
 
 
+async def test_findings_report_is_returned_as_markdown_for_the_developer():
+    services.save_report(
+        "demo",
+        "Seeded",
+        [
+            FindingCreate(
+                title="SQL injection",
+                severity=Severity.HIGH,
+                description="Query built by concatenation",
+                file_path="app/db.py",
+                line_start=12,
+            )
+        ],
+    )
+    async with Client(mcp) as client:
+        compact = text_of(await client.call_tool("export_findings_report", {"project": "demo"}))
+        full = text_of(
+            await client.call_tool("export_findings_report", {"project": "demo", "detail": "full"})
+        )
+        invalid = await client.call_tool("export_findings_report", {"project": "../.."})
+    assert compact.startswith("# Security report - demo")
+    # Compact by default: one line per finding, without its details
+    assert "- [HIGH] SQL injection - `app/db.py:12`" in compact
+    assert "concatenation" not in compact
+    assert "### [HIGH] SQL injection" in full and "concatenation" in full
+    assert invalid.is_error
+    assert "SECURITY_REPORT.md" in server.INSTRUCTIONS
+
+
 async def test_save_report_checks_and_stores_the_review_coverage():
     report = {
         "project": "covered",
@@ -653,6 +682,7 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
         ("get_trend_report", {"project": "billing"}),
         ("export_sarif", {"report_id": billing["report_id"]}),
         ("export_sarif", {"project": "billing"}),
+        ("export_findings_report", {"project": "billing"}),
     ]:
         is_error, text = client.call(name, arguments)
         assert is_error and "not found" in text, (name, text)

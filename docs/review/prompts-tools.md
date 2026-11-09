@@ -62,6 +62,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
+| `export_findings_report` | Current findings of a project as one Markdown document (`detail`: `compact` by default, one line per finding, or `full`), shown to the developer or written by the agent to `SECURITY_REPORT.md` ([findings report](../getting-started/stdio.md#findings-report-security_reportmd)) |
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |

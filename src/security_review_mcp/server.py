@@ -62,7 +62,9 @@ language, write your reply and the free-text fields of the report in that langua
 - At the end of a review, call `save_security_report` once to store the report in the \
 database: the server records the user of the token as its author. Use \
 `list_security_reports`, `get_security_report` and `get_project_security_posture` to read \
-stored results.
+stored results. When the developer asks for a report of the findings of a project (on \
+screen or in a file), call `export_findings_report`: show it, or write it yourself to \
+`SECURITY_REPORT.md` at the root of the repository (the server never writes files).
 - You never change the status of a finding: `propose_finding_status` only records a proposal \
 (fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
 web interface. The gate keeps blocking until then.
@@ -984,6 +986,37 @@ def export_sarif(
         services.check_project_scope(allowed, project)
     name, items = services.collect_sarif_items(report_id, project)
     return sarif.build_sarif(items, name, include_resolved)
+
+
+@mcp.tool(annotations=READ_ONLY)
+@_tool_errors
+def export_findings_report(
+    ctx: Context,
+    project: ProjectName,
+    include_resolved: Annotated[
+        bool, Field(description="Also list fixed, accepted and false-positive findings")
+    ] = False,
+    detail: Annotated[
+        Literal["compact", "full"],
+        Field(
+            description="compact (default): counts and one line per finding (severity, title, "
+            "location, id), to show on screen; full: each finding with its report, "
+            "description, evidence and recommendation, many more tokens"
+        ),
+    ] = "compact",
+) -> str:
+    """Return the current findings of a project as one Markdown document, for the developer.
+
+    Show it to the developer, or write it yourself to `SECURITY_REPORT.md` at the root of the
+    repository when they ask for a file: the server only returns the text and never writes to
+    disk. Open findings only by default, worst severity first; an issue reported several times
+    appears once. Use detail=full only when the developer wants the details (description,
+    evidence with secrets masked, recommendation). At most SECREVIEW_MAX_LIST_LIMIT findings
+    are listed.
+    """
+    return services.render_findings_markdown(
+        project, include_resolved, _caller_projects(ctx), compact=detail == "compact"
+    )
 
 
 @mcp.tool(annotations=READ_ONLY)

@@ -84,3 +84,23 @@ repository:
 
 To run the server from a container (`mcp` command with `SECREVIEW_TRANSPORT=stdio`), see
 [Docker: choosing the process](../advanced/deployment/docker.md#choosing-the-process).
+
+## Findings report (SECURITY_REPORT.md)
+
+Without the web interface, ask the assistant for the findings of the project, for example
+*"Show me the security findings of this project"* or *"Write the security findings to
+SECURITY_REPORT.md"*. It calls the `export_findings_report` tool, which returns one Markdown
+document: open findings by severity, then the findings, worst first. Two levels of detail:
+
+| `detail` | Content of each finding | Size |
+|---|---|---|
+| `compact` (default) | One line: severity, title, location, id and status | Small: a few tokens per finding |
+| `full` | Its report (id, date, branch, commit), description, masked evidence and recommendation | Much larger: ask for it only when you need the details |
+
+With `include_resolved`, fixed, accepted and false-positive findings are listed too.
+
+The server only returns the text and never writes to disk: the assistant shows it, or writes
+`SECURITY_REPORT.md` at the root of the repository with its own tools (the host asks you to
+approve the write). The tool also works with the shared mode (HTTP), on the projects the token
+reaches. The file holds code excerpts of the findings: add it to `.gitignore` if it should not
+be committed.

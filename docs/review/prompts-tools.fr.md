@@ -63,6 +63,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
+| `export_findings_report` | Findings actuels d'un projet en un document Markdown (`detail` : `compact` par défaut, une ligne par finding, ou `full`), affiché au développeur ou écrit par l'agent dans `SECURITY_REPORT.md` ([rapport des findings](../getting-started/stdio.md#rapport-des-findings-security_reportmd)) |
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
