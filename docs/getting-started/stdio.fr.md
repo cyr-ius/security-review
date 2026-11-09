@@ -15,7 +15,8 @@ flowchart LR
 
 !!! warning "Réservé à des cas précis"
     Les rapports sont enregistrés dans une base SQLite **locale** que personne d'autre ne voit,
-    il n'y a pas d'interface web pour les trier, et chaque poste garde ses propres règles. Pour
+    il n'y a pas d'interface web pour les trier (le développeur
+    [confirme les décisions dans l'hôte](#triage-en-mode-local) à la place), et chaque poste garde ses propres règles. Pour
     une équipe, utilisez plutôt le [mode partagé (HTTP)](deploy.md). Le mode
     local sert à essayer les prompts seul, sur un poste hors ligne, ou pour un usage personnel.
 
@@ -104,3 +105,14 @@ ou écrit `SECURITY_REPORT.md` à la racine du dépôt avec ses propres outils (
 d'approuver l'écriture). L'outil fonctionne aussi en mode partagé (HTTP), sur les projets
 qu'atteint le jeton. Le fichier contient des extraits de code des findings : ajoutez-le au
 `.gitignore` s'il ne doit pas être commité.
+
+## Triage en mode local
+
+Donnez votre décision à l'assistant avec vos mots, par exemple *« La ligne 12 de app/db.py est
+un faux positif : la requête est paramétrée »* ou *« Accepte le risque du #42 jusqu'au 30 juin :
+outil interne »*. Il appelle `decide_finding_status`, et votre hôte vous affiche une
+confirmation avec les findings, le statut, le motif et la date d'expiration : le statut ne
+change que si vous confirmez, et vous êtes enregistré comme approbateur. Refusez une
+confirmation que vous n'avez pas demandée. L'hôte doit gérer l'elicitation MCP (Claude Code,
+VS Code) ; sinon l'assistant peut seulement proposer un statut. Détails : [décision du
+développeur en mode local](../review/prompts-tools.md#decision-du-developpeur-en-mode-local).

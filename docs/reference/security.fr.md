@@ -198,7 +198,11 @@
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
-  ne peut pas neutraliser un finding. Une décision reprise sur le même problème signalé par un
+  ne peut pas neutraliser un finding. Seule exception, en mode local (stdio, sans interface
+  web) : `decide_finding_status` applique une décision énoncée par le développeur, une fois que
+  celui-ci l'a confirmée par l'hôte (elicitation MCP), à laquelle le modèle ne peut pas
+  répondre ; l'outil n'existe pas en HTTP ([décision du développeur en mode
+  local](../review/prompts-tools.md#decision-du-developpeur-en-mode-local)). Une décision reprise sur le même problème signalé par un
   rapport ultérieur (mêmes projet, règle, fichier et titre : [finding signalé de
   nouveau](../usage/triage.md#finding-signale-de-nouveau)) garde son approbateur et sa
   date d'expiration : un nouveau rapport ne la prolonge jamais. Pages servies avec une CSP

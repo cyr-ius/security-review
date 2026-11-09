@@ -15,7 +15,8 @@ flowchart LR
 
 !!! warning "For specific cases only"
     The reports are saved in a **local** SQLite database that nobody else sees, there is no web
-    interface to triage them, and every workstation keeps its own rules. For a team, use the
+    interface to triage them (the developer
+    [confirms decisions in the host](#triage-in-local-mode) instead), and every workstation keeps its own rules. For a team, use the
     [shared mode (HTTP)](deploy.md) instead. Local mode is useful to try the
     prompts alone, on an offline workstation, or for a personal use.
 
@@ -104,3 +105,13 @@ The server only returns the text and never writes to disk: the assistant shows i
 approve the write). The tool also works with the shared mode (HTTP), on the projects the token
 reaches. The file holds code excerpts of the findings: add it to `.gitignore` if it should not
 be committed.
+
+## Triage in local mode
+
+Tell the assistant your decision in your own words, for example *"Line 12 of app/db.py is a
+false positive: the query is bound"* or *"Accept the risk of #42 until June 30: internal tool"*.
+It calls `decide_finding_status`, and your host shows you a confirmation with the findings, the
+status, the reason and the expiry date: the status changes only when you confirm, and you are
+recorded as the approver. Decline a confirmation you did not ask for. The host must support MCP
+elicitation (Claude Code, VS Code); otherwise the assistant can only propose a status. Details:
+[decision of the developer in local mode](../review/prompts-tools.md#decision-of-the-developer-in-local-mode).

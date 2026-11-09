@@ -186,7 +186,11 @@
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
-  finding. A decision carried to the same issue raised by a later report (same project, rule,
+  finding. Only exception, in local mode (stdio, no web interface): `decide_finding_status`
+  applies a decision the developer stated, once the developer confirms it through the host
+  (MCP elicitation), which the model cannot answer; it does not exist over HTTP ([decision of
+  the developer in local mode](../review/prompts-tools.md#decision-of-the-developer-in-local-mode)).
+  A decision carried to the same issue raised by a later report (same project, rule,
   file and title: [finding reported again](../usage/triage.md#finding-reported-again))
   keeps its approver and its expiry date: a new report never extends it. Pages are served with a strict CSP and the anti-clickjacking headers, and every
   answer of the Controller server (API, refusals included) carries `X-Content-Type-Options: nosniff`,

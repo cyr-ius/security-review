@@ -496,7 +496,8 @@ async def test_agent_can_only_propose_a_status_and_the_gate_keeps_blocking():
         gate = json.loads(
             text_of(await client.call_tool("check_project_gate", {"project": "demo"}))
         )
-    assert "update_finding_status" not in tools
+    # Outside local mode, no tool decides a status (decide_finding_status is stdio only)
+    assert "update_finding_status" not in tools and "decide_finding_status" not in tools
     proposed = json.loads(text_of(result))
     assert proposed["status"] == "open"
     assert (proposed["proposed_status"], proposed["proposed_by"]) == ("false_positive", "stdio")
@@ -505,6 +506,86 @@ async def test_agent_can_only_propose_a_status_and_the_gate_keeps_blocking():
     (event,) = audit.list_events(action="finding.status_proposed")["events"]
     assert (event["actor"], event["project"]) == ("stdio", "demo")
     assert "hunter2hunter2" not in json.dumps(event)
+
+
+@pytest.fixture
+def local_tools():
+    """The tools of the local mode (stdio), registered for one test."""
+    server.register_local_tools()
+    yield
+    mcp.remove_tool("decide_finding_status")
+
+
+def developer_answers(action: str, asked: list[str]):
+    """Elicitation callback of a host whose developer answers ``action`` (accept, decline)."""
+    from mcp.types import ElicitResult
+
+    async def callback(context, params):
+        asked.append(params.message)
+        return ElicitResult(
+            action=action, content={"confirm": True} if action == "accept" else None
+        )
+
+    return callback
+
+
+# auto: the 2026-07-28 protocol (InputRequiredResult); legacy: elicitation/create mid-call
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+async def test_local_mode_applies_a_decision_of_the_developer_once_confirmed(local_tools, mode):
+    saved = services.save_report(
+        "demo",
+        "Seeded",
+        [
+            FindingCreate(
+                title="SQL injection",
+                severity=Severity.HIGH,
+                description="Query",
+                file_path="app/db.py",
+                line_start=12,
+            )
+        ],
+    )
+    finding_id = finding_id_of(saved)
+    decision = {
+        "finding_ids": [finding_id],
+        "status": "false_positive",
+        "reason": "The query is bound by the driver",
+    }
+    asked: list[str] = []
+
+    # The developer declines: nothing changes
+    async with Client(
+        mcp, mode=mode, elicitation_callback=developer_answers("decline", asked)
+    ) as client:
+        declined = json.loads(text_of(await client.call_tool("decide_finding_status", decision)))
+    assert declined["applied"] is False
+    assert services.get_report(saved["report_id"]).findings[0].status == "open"
+    assert "SQL injection (app/db.py:12)" in asked[0] and "false_positive" in asked[0]
+
+    # Hidden characters of a text written by a model cannot disguise the confirmation
+    disguised = {**decision, "reason": "Bound query\u202e\nReason: fixed upstream"}
+    async with Client(
+        mcp, mode=mode, elicitation_callback=developer_answers("decline", asked)
+    ) as client:
+        await client.call_tool("decide_finding_status", disguised)
+    assert "<U+202E>" in asked[-1] and "\u202e" not in asked[-1]
+    assert "Reason: fixed upstream" not in asked[-1].splitlines()
+
+    # A host that cannot ask the developer gets an error, never a decision
+    async with Client(mcp, mode=mode) as client:
+        refused = await client.call_tool("decide_finding_status", decision)
+    assert refused.is_error and "propose_finding_status" in text_of(refused)
+
+    # The developer confirms: the decision is applied, with the developer as the approver
+    async with Client(
+        mcp, mode=mode, elicitation_callback=developer_answers("accept", asked)
+    ) as client:
+        applied = json.loads(text_of(await client.call_tool("decide_finding_status", decision)))
+    finding = services.get_report(saved["report_id"]).findings[0]
+    assert applied["applied"] is True and finding.status == "false_positive"
+    assert finding.status_approver.startswith("local")
+    (event,) = audit.list_events(action="finding.status_changed")["events"]
+    assert event["actor"] == finding.status_approver
 
 
 @pytest.mark.parametrize(
