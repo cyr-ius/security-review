@@ -1,7 +1,7 @@
 # Installation: other cases
 
 The usual installations are in [Deploying the server](../../getting-started/deploy.md) (containers)
-and [Local mode (stdio)](../../getting-started/stdio.md#installation) (PyPI package). This page
+and [Local mode (stdio)](../../getting-started/stdio.md#without-uvx-installed-package) (PyPI package). This page
 covers the installation from the sources and without Internet access.
 
 ## From source

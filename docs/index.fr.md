@@ -88,8 +88,8 @@ via la commande `security-review-ci`
 ## Démarrage rapide (mode partagé)
 
 Le dépôt fournit un fichier `docker-compose.yml` prêt à l'emploi dans `examples/docker/`. Ce
-bloc démarre tout (PostgreSQL, serveur Controller, serveur MCP), réinitialise le mot de passe du compte
-`admin` et crée un jeton pour votre agent :
+bloc démarre tout (PostgreSQL, serveur Controller, serveur MCP) et réinitialise le mot de passe
+du compte `admin` :
 
 ```bash
 mkdir secreview && cd secreview
@@ -97,36 +97,67 @@ curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # mot de passe affiché une fois
-docker compose exec controller security-review-controller token create --label alice   # jeton mcp, affiché une fois
 # interface web : http://127.0.0.1:8080/ui/   endpoint MCP : http://127.0.0.1:8000/mcp
 ```
 
-Déclarez ensuite le serveur MCP dans votre hôte, par exemple dans VS Code avec
-`.vscode/mcp.json` (le seul fichier où VS Code peut demander le jeton), et collez le jeton
-quand VS Code le demande :
+Activez ensuite la [connexion OAuth des clients MCP](advanced/mcp-oauth.md), pour que les
+développeurs se connectent par le navigateur au lieu de copier un jeton :
+
+1. Connectez-vous à l'interface web avec le compte `admin` et choisissez un nouveau mot de passe.
+2. Sur la page **Général**, saisissez `http://127.0.0.1:8080` comme **URL publique du serveur
+   Controller** (ou cliquez sur **Utiliser l'adresse actuelle**) et enregistrez : la connexion
+   OAuth en a besoin.
+3. Sur la page **Jetons**, dans la section **Clients MCP (connexion OAuth)**, saisissez
+   `http://127.0.0.1:8000/mcp` comme **Point d’accès MCP** et activez **Connexion OAuth**.
+
+Déclarez le serveur MCP dans le fichier `.mcp.json` à la racine du dépôt, lu par VS Code,
+GitHub Copilot et Claude Code. Il ne contient que l'URL, sans jeton :
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "security-review": {
       "type": "http",
-      "url": "http://127.0.0.1:8000/mcp",
-      "headers": { "Authorization": "Bearer ${input:secreview-token}" }
+      "url": "http://127.0.0.1:8000/mcp"
     }
-  },
-  "inputs": [
-    { "id": "secreview-token", "type": "promptString", "description": "Token", "password": true }
-  ]
+  }
 }
 ```
+
+À la première connexion, l'hôte ouvre le navigateur : connectez-vous et approuvez le client sur
+la page **Connecter un client MCP**. L'hôte renouvelle ensuite ses jetons tout seul.
 
 Dans le chat, lancez le prompt `security-review` (ou `codebase-review` pour tout le dépôt).
 L'agent lit le code, s'appuie sur les checklists et enregistre son rapport avec
 `save_security_report`.
-Connectez-vous à l'interface web avec le compte `admin` pour le consulter et le trier.
+Consultez-le et triez-le dans l'interface web.
 
-Les ports sont ouverts sur toutes les interfaces du serveur, en HTTP simple. Avant que l'équipe
-s'en serve, pensez à mettre en œuvre vos certificats pour activer le HTTPS. Voir [Mise en service du serveur](getting-started/deploy.md).
+Cette installation ne fonctionne que depuis la machine qui fait tourner les conteneurs : les URL
+sont en `127.0.0.1`, en HTTP simple, ce que la connexion OAuth n'accepte qu'en local. Avant que
+l'équipe s'en serve, activez le HTTPS et indiquez les URL publiques des deux serveurs : voir
+[Mise en service du serveur](getting-started/deploy.md) et
+[Connexion OAuth des clients MCP](advanced/mcp-oauth.md#activation).
+
+## Démarrage rapide (mode local)
+
+Pour essayer les prompts seul, sans serveur : l'hôte démarre lui-même le serveur MCP avec
+[uv](https://docs.astral.sh/uv/getting-started/installation/), et les rapports sont gardés dans
+une base SQLite du poste, sans interface web ni jeton. Déclarez-le dans le fichier `.mcp.json`
+à la racine du dépôt :
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "security-review=={{ release_version }}", "security-review-mcp", "local"]
+    }
+  }
+}
+```
+
+Voir [Mode local (stdio)](getting-started/stdio.md).
 
 ## Par où continuer
 

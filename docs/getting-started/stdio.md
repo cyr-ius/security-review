@@ -20,53 +20,12 @@ flowchart LR
     [shared mode (HTTP)](deploy.md) instead. Local mode is useful to try the
     prompts alone, on an offline workstation, or for a personal use.
 
-## Installation
+## Configuring the host
 
-The server is published on PyPI as the `security-review` package (Python 3.14). It installs the
-`security-review-mcp` command started by the host, and `security-review-controller`, which local
-mode does not need. Install it in a dedicated virtual environment:
-
-```bash
-uv venv --python 3.14 /opt/secreview/venv
-uv pip install --python /opt/secreview/venv security-review
-```
-
-!!! note "Formerly `security-review-mcp`"
-    Up to version 2.0.0, the package was published on PyPI as `security-review-mcp`. Both
-    packages install the same commands and the same Python module: uninstall the old one first
-    (`uv pip uninstall --python /opt/secreview/venv security-review-mcp`), then install
-    `security-review`. The commands, the settings and the database stay the same.
-
-Without Internet access, or from the sources: see [Installation: other cases](../advanced/deployment/installation.md).
-
-## Running
-
-```bash
-security-review-mcp local   # started by the host, not by hand
-```
-
-A SQLite database is created locally (`~/.local/share/security-review-mcp/security_reports.db`,
-or under `$XDG_DATA_HOME` when it is set).
-This is the only file written by the server; delete it to remove all traces.
-To put it elsewhere, add `--database-url` to the command (SQLite only, absolute path after
-`sqlite:///`):
-
-```bash
-security-review-mcp local --database-url sqlite:////home/me/data/security_reports.db
-```
-
-!!! note "`serve --transport stdio`"
-    `security-review-mcp serve --transport stdio` also runs the server in stdio, but it reads
-    `SECREVIEW_DATABASE_URL` (or `--database-url`) and accepts SQLite only: it refuses to start
-    (code `2`) when the URL points to another database (PostgreSQL...). Local mode has no token, and a shared
-    database would let it write to every project and migrate the schema of the team. To work
-    with that database, use the [shared mode (HTTP)](deploy.md).
-
-## Host configuration
-
-With the **stdio** transport, the host (VS Code, Claude…) starts the server process itself.
-Give the path of the executable, the `local` command and, if needed, the `SECREVIEW_*` variables
-(see [Configuration](../reference/configuration.md#mcp-server)).
+This is the only step: with [uv](https://docs.astral.sh/uv/getting-started/installation/) on the
+workstation, there is nothing to install and nothing to start by hand. At its first start, the
+host downloads the `security-review` package from PyPI with `uvx` (Python 3.14 included if
+needed), then starts the server itself each time it needs it.
 
 VS Code, GitHub Copilot and Claude read the same `.mcp.json` file at the root of the
 repository:
@@ -77,12 +36,69 @@ repository:
     "security-review": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from","security-review==4.0.0","security-review-mcp","local"]
+      "args": ["--from", "security-review=={{ release_version }}", "security-review-mcp", "local"]
     }
   }
 }
 ```
 
+The version is pinned: to upgrade, change it in the file. To change a setting, add `SECREVIEW_*`
+variables in an `env` object next to `args` (see
+[Configuration](../reference/configuration.md#mcp-server)).
+
+Then open the chat of the host and run the `security-review` prompt.
+
+## Database
+
+The server creates a SQLite database on the workstation
+(`~/.local/share/security-review-mcp/security_reports.db`, or under `$XDG_DATA_HOME` when it is
+set). This is the only file written by the server; delete it to remove all traces.
+To put it elsewhere, add `--database-url` after `local` in `args` (SQLite only, absolute path
+after `sqlite:///`):
+
+```json
+"args": ["--from", "security-review=={{ release_version }}", "security-review-mcp", "local",
+         "--database-url", "sqlite:////home/me/data/security_reports.db"]
+```
+
+!!! note "`serve --transport stdio`"
+    `security-review-mcp serve --transport stdio` also runs the server in stdio, but it reads
+    `SECREVIEW_DATABASE_URL` (or `--database-url`) and accepts SQLite only: it refuses to start
+    (code `2`) when the URL points to another database (PostgreSQL...). Local mode has no token, and a shared
+    database would let it write to every project and migrate the schema of the team. To work
+    with that database, use the [shared mode (HTTP)](deploy.md).
+
+## Without uvx: installed package
+
+Only if you would rather not use `uvx` (offline workstation, internal package index, fixed
+virtual environment). Install the package in a dedicated virtual environment:
+
+```bash
+uv venv --python 3.14 /opt/secreview/venv
+uv pip install --python /opt/secreview/venv security-review
+```
+
+Then give the path of the command in `.mcp.json`, instead of `uvx`:
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "/opt/secreview/venv/bin/security-review-mcp",
+      "args": ["local"]
+    }
+  }
+}
+```
+
+!!! note "Formerly `security-review-mcp`"
+    Up to version 2.0.0, the package was published on PyPI as `security-review-mcp`. Both
+    packages install the same commands and the same Python module: uninstall the old one first
+    (`uv pip uninstall --python /opt/secreview/venv security-review-mcp`), then install
+    `security-review`. The commands, the settings and the database stay the same.
+
+Without Internet access, or from the sources: see [Installation: other cases](../advanced/deployment/installation.md).
 To run the server from a container (`mcp` command with `SECREVIEW_TRANSPORT=stdio`), see
 [Docker: choosing the process](../advanced/deployment/docker.md#choosing-the-process).
 

@@ -56,46 +56,47 @@ Détail : [fonctionnement d'une revue](https://cyr-ius.github.io/security-review
 
 ## Démarrage rapide
 
-Le produit repose sur **deux services** qui partagent une base : le **serveur MCP**
-(`security-review-mcp`), utilisé par les agents et la CI, et le **serveur Controller**
-(`security-review-controller`), utilisé par les personnes : interface web, API REST, jetons et
-comptes. Voir [deux services, deux rôles](https://cyr-ius.github.io/security-review/fr/#deux-services-deux-roles).
+Le produit repose sur **trois services** : le **serveur MCP** (`security-review-mcp`), utilisé
+par les agents, le **serveur Controller** (`security-review-controller`), utilisé par les
+personnes (interface web, API REST, jetons et comptes), sur une base partagée, et le client de
+pipeline (`security-review-ci`). Voir
+[trois services, trois rôles](https://cyr-ius.github.io/security-review/fr/services/).
+
+Dans un dossier vide, ce bloc démarre PostgreSQL, le serveur Controller et le serveur MCP avec
+Docker Compose et réinitialise le mot de passe du compte `admin` :
 
 ```bash
-uv venv && source .venv/bin/activate
-uv pip install security-review         # Python ≥ 3.14 ; extra [postgres] pour PostgreSQL
-
-# depuis le même répertoire (fichier SQLite partagé)
-security-review-controller db upgrade                              # schéma (Alembic)
-security-review-controller user create admin --role admin --all-projects   # compte de l'interface web
-security-review-controller token create --label alice              # jeton de l'agent
-security-review-controller serve --port 8080                       # interface /ui et API REST
-security-review-mcp serve --port 8000                              # endpoint /mcp (HTTP streamable)
-
-security-review-ci gate --url http://localhost:8080 --project portal  # bloquer un pipeline (jeton ci : SECREVIEW_CI_TOKEN)
+mkdir secreview && cd secreview
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/master/examples/docker/docker-compose.yml
+(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
+docker compose up -d --wait
+docker compose exec controller security-review-controller user reset-password admin   # mot de passe affiché une fois
+# interface web : http://127.0.0.1:8080/ui/   endpoint MCP : http://127.0.0.1:8000/mcp
 ```
 
-Configuration de l'hôte (VS Code avec jeton, `.vscode/mcp.json` ; Claude et `.mcp.json` : voir
-[configuration de l'hôte](https://cyr-ius.github.io/security-review/fr/getting-started/host/)) :
+Connectez-vous à l'interface web en `admin`. Sur la page **Général**, saisissez
+`http://127.0.0.1:8080` comme **URL publique du serveur Controller** ; sur la page **Jetons**,
+saisissez `http://127.0.0.1:8000/mcp` comme **Point d’accès MCP** et activez **Connexion OAuth**
+([connexion OAuth des clients MCP](https://cyr-ius.github.io/security-review/fr/advanced/mcp-oauth/)). Déclarez le serveur dans
+`.mcp.json` à la racine du dépôt (VS Code, GitHub Copilot, Claude Code), sans jeton : à la
+première connexion, l'hôte ouvre le navigateur pour vous connecter. Ces URL en `127.0.0.1`, en
+HTTP simple, servent à un essai sur la même machine : pour l'équipe, activez le HTTPS.
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "security-review": {
       "type": "http",
-      "url": "http://127.0.0.1:8000/mcp",
-      "headers": { "Authorization": "Bearer ${input:secreview-token}" }
+      "url": "http://127.0.0.1:8000/mcp"
     }
-  },
-  "inputs": [
-    { "id": "secreview-token", "type": "promptString", "description": "Token", "password": true }
-  ]
+  }
 }
 ```
 
 Pas à pas : [mise en service du serveur](https://cyr-ius.github.io/security-review/fr/getting-started/deploy/),
 [connexion de l'hôte](https://cyr-ius.github.io/security-review/fr/getting-started/host/) (VS Code, Claude, enrôlement).
-Autres cas : [installation hors ligne](https://cyr-ius.github.io/security-review/fr/advanced/deployment/installation/),
+Autres cas : [sans conteneurs](https://cyr-ius.github.io/security-review/fr/advanced/deployment/manual-install/),
+[installation hors ligne](https://cyr-ius.github.io/security-review/fr/advanced/deployment/installation/),
 [mode local (stdio)](https://cyr-ius.github.io/security-review/fr/getting-started/stdio/),
 [Jetons Bearer](https://cyr-ius.github.io/security-review/fr/advanced/bearer-tokens/), [TLS](https://cyr-ius.github.io/security-review/fr/advanced/tls/),
 [images Docker](https://cyr-ius.github.io/security-review/fr/advanced/deployment/docker/#images-publiees) (`ghcr.io/cyr-ius/security-review`, `docker.io/cyrius44/security-review`) et [Docker Compose avec PostgreSQL](https://cyr-ius.github.io/security-review/fr/advanced/deployment/docker/#docker-compose-avec-postgresql),
@@ -113,8 +114,8 @@ Le scan produit des pistes, avec des faux positifs. Il ne remplace ni un SAST ou
 uv sync --extra dev && uv run pytest && uv run ruff check .
 ```
 
-Le développement se fait sur `dev`, et une version est publiée en poussant un tag `vX.Y.Z`
-sur `master`. Voir le [guide de contribution](https://cyr-ius.github.io/security-review/fr/contributing/)
+Le développement se fait sur `dev` ; une version (tag `vX.Y.Z` sur `master`) est créée par
+Release Please. Voir le [guide de contribution](https://cyr-ius.github.io/security-review/fr/contributing/)
 et [`AGENTS.md`](AGENTS.md) (consignes pour les agents IA).
 
 ## Sécurité et licence
