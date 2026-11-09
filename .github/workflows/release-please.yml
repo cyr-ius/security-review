@@ -16,3 +16,5 @@ jobs:
     uses: cyr-ius/.github/.github/workflows/web-release-please.yml@v1
     with:
       publish-args: -f target=pypi
+    secrets:
+      dev-sync-key: ${{ secrets.DEV_SYNC_KEY }}
