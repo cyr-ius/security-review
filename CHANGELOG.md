@@ -1,5 +1,18 @@
 # Changelog
 
+## [11.3.0](https://github.com/cyr-ius/security-review/compare/v11.2.0...v11.3.0) (2026-11-09)
+
+
+### Features
+
+* decide_finding_status applies the developer's decision in local mode ([bb4a45a](https://github.com/cyr-ius/security-review/commit/bb4a45aa14f215c1734e80d19c85e5aab3096840))
+* export_findings_report tool for a Markdown findings report ([9fd0977](https://github.com/cyr-ius/security-review/commit/9fd0977a1e0acdf3df1b440b649595ff5e1aee0c))
+
+
+### Documentation
+
+* OAuth and local-mode quick starts, uvx-first local mode page ([59ac1ec](https://github.com/cyr-ius/security-review/commit/59ac1ecd5c7b0c7f462a82084aeaa39e6ea01e38))
+
 ## [11.2.0](https://github.com/cyr-ius/security-review/compare/v11.1.0...v11.2.0) (2026-11-07)
 
 
