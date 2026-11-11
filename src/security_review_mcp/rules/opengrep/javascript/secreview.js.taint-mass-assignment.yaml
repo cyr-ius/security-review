@@ -1,0 +1,49 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-mass-assignment
+    message: >-
+      The whole request body is written to a model (create, update, Object.assign): a client can set
+      fields it should not control, such as role, isAdmin or ownerId (mass assignment). Copy only the
+      allowed fields (_.pick, an explicit object, a DTO with whitelist validation).
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $REQ.body
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^(req|request|ctx\.request)$
+          - pattern-not-inside: $REQ.body.$FIELD
+          - pattern-not-inside: $REQ.body[$FIELD]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $MODEL.create($DATA, ...)
+              - pattern: $MODEL.build($DATA, ...)
+              - pattern: $MODEL.insertMany($DATA, ...)
+              - pattern: $MODEL.update($DATA, ...)
+              - pattern: $MODEL.updateOne($FILTER, $DATA, ...)
+              - pattern: $MODEL.updateMany($FILTER, $DATA, ...)
+              - pattern: $MODEL.findByIdAndUpdate($ID, $DATA, ...)
+              - pattern: $MODEL.findOneAndUpdate($FILTER, $DATA, ...)
+              - pattern: $ENTITY.set($DATA)
+              - pattern: Object.assign($ENTITY, ..., $DATA, ...)
+          - pattern-not: Object.assign({}, ...)
+          - metavariable-regex:
+              metavariable: $DATA
+              regex: ^[^{]
+          - focus-metavariable: $DATA
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: _.pick(...)
+          - pattern: pick(...)
+          - pattern: $SCHEMA.parse(...)
+          - pattern: $SCHEMA.validate(...)

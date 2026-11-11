@@ -1,0 +1,22 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.django-csrf-exempt
+    message: >-
+      The view is exempt from Django CSRF protection: with session cookies, another site can submit
+      requests on behalf of the user. Keep CSRF protection on, or make sure the view is called only
+      with a verified signature (a webhook) or a token-based authentication without cookies.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-352: Cross-Site Request Forgery (CSRF)"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern: |
+          @django.views.decorators.csrf.csrf_exempt
+          def $VIEW(...):
+              ...
+      - focus-metavariable: $VIEW

@@ -1,0 +1,46 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.issue-comment-checkout
+    message: >-
+      An issue_comment workflow checks out the code of a pull request: any user who can comment can
+      make it run the pull request code with the repository secrets and write permissions. Check the
+      commenter's permission (author_association) first, and never build or run the checked-out code
+      with secrets.
+    languages: [yaml]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              on: issue_comment
+              ...
+          - pattern-inside: |
+              on: [..., issue_comment, ...]
+              ...
+          - pattern-inside: |
+              on:
+                ...
+                issue_comment: $EVENT
+                ...
+              ...
+      - pattern-either:
+          - patterns:
+              - pattern: |
+                  ref: $REF
+              - metavariable-regex:
+                  metavariable: $REF
+                  regex: .*(refs/pull/|github\.event\.issue\.number|head_ref|head\.sha|head\.ref).*
+          - patterns:
+              - pattern-inside: |
+                  steps: $STEPS
+              - pattern: |
+                  run: $SCRIPT
+              - metavariable-regex:
+                  metavariable: $SCRIPT
+                  regex: (?s).*gh pr checkout.*

@@ -1,0 +1,56 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-deserialization
+    message: >-
+      Request data is deserialized with a library that revives functions (node-serialize,
+      serialize-to-js, funcster) or with the full js-yaml schema: the payload runs code on the server.
+      Parse JSON with JSON.parse and YAML with the default js-yaml schema.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$FIELD
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|params|headers|cookies|signedCookies|files|file|originalUrl|url|path|hostname)$
+          - patterns:
+              - pattern: $REQ.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(param|get|header)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      $METHOD(..., $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      async $METHOD(..., $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(Get|Post|Put|Patch|Delete|All|Head|Options)$
+              - pattern: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $LIB.unserialize($DATA, ...)
+              - pattern: $LIB.deserialize($DATA, ...)
+              - pattern: $LIB.deepDeserialize($DATA, ...)
+              - pattern: |
+                  $YAML.load($DATA, {..., schema: $YAML.DEFAULT_FULL_SCHEMA, ...})
+          - focus-metavariable: $DATA
