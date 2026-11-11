@@ -51,4 +51,8 @@ rules:
               - pattern: $RES.redirect($URL)
               - pattern: $RES.redirect($STATUS, $URL)
               - pattern: $CTX.redirect($URL)
+          # A URL that starts with a fixed local path ("/user/" + id) stays on the site
+          - metavariable-regex:
+              metavariable: $URL
+              regex: ^(?!["'`]/[^/\\])
           - focus-metavariable: $URL

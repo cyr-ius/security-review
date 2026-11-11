@@ -70,3 +70,15 @@ rules:
               if <... url_has_allowed_host_and_scheme(...) ...>:
                 ...
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: django.urls.reverse(...)
+          - pattern: flask.url_for(...)
+          - pattern: $REQUEST.url_for(...)
+      # Django checks the URL in place: the value is safe after the call
+      - by-side-effect: true
+        patterns:
+          - pattern-either:
+              - pattern: django.utils.http.url_has_allowed_host_and_scheme($URL, ...)
+              - pattern: django.utils.http.url_has_allowed_host_and_scheme(url=$URL, ...)
+          - focus-metavariable: $URL

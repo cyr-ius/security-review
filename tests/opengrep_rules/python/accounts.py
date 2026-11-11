@@ -1,7 +1,9 @@
 # Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
 import hmac
 
-from django.http import JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 from flask import Flask, request
 
@@ -58,3 +60,21 @@ def verify(signature, body, key, name, token_hash, rule):
         return rows
     # ok: secreview.python.non-constant-time-compare
     return hmac.compare_digest(signature, expected_signature)
+
+
+def set_language(request):
+    next_url = request.POST.get("next")
+    if not url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()}):
+        next_url = "/"
+    # ok: secreview.python.taint-open-redirect
+    return HttpResponseRedirect(next_url)
+
+
+def change_password(request):
+    # ok: secreview.python.taint-open-redirect
+    return HttpResponseRedirect(reverse("admin:user_change", args=(request.POST.get("id"),)))
+
+
+def leave(request):
+    # ruleid: secreview.python.taint-open-redirect
+    return HttpResponseRedirect(request.GET.get("next"))

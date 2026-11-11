@@ -43,9 +43,9 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-either:
-              - pattern: fmt.Fprintf($W, $FORMAT, ..., $HTML, ...)
-              - pattern: fmt.Fprint($W, ..., $HTML, ...)
-              - pattern: io.WriteString($W, $HTML)
+              - pattern: "fmt.Fprintf(($W : http.ResponseWriter), $FORMAT, ..., $HTML, ...)"
+              - pattern: "fmt.Fprint(($W : http.ResponseWriter), ..., $HTML, ...)"
+              - pattern: "io.WriteString(($W : http.ResponseWriter), $HTML)"
               - pattern: "($W : http.ResponseWriter).Write($HTML)"
               - pattern: template.HTML($HTML)
               - pattern: template.JS($HTML)

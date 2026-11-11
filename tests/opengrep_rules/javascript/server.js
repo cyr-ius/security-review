@@ -70,6 +70,35 @@ app.get('/login', (req, res) => {
 app.get('/home', (req, res) => {
   // ok: secreview.js.taint-open-redirect
   res.redirect('/dashboard');
+  // ok: secreview.js.taint-open-redirect
+  res.redirect('/user/' + req.params.id);
+});
+
+app.get('/back', (req, res) => {
+  // ruleid: secreview.js.taint-open-redirect
+  res.redirect(req.get('Referrer') || '/');
+});
+
+app.get('/host', (req, res) => {
+  // ruleid: secreview.js.taint-open-redirect
+  res.redirect('https://' + req.query.host + '/');
+});
+
+const users = ['tobi', 'loki'];
+
+app.get('/user/:id', (req, res) => {
+  // ok: secreview.js.taint-xss-response
+  res.send(users[req.params.id] || 'unknown');
+});
+
+app.get('/sub/:sub', (req, res) => {
+  // ruleid: secreview.js.taint-xss-response
+  res.send('requested ' + req.params.sub);
+});
+
+app.get('/download/:file', (req, res) => {
+  // ok: secreview.js.taint-path-traversal
+  res.download(req.params.file, { root: '/srv/files' });
 });
 
 app.get('/hello', (req, res) => {

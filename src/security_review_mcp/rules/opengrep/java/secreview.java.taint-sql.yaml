@@ -39,7 +39,9 @@ rules:
           - pattern-either:
               - pattern: $STMT.executeQuery($QUERY)
               - pattern: $STMT.executeUpdate($QUERY, ...)
-              - pattern: $STMT.execute($QUERY, ...)
+              - pattern: (Statement $STMT).execute($QUERY, ...)
+              - pattern: (java.sql.Statement $STMT).execute($QUERY, ...)
+              - pattern: $CONN.createStatement(...).execute($QUERY, ...)
               - pattern: $STMT.addBatch($QUERY)
               - pattern: $CONN.prepareStatement($QUERY, ...)
               - pattern: $CONN.prepareCall($QUERY, ...)

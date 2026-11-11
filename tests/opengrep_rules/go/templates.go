@@ -29,7 +29,7 @@ func servers() (*tls.Config, *tls.Config) {
 func fetch(url string) {
 	// ruleid: secreview.go.http-client-without-timeout
 	http.Get(url)
-	// ruleid: secreview.go.http-client-without-timeout
+	// ok: secreview.go.http-client-without-timeout
 	client := &http.Client{}
 	// ok: secreview.go.http-client-without-timeout
 	bounded := &http.Client{Timeout: 10 * time.Second}

@@ -6,7 +6,7 @@ rules:
       be write access to the code, packages and releases. Set permissions: contents: read (or
       permissions: {}) at the top level and grant more only to the jobs that need it.
     languages: [yaml]
-    severity: WARNING
+    severity: INFO
     metadata:
       category: security
       cwe: "CWE-250: Execution with Unnecessary Privileges"

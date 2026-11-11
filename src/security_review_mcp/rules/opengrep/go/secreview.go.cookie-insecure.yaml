@@ -22,5 +22,5 @@ rules:
           - metavariable-regex:
               metavariable: $NAME
               regex: (?i).*(session|token|auth|sid|jwt|csrf|remember).*
-          - pattern-not: "http.Cookie{..., Secure: true, ..., HttpOnly: true, ...}"
-          - pattern-not: "http.Cookie{..., HttpOnly: true, ..., Secure: true, ...}"
+          - pattern-not: "http.Cookie{..., Secure: $SECURE, ..., HttpOnly: $HTTPONLY, ...}"
+          - pattern-not: "http.Cookie{..., HttpOnly: $HTTPONLY, ..., Secure: $SECURE, ...}"

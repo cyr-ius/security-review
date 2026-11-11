@@ -16,6 +16,8 @@ func login(w http.ResponseWriter, r *http.Request, value string) {
 	http.SetCookie(w, &http.Cookie{Name: "session", Value: value, Secure: true, HttpOnly: true})
 	// ok: secreview.go.cookie-insecure
 	http.SetCookie(w, &http.Cookie{Name: "theme", Value: "dark"})
+	// ok: secreview.go.cookie-insecure
+	http.SetCookie(w, &http.Cookie{Name: "session", Value: value, Secure: r.TLS != nil, HttpOnly: true})
 }
 
 func claims(raw string, key []byte) (jwt.MapClaims, error) {

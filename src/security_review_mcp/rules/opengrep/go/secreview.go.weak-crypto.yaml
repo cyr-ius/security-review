@@ -2,8 +2,9 @@
 rules:
   - id: secreview.go.weak-crypto
     message: >-
-      A broken hash or cipher is used (MD5, SHA-1, DES, 3DES, RC4): use SHA-256 or better, AES-GCM
-      or ChaCha20-Poly1305, and a password hash (argon2id, bcrypt, scrypt) for passwords.
+      DES, 3DES and RC4 are broken ciphers, and MD5 or SHA-1 hash a password, secret or token here:
+      collisions and fast brute force make them unfit for security. Use AES-GCM (crypto/cipher) or
+      ChaCha20-Poly1305, SHA-256 for integrity, and bcrypt or argon2 for passwords.
     languages: [go]
     severity: WARNING
     metadata:
@@ -14,10 +15,28 @@ rules:
       source: Security Review
       license: Apache-2.0
     pattern-either:
-      - pattern: md5.New()
-      - pattern: md5.Sum(...)
-      - pattern: sha1.New()
-      - pattern: sha1.Sum(...)
       - pattern: des.NewCipher(...)
       - pattern: des.NewTripleDESCipher(...)
       - pattern: rc4.NewCipher(...)
+      # MD5 and SHA-1 stay fine for checksums (Git objects, packages, ETags): only a secret counts
+      - patterns:
+          - pattern-either:
+              - pattern: md5.Sum($DATA)
+              - pattern: sha1.Sum($DATA)
+          - metavariable-regex:
+              metavariable: $DATA
+              regex: (?i).*(password|passwd|pwd|secret|token|signature|hmac|otp|nonce|salt|api_?key|credential).*
+      - patterns:
+          - pattern-either:
+              - pattern: $TARGET := <... $HASH ...>
+              - pattern: $TARGET = <... $HASH ...>
+          - metavariable-pattern:
+              metavariable: $HASH
+              pattern-either:
+                - pattern: md5.Sum(...)
+                - pattern: sha1.Sum(...)
+                - pattern: md5.New()
+                - pattern: sha1.New()
+          - metavariable-regex:
+              metavariable: $TARGET
+              regex: (?i).*(password|passwd|pwd|secret|token|signature|hmac|otp|nonce|salt|api_?key|credential).*

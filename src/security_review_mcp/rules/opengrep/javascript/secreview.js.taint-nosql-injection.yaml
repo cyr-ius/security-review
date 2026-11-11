@@ -70,22 +70,50 @@ rules:
       - requires: OBJECT
         patterns:
           - pattern-either:
-              - pattern: $MODEL.$FIND($FILTER, ...)
-              - pattern: |
-                  $MODEL.$FIND({..., $KEY: $FILTER, ...}, ...)
-          - metavariable-regex:
-              metavariable: $FIND
-              regex: ^(find|findOne|findOneAndUpdate|findOneAndDelete|findOneAndReplace|updateOne|updateMany|deleteOne|deleteMany|countDocuments|exists)$
+              - patterns:
+                  - pattern-either:
+                      - pattern: $MODEL.$FIND($FILTER, ...)
+                      - pattern: |
+                          $MODEL.$FIND({..., $KEY: $FILTER, ...}, ...)
+                  # Sequelize ({ where }) takes its operators from symbols (Op.ne), never from JSON
+                  - pattern-not: |
+                      $MODEL.$FIND({..., where: $WHERE, ...}, ...)
+                  - pattern-not: |
+                      $MODEL.$FIND({..., include: $INCLUDE, ...}, ...)
+                  - pattern-not: |
+                      $MODEL.$FIND({..., attributes: $ATTRIBUTES, ...}, ...)
+                  - metavariable-regex:
+                      metavariable: $FIND
+                      regex: ^(remove|find|findOne|findOneAndUpdate|findOneAndDelete|findOneAndReplace|updateOne|updateMany|deleteOne|deleteMany|countDocuments|exists)$
+              # MongoDB update(filter, update): a Sequelize instance update(values) has no filter,
+              # and a Sequelize Model.update(values, { where }) takes no JSON operators
+              - patterns:
+                  - pattern-either:
+                      - pattern: $MODEL.update($FILTER, $CHANGES, ...)
+                      - pattern: |
+                          $MODEL.update({..., $KEY: $FILTER, ...}, $CHANGES, ...)
+                  - pattern-not: |
+                      $MODEL.update($VALUES, {..., where: $WHERE, ...}, ...)
+          # A value checked to be a string cannot carry an operator object
+          - pattern-not-inside: |
+              if (<... typeof $VALUE !== "string" ...>) { ... }
+              ...
+              <... $VALUE ...>;
+          - pattern-not-inside: |
+              if (<... typeof $VALUE !== "string" ...>) return ...;
+              ...
+              <... $VALUE ...>;
           - focus-metavariable: $FILTER
       - requires: ANY
         patterns:
           - pattern-either:
               - pattern: |
                   $MODEL.$FIND({..., $where: $FILTER, ...}, ...)
-              - pattern: $MODEL.$FIND(...).$WHERE($FILTER)
-          - metavariable-regex:
-              metavariable: $WHERE
-              regex: ^\$where$
+              - patterns:
+                  - pattern: $MODEL.$FIND(...).$WHERE($FILTER)
+                  - metavariable-regex:
+                      metavariable: $WHERE
+                      regex: ^\$where$
           - focus-metavariable: $FILTER
     pattern-sanitizers:
       - pattern-either:

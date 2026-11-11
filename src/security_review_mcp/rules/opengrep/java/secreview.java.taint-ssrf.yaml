@@ -38,8 +38,6 @@ rules:
       - patterns:
           - pattern-either:
               - pattern: new URL($URL)
-              - pattern: URI.create($URL)
-              - pattern: new URI($URL)
               - pattern: (RestTemplate $REST).$METHOD($URL, ...)
               - pattern: (WebClient $CLIENT).$VERB().uri($URL, ...)
               - pattern: (RestClient $CLIENT).$VERB().uri($URL, ...)

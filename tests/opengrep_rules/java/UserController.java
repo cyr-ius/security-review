@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,6 +54,10 @@ public class UserController {
         jdbc.queryForList("SELECT * FROM users WHERE name = ?", name);
         PreparedStatement prepared = connection.prepareStatement("SELECT * FROM users WHERE id = ?");
         prepared.setString(1, name);
+        // ruleid: secreview.java.taint-sql
+        statement.execute("DELETE FROM users WHERE name = '" + name + "'");
+        // ok: secreview.java.taint-sql
+        upload.execute(file, name);
         // ok: secreview.java.taint-sql
         return statement.executeQuery("SELECT * FROM users WHERE id = " + Long.parseLong(id));
     }
@@ -83,6 +88,10 @@ public class UserController {
         rest.getForObject(url, String.class);
         // ruleid: secreview.java.taint-ssrf
         InputStream stream = new URL(url).openStream();
+        // ruleid: secreview.java.taint-ssrf
+        rest.getForObject(URI.create(url), String.class);
+        // ok: secreview.java.taint-ssrf
+        URI parsed = new URI(url);
         // ok: secreview.java.taint-ssrf
         return rest.getForObject("https://api.example.com/status", String.class);
     }

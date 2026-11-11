@@ -2,12 +2,12 @@
 rules:
   - id: secreview.go.http-client-without-timeout
     message: >-
-      An outgoing HTTP request uses a client without a timeout (http.Get, http.Post, http.DefaultClient
-      or an http.Client without Timeout): it waits forever on a slow or hostile server, which blocks
-      the goroutine (denial of service). Use an http.Client with Timeout, or a request context with a
-      deadline.
+      An outgoing request uses the http.Get, http.Post, http.PostForm or http.Head helpers: they use
+      http.DefaultClient, which has no timeout and takes no context, so a slow or hostile server
+      blocks the goroutine (denial of service). Use an http.Client with Timeout, or a request built
+      with http.NewRequestWithContext and a deadline.
     languages: [go]
-    severity: WARNING
+    severity: INFO
     metadata:
       category: security
       cwe: "CWE-400: Uncontrolled Resource Consumption"
@@ -20,7 +20,3 @@ rules:
       - pattern: http.Post(...)
       - pattern: http.PostForm(...)
       - pattern: http.Head(...)
-      - pattern: http.DefaultClient.Do(...)
-      - patterns:
-          - pattern: "http.Client{...}"
-          - pattern-not: "http.Client{..., Timeout: $T, ...}"

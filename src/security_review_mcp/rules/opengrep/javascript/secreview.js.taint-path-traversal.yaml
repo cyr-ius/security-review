@@ -56,7 +56,9 @@ rules:
               - patterns:
                   - pattern: $RES.sendFile($PATH, ...)
                   - pattern-not: "$RES.sendFile($PATH, {..., root: $ROOT, ...}, ...)"
-              - pattern: $RES.download($PATH, ...)
+              - patterns:
+                  - pattern: $RES.download($PATH, ...)
+                  - pattern-not: "$RES.download($PATH, {..., root: $ROOT, ...}, ...)"
           - focus-metavariable: $PATH
     pattern-sanitizers:
       - pattern-either:
