@@ -18,17 +18,30 @@ def test_python_rules_detect_common_issues():
             "subprocess.run(cmd, shell=True)",
             "requests.get(url, verify=False)",
             "h = hashlib.md5(pw).hexdigest()",
+            "d = hashlib.new('md5', pw).hexdigest()",
+            "token = random.getrandbits(128)",
             'cur.execute(f"SELECT * FROM t WHERE id = {uid}")',
             "yaml.load(stream)",
         ]
     )
     found = rule_ids(code, "python")
-    assert {"PY-002", "PY-004", "PY-005", "PY-006", "PY-007", "PY-003"} <= found
+    assert {"PY-002", "PY-004", "PY-005", "PY-006", "PY-007", "PY-008", "PY-003"} <= found
+    # The weak hash rule counts every spelling, the random rule every function of the module
+    assert "PY-007" in rule_ids("h = hashlib.new('md5', pw)", "python")
+    assert "PY-008" in rule_ids("value = random.normalvariate()", "python")
 
 
 def test_safe_python_has_no_match():
     code = 'cur.execute("SELECT * FROM t WHERE id = %s", (uid,))\nyaml.safe_load(stream)\n'
     assert scan_content(code, "python") == []
+    # A declared non-security hash and the system random generator are fine
+    safe = "\n".join(
+        [
+            "etag = hashlib.md5(data, usedforsecurity=False).hexdigest()",
+            "rng = random.SystemRandom().random()",
+        ]
+    )
+    assert {"PY-007", "PY-008"}.isdisjoint(rule_ids(safe, "python"))
 
 
 def test_python_jwt_rule_detects_disabled_signature_verification():

@@ -101,12 +101,12 @@ advice = "Keep verification on; supply a CA bundle for internal CAs."
 
 [[rules]]
 id = "PY-007"
-title = "Weak hash function"
+title = "Weak hash function (MD5, SHA-1)"
 severity = "medium"
-cwe = "CWE-327"
+cwe = "CWE-328"
 languages = ["python"]
-pattern = 'hashlib\.(md5|sha1)\s*\('
-advice = "Use SHA-256+ for integrity and argon2/bcrypt/scrypt for passwords."
+pattern = '''hashlib\.(?:(?:md5|sha1)\s*\(|new\s*\(\s*['"](?:md5|sha1|MD5|SHA1|SHA-1)['"])(?![^\n]{0,200}usedforsecurity\s*=\s*False)'''
+advice = "Use SHA-256+ for integrity and argon2/bcrypt/scrypt for passwords; mark a non-security use with usedforsecurity=False."
 
 [[rules]]
 id = "PY-008"
@@ -114,7 +114,7 @@ title = "Non-cryptographic random for security use"
 severity = "medium"
 cwe = "CWE-338"
 languages = ["python"]
-pattern = '\brandom\.(random|randint|choice|randrange)\s*\('
+pattern = '\brandom\.(random|randint|randrange|choice|choices|sample|shuffle|uniform|getrandbits|randbytes|normalvariate|gauss|triangular)\s*\('
 advice = "Use the secrets module for tokens, passwords and keys."
 
 [[rules]]
