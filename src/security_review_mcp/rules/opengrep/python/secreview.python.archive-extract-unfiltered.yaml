@@ -24,19 +24,13 @@ rules:
                   - pattern-inside: |
                       $TAR = tarfile.open(...)
                       ...
-                  - pattern-inside: |
-                      with zipfile.ZipFile(...) as $TAR:
-                        ...
-                  - pattern-inside: |
-                      $TAR = zipfile.ZipFile(...)
-                      ...
               - pattern-either:
                   - pattern: $TAR.extractall(...)
                   - pattern: $TAR.extract(...)
           - pattern: tarfile.open(...).extractall(...)
           - pattern: shutil.unpack_archive(...)
-      - pattern-not: $TAR.extractall(..., filter="data", ...)
-      - pattern-not: $TAR.extractall(..., filter="tar", ...)
-      - pattern-not: $TAR.extract(..., filter="data", ...)
-      - pattern-not: tarfile.open(...).extractall(..., filter="data", ...)
-      - pattern-not: shutil.unpack_archive(..., filter="data", ...)
+      # Any filter is a deliberate choice; zipfile already strips ".." and absolute paths
+      - pattern-not: $TAR.extractall(..., filter=$FILTER, ...)
+      - pattern-not: $TAR.extract(..., filter=$FILTER, ...)
+      - pattern-not: tarfile.open(...).extractall(..., filter=$FILTER, ...)
+      - pattern-not: shutil.unpack_archive(..., filter=$FILTER, ...)

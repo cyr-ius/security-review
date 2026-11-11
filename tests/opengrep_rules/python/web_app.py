@@ -5,6 +5,7 @@ import pickle
 import shlex
 import subprocess
 import tarfile
+import zipfile
 from typing import Annotated
 
 import httpx
@@ -197,6 +198,12 @@ def unpack(path, target):
     with tarfile.open(path) as archive:
         # ok: secreview.python.archive-extract-unfiltered
         archive.extractall(target, filter="data")
+    with tarfile.open(path) as archive:
+        # ok: secreview.python.archive-extract-unfiltered
+        archive.extractall(target, filter=lambda member, dest: member)
+    with zipfile.ZipFile(path) as bundle:
+        # ok: secreview.python.archive-extract-unfiltered
+        bundle.extractall(target)
 
 
 def digest(data, salt, password):

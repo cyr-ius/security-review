@@ -31,7 +31,9 @@ def contexts():
     context.minimum_version = ssl.TLSVersion.TLSv1_1
     # ok: secreview.python.tls-weak-version
     context.minimum_version = ssl.TLSVersion.TLSv1_2
-    return legacy, context
+    # ok: secreview.python.tls-weak-version
+    negotiated = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    return legacy, context, negotiated
 
 
 def fetch(url, options):

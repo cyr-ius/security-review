@@ -17,9 +17,13 @@ rules:
     pattern-either:
       - pattern: ssl.SSLContext(ssl.PROTOCOL_TLSv1) # secreview:ignore GEN-009 (rule text)
       - pattern: ssl.SSLContext(ssl.PROTOCOL_TLSv1_1) # secreview:ignore GEN-009 (rule text)
-      - pattern: ssl.SSLContext(ssl.PROTOCOL_SSLv23)
       - pattern: ssl.SSLContext(ssl.PROTOCOL_SSLv3) # secreview:ignore GEN-009 (rule text)
-      - pattern: ssl.wrap_socket(..., ssl_version=$VERSION, ...)
+      # PROTOCOL_SSLv23 is an alias of PROTOCOL_TLS, which negotiates the best version
+      - patterns:
+          - pattern: ssl.wrap_socket(..., ssl_version=$VERSION, ...)
+          - metavariable-regex:
+              metavariable: $VERSION
+              regex: ^ssl\.PROTOCOL_(SSLv2|SSLv3|TLSv1|TLSv1_1)$ # secreview:ignore GEN-009 (rule text)
       - pattern: $CTX.minimum_version = ssl.TLSVersion.TLSv1 # secreview:ignore GEN-009 (rule text)
       - pattern: $CTX.minimum_version = ssl.TLSVersion.TLSv1_1 # secreview:ignore GEN-009 (rule text)
       - pattern: $CTX.minimum_version = ssl.TLSVersion.SSLv3 # secreview:ignore GEN-009 (rule text)

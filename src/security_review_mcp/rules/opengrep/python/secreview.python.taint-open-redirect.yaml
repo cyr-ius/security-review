@@ -18,6 +18,17 @@ rules:
     pattern-sources:
       - pattern-either:
           - pattern: flask.request.$ATTR
+          # aiohttp, Azure Functions, Tornado
+          - patterns:
+              - pattern: $REQ.get_json(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+          - patterns:
+              - pattern: self.$GET(...)
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(get_argument|get_arguments|get_body_argument|get_body_arguments|get_query_argument|get_query_arguments|get_cookie)$
           - patterns:
               - pattern: $REQ.$ATTR
               - metavariable-regex:
@@ -26,7 +37,7 @@ rules:
               - metavariable-regex:
                   metavariable: $ATTR
                   # Redirecting to the current page (request.path, request.url) stays on the site
-                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string)$
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string|query|forms|params|matchdict|match_info|json_body|route_params)$
           - patterns:
               - pattern: await $REQ.$METHOD()
               - metavariable-regex:
@@ -34,7 +45,7 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $METHOD
-                  regex: ^(json|form|body)$
+                  regex: ^(json|form|body|post|text|read)$
           - patterns:
               - pattern-either:
                   - pattern-inside: |

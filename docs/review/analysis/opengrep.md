@@ -81,11 +81,14 @@ rest of the code): the community packs are not redistributed, because their lice
 their use in a product like this one. They complement the [built-in rules](../rules.md) with
 what a line-by-line pattern cannot see:
 
-- **taint analysis**: a value read from the request (Flask, Django, FastAPI, Spring, servlets,
-  Express, NestJS, ASP.NET Core, `net/http`, Gin, Echo) is followed through variables and
+- **taint analysis**: a value read from the request (Flask, Django, FastAPI, aiohttp, Tornado,
+  Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS, ASP.NET Core, `net/http`,
+  Gin, Echo), a socket, a websocket or an AWS Lambda event is followed through variables and
   string building until it reaches a dangerous call (SQL, command, file path, outgoing URL,
   redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
-  `secure_filename`, `path.basename`, `html.EscapeString`...) stops it;
+  `secure_filename`, `path.basename`, `html.EscapeString`...) stops it. Local data (command line
+  arguments, standard input, environment variables) is not a source: a command line tool that
+  acts on what its own user asks crosses no trust boundary;
 - **structure**: an option that is missing (an XML factory without
   `disallow-doctype-decl`, an archive extracted without a filter, an HTTP server without timeouts,
   a Dockerfile without `USER`) or a combination of arguments (CORS with any origin *and*

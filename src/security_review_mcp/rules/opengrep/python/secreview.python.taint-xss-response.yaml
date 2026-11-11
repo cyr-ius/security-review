@@ -19,6 +19,17 @@ rules:
     pattern-sources:
       - pattern-either:
           - pattern: flask.request.$ATTR
+          # aiohttp, Azure Functions, Tornado
+          - patterns:
+              - pattern: $REQ.get_json(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+          - patterns:
+              - pattern: self.$GET(...)
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(get_argument|get_arguments|get_body_argument|get_body_arguments|get_query_argument|get_query_arguments|get_cookie)$
           - patterns:
               - pattern: $REQ.$ATTR
               - metavariable-regex:
@@ -26,7 +37,8 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $ATTR
-                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string|path|full_path|url|environ)$
+                  # url, path and full_path are left out: a client request object (requests) has them too
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string|environ|query|forms|params|matchdict|match_info|json_body|route_params|files)$
           - patterns:
               - pattern: await $REQ.$METHOD()
               - metavariable-regex:
@@ -34,7 +46,7 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $METHOD
-                  regex: ^(json|form|body)$
+                  regex: ^(json|form|body|post|text|read)$
           - patterns:
               - pattern-either:
                   - pattern-inside: |

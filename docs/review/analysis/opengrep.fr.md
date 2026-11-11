@@ -82,10 +82,15 @@ leur usage dans un produit comme celui-ci. Elles complètent les [règles intég
 avec ce qu'un motif ligne par ligne ne voit pas :
 
 - **analyse de propagation (taint)** : une valeur lue dans la requête (Flask, Django, FastAPI,
-  Spring, servlets, Express, NestJS, ASP.NET Core, `net/http`, Gin, Echo) est suivie à travers
-  les variables et la construction de chaînes jusqu'à un appel dangereux (SQL, commande, chemin
-  de fichier, URL sortante, redirection, template, HTML, désérialisation). Un assainissement en
-  chemin (`int()`, `secure_filename`, `path.basename`, `html.EscapeString`...) l'arrête ;
+  aiohttp, Tornado, Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS,
+  ASP.NET Core, `net/http`, Gin, Echo), sur une socket, une websocket ou dans un événement AWS
+  Lambda est suivie à travers les variables et la construction de chaînes jusqu'à un appel
+  dangereux (SQL, commande, chemin de fichier, URL sortante, redirection, template, HTML,
+  désérialisation). Un assainissement en chemin (`int()`, `secure_filename`, `path.basename`,
+  `html.EscapeString`...) l'arrête. Les données locales (arguments de la ligne de commande,
+  entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
+  commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
+  confiance ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
   combinaison d'arguments (CORS avec toute origine *et* identifiants).
