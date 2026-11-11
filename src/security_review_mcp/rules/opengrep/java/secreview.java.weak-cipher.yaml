@@ -15,7 +15,9 @@ rules:
       source: Security Review
       license: Apache-2.0
     patterns:
-      - pattern: Cipher.getInstance($ALGORITHM, ...)
+      - pattern-either:
+          - pattern: Cipher.getInstance($ALGORITHM, ...)
+          - pattern: javax.crypto.Cipher.getInstance($ALGORITHM, ...)
       - metavariable-regex:
           metavariable: $ALGORITHM
           regex: (?i)^"((DES|DESede|TripleDES|RC2|RC4|ARCFOUR|Blowfish)(/[^"]*)?|AES|[^"/]+/ECB/[^"]*)"$

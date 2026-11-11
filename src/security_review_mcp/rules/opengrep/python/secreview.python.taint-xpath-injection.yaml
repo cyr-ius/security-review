@@ -1,0 +1,76 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.taint-xpath-injection
+    message: >-
+      Request data is built into an XPath expression (lxml xpath or XPath, elementpath): a value such as
+      ' or '1'='1 changes the query and can read the whole document (XPath injection). Keep the
+      expression constant and pass the value as an XPath variable (root.xpath("//user[@name=$name]",
+      name=value)).
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-643: Improper Neutralization of Data within XPath Expressions ('XPath Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.$ATTR
+          - patterns:
+              - pattern: $REQ.$ATTR
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data)$
+          - patterns:
+              - pattern: await $REQ.$METHOD()
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(json|form|body)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: Annotated[str, ...], ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: Annotated[str, ...], ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern: $P
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $ROOT.xpath($EXPR, ...)
+              - pattern: lxml.etree.XPath($EXPR, ...)
+              - pattern: lxml.etree.ETXPath($EXPR, ...)
+              - pattern: lxml.etree.XPathEvaluator(...)($EXPR, ...)
+              - pattern: elementpath.select($ROOT, $EXPR, ...)
+              - pattern: elementpath.iter_select($ROOT, $EXPR, ...)
+              - pattern: elementpath.Selector($EXPR, ...)
+          - focus-metavariable: $EXPR
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: int(...)
+          - pattern: float(...)

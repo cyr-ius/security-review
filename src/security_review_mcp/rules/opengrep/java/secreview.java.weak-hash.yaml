@@ -16,7 +16,9 @@ rules:
       license: Apache-2.0
     pattern-either:
       - patterns:
-          - pattern: MessageDigest.getInstance($ALGORITHM, ...)
+          - pattern-either:
+              - pattern: MessageDigest.getInstance($ALGORITHM, ...)
+              - pattern: java.security.MessageDigest.getInstance($ALGORITHM, ...)
           - metavariable-regex:
               metavariable: $ALGORITHM
               regex: (?i)^"(MD2|MD4|MD5|SHA-?1|SHA)"$

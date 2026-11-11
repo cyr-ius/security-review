@@ -30,7 +30,11 @@ rules:
           - patterns:
               - pattern-either:
                   - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
                   - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
               - metavariable-regex:
                   metavariable: $GETTER
                   regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
@@ -38,14 +42,23 @@ rules:
       - patterns:
           - pattern-either:
               - pattern: new File($PATH)
+              - pattern: new java.io.File($PATH)
               - pattern: new File($PARENT, $PATH)
+              - pattern: new java.io.File($PARENT, $PATH)
               - pattern: Paths.get($PATH, ...)
+              - pattern: java.nio.file.Paths.get($PATH, ...)
               - pattern: Path.of($PATH, ...)
+              - pattern: java.nio.file.Path.of($PATH, ...)
               - pattern: new FileInputStream($PATH)
+              - pattern: new java.io.FileInputStream($PATH)
               - pattern: new FileOutputStream($PATH, ...)
+              - pattern: new java.io.FileOutputStream($PATH, ...)
               - pattern: new FileReader($PATH, ...)
+              - pattern: new java.io.FileReader($PATH, ...)
               - pattern: new FileWriter($PATH, ...)
+              - pattern: new java.io.FileWriter($PATH, ...)
               - pattern: (Path $DIR).resolve($PATH)
+              - pattern: (java.nio.file.Path $DIR).resolve($PATH)
               - pattern: new FileSystemResource($PATH)
               - pattern: new UrlResource($PATH)
           - focus-metavariable: $PATH

@@ -17,9 +17,12 @@ rules:
     patterns:
       - pattern-either:
           - pattern: new File($DIR, $E.getName())
+          - pattern: new java.io.File($DIR, $E.getName())
           - pattern: ($PATH $DIR).resolve($E.getName())
           - pattern: Paths.get($DIR, $E.getName())
+          - pattern: java.nio.file.Paths.get($DIR, $E.getName())
           - pattern: Path.of($DIR, $E.getName())
+          - pattern: java.nio.file.Path.of($DIR, $E.getName())
       - metavariable-type:
           metavariable: $E
           types: [ZipEntry, JarEntry, ArchiveEntry, ZipArchiveEntry, TarArchiveEntry]

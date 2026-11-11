@@ -17,6 +17,7 @@ rules:
     patterns:
       - pattern-either:
           - pattern: SSLContext.getInstance("$PROTOCOL", ...)
+          - pattern: javax.net.ssl.SSLContext.getInstance("$PROTOCOL", ...)
           - pattern: $SOCKET.setEnabledProtocols(new String[] {..., "$PROTOCOL", ...})
           - pattern: $PARAMS.setProtocols(new String[] {..., "$PROTOCOL", ...})
       - metavariable-regex:

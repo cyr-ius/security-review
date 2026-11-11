@@ -17,8 +17,11 @@ rules:
     patterns:
       - pattern-either:
           - pattern: (ObjectInputStream $OIS).readObject()
+          - pattern: (java.io.ObjectInputStream $OIS).readObject()
           - pattern: (ObjectInputStream $OIS).readUnshared()
+          - pattern: (java.io.ObjectInputStream $OIS).readUnshared()
           - pattern: new ObjectInputStream(...).readObject()
+          - pattern: new java.io.ObjectInputStream(...).readObject()
       - pattern-not-inside: |
           $OIS.setObjectInputFilter(...);
           ...
