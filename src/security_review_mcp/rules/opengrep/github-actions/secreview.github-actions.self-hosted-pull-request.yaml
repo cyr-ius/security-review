@@ -1,0 +1,38 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.self-hosted-pull-request
+    message: >-
+      A job triggered by pull requests runs on a self-hosted runner: in a public repository, any
+      fork can run code on that machine, which keeps state between jobs and reaches the internal
+      network. Use GitHub-hosted runners for pull requests, or ephemeral, isolated runners.
+    languages: [yaml]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              on: $TRIGGER
+              ...
+          - pattern-inside: |
+              on: [..., $TRIGGER, ...]
+              ...
+          - pattern-inside: |
+              on:
+                ...
+                $TRIGGER: $EVENT
+                ...
+              ...
+      - metavariable-regex:
+          metavariable: $TRIGGER
+          regex: ^(pull_request|pull_request_target)$
+      - pattern-either:
+          - pattern: |
+              runs-on: self-hosted
+          - pattern: |
+              runs-on: [..., self-hosted, ...]

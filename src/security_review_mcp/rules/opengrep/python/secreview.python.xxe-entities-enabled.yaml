@@ -1,0 +1,22 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.xxe-entities-enabled
+    message: >-
+      The XML parser resolves external entities or reaches the network: a document can read local
+      files or make the server send requests (XXE, SSRF). Keep the lxml defaults
+      (resolve_entities=False, no_network=True) or parse untrusted XML with defusedxml.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-611: Improper Restriction of XML External Entity Reference"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: lxml.etree.XMLParser(..., resolve_entities=True, ...)
+      - pattern: lxml.etree.XMLParser(..., no_network=False, ...)
+      - pattern: lxml.etree.XMLParser(..., load_dtd=True, ...)
+      - pattern: $PARSER.setFeature(xml.sax.handler.feature_external_ges, True)
+      - pattern: $PARSER.setFeature(xml.sax.handler.feature_external_pes, True)

@@ -1,0 +1,59 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.taint-path-traversal
+    message: >-
+      Request data (an axum or actix-web extractor, the query string) is used as a file path: "../"
+      sequences or an absolute path can read or overwrite any file. Keep only the file name
+      (Path::file_name, sanitize_filename) or canonicalize the path and check it stays inside the
+      expected directory.
+    languages: [rust]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  fn $F(..., $ARG: $EXTRACTOR<$T>, ...) { ... }
+              - pattern: $ARG
+              - metavariable-regex:
+                  metavariable: $EXTRACTOR
+                  regex: ^((axum::extract::|web::)?(Query|Path|Json|Form))$
+              # An integer, boolean or UUID extractor cannot carry a path or a command
+              - metavariable-regex:
+                  metavariable: $T
+                  regex: ^(?!(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|bool|Uuid|uuid::Uuid)$)
+          - pattern: "($REQ : HttpRequest).query_string()"
+          - pattern: "($REQ : HttpRequest).match_info()"
+    pattern-propagators:
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $BASE.join($PATH)
+              - pattern: std::fs::$FN($PATH, ...)
+              - pattern: fs::$FN($PATH, ...)
+              - pattern: tokio::fs::$FN($PATH, ...)
+              - pattern: File::open($PATH)
+              - pattern: File::create($PATH)
+              - pattern: std::fs::File::open($PATH)
+              - pattern: std::fs::File::create($PATH)
+              - pattern: tokio::fs::File::open($PATH)
+              - pattern: tokio::fs::File::create($PATH)
+              - pattern: NamedFile::open($PATH)
+              - pattern: NamedFile::open_async($PATH)
+              - pattern: ServeFile::new($PATH)
+          - focus-metavariable: $PATH
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $P.file_name()
+          - pattern: sanitize_filename::sanitize(...)
+          - pattern: sanitize(...)

@@ -1,0 +1,21 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.xxe-noent-enabled
+    message: >-
+      libxmljs parses XML with noent: true: entities are substituted, including external ones, so
+      a document can read local files (XXE). Leave noent off (the default) for untrusted XML.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-611: Improper Restriction of XML External Entity Reference"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern: |
+          $LIB.$PARSE($XML, {..., noent: true, ...})
+      - metavariable-regex:
+          metavariable: $PARSE
+          regex: ^(parseXml|parseXmlString|parseXmlAsync|parseXmlStringAsync|parseHtml|parseHtmlString)$

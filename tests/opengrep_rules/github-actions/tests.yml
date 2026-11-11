@@ -1,0 +1,18 @@
+# Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    # ruleid: secreview.github-actions.self-hosted-pull-request
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/download-artifact@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          name: site
+          # ok: secreview.github-actions.workflow-run-artifact
+          run-id: ${{ github.event.workflow_run.id }}
+  lint:
+    # ok: secreview.github-actions.self-hosted-pull-request
+    runs-on: ubuntu-latest

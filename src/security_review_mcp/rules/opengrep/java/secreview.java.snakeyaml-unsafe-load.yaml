@@ -1,0 +1,31 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.snakeyaml-unsafe-load
+    message: >-
+      SnakeYAML before 2.0 builds any Java class named in a YAML tag when it loads with the default
+      Constructor: untrusted YAML can run code (unsafe deserialization). Use
+      new Yaml(new SafeConstructor(new LoaderOptions())), or upgrade to SnakeYAML 2.x.
+    languages: [java]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: new Yaml().$LOAD(...)
+          - pattern: new Yaml(new Constructor(...), ...).$LOAD(...)
+          - patterns:
+              - pattern-inside: |
+                  Yaml $Y = new Yaml(...);
+                  ...
+              - pattern: $Y.$LOAD(...)
+              - pattern-not-inside: |
+                  Yaml $Y = new Yaml(new SafeConstructor(...), ...);
+                  ...
+      - metavariable-regex:
+          metavariable: $LOAD
+          regex: ^(load|loadAll|loadAs)$
