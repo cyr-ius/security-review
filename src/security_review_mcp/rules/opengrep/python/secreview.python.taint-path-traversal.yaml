@@ -93,6 +93,26 @@ rules:
       - pattern: $TO.insert($INDEX, $FROM)
         from: $FROM
         to: $TO
+      # A request value stored in a container (configparser, cache, set, dict) taints it
+      - pattern: $TO.set(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.update($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.setdefault($KEY, $FROM)
+        from: $FROM
+        to: $TO
+      # A value written to a text buffer (io.StringIO) taints what is read back
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -101,6 +121,21 @@ rules:
               - pattern: codecs.open($PATH, ...)
               - pattern: pathlib.Path(...) / $PATH
               - pattern: pathlib.Path(...).joinpath($PATH, ...)
+              # pathlib: a base path kept in a variable, then joined with the value
+              - patterns:
+                  - pattern-inside: |
+                      $BASE = pathlib.Path(...)
+                      ...
+                  - pattern-either:
+                      - pattern: $BASE / $PATH
+                      - pattern: $BASE.joinpath($PATH, ...)
+              # Probing a path tells whether a file exists outside the expected directory
+              - pattern: os.path.exists($PATH)
+              - pattern: os.path.isfile($PATH)
+              - pattern: os.path.isdir($PATH)
+              - pattern: os.path.getsize($PATH)
+              - pattern: os.stat($PATH, ...)
+              - pattern: os.listdir($PATH)
               - pattern: os.open($PATH, ...)
               - pattern: pathlib.Path($PATH, ...)
               - pattern: os.remove($PATH)

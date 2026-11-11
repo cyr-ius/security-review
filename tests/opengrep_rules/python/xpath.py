@@ -43,3 +43,48 @@ def report():
     # ruleid: secreview.python.taint-command
     subprocess.run(" ".join(args), shell=True)
     return {"handle": handle.name, "target": str(target), "fixed": str(fixed)}
+
+
+@app.route("/files", methods=["POST"])
+def files():
+    import configparser
+    import os
+    import pathlib
+
+    name = request.form.get("name", "")
+    conf = configparser.ConfigParser()
+    conf.add_section("upload")
+    conf.set("upload", "name", name)
+    stored = conf.get("upload", "name")
+    # ruleid: secreview.python.taint-path-traversal
+    handle = open("/srv/files/" + stored)
+    base = pathlib.Path("/srv/files")
+    # ruleid: secreview.python.taint-path-traversal
+    target = base / name
+    # ok: secreview.python.taint-path-traversal
+    index = base / "index.txt"
+    # ruleid: secreview.python.taint-path-traversal
+    exists = os.path.exists(f"/srv/files/{name}")
+    defaults = configparser.ConfigParser()
+    defaults.add_section("upload")
+    defaults.set("upload", "dir", "/srv/files")
+    # ok: secreview.python.taint-path-traversal
+    folder = os.listdir(defaults.get("upload", "dir"))
+    return {"handle": handle.name, "target": str(target), "index": str(index), "exists": exists, "folder": folder}
+
+
+@app.route("/employee")
+def employee():
+    import io
+
+    buffer = io.StringIO()
+    buffer.write("//employee[@id='")
+    buffer.write(request.args.get("id", ""))
+    buffer.write("']")
+    # ruleid: secreview.python.taint-xpath-injection
+    found = root.xpath(buffer.getvalue())
+    fixed = io.StringIO()
+    fixed.write("//employee")
+    # ok: secreview.python.taint-xpath-injection
+    every = root.xpath(fixed.getvalue())
+    return {"found": len(found), "every": len(every)}

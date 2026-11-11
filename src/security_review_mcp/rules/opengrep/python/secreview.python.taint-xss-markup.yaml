@@ -81,6 +81,26 @@ rules:
       - pattern: $TO.insert($INDEX, $FROM)
         from: $FROM
         to: $TO
+      # A request value stored in a container (configparser, cache, set, dict) taints it
+      - pattern: $TO.set(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.update($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.setdefault($KEY, $FROM)
+        from: $FROM
+        to: $TO
+      # A value written to a text buffer (io.StringIO) taints what is read back
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:
