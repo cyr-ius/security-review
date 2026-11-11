@@ -21,3 +21,25 @@ def user():
     # ok: secreview.python.taint-xpath-injection
     every = elementpath.select(root, "/users/user")
     return {"found": found, "safe": safe, "query": str(query), "nodes": len(nodes) + len(every)}
+
+
+@app.route("/report", methods=["POST"])
+def report():
+    import codecs
+    import pathlib
+    import subprocess
+
+    values = request.form.getlist("file")
+    name = values[0] if values else ""
+    # ruleid: secreview.python.taint-path-traversal
+    handle = codecs.open(f"/srv/reports/{name}", "r", "utf-8")
+    # ruleid: secreview.python.taint-path-traversal
+    target = pathlib.Path("/srv/reports") / name
+    # ok: secreview.python.taint-path-traversal
+    fixed = pathlib.Path("/srv/reports") / "index.txt"
+    query = request.query_string.decode()
+    args = ["grep", "-r"]
+    args.append(query)
+    # ruleid: secreview.python.taint-command
+    subprocess.run(" ".join(args), shell=True)
+    return {"handle": handle.name, "target": str(target), "fixed": str(fixed)}

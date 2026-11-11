@@ -35,6 +35,17 @@ rules:
                   metavariable: $REQ
                   regex: ^(request|req)$
           - pattern: json.loads(request.body)
+    pattern-propagators:
+      # A request value added to a list or a dict taints the container (argument lists, kwargs)
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

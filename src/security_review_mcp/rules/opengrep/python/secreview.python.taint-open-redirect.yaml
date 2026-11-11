@@ -25,7 +25,8 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $ATTR
-                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data)$
+                  # Redirecting to the current page (request.path, request.url) stays on the site
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string)$
           - patterns:
               - pattern: await $REQ.$METHOD()
               - metavariable-regex:
@@ -58,6 +59,17 @@ rules:
                   metavariable: $ROUTE
                   regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
               - pattern: $P
+    pattern-propagators:
+      # A request value added to a list or a dict taints the container (argument lists, kwargs)
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

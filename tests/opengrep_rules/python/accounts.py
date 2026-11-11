@@ -78,3 +78,8 @@ def change_password(request):
 def leave(request):
     # ruleid: secreview.python.taint-open-redirect
     return HttpResponseRedirect(request.GET.get("next"))
+
+
+def add_another(request):
+    # ok: secreview.python.taint-open-redirect
+    return HttpResponseRedirect(request.path + "?saved=1")
