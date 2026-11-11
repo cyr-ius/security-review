@@ -88,7 +88,8 @@ what a line-by-line pattern cannot see:
   redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
   `secure_filename`, `path.basename`, `html.EscapeString`...) stops it. Local data (command line
   arguments, standard input, environment variables) is not a source: a command line tool that
-  acts on what its own user asks crosses no trust boundary;
+  acts on what its own user asks crosses no trust boundary. The value is followed inside a
+  function, not across functions or files ([detection benchmark](../../advanced/detection-benchmark.md));
 - **structure**: an option that is missing (an XML factory without
   `disallow-doctype-decl`, an archive extracted without a filter, an HTTP server without timeouts,
   a Dockerfile without `USER`) or a combination of arguments (CORS with any origin *and*

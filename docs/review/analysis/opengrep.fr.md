@@ -90,7 +90,8 @@ avec ce qu'un motif ligne par ligne ne voit pas :
   `html.EscapeString`...) l'arrête. Les données locales (arguments de la ligne de commande,
   entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
   commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
-  confiance ;
+  confiance. La valeur est suivie à l'intérieur d'une fonction, ni d'une fonction ni d'un fichier
+  à l'autre ([mesure de la détection](../../advanced/detection-benchmark.md)) ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
   combinaison d'arguments (CORS avec toute origine *et* identifiants).

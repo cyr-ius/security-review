@@ -344,9 +344,12 @@
 
 ## Limites connues
 
-- Le scan par motifs produit des pistes et des faux positifs ; il ne remplace ni un SAST, ni une
-  analyse SCA complète (pas de résolution transitive des manifestes, base à tenir à jour), ni
-  une relecture humaine.
+- Le scan par motifs produit des pistes et des faux positifs. Avec le
+  [moteur OpenGrep](../review/analysis/opengrep.md), le scan est une analyse statique (SAST) qui
+  suit le flux de données à l'intérieur d'une fonction seulement, ni d'une fonction ni d'un
+  fichier à l'autre ([mesurée sur l'OWASP Benchmark](../advanced/detection-benchmark.md)). Aucun
+  des deux ne remplace une analyse SCA complète (pas de résolution transitive des manifestes,
+  base à tenir à jour) ni une relecture humaine.
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.

@@ -83,6 +83,7 @@ plugins:
             Controller server (FastAPI): Serveur Controller (FastAPI)
             Controller server: Serveur Controller
             Database: Base de données
+            Detection benchmark: Mesure de la détection
             Dependency analysis: Analyse des dépendances
             Deploying the server: Mise en service du serveur
             Deployment: Déploiement
@@ -201,6 +202,7 @@ nav:
       - Bearer tokens: advanced/bearer-tokens.md
       - Connectors in detail: advanced/connectors.md
       - Database: advanced/database.md
+      - Detection benchmark: advanced/detection-benchmark.md
       - Deployment:
           - Docker: advanced/deployment/docker.md
           - Kubernetes: advanced/deployment/kubernetes.md
