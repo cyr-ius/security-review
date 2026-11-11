@@ -36,7 +36,7 @@ rules:
                   - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
               - metavariable-regex:
                   metavariable: $GETTER
-                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
     pattern-sinks:
       - patterns:
           - pattern-either:

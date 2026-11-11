@@ -38,4 +38,28 @@ public class Benchmark {
         String all = xp.evaluate("/users/user/id", document);
         return found + all;
     }
+
+    public void session(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        java.util.Enumeration<String> names = request.getParameterNames();
+        String first = names.nextElement();
+        // ruleid: secreview.java.taint-trust-boundary
+        request.getSession().putValue(first, "10340");
+        javax.servlet.http.HttpSession session = request.getSession();
+        // ruleid: secreview.java.taint-trust-boundary
+        session.setAttribute("userid", request.getParameter("id"));
+        // ok: secreview.java.taint-trust-boundary
+        session.setAttribute("userid", "guest");
+        String header = request.getHeader("X-Name");
+        // ruleid: secreview.java.taint-xss-response
+        response.getWriter().printf(java.util.Locale.US, "Hello %s", header);
+        // ok: secreview.java.taint-xss-response
+        response.getWriter().printf(java.util.Locale.US, "Hello %s", "world");
+        String sql = "SELECT * FROM users WHERE name = '" + header + "'";
+        // ruleid: secreview.java.taint-sql
+        org.owasp.helpers.DatabaseHelper.JDBCtemplate.queryForObject(sql, Long.class);
+        // ok: secreview.java.taint-sql
+        restTemplate.execute(header, org.springframework.http.HttpMethod.GET, null, null);
+    }
+
+    private org.springframework.web.client.RestTemplate restTemplate;
 }

@@ -75,7 +75,7 @@ ignore list (test directories such as `tests/`, `node_modules/`...).
 
 ## Default rules
 
-Security Review ships 144 OpenGrep rules written for the project (Apache-2.0 license, like the
+Security Review ships 147 OpenGrep rules written for the project (Apache-2.0 license, like the
 rest of the code): the community packs are not redistributed, because their licenses
 (Semgrep Rules License, or LGPL with the Commons Clause for the `opengrep-rules` fork) forbid
 their use in a product like this one. They complement the [built-in rules](../rules.md) with
@@ -93,8 +93,8 @@ what a line-by-line pattern cannot see:
 
 | Language (directory) | Rules | Main checks |
 | --- | --- | --- |
-| Python (`python`) | 28 | Taint: SQL, NoSQL, command, `eval`, SSRF, path, redirect, template, HTML (Flask, Django and FastAPI responses), XPath, deserialization, mass assignment; TLS, YAML, JWT, debug, CORS, archives, hashes, cookies, XXE, `random` for secrets, TLS 1.0/1.1, `requests` without timeout, `csrf_exempt`, secrets compared with `==` |
-| Java, Spring (`java`) | 30 | Taint: SQL/JPQL, command, `ScriptEngine`/Groovy, path, SSRF, redirect, XSS, XPath, SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP; deserialization, XXE (DOM, SAX, StAX), CSRF, trust-all TLS, host name, ciphers, hashes, cookies, Jackson, SnakeYAML, zip slip, `Random` for secrets, unverified JWT, TLS 1.0/1.1, `XMLDecoder`, XStream, CORS with any origin and credentials, secrets compared with `equals` |
+| Python (`python`) | 30 | Taint: SQL, NoSQL, command, `eval`, SSRF, path, redirect, template, HTML (Flask, Django and FastAPI responses), XPath, LDAP, session (trust boundary), deserialization, mass assignment; TLS, YAML, JWT, debug, CORS, archives, hashes, cookies, XXE, `random` for secrets, TLS 1.0/1.1, `requests` without timeout, `csrf_exempt`, secrets compared with `==` |
+| Java, Spring (`java`) | 31 | Taint: SQL/JPQL, command, `ScriptEngine`/Groovy, path, SSRF, redirect, XSS, XPath, session (trust boundary), SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP; deserialization, XXE (DOM, SAX, StAX), CSRF, trust-all TLS, host name, ciphers, hashes, cookies, Jackson, SnakeYAML, zip slip, `Random` for secrets, unverified JWT, TLS 1.0/1.1, `XMLDecoder`, XStream, CORS with any origin and credentials, secrets compared with `equals` |
 | JavaScript, TypeScript, Angular (`javascript`) | 24 | Taint: SQL, NoSQL, command, deserialization, mass assignment, `eval`/`vm`, path, SSRF, redirect, XSS, RegExp, templates, prototype pollution, DOM XSS from the URL or the route; `message` data read without checking its origin, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, crypto, XXE (`noent`), `Math.random` for secrets, `postMessage` to any origin |
 | Go (`go`) | 17 | Taint: SQL, command, path, SSRF, redirect, XSS, templates; `InsecureSkipVerify`, zip slip, server timeouts, crypto, `math/rand` for secrets, unverified JWT, cookies, TLS 1.0/1.1, HTTP client without timeout, secrets compared with `==` |
 | C#, ASP.NET Core (`csharp`) | 20 | Taint: SQL (ADO.NET, EF Core, Dapper), process, path, SSRF, redirect, XSS, XPath; deserializers, certificate validation, JWT, crypto, DTD, HTML encoding, CORS, zip slip, `System.Random` for secrets, cookies, TLS 1.0/1.1, antiforgery disabled, secrets compared with `==` |

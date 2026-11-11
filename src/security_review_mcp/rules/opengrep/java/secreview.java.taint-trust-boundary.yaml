@@ -1,0 +1,62 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-trust-boundary
+    message: >-
+      Request data is stored in the HTTP session (setAttribute, putValue): later code reads session
+      attributes as trusted values set by the server, so the client can plant data there (trust
+      boundary violation). Validate the value before storing it, and keep the names of session
+      attributes constant.
+    languages: [java]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-501: Trust Boundary Violation"
+      owasp: "A04:2021 - Insecure Design"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.getSession(...).$SET($NAME, $VALUE)
+              - pattern: (HttpSession $SESSION).$SET($NAME, $VALUE)
+              - pattern: (javax.servlet.http.HttpSession $SESSION).$SET($NAME, $VALUE)
+              - pattern: (jakarta.servlet.http.HttpSession $SESSION).$SET($NAME, $VALUE)
+          - metavariable-regex:
+              metavariable: $SET
+              regex: ^(setAttribute|putValue)$
+          - focus-metavariable: $VALUE
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.getSession(...).$SET($NAME, $VALUE)
+              - pattern: (HttpSession $SESSION).$SET($NAME, $VALUE)
+              - pattern: (javax.servlet.http.HttpSession $SESSION).$SET($NAME, $VALUE)
+              - pattern: (jakarta.servlet.http.HttpSession $SESSION).$SET($NAME, $VALUE)
+          - metavariable-regex:
+              metavariable: $SET
+              regex: ^(setAttribute|putValue)$
+          - focus-metavariable: $NAME
