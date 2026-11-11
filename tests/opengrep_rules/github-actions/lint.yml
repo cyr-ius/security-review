@@ -1,0 +1,11 @@
+# Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
+name: Lint
+on: push
+# ok: secreview.github-actions.permissions-missing
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./lint.sh
+permissions:
+  contents: read

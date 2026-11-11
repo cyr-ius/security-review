@@ -1,0 +1,66 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-xss
+    message: >-
+      Request data is written to the page without HTML encoding (Html.Raw, HtmlString, Content with a
+      text/html type, Response.WriteAsync): it can inject scripts. Let Razor encode it, or encode it
+      with HtmlEncoder.Default.Encode.
+    languages: [csharp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp: "A03:2021 - Injection"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Html.Raw($HTML)
+              - pattern: new HtmlString($HTML)
+              - pattern: Content($HTML, "text/html", ...)
+              - pattern: Results.Content($HTML, "text/html", ...)
+              - pattern: $RESPONSE.WriteAsync($HTML, ...)
+          - focus-metavariable: $HTML
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: HtmlEncoder.Default.Encode(...)
+          - pattern: WebUtility.HtmlEncode(...)
+          - pattern: HttpUtility.HtmlEncode(...)
+          - pattern: int.Parse(...)

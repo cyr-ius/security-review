@@ -1,0 +1,24 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.tls-weak-version
+    message: >-
+      The SSL context or socket uses TLS 1.0, 1.1 or SSL, which are deprecated and vulnerable to
+      downgrade attacks. Request "TLSv1.3" or "TLSv1.2" (SSLContext.getInstance("TLSv1.3")) and
+      never enable older protocols.
+    languages: [java]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: SSLContext.getInstance("$PROTOCOL", ...)
+          - pattern: $SOCKET.setEnabledProtocols(new String[] {..., "$PROTOCOL", ...})
+          - pattern: $PARAMS.setProtocols(new String[] {..., "$PROTOCOL", ...})
+      - metavariable-regex:
+          metavariable: $PROTOCOL
+          regex: ^(SSLv2|SSLv3|TLSv1|TLSv1\.1)$ # secreview:ignore GEN-009 (rule text)

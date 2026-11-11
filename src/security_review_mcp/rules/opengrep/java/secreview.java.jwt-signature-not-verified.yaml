@@ -1,0 +1,34 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.jwt-signature-not-verified
+    message: >-
+      The JWT is read without checking its signature (jjwt parse() without a key,
+      parseUnsecuredClaims or parseClaimsJwt, auth0 JWT.decode): anyone can forge its claims. Use parseSignedClaims / parseClaimsJws with a
+      verification key, or JWT.require(algorithm).build().verify(token).
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-347: Improper Verification of Cryptographic Signature"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: Jwts.parser(). ... .$UNSIGNED(...)
+              - pattern: Jwts.parserBuilder(). ... .$UNSIGNED(...)
+          - metavariable-regex:
+              metavariable: $UNSIGNED
+              regex: ^(parseUnsecuredClaims|parseUnsecuredContent|parseClaimsJwt|parsePlaintextJwt|unsecured)$
+      - patterns:
+          - pattern-either:
+              - pattern: Jwts.parser(). ... .parse(...)
+              - pattern: Jwts.parserBuilder(). ... .parse(...)
+          - pattern-not: Jwts.$PARSER(). ... .verifyWith(...). ... .parse(...)
+          - pattern-not: Jwts.$PARSER(). ... .setSigningKey(...). ... .parse(...)
+          - pattern-not: Jwts.$PARSER(). ... .setSigningKeyResolver(...). ... .parse(...)
+          - pattern-not: Jwts.$PARSER(). ... .keyLocator(...). ... .parse(...)
+          - pattern-not: Jwts.$PARSER(). ... .decryptWith(...). ... .parse(...)
+      - pattern: JWT.decode(...)

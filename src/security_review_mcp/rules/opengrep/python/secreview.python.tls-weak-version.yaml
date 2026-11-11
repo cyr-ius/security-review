@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.tls-weak-version
+    message: >-
+      The SSL context accepts TLS 1.0 or 1.1 (or SSL), which are deprecated and vulnerable to
+      downgrade attacks. Use ssl.create_default_context() and, if needed, set minimum_version to
+      ssl.TLSVersion.TLSv1_2.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: ssl.SSLContext(ssl.PROTOCOL_TLSv1) # secreview:ignore GEN-009 (rule text)
+      - pattern: ssl.SSLContext(ssl.PROTOCOL_TLSv1_1) # secreview:ignore GEN-009 (rule text)
+      - pattern: ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+      - pattern: ssl.SSLContext(ssl.PROTOCOL_SSLv3) # secreview:ignore GEN-009 (rule text)
+      - pattern: ssl.wrap_socket(..., ssl_version=$VERSION, ...)
+      - pattern: $CTX.minimum_version = ssl.TLSVersion.TLSv1 # secreview:ignore GEN-009 (rule text)
+      - pattern: $CTX.minimum_version = ssl.TLSVersion.TLSv1_1 # secreview:ignore GEN-009 (rule text)
+      - pattern: $CTX.minimum_version = ssl.TLSVersion.SSLv3 # secreview:ignore GEN-009 (rule text)

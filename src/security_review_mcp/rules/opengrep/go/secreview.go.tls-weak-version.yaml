@@ -1,0 +1,23 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.tls-weak-version
+    message: >-
+      The TLS configuration accepts TLS 1.0 or 1.1 (or SSL 3.0), which are deprecated and vulnerable
+      to downgrade attacks. Set MinVersion to tls.VersionTLS12 or tls.VersionTLS13.
+    languages: [go]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: "tls.Config{..., MinVersion: tls.VersionTLS10, ...}"
+      - pattern: "tls.Config{..., MinVersion: tls.VersionTLS11, ...}"
+      - pattern: "tls.Config{..., MinVersion: tls.VersionSSL30, ...}"
+      - pattern: "tls.Config{..., MaxVersion: tls.VersionTLS10, ...}"
+      - pattern: "tls.Config{..., MaxVersion: tls.VersionTLS11, ...}"
+      - pattern: $CFG.MinVersion = tls.VersionTLS10
+      - pattern: $CFG.MinVersion = tls.VersionTLS11

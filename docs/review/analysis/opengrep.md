@@ -75,7 +75,7 @@ ignore list (test directories such as `tests/`, `node_modules/`...).
 
 ## Default rules
 
-Security Review ships 107 OpenGrep rules written for the project (Apache-2.0 license, like the
+Security Review ships 125 OpenGrep rules written for the project (Apache-2.0 license, like the
 rest of the code): the community packs are not redistributed, because their licenses
 (Semgrep Rules License, or LGPL with the Commons Clause for the `opengrep-rules` fork) forbid
 their use in a product like this one. They complement the [built-in rules](../rules.md) with
@@ -93,14 +93,14 @@ what a line-by-line pattern cannot see:
 
 | Language (directory) | Rules | Main checks |
 | --- | --- | --- |
-| Python (`python`) | 20 | Taint: SQL, command, `eval`, SSRF, path, redirect, template, HTML, deserialization; TLS, YAML, JWT, debug, CORS, archives, hashes, cookies, XXE, `random` for secrets |
-| Java, Spring (`java`) | 21 | Taint: SQL/JPQL, command, path, SSRF, redirect, XSS, SpEL/OGNL, JNDI/LDAP; deserialization, XXE (DOM, SAX, StAX), CSRF, trust-all TLS, host name, ciphers, hashes, cookies, Jackson, SnakeYAML, zip slip, `Random` for secrets |
-| JavaScript, TypeScript, Angular (`javascript`) | 19 | Taint: SQL, command, `eval`/`vm`, path, SSRF, redirect, XSS, RegExp, prototype pollution, DOM XSS from the URL or the route; `message` data read without checking its origin, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, crypto, XXE (`noent`), `Math.random` for secrets |
-| Go (`go`) | 13 | Taint: SQL, command, path, SSRF, redirect, XSS; `InsecureSkipVerify`, zip slip, server timeouts, crypto, `math/rand` for secrets, unverified JWT, cookies |
-| C#, ASP.NET Core (`csharp`) | 14 | Taint: SQL (ADO.NET, EF Core, Dapper), process, path, SSRF, redirect; deserializers, certificate validation, JWT, crypto, DTD, HTML encoding, CORS, zip slip, `System.Random` for secrets |
-| Rust (`rust`) | 11 | Taint: SQL (sqlx, diesel, drivers), command, path from axum and actix-web extractors; SQL built with `format!`, shell, TLS, crypto, JWT, CORS, cookies, HTML |
+| Python (`python`) | 23 | Taint: SQL, NoSQL, command, `eval`, SSRF, path, redirect, template, HTML, deserialization; TLS, YAML, JWT, debug, CORS, archives, hashes, cookies, XXE, `random` for secrets, TLS 1.0/1.1, `requests` without timeout |
+| Java, Spring (`java`) | 24 | Taint: SQL/JPQL, command, path, SSRF, redirect, XSS, SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP; deserialization, XXE (DOM, SAX, StAX), CSRF, trust-all TLS, host name, ciphers, hashes, cookies, Jackson, SnakeYAML, zip slip, `Random` for secrets, unverified JWT, TLS 1.0/1.1 |
+| JavaScript, TypeScript, Angular (`javascript`) | 22 | Taint: SQL, NoSQL, command, `eval`/`vm`, path, SSRF, redirect, XSS, RegExp, templates, prototype pollution, DOM XSS from the URL or the route; `message` data read without checking its origin, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, crypto, XXE (`noent`), `Math.random` for secrets, `postMessage` to any origin |
+| Go (`go`) | 16 | Taint: SQL, command, path, SSRF, redirect, XSS, templates; `InsecureSkipVerify`, zip slip, server timeouts, crypto, `math/rand` for secrets, unverified JWT, cookies, TLS 1.0/1.1, HTTP client without timeout |
+| C#, ASP.NET Core (`csharp`) | 17 | Taint: SQL (ADO.NET, EF Core, Dapper), process, path, SSRF, redirect, XSS; deserializers, certificate validation, JWT, crypto, DTD, HTML encoding, CORS, zip slip, `System.Random` for secrets, cookies, TLS 1.0/1.1 |
+| Rust (`rust`) | 13 | Taint: SQL (sqlx, diesel, drivers), command, path, SSRF, redirect from axum and actix-web extractors; SQL built with `format!`, shell, TLS, crypto, JWT, CORS, cookies, HTML |
 | Dockerfile (`dockerfile`) | 2 | No `USER` before `CMD`/`ENTRYPOINT`, last `USER` is root |
-| GitHub Actions (`github-actions`) | 7 | Script injection with `${{ }}`, `pull_request_target` checking out the pull request, action not pinned on a SHA, `write-all`, `workflow_run` artifacts, self-hosted runner on pull requests, `secrets: inherit` to another repository |
+| GitHub Actions (`github-actions`) | 8 | Script injection with `${{ }}`, `pull_request_target` checking out the pull request, action not pinned on a SHA, `write-all`, `workflow_run` artifacts, self-hosted runner on pull requests, `secrets: inherit` to another repository, no `permissions` |
 
 Their ids follow `secreview.<language>.<check>` (`secreview.go.zip-slip`) and their metadata
 give the CWE and the OWASP category, copied into the findings.
