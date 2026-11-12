@@ -133,7 +133,10 @@ Les moteurs enrôlés sont listés dans la page [**Moteurs de scan**](../../usag
 état (actif tant que son battement de cœur est récent), URL, créneaux libres, date d'enrôlement et
 dernière activité, jamais un secret.
 
-Au-dessus de la liste, le graphe **Activité** montre les scans de code en cours :
+Au-dessus de la liste, le graphe **Activité** montre les scans de code en cours. Il s'affiche
+même sans aucun moteur (moteurs désactivés, ou aucun enrôlé) : seulement les agents, les serveurs
+MCP et le serveur Controller, qui indique **Scanne lui-même (moteurs désactivés)** quand les
+moteurs sont désactivés :
 
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
   `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;

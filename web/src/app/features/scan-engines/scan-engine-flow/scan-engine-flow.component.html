@@ -133,7 +133,10 @@
               [class]="source.kind === 'codebase' ? 'bi-diagram-3' : 'bi-robot'"
               aria-hidden="true"
             ></i>
-            <span class="value">{{ source.active }}/{{ source.capacity }}</span>
+            <!-- Slots of the engines: none to count without an engine -->
+            @if (data().engines.length) {
+              <span class="value">{{ source.active }}/{{ source.capacity }}</span>
+            }
           </div>
         </foreignObject>
         <text class="label" [attr.x]="source.x" [attr.y]="source.y + source.r + 20">
@@ -259,9 +262,11 @@
         >
           <div class="content">
             <i class="bi bi-hdd-network" aria-hidden="true"></i>
-            <span class="value">{{ total.active }}/{{ data().engines.length }}</span>
-            <span class="detail">{{ 'scanEngines.flowActive' | t }}</span>
-            <span class="detail">{{ 'scanEngines.flowFiles' | t: { count: total.files } }}</span>
+            @if (data().engines.length) {
+              <span class="value">{{ total.active }}/{{ data().engines.length }}</span>
+              <span class="detail">{{ 'scanEngines.flowActive' | t }}</span>
+              <span class="detail">{{ 'scanEngines.flowFiles' | t: { count: total.files } }}</span>
+            }
           </div>
         </foreignObject>
         <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">
@@ -269,9 +274,11 @@
         </text>
         <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 18">
           {{
-            (data().fallback === 'local'
-              ? 'scanEngines.flowFallbackLocal'
-              : 'scanEngines.flowFallbackRefuse'
+            (!data().enabled
+              ? 'scanEngines.flowControllerScans'
+              : data().fallback === 'local'
+                ? 'scanEngines.flowFallbackLocal'
+                : 'scanEngines.flowFallbackRefuse'
             ) | t
           }}
         </text>
