@@ -18,6 +18,13 @@ export const DOC_LINKS = {
     anchor: { en: 'risk-acceptances', fr: 'acceptations-de-risque' },
   },
   rules: { path: 'review/rules/' },
+  opengrepRules: {
+    path: 'review/analysis/opengrep/',
+    anchor: {
+      en: 'managing-rules-from-the-web-interface',
+      fr: 'gestion-des-regles-depuis-linterface-web',
+    },
+  },
   checklists: { path: 'review/checklists/' },
   standards: { path: 'review/standards/' },
   settings: {
@@ -49,8 +56,8 @@ export const DOC_LINKS = {
   osv: {
     path: 'review/analysis/dependencies/',
     anchor: {
-      en: 'automatic-update-by-the-controller',
-      fr: 'mise-a-jour-automatique-par-le-controleur',
+      en: 'automatic-update-by-the-controller-server',
+      fr: 'mise-a-jour-automatique-par-le-serveur-controller',
     },
   },
   connectors: { path: 'usage/connectors/' },

@@ -85,8 +85,9 @@ export const tokens = defineMessages({
 - The title of the routes is a key, translated by `I18nTitleStrategy`.
 - A link to the documentation is a circled question mark next to the title:
   `<app-help-link topic="tokens" />`. The topics, with their page and the anchor of the heading
-  in English and in French, are in `core/constants/doc-links.ts`; check them after renaming a
-  heading of `docs/`.
+  in English and in French, are in `core/constants/doc-links.ts`. `tests/test_mkdocs_hooks.py`
+  checks that each topic reaches a heading of `docs/` in both languages: renaming a heading
+  makes it fail until the anchor is fixed.
 
 The keys are typed: an unknown key, or a key missing in one of the three languages, fails
 `npm run build`.

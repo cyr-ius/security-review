@@ -9,6 +9,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { OpenGrepRule, OpenGrepRuleProposal } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 
 /** Bounds of the API: rule id (rules.opengrep_rule_store.RULE_ID), YAML file, rejection reason. */
 const RULE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,79}$/;
@@ -35,7 +36,7 @@ const EMPTY_RULE: RuleFormModel = { id: '', content: '', rejectReason: '' };
 /** Administration page for YAML rules used by OpenGrep and the rules proposed by agents. */
 @Component({
   selector: 'app-opengrep-rule-list',
-  imports: [DatePipe, FormField, TranslatePipe],
+  imports: [DatePipe, FormField, HelpLinkComponent, TranslatePipe],
   templateUrl: './opengrep-rule-list.component.html',
   styleUrl: './opengrep-rule-list.component.css',
 })

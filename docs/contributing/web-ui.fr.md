@@ -86,8 +86,9 @@ export const tokens = defineMessages({
 - Le titre des routes est une clé, traduite par `I18nTitleStrategy`.
 - Un lien vers la documentation est un point d'interrogation cerclé à côté du titre :
   `<app-help-link topic="tokens" />`. Les sujets, avec leur page et l'ancre du titre en anglais
-  et en français, sont dans `core/constants/doc-links.ts` ; vérifiez-les après avoir renommé un
-  titre de `docs/`.
+  et en français, sont dans `core/constants/doc-links.ts`. `tests/test_mkdocs_hooks.py` vérifie
+  que chaque sujet atteint un titre de `docs/` dans les deux langues : renommer un titre le fait
+  échouer tant que l'ancre n'est pas corrigée.
 
 Les clés sont typées : une clé inconnue, ou absente d'une des trois langues, fait échouer
 `npm run build`.
