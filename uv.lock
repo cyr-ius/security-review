@@ -1173,7 +1173,7 @@ wheels = [
 
 [[package]]
 name = "security-review"
-version = "11.3.0"
+version = "11.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
