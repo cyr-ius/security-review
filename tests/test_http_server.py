@@ -13,7 +13,7 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, http_server, server
+from security_review_mcp import app_settings, cli, http_server, server
 from security_review_mcp.auth import access_control, token_store, web_users
 from security_review_mcp.config import Settings, default_database_url, get_settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
@@ -178,8 +178,11 @@ def test_without_any_token_mcp_is_closed_unless_allowed():
     # Any bearer value used to be accepted while no token existed
     assert closed.get("/mcp", headers=bearer("anything")).status_code == 401
     assert closed.get("/healthz").status_code == 200
-    # Without a token, a client of a closed server reaches enrollment
-    assert protected_client(enrollment=True).get("/mcp").text == "enroll"
+    # Without a token, a client of a closed server reaches enrollment, which tells where to
+    # create one: without the address of the web interface it gets a 401 instead
+    ui = "https://secreview.example/ui"
+    assert protected_client(enrollment=True, web_url=ui).get("/mcp").text == "enroll"
+    assert protected_client(enrollment=True).get("/mcp").status_code == 401
 
     assert protected_client(allow_open=True).get("/mcp").status_code == 200
     # Once a token exists, an open server requires it too
@@ -204,7 +207,7 @@ def test_only_loopback_or_explicit_setting_opens_mcp(host, allow_unauthenticated
 def test_only_mcp_clients_without_a_token_reach_the_enrollment_server():
     token_store.create_token("ops", Role.ADMIN)
     dev = token_store.create_token("dev", Role.MCP)["token"]
-    client = protected_client(enrollment=True)
+    client = protected_client(enrollment=True, web_url="https://secreview.example/ui")
 
     assert client.get("/mcp").text == "enroll"
     # Hosts send an empty bearer value when the token input or variable is left empty
@@ -322,7 +325,11 @@ def test_mcp_bodies_are_bounded_after_authentication(monkeypatch):
     dev = bearer(token_store.create_token("dev", Role.MCP)["token"])
     monkeypatch.setattr(get_settings(), "max_mcp_request_mb", 1)
     app = http_server.build_mcp_app(
-        server.mcp, "127.0.0.1", STORE, enrollment_server=server.enrollment_mcp
+        server.mcp,
+        "127.0.0.1",
+        STORE,
+        enrollment_server=server.enrollment_mcp,
+        web_url=lambda: "https://secreview.example/ui",
     )
     headers = {"content-type": "application/json", "accept": "application/json, text/event-stream"}
     above_enrollment = b"x" * (http_server.MAX_ENROLLMENT_BODY_BYTES + 1)
@@ -429,7 +436,7 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     monkeypatch.setattr(
         server,
         "get_settings",
-        lambda: make_settings(enrollment=False, forwarded_allow_ips="10.0.0.0/8"),
+        lambda: make_settings(forwarded_allow_ips="10.0.0.0/8"),
     )
 
     server.main(
@@ -451,9 +458,14 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
 
 
 @pytest.mark.parametrize("enabled", [True, False])
-def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_run, enabled):
+def test_main_serves_the_enrollment_server_when_the_controller_url_is_known(
+    monkeypatch, captured_run, enabled
+):
     token_store.create_token("ops", Role.ADMIN)
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=enabled))
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings())
+    monkeypatch.setattr(server, "enrollment_web_url", server.EnrollmentWebUrl(ttl=0))
+    if enabled:
+        app_settings.set_controller_url("https://secreview.example", "admin", make_settings())
 
     server.main(["serve", "--transport", "streamable-http"])
 
@@ -482,7 +494,7 @@ def test_main_closes_an_exposed_server_without_token(
     monkeypatch.setattr(
         server,
         "get_settings",
-        lambda: make_settings(enrollment=False, allow_unauthenticated=allow_unauthenticated),
+        lambda: make_settings(allow_unauthenticated=allow_unauthenticated),
     )
 
     server.main(["serve", "--transport", "streamable-http", "--host", host])

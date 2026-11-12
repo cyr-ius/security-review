@@ -54,6 +54,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` and internal domains |
 | `scan_code` | Quick line-by-line pattern scan (leads to check, **not** a full SAST; data flows are followed by OpenGrep during a scan of the codebase, or by `scan_code` when it is [delegated to the Controller server](analysis/opengrep.md#fragment-scans-scan_code)). Masked excerpts, invisible characters shown as `<U+XXXX>` |
+| `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type, with pagination |

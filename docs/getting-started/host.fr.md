@@ -161,10 +161,9 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 [jeton refusé](../advanced/architecture/mcp-server.md#jeton-refuse-se-reconnecter)).
 
 !!! note
-    Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
-    jeton reçoit `401`, et `request_project` ne crée ni ne demande aucun projet : créez
-    directement votre jeton MCP personnel dans l'interface web, et demandez à un administrateur
-    l'accès au projet.
+    Tant que l'URL publique du serveur Controller est inconnue, un hôte sans jeton reçoit `401`
+    au lieu du serveur d'enrôlement : créez directement votre jeton MCP personnel dans
+    l'interface web.
 
 ## Autres cas
 

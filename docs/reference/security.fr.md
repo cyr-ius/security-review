@@ -91,8 +91,8 @@
   ([`security-review-ci`](../advanced/architecture/ci.md)) n'ouvre
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
-- **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
-  serveur MCP restreint **sans aucun outil**, dont les prompts invitent l'utilisateur à créer un
+- **Enrôlement** (tant que l'URL publique du serveur Controller est connue ; sinon `401`) : un
+  client sans jeton atteint un serveur MCP restreint **sans aucun outil**, dont les prompts invitent l'utilisateur à créer un
   jeton MCP personnel dans l'interface web, après s'être connecté : rien n'est écrit sans jeton,
   et le serveur MCP ne sert aucune autre route publique que `/healthz`. Aucun jeton n'est jamais
   créé pour un client. Avec un jeton, `request_project` ne crée un nouveau projet que pour un
@@ -113,11 +113,12 @@
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du serveur Controller qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. Seule exception, désactivée par défaut : avec
-  `SECREVIEW_MCP_SCAN_CONTROLLER_URL` (ou la délégation activée par un administrateur dans la page
-  **Général**, auditée), `scan_code` envoie son fragment au serveur Controller avec le
+  `SECREVIEW_SCANCODE_DELEGATED` défini sur le serveur Controller (ou la délégation activée par un
+  administrateur dans la page **Général**), auditée et enregistrée en base, `scan_code` envoie son fragment au serveur Controller avec le
   jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
   journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
-  un jeton `mcp` n'atteint que cette route. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
+  `start_codebase_scan` demande de la même façon un ticket de scan (`POST /api/v1/scan/tickets`).
+  Un jeton `mcp` n'atteint que ces deux routes. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
@@ -298,7 +299,8 @@
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Pour le scan du
   dépôt complet, le client de pipeline (`security-review-ci scan-code`), lancé par l'opérateur
-  sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques et envoie
+  sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques (ni un dossier lié : un fichier hors
+  de ce dossier n'est jamais lu) et envoie
   leur contenu au serveur Controller, qui le scanne sans lire son propre disque.
 - **Scans de pipeline** : `POST /api/v1/ci/scan/code` et `/scan/deps` demandent un jeton `ci` ou
   `admin` (une session web est refusée) et restent dans les
@@ -306,6 +308,17 @@
   borné (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` au-delà, lu après la vérification du jeton),
   comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont
   masqués dans les extraits et dans le rapport enregistré.
+- **Tickets de scan** (`start_codebase_scan`, demande la délégation de `scan_code`) : le serveur
+  Controller n'émet un ticket qu'à un jeton `mcp` ou `admin` qui peut enregistrer des rapports
+  sur le projet (`reports.write`), au plus 20 valides par jeton. Seule son empreinte SHA-256 est
+  conservée ; il n'atteint que le scan du code et le scan des dépendances de son projet, **une
+  fois chacun** (un scan qui échoue avant d'enregistrer quoi que ce soit le rend), jusqu'à son
+  expiration (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes par défaut), avec les droits du
+  jeton ou de l'utilisateur qui l'a demandé, relus à chaque usage (un jeton révoqué, ou un
+  utilisateur qui a perdu `reports.write`, l'invalide). Le ticket passe par le contexte du
+  modèle, qui le recopie dans la commande, et le donne à `security-review-ci` sur l'entrée
+  standard, jamais en argument. Chaque émission est auditée (`scan_ticket.issued`). Voir
+  [scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan).
 - **Corps des requêtes du serveur Controller** : chaque corps est borné avant d'être analysé, `413`
   au-delà : 512 Kio pour les routes JSON, publiques comprises (connexion, SSO), 8 Mio pour les
   imports de packs et `SECREVIEW_MAX_SCAN_REQUEST_MB` pour les scans de pipeline. Le

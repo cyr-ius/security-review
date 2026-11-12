@@ -361,7 +361,7 @@ def test_collect_sources_ignores_repository_fsmonitor_command(tmp_path):
     assert not marker.exists()
 
 
-def test_collect_sources_excludes_large_binary_and_symlinks(tmp_path):
+def test_collect_sources_excludes_large_binary_and_symlinks(tmp_path, monkeypatch):
     make_tree(tmp_path)
     (tmp_path / "big.py").write_text("x = 1\n" * 100, encoding="utf-8")
     (tmp_path / "blob.py").write_bytes(b"\0\1\2eval(x)")
@@ -375,6 +375,18 @@ def test_collect_sources_excludes_large_binary_and_symlinks(tmp_path):
     assert reasons["blob.py"] == "binary file"
     assert reasons["link.py"] == "symbolic link"
     assert {entry["path"] for entry in sources["files"]} == {"Dockerfile"}
+
+    # A path listed by git through a directory replaced by a link is never read
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    (outside / "secret.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "linked").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(ci_client, "list_files", lambda base, git: (["linked/secret.py"], "git"))
+    sources = ci_client.collect_sources(tmp_path)
+    assert sources["files"] == []
+    assert sources["skipped"] == [
+        {"file": "linked/secret.py", "reason": "outside the directory (linked directory)"}
+    ]
 
 
 def test_collect_sources_rejects_a_file(tmp_path):
@@ -399,6 +411,20 @@ def test_scan_code_blocks_and_prints_the_matches(
     assert "Sup3rSecret99" not in out
     # Nothing is stored without --save
     assert len(services.list_reports(project="shop-api")) == 1
+
+
+def test_scan_code_summary_lists_files_and_rules_without_excerpts(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    make_tree(tmp_path / "repo")
+    argv = ["scan-code", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
+
+    assert run(controller, monkeypatch, [*argv, "--format", "summary"], ci_token) == 1
+    out = capsys.readouterr().out
+    assert "app/views.py: 1 match(es), worst high, lines 2" in out
+    assert "PY-004 [high]" in out and "BLOCKED" in out
+    # Short enough for the context of an agent: no excerpt, no per-match line
+    assert "app/views.py:2 [HIGH]" not in out and "Sup3rSecret99" not in out
 
 
 def test_scan_code_passes_below_the_threshold(controller, ci_token, monkeypatch, tmp_path):
@@ -543,6 +569,59 @@ def test_scan_deps_refuses_symlinks_and_unsupported_files(
     assert run(controller, monkeypatch, argv, ci_token) == 2
 
 
+def test_scan_deps_finds_the_dependency_files_of_a_directory(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    import_advisory(tmp_path)
+    repo = tmp_path / "repo"
+    (repo / "api").mkdir(parents=True)
+    (repo / "api" / "requirements.txt").write_text("requests==2.19.0\n", encoding="utf-8")
+    (repo / "web").mkdir()
+    (repo / "web" / "package.json").write_text('{"dependencies": {}}', encoding="utf-8")
+    # Not dependency files of the project: other files, installed packages, excluded paths
+    (repo / "api" / "app.py").write_text("print(1)\n", encoding="utf-8")
+    (repo / "web" / "node_modules" / "left-pad").mkdir(parents=True)
+    (repo / "web" / "node_modules" / "left-pad" / "package.json").write_text("{}")
+    (repo / "tests").mkdir()
+    (repo / "tests" / "requirements.txt").write_text("flask==0.1\n", encoding="utf-8")
+    argv = ["scan-deps", str(repo), "--project", "shop-api", "--no-git", "--format", "json"]
+
+    assert run(controller, monkeypatch, [*argv, "--exclude", "tests/", "--save"], ci_token) == 1
+    data = json.loads(capsys.readouterr().out)
+    # Sent with their path relative to the directory: two manifests of a monorepo stay distinct
+    assert [f["file"] for f in data["files"]] == ["api/requirements.txt", "web/package.json"]
+    report = services.get_report(data["saved_report"]["report_id"])
+    assert {f.file_path for f in report.findings} == {"api/requirements.txt"}
+
+    # A path listed by git through a directory replaced by a link never leaves the directory
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "package.json").write_text("{}", encoding="utf-8")
+    (repo / "linked").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(ci_client, "list_files", lambda base, git: (["linked/package.json"], "git"))
+    assert ci_client.find_dependency_files(repo) == []
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert (
+        run(controller, monkeypatch, ["scan-deps", str(empty), "--project", "shop-api"], ci_token)
+        == 2
+    )
+    assert "No dependency file found" in capsys.readouterr().err
+
+
+def test_dependency_file_names_are_those_of_the_controller():
+    # The client imports nothing from the package: its copy must follow deps/dependencies.py
+    from security_review_mcp.deps import dependencies
+
+    assert set(dependencies._PARSERS) == ci_client.DEPENDENCY_FILE_NAMES
+    assert dependencies._MSBUILD_PROJECTS == ci_client.DEPENDENCY_PROJECT_SUFFIXES
+    assert dependencies._SBOM_NAME.pattern == ci_client.DEPENDENCY_SBOM_NAME.pattern
+    assert dependencies._REQUIREMENTS_NAME.pattern == ci_client.DEPENDENCY_REQUIREMENTS_NAME.pattern
+    assert ci_client.is_dependency_file("requirements/base.in")
+    assert not ci_client.is_dependency_file("docs/notes.txt")
+
+
 def test_scans_need_a_ci_or_admin_token(controller, monkeypatch, capsys, tmp_path):
     reader = token_store.create_token("viewer", Role.MCP)["token"]
     manifest = tmp_path / "requirements.txt"
@@ -555,97 +634,14 @@ def test_scans_need_a_ci_or_admin_token(controller, monkeypatch, capsys, tmp_pat
     assert run(controller, monkeypatch, argv, admin) == 0
 
 
-# ── Agent review (commit hook) ───────────────────────────────────────────────
-
-REVIEW_TOKEN = "test-review-token"
+# ── Removed commands ─────────────────────────────────────────────────────────
 
 
-def commit_repo(root, message="feat: add login"):
-    """A git work tree with one commit and the .mcp.json of the developer."""
-    git_init(root)
-    (root / "app.py").write_text("subprocess.run(cmd, shell=True)\n", encoding="utf-8")
-    server = {"type": "http", "url": "https://mcp.example.com/mcp"}
-    server["headers"] = {"Authorization": f"Bearer {REVIEW_TOKEN}"}
-    config = {"mcpServers": {"security-review": server, "other": {"command": "other-mcp"}}}
-    (root / ".mcp.json").write_text(json.dumps(config), encoding="utf-8")
-    subprocess.run(["git", "add", "app.py"], cwd=root, check=True)
-    identity = ["-c", "user.name=dev", "-c", "user.email=dev@example.com"]
-    subprocess.run(["git", *identity, "commit", "-q", "-m", message], cwd=root, check=True)
-
-
-@pytest.fixture
-def agents(monkeypatch):
-    """Pretend every agent CLI is installed and record the agent runs instead of running them."""
-    runs = []
-    real_run = subprocess.run
-
-    def run(command, **kwargs):
-        if command[0] == "git":
-            return real_run(command, **kwargs)
-        config = next((arg for arg in command if arg.endswith(".json")), None)
-        if config:
-            # The private configuration only exists while the agent runs
-            config = json.loads(Path(config.removeprefix("@")).read_text(encoding="utf-8"))
-        runs.append({"command": command, "kwargs": kwargs, "config": config})
-        return subprocess.CompletedProcess(command, 0)
-
-    monkeypatch.setattr(ci_client.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(ci_client.subprocess, "run", run)
-    return runs
-
-
-@pytest.mark.parametrize("agent", ["claude", "copilot", "codex"])
-def test_agent_review_gives_only_the_review_server_and_never_the_token_on_the_command_line(
-    agent, agents, monkeypatch, tmp_path, capsys
-):
-    commit_repo(tmp_path)
-    monkeypatch.chdir(tmp_path)
-    argv = ["agent-review", "--project", "shop-api", "--agent", agent, "--foreground"]
-    assert ci_client.main(argv) == 0
-
-    [run] = agents
-    command, kwargs = run["command"], run["kwargs"]
-    assert not any(REVIEW_TOKEN in arg for arg in command)
-    sha = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=tmp_path, capture_output=True, text=True
-    ).stdout.strip()
-    prompt = kwargs["input"] or command[command.index("-p") + 1]
-    assert f'commit_sha "{sha}"' in prompt and "shell=True" in prompt
-    if agent == "codex":
-        assert "features.shell_tool=false" in command
-        assert kwargs["env"][ci_client.CODEX_TOKEN_VARIABLE] == REVIEW_TOKEN
-    else:
-        # Only the review server, from a private file removed after the review
-        assert list(run["config"]["mcpServers"]) == ["security-review"]
-        config_file = next(arg for arg in command if arg.endswith(".json")).removeprefix("@")
-        assert not Path(config_file).exists()
-        assert not Path(config_file).is_relative_to(tmp_path)
-    if agent == "claude":
-        assert "Read(./.mcp.json)" in command and "--strict-mcp-config" in command
-    if agent == "copilot":
-        assert run["config"]["mcpServers"]["security-review"]["tools"] == list(
-            ci_client.REVIEW_TOOLS
-        )
-    assert "done, log:" in capsys.readouterr().out
-
-
-@pytest.mark.parametrize(
-    ("message", "installed", "reason"),
-    [
-        ("feat: x\n\nSecurity-Review: 187", True, "already reviewed"),
-        ("feat: x", False, "no agent CLI found"),
-    ],
-)
-def test_agent_review_is_skipped_without_failing_the_hook(
-    message, installed, reason, agents, monkeypatch, tmp_path, capsys
-):
-    commit_repo(tmp_path, message)
-    monkeypatch.chdir(tmp_path)
-    if not installed:
-        monkeypatch.setattr(ci_client.shutil, "which", lambda name: None)
-    assert ci_client.main(["agent-review", "--project", "shop-api"]) == 0
-    assert agents == []
-    assert reason in capsys.readouterr().err
+def test_agent_review_is_no_longer_a_command(capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        ci_client.main(["agent-review", "--project", "shop-api"])
+    assert exit_info.value.code == 2
+    assert "invalid choice: 'agent-review'" in capsys.readouterr().err
 
 
 # ── Read guard (agent hook) ──────────────────────────────────────────────────

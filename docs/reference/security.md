@@ -86,8 +86,8 @@
   ([`security-review-ci`](../advanced/architecture/ci.md)) opens no
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
   localhost, credentials in the URL and redirects, and bounds the answers.
-- **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
-  a restricted MCP server **without any tool**, whose prompts tell the user to create a personal
+- **Enrollment** (while the public URL of the Controller server is known; otherwise `401`): a
+  client without a token reaches a restricted MCP server **without any tool**, whose prompts tell the user to create a personal
   MCP token in the web interface, after logging in: nothing is written without a token, and the
   MCP server serves no other public route than `/healthz`. No token is ever created for a
   client. With a token, `request_project` creates a new project only for a user holding
@@ -106,12 +106,14 @@
   [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the Controller server that make them (advisory download, OIDC, syslog, connectors, version check):
-  a test checks it. Only exception, disabled by default: with `SECREVIEW_MCP_SCAN_CONTROLLER_URL`
-  (or the delegation turned on by an administrator on the **General** page, audited),
+  a test checks it. Only exception, disabled by default: with `SECREVIEW_SCANCODE_DELEGATED` set
+  on the Controller server (or the delegation turned on by an administrator on the **General**
+  page), audited and stored in the database,
   `scan_code` sends its fragment to the Controller server with the token of the agent, to that URL
   only, without proxy nor redirect, answer bounded, token never logged (see
-  [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); an `mcp` token reaches
-  that route only. The Controller server only downloads the OSV advisories if an administrator enables it
+  [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); `start_codebase_scan`
+  asks the same way for a scan ticket (`POST /api/v1/scan/tickets`). An `mcp` token reaches
+  these two routes only. The Controller server only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
@@ -280,7 +282,8 @@
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. For the whole repository scan,
   the pipeline client (`security-review-ci scan-code`), run by the operator on a folder they
-  choose, reads the files without following symbolic links and sends their content to the
+  choose, reads the files without following symbolic links (nor a linked directory: a file
+  outside that folder is never read) and sends their content to the
   Controller server, which scans it without reading its own disk.
 - **Pipeline scans**: `POST /api/v1/ci/scan/code` and `/scan/deps` need a `ci` or `admin`
   token (a web session is refused) and stay within the projects
@@ -288,6 +291,17 @@
   (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
   number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
   excerpts and in the stored report.
+- **Scan tickets** (`start_codebase_scan`, needs the delegation of `scan_code`): the Controller
+  server issues a ticket only to an `mcp` or `admin` token that may save reports on the project
+  (`reports.write`), at most 20 valid ones per token. Only its SHA-256 digest is stored; it
+  reaches the code scan and the dependency scan of its project only, **once each** (a scan that
+  fails before storing anything gives it back), until it expires
+  (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes by default), with the rights of the token or
+  user that asked for it read again at each use (a revoked token, or a user who lost
+  `reports.write`, invalidates it). The ticket passes through the context of the model, which
+  copies it into the command, and gives it to `security-review-ci` on stdin, never as an
+  argument. Every issue is audited (`scan_ticket.issued`). See
+  [scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan).
 - **Request bodies of the Controller server**: every body is bounded before it is parsed, `413`
   beyond: 512 KiB for the JSON routes, public ones included (login, SSO), 8 MiB for the
   pack imports and `SECREVIEW_MAX_SCAN_REQUEST_MB` for the pipeline scans. The declared

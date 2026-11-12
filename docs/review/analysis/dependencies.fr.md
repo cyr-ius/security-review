@@ -143,6 +143,28 @@ security-review-controller advisories update --ecosystem npm  # option répétab
 Le serveur Controller télécharge au plus quelques centaines de Mio par jour (l'export npm est le plus
 gros) : prévoyez l'espace correspondant dans son dossier temporaire (`/tmp`).
 
+## Scan lancé par l'agent
+
+Pendant une `dependency-review`, un agent qui peut lancer des commandes shell appelle
+[`start_codebase_scan`](code-scan.md#scan-lance-par-lagent-start_codebase_scan) avec `scope`
+`deps` et exécute la commande qu'il donne à la racine du dépôt. Le développeur n'installe rien
+(`uvx` exécute le client, seul `uv` est nécessaire) et n'a besoin d'aucun jeton `ci` (un ticket à
+usage unique sur l'entrée standard) :
+
+```bash
+echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
+    security-review-ci@latest scan-deps . --url https://secreview.example.com \
+    --project my-project --save --token-stdin
+```
+
+`scan-deps .` trouve lui-même les manifestes, lockfiles et SBOM du dépôt (`git ls-files`,
+`--exclude GLOB` pour en écarter) et les envoie tels quels : l'agent ne les lit pas, et un gros
+lockfile n'est pas limité par la taille d'un appel d'outil comme avec `scan_dependencies`. Les
+fichiers gardent leur chemin dans le dépôt (`web/package-lock.json`) : les manifestes d'un
+monorepo donnent des findings distincts. Sans cet outil (stdio, délégation de `scan_code`
+désactivée), l'agent se rabat sur `security-review-ci scan-deps` avec un jeton `ci` personnel,
+puis sur `scan_dependencies` fichier par fichier.
+
 ## Scan dans un pipeline (`security-review-ci scan-deps`)
 
 Dans un pipeline, le [client de pipeline](../../advanced/architecture/ci.md)
@@ -170,7 +192,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 ## Scan depuis un poste de travail (hook de commit)
 
-Mise en place pas à pas, avec la revue par un agent : [Hooks de commit](../../getting-started/commit-hooks.md).
+Mise en place pas à pas : [Hooks de commit](../../getting-started/commit-hooks.md).
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
 [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans

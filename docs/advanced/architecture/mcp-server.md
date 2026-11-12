@@ -41,7 +41,7 @@ In stdio, `security-review-mcp local` migrates its local database itself.
 
 | Client | Answer |
 |---|---|
-| No token | the [enrollment server](../../review/prompts-tools.md#enrollment-server): no tool, prompts that explain how to get a token; `401` when `SECREVIEW_ENROLLMENT=false` |
+| No token | the [enrollment server](../../review/prompts-tools.md#enrollment-server): no tool, prompts that explain how to get a token; `401` while the public URL of the Controller server is unknown |
 | Unknown, revoked or expired token | `401` that tells the user where to create a new token ([rejected token](#rejected-token-sign-in-again)) |
 | Valid `mcp` or `admin` token | every prompt, tool and resource, on the projects of the token ([tokens restricted to a project](../bearer-tokens.md#tokens-restricted-to-a-project)) |
 
@@ -98,6 +98,7 @@ error is hidden from it.
 | `list_checklists` | read-only | none | Domains (built-in and internal) with their number of items |
 | `get_review_checklist` | read-only | `domain` | The checklist in Markdown, followed by the report language when one is configured |
 | `scan_code` | read-only | `content` (at most `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (rule, line, masked excerpt), `suppressed` (lines marked `secreview:ignore`), counts, `engines` (`rules`, `opengrep` when [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)), `controller_error`, `report_language`; leads to check, not a full SAST |
+| `start_codebase_scan` | write | `project`, `scope` (`all` by default, `code` or `deps`) | `scan_code_command` and `scan_deps_command` (according to `scope`) (`security-review-ci` run with `uvx`, single-use ticket on stdin), `expires_at`; needs the delegation of `scan_code` ([scan started by the agent](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `list_rules` | read-only | `language` (optional) | Active rules, `disabled_rules`, `load_errors` of the internal rules |
 | `reload_rules` | write | none | Reads the rules of the database again at once (otherwise within 5 seconds); refused to a token restricted to projects |
 
@@ -165,8 +166,9 @@ without argument, which explain how to get a token.
 - It makes **no outgoing connection** (the OSV database is imported by the Controller server), and loads
   no module of the Controller server. Only exception, disabled by default: `scan_code`
   [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)
-  (`SECREVIEW_MCP_SCAN_CONTROLLER_URL`, or the switch of the **General** page), with the token of
-  the agent.
+  (`SECREVIEW_SCANCODE_DELEGATED` on the Controller server, or the switch of the **General**
+  page), with the token of the agent, and `start_codebase_scan`, which asks the same way for a
+  [scan ticket](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan).
 - Its tools **never read the disk** from a path given by the client: they work on the content
   sent.
 - Every input is bounded (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,
@@ -201,9 +203,14 @@ All their options: [Command line](../../reference/cli.md#security-review-mcp).
 
 ## Enrollment: personal token and project requests
 
-The MCP server **never creates a token** and writes nothing for a client without a token. It
-is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token is created
-(except on an [open server](../bearer-tokens.md), which needs no token).
+The MCP server **never creates a token** and writes nothing for a client without a token. The
+enrollment server answers as soon as the public URL of the Controller server is known
+([`SECREVIEW_PUBLIC_URL`](../../reference/configuration.md#web-interface-and-sessions) or the
+**General** page), even before the first token is created (except on an
+[open server](../bearer-tokens.md), which needs no token): without that URL it could not tell
+where to create a token, so a client without a token gets `401`. With the
+[OAuth login](../mcp-oauth.md) on, it gets the `401` that starts the login. Project requests
+(`request_project`) are always available.
 
 1. **Personal token.** An MCP client that connects **without** an `Authorization` header is
    not rejected: it reaches a restricted MCP server (same `security-review` name) **without any
@@ -263,9 +270,9 @@ Safeguards: at most 20 requests are pending at a time, a user (or a token withou
 requests at most 5 projects per hour, and a pending request expires after
 `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Every request, approval, rejection and expiry is
 written to the [audit log](../audit-log.md) (`enrollment.requested`, `enrollment.approved`,
-`enrollment.rejected`, with the token, the requesting user and the client address). To disable
-the enrollment: `SECREVIEW_ENROLLMENT=false` (clients without a token then get `401`, with the
-same advice, and `request_project` refuses the projects the token does not reach).
+`enrollment.rejected`, with the token, the requesting user and the client address).
+`SECREVIEW_ENROLLMENT`, which used to disable the enrollment, is ignored (the MCP server logs a
+warning when it is set).
 
 ## Rejected token: sign in again
 

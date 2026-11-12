@@ -8,19 +8,23 @@ unchanged. On the MCP server, fragment scans (`scan_code`) only use OpenGrep whe
 ## Fragment scans (`scan_code`)
 
 By default, the `scan_code` tool scans the fragment it receives with the rules of the MCP server
-only, and starts no external process. With `SECREVIEW_MCP_SCAN_CONTROLLER_URL` set on the MCP server
-(root URL of the Controller server, for example `http://controller:8080` inside Compose), it sends the
+only, and starts no external process. With the delegation turned on, it sends the
 fragment to `POST /api/v1/scan/content` of the Controller server with the token of the agent: the
 Controller server applies its rules, then its OpenGrep rules when the engine is enabled, and stores
 nothing. The answer tells the engines that ran (`engines`: `rules`, `opengrep`).
 
-Without the variable, an administrator can turn on the delegation in the web interface: on the
+The Controller server decides, and stores its choice in the database where the MCP server reads
+it at each call. `SECREVIEW_SCANCODE_DELEGATED`, set on the Controller server, gives `true` (to its
+public URL), the root URL of the Controller server as seen by the MCP server (for example
+`http://controller:8080` inside Compose: the fragments then stay on the internal network), or
+`false`. Without the variable, an administrator can turn on the delegation in the web interface: on the
 **General** page, under **Controller server address**, the **Delegate the scan_code tool to this
 Controller server** switch sends the fragments to that public address (the MCP server must reach
 it). It is off by default, needs a known address, applies at the next `scan_code` call, and is turned off when the address
 changes (turn it on again for the new address: the tokens never follow a changed address). Each
-change is recorded in the audit log (`mcp_scan_delegation.changed`). The variable, when set on the
-MCP server, takes precedence.
+change is recorded in the audit log (`mcp_scan_delegation.changed`). When the variable is set, the
+switch is locked. `SECREVIEW_MCP_SCAN_CONTROLLER_URL`, the former variable of the MCP server, is
+deprecated: still read with a warning, it takes precedence.
 
 - The token of the agent is relayed as is: an `mcp` or `admin` token reaches this route only, not the
   rest of the REST API.

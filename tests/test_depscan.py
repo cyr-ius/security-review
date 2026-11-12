@@ -210,10 +210,11 @@ def test_findings_can_be_saved_as_a_report(tmp_path):
 # ── Scans sent by security-review-ci scan-deps ───────────────────────────────
 
 
-def test_scan_files_uses_the_file_name_and_counts_blocking_entries(tmp_path):
+def test_scan_files_keeps_the_relative_path_and_counts_blocking_entries(tmp_path):
     load(osv(severity="HIGH", fixed="2.20.0"), tmp_path=tmp_path)
-    results = depscan.scan_files([("backend/requirements.txt", "requests==2.19.0\nflask\n")])
-    assert results[0]["file"] == "requirements.txt"
+    results = depscan.scan_files([("backend\\requirements.txt", "requests==2.19.0\nflask\n")])
+    # The manifests of a monorepo keep distinct findings
+    assert results[0]["file"] == "backend/requirements.txt"
     assert depscan.blocking_count(results, Severity.HIGH) == 1
     assert depscan.blocking_count(results, Severity.LOW) == 2
     assert depscan.blocking_count(results, Severity.CRITICAL) == 0

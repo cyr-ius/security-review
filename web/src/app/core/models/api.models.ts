@@ -332,7 +332,8 @@ export type AuditAction =
   | 'mcp_oauth.changed'
   | 'opengrep_rule.proposed'
   | 'opengrep_rule.approved'
-  | 'opengrep_rule.rejected';
+  | 'opengrep_rule.rejected'
+  | 'scan_ticket.issued';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -381,6 +382,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'opengrep_rule.proposed',
   'opengrep_rule.approved',
   'opengrep_rule.rejected',
+  'scan_ticket.issued',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -1075,11 +1077,13 @@ export interface AppSettings {
     env_set: boolean;
     effective: string | null;
   };
-  /** scan_code of the MCP server delegated to the public URL of the controller. */
+  /** scan_code of the MCP server delegated to the controller. */
   mcp_scan_delegation: {
     enabled: boolean;
     /** URL used, null while off or while the controller URL is unknown. */
     url: string | null;
+    /** SECREVIEW_SCANCODE_DELEGATED is set: the web interface cannot change it. */
+    env_set: boolean;
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {
