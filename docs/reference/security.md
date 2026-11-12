@@ -294,8 +294,9 @@
 - **Scan tickets** (`start_codebase_scan`, needs the delegation of `scan_code`): the Controller
   server issues a ticket only to an `mcp` or `admin` token that may save reports on the project
   (`reports.write`), at most 20 valid ones per token. Only its SHA-256 digest is stored; it
-  reaches the code scan and the dependency scan of its project only, **once each** (a scan that
-  fails before storing anything gives it back), until it expires
+  reaches the code scan and the dependency scan of its project only, **once each** (only the scan
+  asked for with `scope` `code` or `deps`; a scan that fails before storing anything gives it
+  back), until it expires
   (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes by default), with the rights of the token or
   user that asked for it read again at each use (a revoked token, or a user who lost
   `reports.write`, invalidates it). The ticket passes through the context of the model, which

@@ -434,8 +434,8 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
 async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):
     sent = []
 
-    def controller(url, authorization, project, timeout):
-        sent.append((url, authorization, project))
+    def controller(url, authorization, project, timeout, scope):
+        sent.append((url, authorization, project, scope))
         return {
             "ticket": "secreview_scan_abc",
             "project": project,
@@ -465,7 +465,9 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
         )
 
     assert local.is_error and "delegation of scan_code" in text_of(local)
-    assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api")
+    assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api", "all")
+    # The ticket of a dependency review opens the dependency scan only
+    assert sent[2][3] == "deps"
     assert unsafe.is_error and "unsafe in a shell" in text_of(unsafe)
     command = result["scan_code_command"]
     # The ticket goes on stdin, never as an argument

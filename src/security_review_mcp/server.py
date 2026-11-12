@@ -1212,10 +1212,11 @@ def start_codebase_scan(
 
     The files go from the workstation to the Controller server through `security-review-ci`
     (run with uvx, nothing to install), with a single-use ticket valid a few minutes: one code
-    scan and one dependency scan. The scans are saved as reports of the project; the code scan
-    prints a short summary of its leads (files and rules), which tells you what to read first,
-    and the dependency scan finds the manifests and lockfiles itself and prints the vulnerable
-    packages. Needs the HTTP MCP server with the delegation of scan_code turned on.
+    scan and one dependency scan (only the scan of `scope` when it is not `all`). The scans
+    are saved as reports of the project; the code scan prints a short summary of its leads
+    (files and rules), which tells you what to read first, and the dependency scan finds the
+    manifests and lockfiles itself and prints the vulnerable packages. Needs the HTTP MCP
+    server with the delegation of scan_code turned on.
     """
     settings = get_settings()
     allowed = _caller_write_projects(ctx)
@@ -1236,7 +1237,7 @@ def start_codebase_scan(
         )
     try:
         ticket = remote_scan.request_ticket(
-            controller_url, authorization, project, settings.mcp_scan_timeout_seconds
+            controller_url, authorization, project, settings.mcp_scan_timeout_seconds, scope
         )
     except remote_scan.RemoteScanError as exc:
         raise ValueError(f"The Controller server gave no scan ticket: {exc}") from None

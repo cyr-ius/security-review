@@ -138,8 +138,8 @@ files** and without the developer installing anything or creating a `ci` token:
     counts and the files and rules with the most matches, so the agent knows what to read first
     without loading every match in its context.
 
-The ticket only reaches the code scan and the dependency scan of its project, **once each**,
-with the rights of the token that asked for it, read again at each use: only a user who may
+The ticket only reaches the code scan and the dependency scan of its project, **once each**
+(only the scan of `scope` when the agent asks for `code` or `deps`), with the rights of the token that asked for it, read again at each use: only a user who may
 save reports on the project (`reports.write`) gets one. It passes through the context of the
 model, which copies it into the command: it is worth nothing once used or expired
 ([security](../../reference/security.md#security-of-the-server-itself)).

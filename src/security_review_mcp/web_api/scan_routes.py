@@ -64,12 +64,13 @@ async def issue_scan_ticket(
     """Issue a single-use ticket of a codebase scan for the start_codebase_scan tool.
 
     With it, ``security-review-ci scan-code`` and ``scan-deps`` (``--token-stdin``) send the files
-    of the workstation to the scans of the project, once each, before it expires. 422 when the
+    of the workstation to the scans of the project (both, or the one of ``scope``), once each,
+    before it expires. 422 when the
     caller may not save reports on the project or holds too many tickets.
     """
     state = dict(request.scope.get("state") or {})
     try:
-        ticket = await run_in_threadpool(scan_tickets.issue, body.project, state)
+        ticket = await run_in_threadpool(scan_tickets.issue, body.project, state, body.scope)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     controller_url = await run_in_threadpool(app_settings.controller_url)

@@ -3234,6 +3234,19 @@ def test_a_scan_ticket_runs_each_scan_once_on_its_project_only(secured, reports)
     token_store.revoke_personal_token(alice["id"], agent["id"])
     late = secured.post("/api/v1/ci/scan/code", json=body, headers=_bearer(revoked))
     assert late.status_code == 401
+    # A ticket asked for one scan opens no other one
+    agent = token_store.create_personal_token(alice["id"], "agent-2", role="mcp")
+    only_deps = secured.post(
+        "/api/v1/scan/tickets",
+        json={"project": "shop-api", "scope": "deps"},
+        headers=_bearer(agent["token"]),
+    ).json()["ticket"]
+    unasked = secured.post("/api/v1/ci/scan/code", json=body, headers=_bearer(only_deps))
+    assert unasked.status_code == 401
+    assert (
+        secured.post("/api/v1/ci/scan/deps", json=deps, headers=_bearer(only_deps)).status_code
+        == 200
+    )
 
 
 def test_only_an_agent_that_may_save_on_the_project_gets_a_scan_ticket(secured, web_sessions):

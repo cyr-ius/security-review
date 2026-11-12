@@ -11,7 +11,8 @@ A ticket is a bearer credential with these limits:
 
 - only its SHA-256 digest is stored; it is shown once, to the agent that asked for it;
 - it reaches the code scan and the dependency scan of its project only (http_server.TICKET_PATHS),
-  each once (``consume``), until it expires (SECREVIEW_SCAN_TICKET_TTL_SECONDS);
+  each once (``consume``), until it expires (SECREVIEW_SCAN_TICKET_TTL_SECONDS); a ticket asked
+  for one scan only (``scope``) is issued with the other one already used;
 - it acts as a ``ci`` token of its project, with the rights of the token that asked for it read
   again at each use: the web user of a personal token or of an OAuth grant must still write to
   the project (``reports.write``), a token must still exist, be valid and reach the project;
@@ -46,12 +47,14 @@ PREFIX = "secreview_scan_"
 MAX_PENDING_PER_ISSUER = 20
 
 Kind = Literal["code", "deps"]
+Scope = Literal["all", "code", "deps"]
 _USED_COLUMNS = {"code": ScanTicket.code_used_at, "deps": ScanTicket.deps_used_at}
 
 
-def issue(project: str, state: Mapping[str, Any]) -> dict[str, Any]:
+def issue(project: str, state: Mapping[str, Any], scope: Scope = "all") -> dict[str, Any]:
     """Issue a ticket for ``project`` to the caller described by the ASGI ``state`` of its
-    request (set by http_server.BearerAuthMiddleware).
+    request (set by http_server.BearerAuthMiddleware). With ``scope`` ``code`` or ``deps``, the
+    other scan is marked as used at once: the ticket opens no scan the agent did not ask for.
 
     Returns:
         ``ticket`` (shown once), ``project`` and ``expires_at``.
@@ -99,6 +102,8 @@ def issue(project: str, state: Mapping[str, Any]) -> dict[str, Any]:
             issued_to=issued_to,
             created_at=now,
             expires_at=now + timedelta(seconds=get_settings().scan_ticket_ttl_seconds),
+            code_used_at=now if scope == "deps" else None,
+            deps_used_at=now if scope == "code" else None,
         )
         session.add(row)
         audit.record(
@@ -108,7 +113,7 @@ def issue(project: str, state: Mapping[str, Any]) -> dict[str, Any]:
             "scan_ticket",
             row.id,
             project=project,
-            details={"expires_at": row.expires_at.isoformat()},
+            details={"expires_at": row.expires_at.isoformat(), "scope": scope},
         )
         return {"ticket": secret, "project": project, "expires_at": row.expires_at.isoformat()}
 

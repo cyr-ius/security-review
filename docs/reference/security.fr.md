@@ -312,7 +312,8 @@
   Controller n'émet un ticket qu'à un jeton `mcp` ou `admin` qui peut enregistrer des rapports
   sur le projet (`reports.write`), au plus 20 valides par jeton. Seule son empreinte SHA-256 est
   conservée ; il n'atteint que le scan du code et le scan des dépendances de son projet, **une
-  fois chacun** (un scan qui échoue avant d'enregistrer quoi que ce soit le rend), jusqu'à son
+  fois chacun** (seulement le scan demandé avec `scope` `code` ou `deps` ; un scan qui échoue
+  avant d'enregistrer quoi que ce soit le rend), jusqu'à son
   expiration (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes par défaut), avec les droits du
   jeton ou de l'utilisateur qui l'a demandé, relus à chaque usage (un jeton révoqué, ou un
   utilisateur qui a perdu `reports.write`, l'invalide). Le ticket passe par le contexte du

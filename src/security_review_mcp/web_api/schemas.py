@@ -509,6 +509,8 @@ class ScanTicketRequest(BaseModel):
     """Project of a codebase scan started by the MCP tool start_codebase_scan."""
 
     project: str = Field(min_length=1, max_length=200)
+    # Scans the ticket opens: both, or the code or dependency scan only
+    scope: Literal["all", "code", "deps"] = "all"
 
 
 class ScanTicketResult(BaseModel):
