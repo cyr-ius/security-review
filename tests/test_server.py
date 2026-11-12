@@ -80,6 +80,15 @@ async def test_security_review_prompt_embeds_code_and_checklist():
         ("codebase-review", {"languages": "java"}, {"JV-01", "CFG-01", "CI-01"}, {"PY-01"}),
         # Only a known language labels the code fence: free text cannot break out of it
         ("security-review", {"language": "py\n```", "code": "a"}, {"```python\na\n```"}, set()),
+        # A dependency file in the diff adds the dependencies checklist, plain code does not
+        (
+            "security-review",
+            {"language": "python", "code": '+++ b/web/package-lock.json\n+  "x": 1'},
+            {"SC-01", "PY-01", "scan_dependencies"},
+            set(),
+        ),
+        ("security-review", {"language": "python", "code": "x = 1"}, set(), {"SC-01"}),
+        ("api-security-review", {"code": "diff --git a/uv.lock b/uv.lock"}, {"SC-01"}, set()),
     ],
 )
 async def test_review_prompts_select_checklists_by_language(prompt, args, included, excluded):

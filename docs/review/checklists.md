@@ -36,11 +36,15 @@ Two domains are special and added to **every** review prompt, whatever the langu
 
 | Prompt | Embedded checklists |
 |---|---|
-| `security-review` | The checklists of `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` and `node` for `typescript` and `javascript`, `config` and `cicd` for pipelines), then `api` |
+| `security-review` | The checklists of `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` and `node` for `typescript` and `javascript`, `config` and `cicd` for pipelines), then `api`, plus `dependencies` when the code names a dependency file |
 | `codebase-review` | The checklists of `languages`, then `api`, `config` and `cicd` |
-| `api-security-review` | `api` |
-| `configuration-review` | `config`, plus `cicd` when the files look like a pipeline |
+| `api-security-review` | `api`, plus `dependencies` when the code names a dependency file |
+| `configuration-review` | `config`, plus `cicd` when the files look like a pipeline and `dependencies` when they name a dependency file |
 | `dependency-review` | `dependencies` |
+
+A dependency file is a manifest, lockfile or SBOM supported by `scan_dependencies`
+(`pyproject.toml`, `uv.lock`, `package-lock.json`, `pom.xml`...), named in the code or diff, for
+example in a `+++ b/web/package-lock.json` header.
 
 The `*` and `company` checklists are added to every prompt. The other domains, internal ones included, are
 named at the end of the checklists: the agent fetches with `get_review_checklist` those that
