@@ -1328,13 +1328,22 @@ export interface ScanEngineList {
   networks: string[];
   access_token_minutes: number;
   retention_days: number;
-  controllers: ControllerInstance[];
+  controllers: ServerInstance[];
+  /** MCP servers of the HTTP transport: the scan_code fragments reach the Controller server through them. */
+  mcp_servers: ServerInstance[];
   engines: ScanEngine[];
 }
 
-/** A Controller process with a recent database heartbeat. */
-export interface ControllerInstance {
+/** A Controller or MCP server process with a recent database heartbeat. */
+export interface ServerInstance {
   id: string;
+  /** Host name of the process (the pod name in Kubernetes). */
+  name: string;
+  version: string;
   started_at: string;
   heartbeat_at: string;
+  /** MCP server: scan_code goes to the Controller server. */
+  delegated: boolean;
+  /** MCP server: the most scan_code calls run at once since its previous heartbeat. */
+  processing_fragments: number;
 }

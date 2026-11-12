@@ -36,9 +36,9 @@ from security_review_mcp.http_server import Role
 from security_review_mcp.observability.audit import AuditAction
 from security_review_mcp.rules import codescan, registry
 from security_review_mcp.rules.codescan import SourceFile
-from security_review_mcp.storage import controller_instances
+from security_review_mcp.storage import server_instances
 from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import AuditEvent, utcnow
+from security_review_mcp.storage.models import AuditEvent, ServerKind, utcnow
 
 TOKEN = "engine-secret-for-tests-0123456789abcdef"
 URL = "http://10.0.0.5:8000"
@@ -450,13 +450,17 @@ def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_datab
     assert engine_clients.active_engines(False) == [(engine.client_id, "http://10.0.0.7:8000")]
 
     # Listed for the administrators, and revoked: the engine stops scanning at once
-    controller_instances.register_instance("controller-one", utcnow())
-    controller_instances.register_instance("controller-two", utcnow())
+    server_instances.register_instance("controller-one", ServerKind.CONTROLLER, utcnow())
+    server_instances.register_instance("controller-two", ServerKind.CONTROLLER, utcnow())
+    server_instances.register_instance("mcp-one", ServerKind.MCP, utcnow(), "mcp-0", "1.0.0")
     response = controller.get("/api/v1/scan-engines", headers=admin).json()
     listed = response["engines"]
     assert [instance["id"] for instance in response["controllers"]] == [
         "controller-one",
         "controller-two",
+    ]
+    assert [(m["id"], m["name"], m["version"]) for m in response["mcp_servers"]] == [
+        ("mcp-one", "mcp-0", "1.0.0")
     ]
     assert [(e["id"], e["name"], e["active"]) for e in listed] == [
         (engine.client_id, "engine-1", True)
@@ -502,22 +506,44 @@ def test_a_stopping_engine_leaves_the_controller(monkeypatch):
 
 
 def test_controller_heartbeat_registers_and_unregisters():
-    heartbeat = controller_instances.ControllerHeartbeat()
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.CONTROLLER)
     heartbeat.start()
-    assert [instance["id"] for instance in controller_instances.active_instances()] == [
+    assert [i["id"] for i in server_instances.active_instances(ServerKind.CONTROLLER)] == [
         heartbeat.instance_id
     ]
+    assert server_instances.active_instances(ServerKind.MCP) == []
 
     # A record purged by another replica (long pause, restored database) comes back
-    controller_instances.unregister_instance(heartbeat.instance_id)
-    controller_instances.heartbeat(heartbeat.instance_id, heartbeat.started_at)
-    assert [instance["id"] for instance in controller_instances.active_instances()] == [
+    server_instances.unregister_instance(heartbeat.instance_id)
+    heartbeat.beat()
+    assert [i["id"] for i in server_instances.active_instances(ServerKind.CONTROLLER)] == [
         heartbeat.instance_id
     ]
 
     heartbeat.stop()
 
-    assert controller_instances.active_instances() == []
+    assert server_instances.active_instances(ServerKind.CONTROLLER) == []
+
+
+def test_an_mcp_server_reports_its_scan_code_calls_even_shorter_than_its_heartbeat():
+    delegated = [True]
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, lambda: delegated[0])
+    heartbeat.start()
+    try:
+        # Two calls ran at once and ended before the heartbeat: it still shows them
+        with heartbeat.processing(), heartbeat.processing():
+            pass
+        heartbeat.beat()
+        [mcp] = server_instances.active_instances(ServerKind.MCP)
+        assert (mcp["delegated"], mcp["processing_fragments"]) == (True, 2)
+        # The next heartbeat shows what runs now: nothing, and scan_code no longer delegated
+        delegated[0] = False
+        heartbeat.beat()
+        [mcp] = server_instances.active_instances(ServerKind.MCP)
+        assert (mcp["delegated"], mcp["processing_fragments"]) == (False, 0)
+    finally:
+        heartbeat.stop()
+    assert server_instances.active_instances(ServerKind.MCP) == []
 
 
 def test_only_the_holders_of_the_shared_secret_enroll_and_get_tokens(monkeypatch, capsys):

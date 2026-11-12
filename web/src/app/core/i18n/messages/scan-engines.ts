@@ -34,7 +34,7 @@ export const scanEngines = defineMessages({
     'scanEngines.loadError': 'The scan engines could not be loaded.',
     'scanEngines.flowTitle': 'Activity',
     'scanEngines.flowLabel':
-      'Current activity: {codebase} pipeline scans and {fragments} agent fragments in progress, through {controllers} active Controller server processes, to {active} active engines out of {total}.',
+      'Current activity: {codebase} pipeline scans and {fragments} agent fragments in progress, through {mcp} active MCP servers and {controllers} active Controller server processes, to {active} active engines out of {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
     'scanEngines.flowAgents': 'Agents',
     'scanEngines.flowPipelinesTitle':
@@ -56,7 +56,15 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendEngineIdle': 'Connected, idle engine',
     'scanEngines.flowLegendHeartbeat':
       'Heartbeat of an engine (every 5 s while it scans, 30 s when idle)',
-    'scanEngines.flowLegendControllerHeartbeat': 'Heartbeat of the Controller server (every 5 s)',
+    'scanEngines.flowLegendServerHeartbeat':
+      'Heartbeat of the Controller and MCP servers (every 5 s, at once when scan_code runs)',
+    'scanEngines.flowMcpInstance': 'MCP server {number}',
+    'scanEngines.flowMcpDelegated': 'scan_code delegated',
+    'scanEngines.flowMcpLocal': 'Local scan',
+    'scanEngines.flowMcpTitleDelegated':
+      '{name} {version}: {count} scan_code calls since the last heartbeat, sent to the Controller server',
+    'scanEngines.flowMcpTitleLocal':
+      '{name} {version}: {count} scan_code calls since the last heartbeat, scanned by the MCP server itself (delegation off)',
     'scanEngines.flowLegendLive':
       'Moving dots: scans running now. Rings: occupied slots; engine details include lifetime counters.',
   },
@@ -92,7 +100,7 @@ export const scanEngines = defineMessages({
     'scanEngines.loadError': 'Impossible de charger les moteurs de scan.',
     'scanEngines.flowTitle': 'Activité',
     'scanEngines.flowLabel':
-      'Activité en cours : {codebase} scans de pipeline et {fragments} fragments d’agents, par {controllers} instances actives du serveur Controller, vers {active} moteurs actifs sur {total}.',
+      'Activité en cours : {codebase} scans de pipeline et {fragments} fragments d’agents, par {mcp} serveurs MCP actifs et {controllers} instances actives du serveur Controller, vers {active} moteurs actifs sur {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
     'scanEngines.flowAgents': 'Agents',
     'scanEngines.flowPipelinesTitle':
@@ -115,8 +123,15 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendEngineIdle': 'Moteur connecté, inactif',
     'scanEngines.flowLegendHeartbeat':
       'Battement de cœur d’un moteur (toutes les 5 s pendant un scan, 30 s au repos)',
-    'scanEngines.flowLegendControllerHeartbeat':
-      'Battement de cœur du serveur Controller (toutes les 5 s)',
+    'scanEngines.flowLegendServerHeartbeat':
+      'Battement de cœur des serveurs Controller et MCP (toutes les 5 s, aussitôt quand scan_code s’exécute)',
+    'scanEngines.flowMcpInstance': 'Serveur MCP {number}',
+    'scanEngines.flowMcpDelegated': 'scan_code délégué',
+    'scanEngines.flowMcpLocal': 'Scan local',
+    'scanEngines.flowMcpTitleDelegated':
+      '{name} {version} : {count} appels scan_code depuis le dernier battement de cœur, envoyés au serveur Controller',
+    'scanEngines.flowMcpTitleLocal':
+      '{name} {version} : {count} appels scan_code depuis le dernier battement de cœur, scannés par le serveur MCP lui-même (délégation désactivée)',
     'scanEngines.flowLegendLive':
       'Points en mouvement : scans en cours. Anneaux : créneaux occupés ; les détails des moteurs donnent les compteurs cumulés.',
   },
@@ -152,7 +167,7 @@ export const scanEngines = defineMessages({
     'scanEngines.loadError': 'No se pudieron cargar los motores de escaneo.',
     'scanEngines.flowTitle': 'Actividad',
     'scanEngines.flowLabel':
-      'Actividad actual: {codebase} escaneos de pipelines y {fragments} fragmentos de agentes en curso, por {controllers} instancias activas del servidor Controller, hacia {active} motores activos de {total}.',
+      'Actividad actual: {codebase} escaneos de pipelines y {fragments} fragmentos de agentes en curso, por {mcp} servidores MCP activos y {controllers} instancias activas del servidor Controller, hacia {active} motores activos de {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
     'scanEngines.flowAgents': 'Agentes',
     'scanEngines.flowPipelinesTitle':
@@ -175,7 +190,15 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendEngineIdle': 'Motor conectado, inactivo',
     'scanEngines.flowLegendHeartbeat':
       'Latido de un motor (cada 5 s durante un escaneo, 30 s en reposo)',
-    'scanEngines.flowLegendControllerHeartbeat': 'Latido del servidor Controller (cada 5 s)',
+    'scanEngines.flowLegendServerHeartbeat':
+      'Latido de los servidores Controller y MCP (cada 5 s, de inmediato cuando se ejecuta scan_code)',
+    'scanEngines.flowMcpInstance': 'Servidor MCP {number}',
+    'scanEngines.flowMcpDelegated': 'scan_code delegado',
+    'scanEngines.flowMcpLocal': 'Escaneo local',
+    'scanEngines.flowMcpTitleDelegated':
+      '{name} {version}: {count} llamadas a scan_code desde el último latido, enviadas al servidor Controller',
+    'scanEngines.flowMcpTitleLocal':
+      '{name} {version}: {count} llamadas a scan_code desde el último latido, escaneadas por el propio servidor MCP (delegación desactivada)',
     'scanEngines.flowLegendLive':
       'Puntos en movimiento: escaneos en curso. Anillos: huecos ocupados; los detalles del motor incluyen los contadores acumulados.',
   },

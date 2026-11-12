@@ -22,10 +22,10 @@ from ..auth import engine_clients
 from ..config import get_settings, secret_value
 from ..engines.protocol import manifest_digest, rule_digest
 from ..rules import opengrep_rule_store, registry, rules_loader
-from ..storage import controller_instances
+from ..storage import server_instances
+from ..storage.models import ServerKind
 from .deps import Permission, actor_of, engine_identity, require
 from .schemas import (
-    ControllerInstancePublic,
     EngineHeartbeat,
     EngineOpenGrepContents,
     EngineOpenGrepFetch,
@@ -34,6 +34,7 @@ from .schemas import (
     Identity,
     ScanEngineList,
     ScanEnginePublic,
+    ServerInstancePublic,
 )
 
 engine_router = APIRouter(
@@ -121,7 +122,11 @@ def list_scan_engines(_identity: EngineManager) -> ScanEngineList:
         access_token_minutes=settings.scan_engine_access_token_minutes,
         retention_days=settings.scan_engine_retention_days,
         controllers=[
-            ControllerInstancePublic(**row) for row in controller_instances.active_instances()
+            ServerInstancePublic(**row)
+            for row in server_instances.active_instances(ServerKind.CONTROLLER)
+        ],
+        mcp_servers=[
+            ServerInstancePublic(**row) for row in server_instances.active_instances(ServerKind.MCP)
         ],
         engines=[ScanEnginePublic(**row) for row in engine_clients.list_engines()],
     )

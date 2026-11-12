@@ -33,7 +33,13 @@ In HTTP, `security-review-mcp serve`:
 2. checks the TLS settings, loads the rules of the database;
 3. serves `/mcp`. While no token exists, it stays **closed**: a client only reaches the
    enrollment server, unless the server listens on localhost or
-   `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (see [Bearer tokens](../bearer-tokens.md)).
+   `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (see [Bearer tokens](../bearer-tokens.md));
+4. keeps a **heartbeat** in the database: every 5 seconds, and at once (at most once a second)
+   when a `scan_code` call starts or ends, with its host name, its version, whether `scan_code`
+   is delegated to the Controller server, and the most `scan_code` calls it ran at once since
+   the previous heartbeat. The Controller server shows it on the
+   [**Scan engines**](scan-engine.md#administration) page. It deletes it when it stops; a
+   server gone without stopping disappears from the page after 30 seconds.
 
 In stdio, `security-review-mcp local` migrates its local database itself.
 

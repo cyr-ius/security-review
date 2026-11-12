@@ -1779,12 +1779,19 @@ class ScanEnginePublic(BaseModel):
     heartbeat_at: datetime | None = None
 
 
-class ControllerInstancePublic(BaseModel):
-    """A Controller process whose heartbeat is recent."""
+class ServerInstancePublic(BaseModel):
+    """A Controller or MCP server process whose heartbeat is recent."""
 
     id: str
+    # Host name of the process (the pod name in Kubernetes) and its version
+    name: str
+    version: str
     started_at: datetime
     heartbeat_at: datetime
+    # MCP server: scan_code goes to the Controller server, and the most scan_code calls run at
+    # once since its previous heartbeat
+    delegated: bool
+    processing_fragments: int
 
 
 class ScanEngineList(BaseModel):
@@ -1800,5 +1807,8 @@ class ScanEngineList(BaseModel):
     networks: list[str]
     access_token_minutes: int
     retention_days: int
-    controllers: list[ControllerInstancePublic]
+    controllers: list[ServerInstancePublic]
+    # MCP servers of the HTTP transport: the scan_code fragments reach the Controller server
+    # through them
+    mcp_servers: list[ServerInstancePublic]
     engines: list[ScanEnginePublic]
