@@ -1,5 +1,26 @@
 # Changelog
 
+## [12.1.0](https://github.com/cyr-ius/security-review/compare/v12.0.0...v12.1.0) (2026-11-12)
+
+
+### Features
+
+* add an activity diagram to the Scan engines page ([ce94798](https://github.com/cyr-ius/security-review/commit/ce94798b54cf6d830ca5b5cfdbba20159c38c000))
+* add optional scan engines to take the code scans off the controller ([f88898f](https://github.com/cyr-ius/security-review/commit/f88898fe080439b659f5cb15d34dbf78c4e560a7))
+* enroll the scan engines with the controller, without database access ([5cb65b5](https://github.com/cyr-ius/security-review/commit/5cb65b5b01a440c9db51b310352afbe8b1233ad8))
+* give the MCP servers a yellow ring in the activity diagram ([90e882f](https://github.com/cyr-ius/security-review/commit/90e882fcf5f1d53e21b6c5934a7962bbf8d859f5))
+* let a stopping scan engine leave the controller ([33097cb](https://github.com/cyr-ius/security-review/commit/33097cb849d07d2b291261edbb6f23ec572c57fd))
+* review dependency files in security-review prompts ([44e8900](https://github.com/cyr-ius/security-review/commit/44e89003adfe571993632f8a5de6a8c15fdf3298))
+* show the live activity of the scan engines and Controller server processes ([6cf69c5](https://github.com/cyr-ius/security-review/commit/6cf69c593b7d83f741e23c107c0b60380aab12c6))
+* show the MCP servers in the activity diagram of the Scan engines page ([eb93bc9](https://github.com/cyr-ius/security-review/commit/eb93bc952499e4bd9685aa11892ec4ebe7984eea))
+* show the MCP servers in the activity diagram of the Scan engines page ([b7b6d29](https://github.com/cyr-ius/security-review/commit/b7b6d29adce45e83d2a0fc6d772451d3d850200d))
+
+
+### Bug Fixes
+
+* close open findings of the security review ([09b7616](https://github.com/cyr-ius/security-review/commit/09b7616adfc740281708eeb4e51502504655fa5b))
+* issue a scan ticket for the scans the agent asked for only ([d6f444d](https://github.com/cyr-ius/security-review/commit/d6f444df44a901b836505e466d6134285b2f6f24))
+
 ## [12.0.0](https://github.com/cyr-ius/security-review/compare/v11.4.0...v12.0.0) (2026-11-12)
 
 
