@@ -100,6 +100,7 @@ qui les enregistre ou les annule.
 | **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
 | **Base OSV** | État et mise à jour de la base de vulnérabilités, choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
+| **Moteurs de scan** | Les [moteurs de scan](../advanced/architecture/scan-engine.md#administration) enrôlés auprès du serveur Controller (graphe d'activité, version, adresse, dernière activité) et leur révocation (`settings.manage`) |
 | **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
 
 ## Points d'attention

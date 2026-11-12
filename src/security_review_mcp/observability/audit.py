@@ -107,6 +107,13 @@ class AuditAction(StrEnum):
     OPENGREP_RULE_REJECTED = "opengrep_rule.rejected"
     # Single-use ticket of a codebase scan issued to an MCP agent (see scan_tickets)
     SCAN_TICKET_ISSUED = "scan_ticket.issued"
+    # Scan engine enrolled with the shared secret, revoked by an administrator, gone by itself
+    # when it stopped, or deleted after SECREVIEW_SCAN_ENGINE_RETENTION_DAYS without being seen
+    # (see engine_clients)
+    SCAN_ENGINE_ENROLLED = "scan_engine.enrolled"
+    SCAN_ENGINE_REVOKED = "scan_engine.revoked"
+    SCAN_ENGINE_LEFT = "scan_engine.left"
+    SCAN_ENGINE_EXPIRED = "scan_engine.expired"
 
 
 def user_actor(username: str) -> str:

@@ -543,6 +543,71 @@ class ScanTicket(SQLModel, table=True):
     deps_used_at: datetime | None = Field(default=None)
 
 
+class ScanEngine(SQLModel, table=True):
+    """A scan engine (security-review-scan-engine) enrolled with the shared secret of the
+    engines (see auth.engine_clients).
+
+    ``id`` is its OAuth client id; only the SHA-256 digests of its client secret and of its
+    current access token (client_credentials) are kept. Each replica enrolls at its start with
+    the URL where the controller sends it the scans, and sends a heartbeat with its free slots;
+    one not seen for SECREVIEW_SCAN_ENGINE_RETENTION_DAYS is deleted.
+    """
+
+    id: str = Field(primary_key=True, max_length=64)
+    name: str = Field(max_length=200)
+    version: str = Field(max_length=40)
+    # Address the engine enrolled from (as seen by the controller)
+    address: str | None = Field(default=None, max_length=64)
+    # Root URL where the controller sends the scans (an IP of SECREVIEW_SCAN_ENGINE_NETWORKS)
+    url: str = Field(max_length=500)
+    # Free OpenGrep slots of the engine (codebase scans, scan_code fragments), from its heartbeat
+    free_codebase_slots: int = Field(default=0)
+    free_fragment_slots: int = Field(default=0)
+    # Capacity of the engine and what it did since it started, from its heartbeat (Scan engines
+    # page; 0 for an engine that does not report them)
+    codebase_slots: int = Field(default=0)
+    fragment_slots: int = Field(default=0)
+    codebase_scans: int = Field(default=0, sa_type=BigInteger)
+    fragment_scans: int = Field(default=0, sa_type=BigInteger)
+    scanned_files: int = Field(default=0, sa_type=BigInteger)
+    processing_files: int = Field(default=0, sa_type=BigInteger)
+    processing_codebase_scans: int = Field(default=0, sa_type=BigInteger)
+    processing_fragment_scans: int = Field(default=0, sa_type=BigInteger)
+    failed_scans: int = Field(default=0, sa_type=BigInteger)
+    busy_refusals: int = Field(default=0, sa_type=BigInteger)
+    # Last heartbeat: the engine receives scans while it is recent
+    heartbeat_at: datetime | None = Field(default=None, index=True)
+    secret_hash: str = Field(unique=True, index=True, max_length=64)
+    access_token_hash: str | None = Field(default=None, unique=True, index=True, max_length=64)
+    access_expires_at: datetime | None = Field(default=None)
+    enrolled_at: datetime = Field(default_factory=utcnow)
+    last_seen_at: datetime = Field(default_factory=utcnow, index=True)
+
+
+class ServerKind(StrEnum):
+    """Kind of a running server process that keeps a heartbeat in the database."""
+
+    CONTROLLER = "controller"
+    MCP = "mcp"
+
+
+class ServerInstance(SQLModel, table=True):
+    """One running Controller or MCP server process (HTTP transport), visible while its database
+    heartbeat is recent (see server_instances): the activity diagram of the Scan engines page."""
+
+    id: str = Field(primary_key=True, max_length=32)
+    kind: ServerKind = Field(sa_type=String(20), index=True, max_length=20)
+    # Host name of the process (the pod name in Kubernetes) and its version
+    name: str = Field(default="", max_length=200)
+    version: str = Field(default="", max_length=40)
+    started_at: datetime
+    heartbeat_at: datetime = Field(index=True)
+    # MCP server: scan_code is delegated to the Controller server, and the scan_code calls
+    # running now (a gauge)
+    delegated: bool = Field(default=False)
+    processing_fragments: int = Field(default=0)
+
+
 # ── Requested projects (see access_control.request_project) ──────────────────
 
 

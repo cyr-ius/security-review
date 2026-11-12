@@ -21,6 +21,7 @@ import { exports } from './exports';
 import { connectors } from './connectors';
 import { oauth } from './oauth';
 import { opengrepRules } from './opengrep-rules';
+import { scanEngines } from './scan-engines';
 
 /** Messages of every screen; add the catalog of a new screen here. */
 const CATALOGS = [
@@ -46,6 +47,7 @@ const CATALOGS = [
   connectors,
   oauth,
   opengrepRules,
+  scanEngines,
 ] as const;
 
 type KeysOf<C> = C extends { en: Record<infer K, string> } ? K : never;

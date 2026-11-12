@@ -26,6 +26,11 @@ checklists, then names
 the other available checklists, internal domains included, for the agent to fetch with
 `get_review_checklist` when they apply ([details](checklists.md#checklists-in-review-prompts)).
 
+When the code, diff or workspace includes dependency files (manifests, lockfiles, SBOMs),
+`security-review`, `api-security-review` and `configuration-review` also have the agent call
+`scan_dependencies` on each complete file and walk through the `dependencies` checklist, embedded
+when the code names such a file. For a review of the dependencies alone, use `dependency-review`.
+
 ### Report language
 
 `report_language` sets the language of the agent's reply and of the written fields of the

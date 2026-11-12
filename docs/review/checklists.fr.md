@@ -38,11 +38,15 @@ revue, quel que soit le langage :
 
 | Prompt | Checklists intégrées |
 |---|---|
-| `security-review` | Celles de `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` et `node` pour `typescript` et `javascript`, `config` et `cicd` pour les pipelines), puis `api` |
+| `security-review` | Celles de `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` et `node` pour `typescript` et `javascript`, `config` et `cicd` pour les pipelines), puis `api`, plus `dependencies` quand le code cite un fichier de dépendances |
 | `codebase-review` | Celles de `languages`, puis `api`, `config` et `cicd` |
-| `api-security-review` | `api` |
-| `configuration-review` | `config`, plus `cicd` quand les fichiers ressemblent à un pipeline |
+| `api-security-review` | `api`, plus `dependencies` quand le code cite un fichier de dépendances |
+| `configuration-review` | `config`, plus `cicd` quand les fichiers ressemblent à un pipeline et `dependencies` quand ils citent un fichier de dépendances |
 | `dependency-review` | `dependencies` |
+
+Un fichier de dépendances est un manifeste, un lockfile ou un SBOM pris en charge par
+`scan_dependencies` (`pyproject.toml`, `uv.lock`, `package-lock.json`, `pom.xml`...), cité dans
+le code ou le diff, par exemple dans un en-tête `+++ b/web/package-lock.json`.
 
 Les checklists `*` et `company` sont ajoutées à chaque prompt. Les autres domaines, internes compris, sont
 nommés à la fin des checklists : l'agent récupère avec `get_review_checklist` ceux qui

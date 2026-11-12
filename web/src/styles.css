@@ -58,6 +58,13 @@
   --bs-box-shadow-sm: var(--app-shadow);
 
   --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --app-engine-idle: #a8d7b1;
+  --app-codebase-idle: #a7c7ec;
+  --app-fragment-idle: #f5b69d;
+  /* MCP servers on the Scan engines page: yellow */
+  --app-mcp: #d4a20b;
+  --app-mcp-idle: #f2dd8f;
 }
 
 [data-bs-theme='dark'] {
@@ -83,6 +90,12 @@
   --bs-link-hover-color-rgb: 165, 180, 252;
 
   --series-1: #3987e5;
+  --series-2: #d95926;
+  --app-engine-idle: var(--bs-success-border-subtle);
+  --app-codebase-idle: #365d8d;
+  --app-fragment-idle: #895c37;
+  --app-mcp: #e8b923;
+  --app-mcp-idle: #7a6420;
 }
 
 /*

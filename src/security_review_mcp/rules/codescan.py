@@ -13,7 +13,8 @@ from datetime import UTC, datetime
 
 from ..ci_client import detect_language
 from ..config import get_settings
-from ..engines import opengrep
+from ..engines import backend
+from ..engines.local import Source
 from ..reports import sarif, services
 from ..storage.models import (
     SEVERITY_RANK,
@@ -23,9 +24,8 @@ from ..storage.models import (
     ReviewType,
     Severity,
 )
-from . import registry, scanner
+from . import scanner
 
-MAX_MATCHES_PER_FILE = 200
 # Files not scanned listed in the scope of a stored report
 MAX_SKIPPED_IN_SCOPE = 50
 REVIEWER = "security-review-ci scan-code"
@@ -70,7 +70,7 @@ def scan_files(
             f"Too many files ({len(files) + len(skipped)}); the limit is "
             f"{settings.max_scan_files} (SECREVIEW_MAX_SCAN_FILES): exclude some of them"
         )
-    results: list[dict] = []
+    sources: list[Source] = []
     not_scanned = [{"file": path, "reason": reason} for path, reason in skipped]
     for source in files:
         language = detect_language(source.path)
@@ -81,36 +81,18 @@ def scan_files(
             reason = f"larger than {settings.max_scan_file_chars} characters on the controller"
             not_scanned.append({"file": source.path, "reason": reason})
             continue
-        matches, suppressed = registry.scan(source.content, language, MAX_MATCHES_PER_FILE)
-        results.append(
-            {
-                "file": source.path,
-                "language": language,
-                "lines": len(source.content.splitlines()),
-                "matches": matches,
-                "suppressed": suppressed,
-                "truncated": len(matches) >= MAX_MATCHES_PER_FILE,
-            }
-        )
-
-    # OpenGrep runs once per codebase, not once per fragment, and only when explicitly enabled.
-    if settings.opengrep_enabled:
-        opengrep_matches = opengrep.scan_files(
-            [
-                (source.path, source.content)
-                for source in files
-                if len(source.content) <= settings.max_scan_file_chars
-                and detect_language(source.path) is not None
-            ]
-        )
-        by_path = {entry["file"]: entry for entry in results}
-        for path, matches in opengrep_matches.items():
-            entry = by_path.get(path)
-            if entry is None:
-                continue
-            remaining = max(0, MAX_MATCHES_PER_FILE - len(entry["matches"]))
-            entry["matches"].extend(matches[:remaining])
-            entry["truncated"] = entry["truncated"] or len(matches) > remaining
+        sources.append(Source(source.path, language, source.content))
+    # The rules, then OpenGrep when enabled, here or on the scan engines (engines.backend)
+    scanned = backend.scan(sources)
+    results = [
+        {
+            "file": source.path,
+            "language": source.language,
+            "lines": len(source.content.splitlines()),
+            **entry,
+        }
+        for source, entry in zip(sources, scanned["files"], strict=True)
+    ]
 
     by_severity = {s.value: 0 for s in Severity}
     for entry in results:
@@ -154,25 +136,21 @@ _FRAGMENT_NAMES = {
 def scan_content(content: str, language: str) -> dict:
     """Scan one fragment sent by the MCP server (scan_code) with the active rules, then with the
     OpenGrep rules when the engine is enabled and SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS
-    is not 0.
+    is not 0, here or on the scan engines (engines.backend).
 
     Raises:
         ValueError: If the content is above SECREVIEW_MAX_CONTENT_CHARS or the language unknown.
-        opengrep.OpenGrepError: If OpenGrep is enabled with rules but cannot run.
+        opengrep.OpenGrepError: If OpenGrep is enabled with rules but cannot run, or no scan
+            engine scanned the fragment.
     """
     settings = get_settings()
     limit = settings.max_content_chars
     if len(content) > limit:
         raise ValueError(f"Content too large ({len(content)} chars); the limit is {limit}")
     language = scanner.normalize_language(language)
-    matches, suppressed = registry.scan(content, language, MAX_MATCHES_PER_FILE)
-    engines = ["rules"]
-    if settings.opengrep_enabled and settings.opengrep_max_concurrent_fragment_scans:
-        name = _FRAGMENT_NAMES[language]
-        found = opengrep.scan_files([(name, content)], fragment=True).get(name, [])
-        remaining = max(0, MAX_MATCHES_PER_FILE - len(matches))
-        matches.extend(found[:remaining])
-        engines.append("opengrep")
+    scanned = backend.scan([Source(_FRAGMENT_NAMES[language], language, content)], fragment=True)
+    matches, suppressed = scanned["files"][0]["matches"], scanned["files"][0]["suppressed"]
+    engines = scanned["engines"]
     return {
         "language": language,
         "lines_scanned": len(content.splitlines()),

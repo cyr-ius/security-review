@@ -333,7 +333,11 @@ export type AuditAction =
   | 'opengrep_rule.proposed'
   | 'opengrep_rule.approved'
   | 'opengrep_rule.rejected'
-  | 'scan_ticket.issued';
+  | 'scan_ticket.issued'
+  | 'scan_engine.enrolled'
+  | 'scan_engine.revoked'
+  | 'scan_engine.left'
+  | 'scan_engine.expired';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -383,6 +387,10 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'opengrep_rule.approved',
   'opengrep_rule.rejected',
   'scan_ticket.issued',
+  'scan_engine.enrolled',
+  'scan_engine.revoked',
+  'scan_engine.left',
+  'scan_engine.expired',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -1277,4 +1285,65 @@ export type OidcSettingsUpdate = Partial<Record<OidcSettingName, string | boolea
 export interface OidcTestResult {
   success: boolean;
   steps: { name: string; ok: boolean; detail: string }[];
+}
+
+/** A scan engine enrolled with the Controller server (never its secret nor its token). */
+export interface ScanEngine {
+  /** OAuth client id of the engine (eng_...). */
+  id: string;
+  name: string;
+  version: string;
+  address: string | null;
+  /** Where the Controller server sends the scans (an IP address). */
+  url: string;
+  /** Recent heartbeat: the engine receives scans. */
+  active: boolean;
+  free_codebase_slots: number;
+  free_fragment_slots: number;
+  /** OpenGrep slots of each pool (0: the engine does not report them). */
+  codebase_slots: number;
+  fragment_slots: number;
+  /** Since the engine started: scans done, files scanned, scans failed, refused when busy. */
+  codebase_scans: number;
+  fragment_scans: number;
+  scanned_files: number;
+  /** Files currently being processed (not a lifetime counter). */
+  processing_files: number;
+  processing_codebase_scans: number;
+  processing_fragment_scans: number;
+  failed_scans: number;
+  busy_refusals: number;
+  enrolled_at: string;
+  last_seen_at: string;
+  heartbeat_at: string | null;
+}
+
+/** The enrolled scan engines (Scan engines page, settings.manage). */
+export interface ScanEngineList {
+  /** The engines are on (SECREVIEW_SCAN_ENGINE_TOKEN set): they enroll and scan the code. */
+  enabled: boolean;
+  /** When no engine scanned the files: refuse the scan (503) or scan on the Controller server. */
+  fallback: 'refuse' | 'local';
+  /** Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS). */
+  networks: string[];
+  access_token_minutes: number;
+  retention_days: number;
+  controllers: ServerInstance[];
+  /** MCP servers of the HTTP transport: the scan_code fragments reach the Controller server through them. */
+  mcp_servers: ServerInstance[];
+  engines: ScanEngine[];
+}
+
+/** A Controller or MCP server process with a recent database heartbeat. */
+export interface ServerInstance {
+  id: string;
+  /** Host name of the process (the pod name in Kubernetes). */
+  name: string;
+  version: string;
+  started_at: string;
+  heartbeat_at: string;
+  /** MCP server: scan_code goes to the Controller server. */
+  delegated: boolean;
+  /** MCP server: the most scan_code calls run at once since its previous heartbeat. */
+  processing_fragments: number;
 }

@@ -24,7 +24,7 @@ machines keep a fixed role ([tokens](tokens.md)).
 | `standards.read` | Read the development standards, and export them | |
 | `standards.manage` | Edit the development standards (includes `standards.read`) | |
 | `tokens.manage` | Manage the project tokens | |
-| `settings.manage` | Change the general settings, the outgoing proxy and the OSV database | |
+| `settings.manage` | Change the general settings, the outgoing proxy and the OSV database; list and revoke the scan engines | |
 | `users.manage` | Manage the users and their roles, the roles, the OIDC mappings and the OIDC login | |
 | `audit.read` | Read the audit log | |
 | `projects.create` | [Create a project](projects.md#creating-a-project) and approve the projects requested by the agents | |

@@ -62,6 +62,16 @@ def subprocess_env(home: str) -> dict[str, str]:
     return env
 
 
+def free_slots() -> tuple[int, int]:
+    """Free OpenGrep slots of this process: codebase scans and scan_code fragments."""
+    settings = get_settings()
+    with _running_lock:
+        return (
+            max(0, settings.opengrep_max_concurrent_scans - _running["codebase"]),
+            max(0, settings.opengrep_max_concurrent_fragment_scans - _running["fragment"]),
+        )
+
+
 @contextmanager
 def _scan_slot(limit: int, pool: str = "codebase") -> Iterator[None]:
     """Hold one of the ``limit`` scan slots of ``pool``, refusing the scan when none is free."""
@@ -182,9 +192,12 @@ def _normalize_result(
 
 
 def scan_files(
-    files: list[tuple[str, str]], fragment: bool = False
+    files: list[tuple[str, str]], fragment: bool = False, rules_dir: Path | None = None
 ) -> dict[str, list[dict[str, Any]]]:
     """Run OpenGrep on bounded source files and return matches indexed by relative path.
+
+    The rules are those of ``rules_dir`` (a scan engine passes its copy of the rules of the
+    controller), SECREVIEW_OPENGREP_RULES_DIR by default.
 
     A ``fragment`` of scan_code takes a slot of SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS,
     so that the agents never use the slots of the codebase scans of the pipelines.
@@ -198,7 +211,7 @@ def scan_files(
     settings = get_settings()
     if not settings.opengrep_enabled:
         return {}
-    rules_dir = Path(settings.opengrep_rules_dir).resolve()
+    rules_dir = (rules_dir or Path(settings.opengrep_rules_dir)).resolve()
     if not rules_dir.is_dir() or not any(rules_dir.rglob("*.y*ml")):
         return {}
     binary = shutil.which(settings.opengrep_binary)

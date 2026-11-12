@@ -124,8 +124,9 @@ The agent reads the code, relies on the checklists and saves its report with
 `save_security_report`.
 Read and triage it in the web interface.
 
-This set-up works from the machine that runs the containers only: the URLs are on `127.0.0.1`,
-in plain HTTP, which the OAuth login accepts on localhost only. Before the team uses it, enable
+This set-up is a test on the machine that runs the containers: the URLs are on `127.0.0.1`,
+in plain HTTP, which the OAuth login accepts on localhost only. The ports are still open on every
+interface of the machine, in plain HTTP: do not run it on a shared network. Before the team uses it, enable
 HTTPS and give the public URLs of the two servers: see [Deploying the server](getting-started/deploy.md)
 and [OAuth login of MCP clients](advanced/mcp-oauth.md#enabling-it).
 

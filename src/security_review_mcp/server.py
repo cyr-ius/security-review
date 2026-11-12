@@ -1,6 +1,7 @@
 """MCP server exposing security-review prompts, tools and stored reports."""
 
 import argparse
+import contextlib
 import functools
 import getpass
 import logging
@@ -36,6 +37,7 @@ from .deps import advisories, depscan
 from .observability import audit
 from .reports import sarif, services, trends
 from .rules import opengrep_proposals, opengrep_rule_store, registry, remote_scan, scanner
+from .storage import server_instances
 from .storage.database import SchemaError, check_db, init_db
 from .storage.models import (
     MAX_AUTHOR_CHARS,
@@ -52,6 +54,7 @@ from .storage.models import (
     FindingStatus,
     ReviewType,
     SecurityReportPublic,
+    ServerKind,
     Severity,
 )
 from .storage.project_names import ProjectName
@@ -274,6 +277,21 @@ def _caller_write_projects(ctx: Context) -> frozenset[str] | None:
     http_server.write_scope); with stdio, there is no restriction.
     """
     return http_server.write_scope(_auth_state(ctx))
+
+
+# Heartbeat of this MCP server in the database (HTTP transport only, see server_instances)
+_heartbeat: server_instances.ServerHeartbeat | None = None
+
+
+def _fragment_activity() -> contextlib.AbstractContextManager[None]:
+    """Count a scan_code call in the heartbeat of this MCP server (nothing with stdio)."""
+    heartbeat = _heartbeat
+    return heartbeat.processing() if heartbeat is not None else contextlib.nullcontext()
+
+
+def _scan_code_delegated() -> bool:
+    """True when scan_code goes to the Controller server (for the callers with a token)."""
+    return bool(get_settings().mcp_scan_controller_url or app_settings.mcp_scan_controller_url())
 
 
 def _caller_authorization(ctx: Context) -> str | None:
@@ -553,32 +571,34 @@ def scan_code(
     if len(content) > limit:
         raise ValueError(f"Content too large ({len(content)} chars); the limit is {limit}")
     language = scanner.normalize_language(language)
+    # Counted in the heartbeat of this MCP server (Scan engines page of the Controller server).
     # Delegated to the Controller server when configured (its rules and OpenGrep rules), with the
     # token of the caller: SECREVIEW_MCP_SCAN_CONTROLLER_URL, else the controller URL when the
     # delegation is turned on in the web interface; scanned here with stdio or when the Controller
     # server fails
-    result = controller_error = None
-    authorization = _caller_authorization(ctx)
-    controller_url = (
-        settings.mcp_scan_controller_url or app_settings.mcp_scan_controller_url()
-        if authorization
-        else None
-    )
-    if controller_url:
-        try:
-            result = remote_scan.scan(
-                controller_url,
-                authorization,
-                content,
-                language,
-                settings.mcp_scan_timeout_seconds,
-            )
-        except remote_scan.RemoteScanError as exc:
-            logger.warning("Delegated scan failed, scanning locally: %s", exc)
-            controller_error = f"Scanned by the MCP server only: {exc}"
-    if result is None:
-        matches, suppressed = registry.scan(content, language)
-        result = {"matches": matches, "suppressed": suppressed, "engines": ["rules"]}
+    with _fragment_activity():
+        result = controller_error = None
+        authorization = _caller_authorization(ctx)
+        controller_url = (
+            settings.mcp_scan_controller_url or app_settings.mcp_scan_controller_url()
+            if authorization
+            else None
+        )
+        if controller_url:
+            try:
+                result = remote_scan.scan(
+                    controller_url,
+                    authorization,
+                    content,
+                    language,
+                    settings.mcp_scan_timeout_seconds,
+                )
+            except remote_scan.RemoteScanError as exc:
+                logger.warning("Delegated scan failed, scanning locally: %s", exc)
+                controller_error = f"Scanned by the MCP server only: {exc}"
+        if result is None:
+            matches, suppressed = registry.scan(content, language)
+            result = {"matches": matches, "suppressed": suppressed, "engines": ["rules"]}
     return {
         "language": language,
         "lines_scanned": len(content.splitlines()),
@@ -915,9 +935,9 @@ def propose_opengrep_rule(
     """Propose an OpenGrep rule that detects a vulnerable pattern found during a review.
 
     The rule is not installed: a person validates it with OpenGrep and approves or rejects it
-    in the web interface. A proposal with the id of a pending one replaces it. A duplicate is
-    refused: an installed rule id, or the same detection as an installed or default rule or as
-    another pending proposal (the error names it).
+    in the web interface. A proposal with the id of a pending one of the same project replaces
+    it. A duplicate is refused: an installed rule id, or the same detection as an installed or
+    default rule or as another pending proposal (the error names it).
     """
     services.check_project_scope(_caller_projects(ctx), project)
     writable = _caller_write_projects(ctx)
@@ -1212,10 +1232,11 @@ def start_codebase_scan(
 
     The files go from the workstation to the Controller server through `security-review-ci`
     (run with uvx, nothing to install), with a single-use ticket valid a few minutes: one code
-    scan and one dependency scan. The scans are saved as reports of the project; the code scan
-    prints a short summary of its leads (files and rules), which tells you what to read first,
-    and the dependency scan finds the manifests and lockfiles itself and prints the vulnerable
-    packages. Needs the HTTP MCP server with the delegation of scan_code turned on.
+    scan and one dependency scan (only the scan of `scope` when it is not `all`). The scans
+    are saved as reports of the project; the code scan prints a short summary of its leads
+    (files and rules), which tells you what to read first, and the dependency scan finds the
+    manifests and lockfiles itself and prints the vulnerable packages. Needs the HTTP MCP
+    server with the delegation of scan_code turned on.
     """
     settings = get_settings()
     allowed = _caller_write_projects(ctx)
@@ -1236,7 +1257,7 @@ def start_codebase_scan(
         )
     try:
         ticket = remote_scan.request_ticket(
-            controller_url, authorization, project, settings.mcp_scan_timeout_seconds
+            controller_url, authorization, project, settings.mcp_scan_timeout_seconds, scope
         )
     except remote_scan.RemoteScanError as exc:
         raise ValueError(f"The Controller server gave no scan ticket: {exc}") from None
@@ -1610,16 +1631,22 @@ def serve(argv: list[str]) -> None:
     )
     if oauth_resource() is not None:
         logger.info("OAuth login of the MCP clients served by the controller")
-    http_server.serve(
-        app,
-        args.host,
-        args.port,
-        store,
-        tls,
-        settings.log_level,
-        settings.forwarded_allow_ips,
-        allow_open=allow_open,
-    )
+    global _heartbeat
+    _heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, _scan_code_delegated)
+    try:
+        _heartbeat.start()
+        http_server.serve(
+            app,
+            args.host,
+            args.port,
+            store,
+            tls,
+            settings.log_level,
+            settings.forwarded_allow_ips,
+            allow_open=allow_open,
+        )
+    finally:
+        _heartbeat.stop()
 
 
 if __name__ == "__main__":

@@ -58,6 +58,7 @@ from . import (
     ci_client_routes,
     ci_routes,
     connector_routes,
+    engine_routes,
     oauth_routes,
     opengrep_routes,
     report_routes,
@@ -141,6 +142,7 @@ for _domain in (
     access_routes,
     connector_routes,
     oauth_routes,
+    engine_routes,
 ):
     api_router.include_router(_domain.router)
 
@@ -330,6 +332,8 @@ def create_app(
     app.include_router(api_router)
     app.include_router(ci_routes.router)
     app.include_router(scan_routes.router)
+    # Outside api_router: the access token of a scan engine reaches these routes only
+    app.include_router(engine_routes.engine_router)
     if settings.ci_client_download_enabled:
         app.include_router(ci_client_routes.router)
 

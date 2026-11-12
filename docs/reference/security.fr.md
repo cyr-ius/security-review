@@ -162,7 +162,18 @@
   [événements d'audit](../advanced/audit-log.md#envoi-vers-syslog) à ce serveur syslog (UDP
   ou TCP en clair, TLS avec vérification du certificat et du nom d'hôte du serveur, ou socket
   Unix ; pas de proxy) ; les événements ne contiennent aucun secret (détails masqués), et le
-  serveur MCP ne se connecte toujours nulle part.
+  serveur MCP ne se connecte toujours nulle part. Avec `SECREVIEW_SCAN_ENGINE_TOKEN` (absente par
+  défaut), le serveur Controller envoie les fichiers des scans de code aux
+  [moteurs de scan](../advanced/architecture/scan-engine.md#securite) enrôlés avec un secret
+  partagé, uniquement à l'URL que chacun a donnée à son enrôlement, une adresse IP de
+  `SECREVIEW_SCAN_ENGINE_NETWORKS` (réseaux privés par défaut), sans proxy ni redirection, réponse bornée et validée ; un moteur refuse
+  toute requête sans le secret avant de la lire et n'écrit rien d'autre que sa copie des règles
+  OpenGrep. Un moteur ne lit aucune base de données : il s'enrôle auprès du serveur Controller à
+  `SECREVIEW_CONTROLLER_URL` avec le même secret, obtient son propre client OAuth
+  (`client_credentials`, seules les empreintes SHA-256 sont gardées, révocable dans la page
+  **Moteurs de scan**) et lit les règles avec un jeton d'accès de courte durée, de rôle `engine`,
+  qui n'atteint que `/api/v1/engine/*` ; vers cette URL uniquement, sans proxy ni redirection,
+  réponses bornées et validées : c'est sa seule connexion sortante.
 - **Administrateur initial** : créé par le serveur Controller à son premier démarrage avec un mot de
   passe aléatoire que personne ne connaît, jamais journalisé ni passé par une variable ; le seul
   moyen d'obtenir un mot de passe est `security-review-controller user reset-password`, lancé par
@@ -312,7 +323,8 @@
   Controller n'émet un ticket qu'à un jeton `mcp` ou `admin` qui peut enregistrer des rapports
   sur le projet (`reports.write`), au plus 20 valides par jeton. Seule son empreinte SHA-256 est
   conservée ; il n'atteint que le scan du code et le scan des dépendances de son projet, **une
-  fois chacun** (un scan qui échoue avant d'enregistrer quoi que ce soit le rend), jusqu'à son
+  fois chacun** (seulement le scan demandé avec `scope` `code` ou `deps` ; un scan qui échoue
+  avant d'enregistrer quoi que ce soit le rend), jusqu'à son
   expiration (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes par défaut), avec les droits du
   jeton ou de l'utilisateur qui l'a demandé, relus à chaque usage (un jeton révoqué, ou un
   utilisateur qui a perdu `reports.write`, l'invalide). Le ticket passe par le contexte du

@@ -21,7 +21,13 @@ from security_review_mcp.server import (
     mcp,
     set_enrollment_web_url,
 )
-from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
+from security_review_mcp.storage import server_instances
+from security_review_mcp.storage.models import (
+    FindingCreate,
+    ReviewType,
+    ServerKind,
+    Severity,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -80,6 +86,15 @@ async def test_security_review_prompt_embeds_code_and_checklist():
         ("codebase-review", {"languages": "java"}, {"JV-01", "CFG-01", "CI-01"}, {"PY-01"}),
         # Only a known language labels the code fence: free text cannot break out of it
         ("security-review", {"language": "py\n```", "code": "a"}, {"```python\na\n```"}, set()),
+        # A dependency file in the diff adds the dependencies checklist, plain code does not
+        (
+            "security-review",
+            {"language": "python", "code": '+++ b/web/package-lock.json\n+  "x": 1'},
+            {"SC-01", "PY-01", "scan_dependencies"},
+            set(),
+        ),
+        ("security-review", {"language": "python", "code": "x = 1"}, set(), {"SC-01"}),
+        ("api-security-review", {"code": "diff --git a/uv.lock b/uv.lock"}, {"SC-01"}, set()),
     ],
 )
 async def test_review_prompts_select_checklists_by_language(prompt, args, included, excluded):
@@ -402,8 +417,12 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     sent = []
     opengrep_match = {"rule_id": "OPENGREP:secreview.python.shell", "line": 1}
 
+    # Heartbeat of the MCP server (HTTP transport): the calls running are counted
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, server._scan_code_delegated)
+    monkeypatch.setattr(server, "_heartbeat", heartbeat)
+
     def controller(url, authorization, text, language, timeout):
-        sent.append((url, authorization, language))
+        sent.append((url, authorization, language, heartbeat.activity()["processing_fragments"]))
         if len(sent) > 1:
             raise server.remote_scan.RemoteScanError("the controller answered HTTP 503")
         return {"matches": [opengrep_match], "suppressed": [], "engines": ["rules", "opengrep"]}
@@ -422,7 +441,11 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
         failed = json.loads(text_of(await client.call_tool("scan_code", content)))
 
     assert [url for url, *_ in sent] == ["https://sr.example", "http://controller:8080"]
-    assert sent[0][1:] == ("Bearer agent-token", "python")
+    assert sent[0][1:] == ("Bearer agent-token", "python", 1)
+    # Shown on the Scan engines page: delegated, with the calls run since the last heartbeat
+    heartbeat.beat()
+    [instance] = server_instances.active_instances(ServerKind.MCP)
+    assert (instance["delegated"], instance["processing_fragments"]) == (True, 1)
     assert (alone["engines"], alone["controller_error"]) == (["rules"], None)
     assert delegated["engines"] == ["rules", "opengrep"]
     assert delegated["matches"] == [opengrep_match]
@@ -434,8 +457,8 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
 async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):
     sent = []
 
-    def controller(url, authorization, project, timeout):
-        sent.append((url, authorization, project))
+    def controller(url, authorization, project, timeout, scope):
+        sent.append((url, authorization, project, scope))
         return {
             "ticket": "secreview_scan_abc",
             "project": project,
@@ -465,7 +488,9 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
         )
 
     assert local.is_error and "delegation of scan_code" in text_of(local)
-    assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api")
+    assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api", "all")
+    # The ticket of a dependency review opens the dependency scan only
+    assert sent[2][3] == "deps"
     assert unsafe.is_error and "unsafe in a shell" in text_of(unsafe)
     command = result["scan_code_command"]
     # The ticket goes on stdin, never as an argument
@@ -1198,6 +1223,12 @@ CONTROLLER_MODULES = (
     "security_review_mcp.connectors",
     "security_review_mcp.update_check",
     "security_review_mcp.web_api",
+    "security_review_mcp.engines.remote",
+    "security_review_mcp.engines.worker",
+    "security_review_mcp.engines.enrollment",
+    "security_review_mcp.engines.controller_client",
+    "security_review_mcp.engines.rule_sync",
+    "security_review_mcp.auth.engine_clients",
 )
 
 

@@ -39,6 +39,7 @@ scrape_configs:
 | `secreview_advisories` | | Avis de la base |
 | `secreview_advisory_last_update_timestamp_seconds` | | Fin du dernier téléchargement OSV réussi (absente avant le premier) |
 | `secreview_auth_rejections_total` | `reason` | Requêtes rejetées par l'authentification du processus qui répond, depuis son démarrage : `invalid_token`, `token_expired`, `insufficient_scope` |
+| `secreview_scan_engine_requests_total` | `outcome` | Scans envoyés aux [moteurs de scan](../advanced/architecture/scan-engine.md) par le processus qui répond, depuis son démarrage : `scanned`, `busy`, `unavailable` (refusé), `fallback` (scanné par le serveur Controller), `refused` (fichiers au-delà des limites du moteur) |
 
 Toutes les valeurs sauf `secreview_auth_rejections_total` viennent de la base. Les métriques
 contiennent des nombres et des noms de projets, jamais un finding, un label de jeton ou un

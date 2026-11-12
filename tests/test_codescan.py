@@ -9,6 +9,7 @@ import pytest
 from mcp.client import Client
 
 from security_review_mcp.config import get_settings
+from security_review_mcp.engines import opengrep
 from security_review_mcp.reports import services
 from security_review_mcp.rules import codescan, rule_store
 from security_review_mcp.rules.codescan import SourceFile
@@ -57,12 +58,12 @@ def test_scan_content_adds_the_opengrep_matches_of_the_fragment(monkeypatch):
     scanned: list = []
     opengrep_match = {"rule_id": "OPENGREP:secreview.python.eval", "line": 1}
 
-    def fake_opengrep(files, fragment):
+    def fake_opengrep(files, fragment, rules_dir=None):
         assert fragment  # in the slots of the fragments, not of the pipelines
         scanned.extend(files)
         return {files[0][0]: [opengrep_match]}
 
-    monkeypatch.setattr(codescan.opengrep, "scan_files", fake_opengrep)
+    monkeypatch.setattr(opengrep, "scan_files", fake_opengrep)
 
     result = codescan.scan_content(FILES[0].content, "py")
 

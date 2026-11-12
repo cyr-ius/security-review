@@ -17,10 +17,12 @@ from . import __version__, app_settings, cli, connectors, http_server, web_api
 from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
+from .engines import backend as scan_engines
 from .observability import audit_syslog
 from .rules import opengrep_rule_store, registry
-from .storage import retention
+from .storage import retention, server_instances
 from .storage.database import SchemaError, init_db
+from .storage.models import ServerKind
 
 logger = logging.getLogger("security_review_mcp.controller")
 
@@ -33,6 +35,7 @@ commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
   db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
   token        manage the bearer tokens
+  engine       list or revoke the enrolled scan engines
   user         manage the web users (local and OIDC) and their roles
   role         list the roles (with their permissions) and the OIDC mappings
   project      list, approve or reject the projects requested by an enrollment
@@ -150,6 +153,11 @@ def serve(argv: list[str]) -> None:
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
+    if settings.scan_engine_token is not None:
+        logger.info(
+            "Scan engines on: they enroll here and scan the code (fallback: %s)",
+            settings.scan_engine_fallback,
+        )
     oidc_login = web_app.state.oidc.current()
     updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
     if updater:
@@ -177,7 +185,9 @@ def serve(argv: list[str]) -> None:
     )
     if dispatcher:
         dispatcher.start()
+    controller_heartbeat = server_instances.ServerHeartbeat(ServerKind.CONTROLLER)
     try:
+        controller_heartbeat.start()
         http_server.serve(
             http_server.build_controller_app(
                 web_app,
@@ -185,6 +195,7 @@ def serve(argv: list[str]) -> None:
                 web_users.SessionVerifier(signer),
                 require_auth=oidc_login is not None,
                 settings=settings,
+                engine_routes=scan_engines.engine_routes(settings),
             ),
             args.host,
             args.port,
@@ -194,6 +205,7 @@ def serve(argv: list[str]) -> None:
             settings.forwarded_allow_ips,
         )
     finally:
+        controller_heartbeat.stop()
         if updater:
             updater.stop()
         if pruner:

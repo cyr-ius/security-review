@@ -1,11 +1,10 @@
 """Command line of the administrators (no MCP client or agent needed).
 
 ``security-review-controller`` runs ``db``, ``advisories``, ``rules``, ``opengrep``, ``token``,
-``user``, ``role``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The code and dependency
-scans of a pipeline are run by
-``security-review-ci`` (see ci_client), which sends the files to the controller. Exit codes
-follow the same convention everywhere: 0 success, 1 blocked (findings found, schema not up to
-date), 2 usage or data error.
+``engine``, ``user``, ``role``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The code and
+dependency scans of a pipeline are run by ``security-review-ci`` (see ci_client), which sends
+the files to the controller. Exit codes follow the same convention everywhere: 0 success,
+1 blocked (findings found, schema not up to date), 2 usage or data error.
 """
 
 import argparse
@@ -183,6 +182,37 @@ def token_command(argv: list[str]) -> int:
                     "SECREVIEW_ALLOW_UNAUTHENTICATED)"
                 )
                 print(json.dumps({"warning": warning}), file=sys.stderr)
+    except ValueError as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
+# ── engine ───────────────────────────────────────────────────────────────────
+
+
+def engine_command(argv: list[str]) -> int:
+    """Run ``security-review-controller engine``: list and revoke the enrolled scan engines."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-controller engine",
+        description="List and revoke the scan engines enrolled with the shared secret "
+        "SECREVIEW_SCAN_ENGINE_TOKEN (never their secret or token).",
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    actions.add_parser("list", help="list the enrolled scan engines, the most recently seen first")
+    revoker = actions.add_parser(
+        "revoke", help="revoke a scan engine: its access token stops working at once"
+    )
+    revoker.add_argument("engine", help="engine id (client id, eng_...)")
+    args = parser.parse_args(argv)
+    from .auth import engine_clients
+
+    try:
+        init_db()
+        if args.action == "list":
+            result: object = engine_clients.list_engines()
+        else:
+            result = engine_clients.revoke_engine(args.engine, audit.CLI_ACTOR)
     except ValueError as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
@@ -650,6 +680,7 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "rules": rules_command,
     "opengrep": opengrep_command,
     "token": token_command,
+    "engine": engine_command,
     "audit": audit_command,
     "user": user_command,
     "role": role_command,

@@ -15,6 +15,7 @@ from .. import app_settings, proxy, standards
 from ..auth import access_control, token_store, web_users
 from ..config import CONTROLLER_URL_MAX_CHARS, MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..connectors import api as connectors_api
+from ..engines import protocol as engine_protocol
 from ..http_server import Role
 from ..observability import audit_syslog
 from ..reports import services
@@ -509,6 +510,8 @@ class ScanTicketRequest(BaseModel):
     """Project of a codebase scan started by the MCP tool start_codebase_scan."""
 
     project: str = Field(min_length=1, max_length=200)
+    # Scans the ticket opens: both, or the code or dependency scan only
+    scope: Literal["all", "code", "deps"] = "all"
 
 
 class ScanTicketResult(BaseModel):
@@ -1733,3 +1736,79 @@ class OpenGrepRuleRejection(BaseModel):
     """Body of POST /opengrep/proposals/{id}/reject: an optional reason."""
 
     reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+
+
+# ── Scan engines ─────────────────────────────────────────────────────────────
+
+# Answers of the routes read by the scan engines (their models are shared with the engines,
+# which load no module of the controller)
+EngineRuleSet = engine_protocol.EngineRuleSet
+EngineOpenGrepManifest = engine_protocol.RuleManifest
+EngineOpenGrepFetch = engine_protocol.RuleFetch
+EngineOpenGrepContents = engine_protocol.RuleContents
+EngineHeartbeat = engine_protocol.EngineHeartbeat
+
+
+class ScanEnginePublic(BaseModel):
+    """A scan engine enrolled with the controller (never its secret nor its token)."""
+
+    id: str
+    name: str
+    version: str
+    address: str | None = None
+    # Where the controller sends the scans
+    url: str
+    # True while its heartbeat is recent: it receives scans
+    active: bool
+    free_codebase_slots: int
+    free_fragment_slots: int
+    # OpenGrep slots of each pool (0: the engine does not report them)
+    codebase_slots: int = 0
+    fragment_slots: int = 0
+    # Since the engine started: scans done, files scanned, scans failed, scans refused when busy
+    codebase_scans: int = 0
+    fragment_scans: int = 0
+    scanned_files: int = 0
+    processing_files: int = 0
+    processing_codebase_scans: int = 0
+    processing_fragment_scans: int = 0
+    failed_scans: int = 0
+    busy_refusals: int = 0
+    enrolled_at: datetime
+    last_seen_at: datetime
+    heartbeat_at: datetime | None = None
+
+
+class ServerInstancePublic(BaseModel):
+    """A Controller or MCP server process whose heartbeat is recent."""
+
+    id: str
+    # Host name of the process (the pod name in Kubernetes) and its version
+    name: str
+    version: str
+    started_at: datetime
+    heartbeat_at: datetime
+    # MCP server: scan_code goes to the Controller server, and the most scan_code calls run at
+    # once since its previous heartbeat
+    delegated: bool
+    processing_fragments: int
+
+
+class ScanEngineList(BaseModel):
+    """The enrolled scan engines and how the controller uses them."""
+
+    # True when the engines are on (SECREVIEW_SCAN_ENGINE_TOKEN set): they enroll, and the code
+    # scans go to the active ones
+    enabled: bool
+    # When no engine scanned the files: refuse the scan (503) or scan on the controller
+    # (SECREVIEW_SCAN_ENGINE_FALLBACK)
+    fallback: Literal["refuse", "local"]
+    # Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS)
+    networks: list[str]
+    access_token_minutes: int
+    retention_days: int
+    controllers: list[ServerInstancePublic]
+    # MCP servers of the HTTP transport: the scan_code fragments reach the Controller server
+    # through them
+    mcp_servers: list[ServerInstancePublic]
+    engines: list[ScanEnginePublic]

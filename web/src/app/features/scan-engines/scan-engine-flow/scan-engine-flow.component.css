@@ -1,0 +1,255 @@
+/* The diagram shrinks with the card, never past its natural size (1 unit = 1px, centered);
+   below its readable size the card scrolls sideways */
+.flow {
+  --engine-idle-color: var(--app-engine-idle);
+  --codebase-idle-color: var(--app-codebase-idle);
+  --fragment-idle-color: var(--app-fragment-idle);
+  --mcp-color: var(--app-mcp);
+  --mcp-idle-color: var(--app-mcp-idle);
+  overflow-x: auto;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  margin-inline: auto;
+  height: auto;
+}
+
+/* Links: neutral to the engines, in the hue of their pool from the sources */
+.link {
+  fill: none;
+  stroke: var(--bs-secondary-color);
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.link-codebase {
+  stroke: var(--series-1);
+  opacity: 0.8;
+}
+
+.link-fragment {
+  stroke: var(--series-2);
+  opacity: 0.8;
+}
+
+.link.inactive {
+  stroke-dasharray: 4 6;
+  opacity: 0.3;
+}
+
+.link.idle {
+  stroke: var(--engine-idle-color);
+  opacity: 0.8;
+}
+
+.link-codebase.idle {
+  stroke: var(--codebase-idle-color);
+}
+
+.link-fragment.idle {
+  stroke: var(--fragment-idle-color);
+}
+
+/* A scan running now; 2px surface ring so the dot stays visible on its link */
+.dot {
+  stroke: var(--bs-body-bg);
+  stroke-width: 2;
+}
+
+.dot-codebase {
+  fill: var(--series-1);
+}
+
+.dot-fragment {
+  fill: var(--series-2);
+}
+
+/* A heartbeat: a short dash runs once along the link, from the engine (end of the path, whose
+   length is 100) to the Controller server, which pulses when it arrives */
+.beat {
+  fill: none;
+  stroke: var(--bs-success);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 8 200;
+  stroke-dashoffset: 8;
+  animation: beat 1.4s ease-in-out forwards;
+}
+
+@keyframes beat {
+  from {
+    stroke-dashoffset: -92;
+  }
+  to {
+    stroke-dashoffset: 8;
+  }
+}
+
+.beat-ring {
+  fill: none;
+  stroke: var(--bs-success);
+  stroke-width: 3;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: beat-ring 1s ease-out forwards;
+}
+
+.beat-ring-controller {
+  stroke: var(--bs-purple);
+  animation: beat-ring 1s ease-out forwards;
+}
+
+.beat-ring-mcp {
+  stroke: var(--mcp-color);
+}
+
+.beat-ring-late {
+  animation-delay: 1.3s;
+}
+
+@keyframes beat-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot,
+  .beat,
+  .beat-ring {
+    display: none;
+  }
+}
+
+.surface {
+  fill: var(--bs-body-bg);
+}
+
+.ring {
+  fill: none;
+}
+
+.ring-track {
+  stroke: var(--bs-border-color);
+}
+
+.node.idle .ring-track {
+  stroke: var(--engine-idle-color);
+}
+
+.node.source-codebase.idle .ring-track {
+  stroke: var(--codebase-idle-color);
+}
+
+.node.source-fragment.idle .ring-track {
+  stroke: var(--fragment-idle-color);
+}
+
+/* An MCP server: yellow ring, pale while no scan_code call runs */
+.node.mcp .ring-track {
+  stroke: var(--mcp-idle-color);
+}
+
+.node.mcp .ring-track.ring-mcp {
+  stroke: var(--mcp-color);
+}
+
+.ring-codebase {
+  stroke: var(--series-1);
+}
+
+.ring-fragment {
+  stroke: var(--series-2);
+}
+
+/* An engine without a recent heartbeat recedes, and says so in its label */
+.node.inactive {
+  opacity: 0.4;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--bs-body-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.content .bi {
+  font-size: 1.25rem;
+}
+
+.value {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.detail {
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+}
+
+.detail.failed {
+  color: var(--bs-danger-text-emphasis);
+}
+
+.label {
+  fill: var(--bs-body-color);
+  font-size: 13px;
+  text-anchor: middle;
+}
+
+.label.detail {
+  fill: var(--bs-secondary-color);
+  font-size: 11px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.25rem;
+  vertical-align: -0.1em;
+  border-radius: 50%;
+}
+
+.swatch-codebase {
+  background: var(--series-1);
+}
+
+.swatch-fragment {
+  background: var(--series-2);
+}
+
+.swatch-engine-idle {
+  background: var(--engine-idle-color);
+}
+
+.swatch-heartbeat {
+  background: var(--bs-success);
+}
+
+.swatch-controller-heartbeat {
+  background: var(--bs-purple);
+}
+
+.swatch-mcp {
+  background: var(--mcp-color);
+}
+
+.legend {
+  margin-top: 0.5rem;
+}

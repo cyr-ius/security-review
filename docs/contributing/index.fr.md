@@ -23,6 +23,7 @@ Dans VS Code (`.vscode/`) :
 | Configuration de `launch.json` | Rôle |
 |---|---|
 | **Controller (debug: FastAPI + Angular)** | Serveur Controller sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud de la page, redémarrage du serveur Controller à chaque enregistrement dans `src/` (`scripts/dev_reload.py`), migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage. Pour rester connecté entre les redémarrages, définissez `SECREVIEW_SECRET_KEY` dans votre `.env` (ignoré par git), par exemple avec la sortie de `openssl rand -hex 32` |
+| **Controller + scan engine (debug)** / **Scan engine (debug, port 8090)** | Serveur Controller sur le port 8080 avec un [moteur de scan](../advanced/architecture/scan-engine.md) sur le port 8090 sous le débogueur, ou le moteur seul (le serveur Controller doit tourner). Les deux lisent le secret partagé `SECREVIEW_SCAN_ENGINE_TOKEN` dans votre `.env` (`openssl rand -hex 32`), qui envoie aussi les scans de code du serveur Controller aux moteurs ; le moteur garde ses règles OpenGrep dans `.venv/var/lib/secreview/scan-engine/` |
 | **MCP server (debug, port 8000)** | Lance la tâche **Database upgrade**, puis le serveur MCP HTTP sous le débogueur |
 | **Controller CLI (prompt for arguments)** | Une commande du serveur Controller (`db status`, `token list`…) sous le débogueur |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` avec rechargement à chaud, ouvre le site dans le navigateur |
@@ -33,6 +34,7 @@ Dans VS Code (`.vscode/`) :
 | **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
 | **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le serveur Controller, ou `ng serve` avec `/api` redirigé vers le port 8080 (arrêté avec le débogueur par **Web UI: stop dev server**) |
+| **Scan engine (port 8090)** | `security-review-scan-engine` sans débogueur, mêmes réglages que la configuration de lancement |
 | **Docker: compose up** / **down** | Pile `docker-compose.yml` de l'image, avec sa propre base PostgreSQL (mêmes ports 8000 et 8080 : arrêtez les configurations de debug avant) |
 
 ### Devcontainer
@@ -145,6 +147,16 @@ src/security_review_mcp/
 │   ├── audit.py           # journal d'audit : événements des décisions de triage, propositions, jetons et demandes de projet
 │   ├── audit_syslog.py    # envoi des événements d'audit vers syslog par le serveur Controller (facultatif)
 │   └── metrics.py         # métriques Prometheus du serveur Controller (/metrics)
+├── engines/       # où tournent les scans : OpenGrep et les moteurs de scan facultatifs
+│   ├── opengrep.py        # sous-processus OpenGrep : espace de travail, créneaux, correspondances normalisées
+│   ├── local.py           # règles puis OpenGrep sur des fichiers bornés, dans le processus
+│   ├── backend.py         # scan local ou moteurs enrôlés actifs, le plus libre d'abord, repli
+│   ├── remote.py          # client des moteurs de scan (serveur Controller uniquement)
+│   ├── protocol.py        # messages entre le serveur Controller et les moteurs, secret partagé
+│   ├── enrollment.py      # enrôlement des moteurs et leurs jetons OAuth (serveur Controller uniquement)
+│   ├── controller_client.py # client du serveur Controller sur un moteur : enrôlement, jeton
+│   ├── rule_sync.py       # copie des règles sur un moteur, mise à jour avant chaque scan
+│   └── worker.py          # `security-review-scan-engine` : le processus du moteur de scan
 ├── clients/       # clients du serveur Controller
 │   └── ci_wheel.py        # wheel de security-review-ci construite et servie par le serveur Controller (/api/ci-client/)
 ├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
@@ -160,7 +172,8 @@ web/               # application Angular (compilée dans src/security_review_mcp
 
 Le serveur MCP n'importe jamais les modules du serveur Controller qui ouvrent des connexions sortantes
 ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
-`observability/audit_syslog`, `connectors`, `update_check`, `web_api`), même indirectement :
+`observability/audit_syslog`, `connectors`, `update_check`, `web_api`, `engines/remote`,
+`engines/worker`, `engines/enrollment`, `engines/controller_client`, `engines/rule_sync`), même indirectement :
 `tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
 `app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 

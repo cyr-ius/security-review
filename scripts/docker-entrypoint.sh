@@ -5,6 +5,7 @@
 #                       transport follows SECREVIEW_TRANSPORT (http or stdio)
 #   controller [ARGS]   Controller server: `security-review-controller serve` without ARGS, or
 #                       one of its commands (db, token, user, rules...)
+#   scan-engine [ARGS]  scan engine of the Controller server: `security-review-scan-engine`
 #   anything else       arguments of security-review-mcp (serve, enroll...), as before
 #
 # exec replaces this shell: the server is process 1 (signals, health check) and nothing is
@@ -21,6 +22,9 @@ case "$command" in
     controller)
         [ "$#" -eq 0 ] && set -- serve
         exec security-review-controller "$@"
+        ;;
+    scan-engine)
+        exec security-review-scan-engine "$@"
         ;;
     *)
         exec security-review-mcp "$command" "$@"

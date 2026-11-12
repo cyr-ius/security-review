@@ -32,6 +32,7 @@ Le premier argument donné à l'image choisit le processus qu'elle lance :
 | `mcp ARGS…` | `security-review-mcp ARGS…` (par exemple `mcp enroll`) |
 | `controller` | Serveur Controller (`security-review-controller serve`) : API REST, interface web |
 | `controller ARGS…` | une commande du serveur Controller (par exemple `controller token list`) |
+| `scan-engine` | [moteur de scan](../architecture/scan-engine.md) facultatif (`security-review-scan-engine`), avec l'image `-opengrep` pour exécuter OpenGrep |
 
 ```bash
 docker run -d -p 127.0.0.1:8080:8000 ghcr.io/cyr-ius/security-review controller   # Controller server

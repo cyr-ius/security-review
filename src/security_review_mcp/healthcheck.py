@@ -1,8 +1,9 @@
 """Health check of the Docker image: ``python -m security_review_mcp.healthcheck``.
 
 The image runs the HTTP MCP server by default (``serve``), the MCP server in stdio (``local``
-or ``serve --transport stdio``, no port) or the controller (``security-review-controller serve``).
-The check reads the command of the container (process 1) and, for the two HTTP processes only,
+or ``serve --transport stdio``, no port), the controller (``security-review-controller serve``)
+or a scan engine (``security-review-scan-engine``).
+The check reads the command of the container (process 1) and, for the HTTP processes only,
 requests ``/healthz`` on the loopback interface; in stdio there is nothing to check and it
 succeeds. Exit code 0: healthy, 1: unhealthy (Docker convention).
 
@@ -21,6 +22,8 @@ HEALTH_PATH = "/healthz"
 TIMEOUT_SECONDS = 3
 # Script or module of the controller in its command line (`python -m` included)
 CONTROLLER_PROGRAMS = frozenset({"security-review-controller", "security_review_mcp.controller"})
+# Script or module of a scan engine, always HTTP, without a `serve` command
+ENGINE_PROGRAMS = frozenset({"security-review-scan-engine", "security_review_mcp.engines.worker"})
 # Command line of the main process of the container
 PROCESS_CMDLINE = Path("/proc/1/cmdline")
 
@@ -52,13 +55,14 @@ def health_url(args: list[str]) -> str | None:
     settings.
     """
     settings = get_settings()
-    # Only `serve` listens (not `db upgrade`...)
-    if "serve" not in args:
+    engine = any(Path(arg).name in ENGINE_PROGRAMS for arg in args)
+    # Only `serve` listens (not `db upgrade`...), and a scan engine
+    if "serve" not in args and not engine:
         return None
     # Both programs have a `serve` command: only the controller's is always HTTP
     controller = any(Path(arg).name in CONTROLLER_PROGRAMS for arg in args)
     transport = _option(args, "--transport") or settings.transport
-    if not controller and transport != "streamable-http":
+    if not (controller or engine) and transport != "streamable-http":
         return None
     port = _option(args, "--port") or str(settings.port)
     scheme = "https" if server_certificate(args) else "http"

@@ -39,8 +39,9 @@ scrape_configs:
 | `secreview_advisories` | | Advisories in the database |
 | `secreview_advisory_last_update_timestamp_seconds` | | End of the latest successful OSV download (absent before the first one) |
 | `secreview_auth_rejections_total` | `reason` | Requests rejected by the authentication of the process that answers, since its start: `invalid_token`, `token_expired`, `insufficient_scope` |
+| `secreview_scan_engine_requests_total` | `outcome` | Scans sent to the [scan engines](../advanced/architecture/scan-engine.md) by the process that answers, since its start: `scanned`, `busy`, `unavailable` (refused), `fallback` (scanned by the Controller server), `refused` (files above the bounds of the engine) |
 
-Every value except `secreview_auth_rejections_total` comes from the database. The metrics hold
+Every value except `secreview_auth_rejections_total` and `secreview_scan_engine_requests_total` comes from the database. The metrics hold
 counts and project names, never a finding, a token label or a secret; label values are
 escaped, so a project name cannot add lines to the answer. `SECREVIEW_METRICS_ENABLED=false`
 turns the endpoint off (`404`).

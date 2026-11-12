@@ -35,6 +35,10 @@ variable du serveur MCP, est obsolète : encore lue avec un avertissement, elle 
   une URL `https://` quand le serveur Controller n'est pas sur le même réseau privé.
 - Les fragments ont leurs propres créneaux OpenGrep (`SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`) :
   des agents qui appellent souvent `scan_code` ne font jamais attendre les scans du dépôt des pipelines.
+  Les deux réserves s'additionnent : dimensionnez l'hôte pour
+  (`SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` + `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`)
+  scans simultanés, chacun avec `SECREVIEW_OPENGREP_JOBS` cœurs et `SECREVIEW_OPENGREP_MAX_MEMORY_MB`
+  Mio (gardez une limite de mémoire).
 
 ## Image Docker
 
@@ -178,7 +182,7 @@ proposer une règle qu'après avoir enregistré le rapport.
   d'une proposition de statut.
 - Le jeton doit atteindre le projet et y détenir `reports.write` (comme pour
   `save_security_report`). Une nouvelle proposition avec l'identifiant d'une proposition en
-  attente la remplace ; au plus `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` propositions
+  attente du même projet la remplace (depuis un autre projet, elle est refusée) ; au plus `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` propositions
   attendent en même temps.
 - Les doublons sont refusés : une règle dont l'identifiant est déjà installé, ou qui détecte le
   même code qu'une règle installée, qu'une règle par défaut ou qu'une autre proposition en

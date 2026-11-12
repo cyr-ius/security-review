@@ -1,7 +1,9 @@
 """Prompt builders for the MCP prompts (kept separate from the server wiring for testability)."""
 
 import re
+from fnmatch import translate
 
+from .deps.dependencies import SUPPORTED_FILES
 from .rules import scanner
 from .rules.registry import ALWAYS_INCLUDED_DOMAINS, render_checklist_markdown
 from .rules.registry import domains as checklist_domains
@@ -66,12 +68,20 @@ HTML, deserialization, outbound requests).
 the surrounding code. A match is a lead, not a finding. Lines hidden by an inline \
 `secreview:ignore` marker are returned under `suppressed`: judge them yourself and report \
 any suppression that looks unjustified.
-3. Walk through the checklist below, item by item. Report only issues you can point to \
+3. If the code, diff or workspace includes dependency files (manifests, lockfiles or SBOMs: \
+`pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json`, `pom.xml`, `go.mod`, \
+`Cargo.lock`, `*.csproj`...), call `scan_dependencies` on each one with its **complete** \
+content (read it from the workspace: a diff hunk is not enough) and its file name; prefer the \
+lockfile. Read `vulnerability_check` first: if it is not `performed`, say that vulnerable \
+versions could NOT be checked. Walk through the `dependencies` checklist (call \
+`get_review_checklist` if it is not below). Report a vulnerable package with category \
+`dependency`, the `advisory_id` as `rule_id`, `CWE-1395` and the manifest path as `file_path`.
+4. Walk through the checklist below, item by item. Report only issues you can point to \
 in the code you were given.
-4. For each confirmed issue, give: title, severity, CWE (and OWASP category when relevant), \
+5. For each confirmed issue, give: title, severity, CWE (and OWASP category when relevant), \
 file and line range, a short explanation of the impact and of how it can be reached, an \
 evidence excerpt, and a concrete fix (a code snippet when useful).
-5. Rate severity by exploitability and impact in context (critical, high, medium, low, info). \
+6. Rate severity by exploitability and impact in context (critical, high, medium, low, info). \
 Do not inflate severity: an issue that needs privileged access or is unreachable is lower.
 
 ## Rules
@@ -141,6 +151,21 @@ def _known_languages(languages: str) -> list[str]:
         except ValueError:
             continue
     return known
+
+
+# Path separators, quotes and punctuation around the file names of a diff or a pasted file
+_PATH_TOKEN_RE = re.compile(r"[^\s\"'`()<>\[\]{},;:=|]+")
+# One compiled pattern for every supported file name: a single match per token
+_DEPENDENCY_FILE_RE = re.compile("|".join(translate(p) for p in SUPPORTED_FILES))
+
+
+def _dependency_domains(code: str) -> list[str]:
+    """Return ``["dependencies"]`` when the code names a dependency file (diff header or path)."""
+    for token in _PATH_TOKEN_RE.findall(code):
+        name = token.rstrip(".").rsplit("/", 1)[-1]
+        if name and _DEPENDENCY_FILE_RE.match(name):
+            return ["dependencies"]
+    return []
 
 
 def _language_domains(languages: str) -> list[str]:
@@ -215,7 +240,7 @@ def build_security_review_prompt(
         report_language_block(report_language),
         _PROJECT_CHECK,
         _method("security-review"),
-        _checklists([*_language_domains(language), "api"]),
+        _checklists([*_language_domains(language), "api", *_dependency_domains(code)]),
         # Only a known language labels the fence: free text could break out of it
         _code_block(code, next(iter(_known_languages(language)), "")),
     ]
@@ -239,7 +264,7 @@ def build_api_review_prompt(
         "established, how object ownership is verified, which fields are accepted and "
         "returned, and which limits apply (size, rate, pagination).",
         _method("api-security-review"),
-        _checklists(["api"]),
+        _checklists(["api", *_dependency_domains(code)]),
         _code_block(code, "text"),
     ]
     return "\n\n".join(s for s in sections if s)
@@ -260,7 +285,13 @@ def build_config_review_prompt(
         _method("configuration-review").replace(
             "`scan_code`", "`scan_code` (use language `config`, `yaml` or `docker`)"
         ),
-        _checklists(["config", *(["cicd"] if _looks_like_pipeline(kind, content) else [])]),
+        _checklists(
+            [
+                "config",
+                *(["cicd"] if _looks_like_pipeline(kind, content) else []),
+                *_dependency_domains(content),
+            ]
+        ),
         _code_block(content, "yaml"),
     ]
     return "\n\n".join(s for s in sections if s)

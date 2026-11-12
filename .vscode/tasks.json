@@ -86,6 +86,24 @@
       "problemMatcher": []
     },
     {
+      "label": "Scan engine (port 8090)",
+      "detail": "security-review-scan-engine without debugger; needs SECREVIEW_SCAN_ENGINE_TOKEN in .env and the controller on port 8080",
+      "type": "process",
+      "command": "uv",
+      "args": ["run", "security-review-scan-engine", "--host", "127.0.0.1", "--port", "8090"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "SECREVIEW_CONTROLLER_URL": "http://127.0.0.1:8080",
+          "SECREVIEW_PUBLIC_URL": "http://127.0.0.1:8080",
+          "SECREVIEW_OPENGREP_ENABLED": "true",
+          "SECREVIEW_OPENGREP_RULES_DIR": "${workspaceFolder}/.venv/var/lib/secreview/scan-engine/rules/opengrep"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
       "label": "Docker: compose up",
       "detail": "Image test: its own PostgreSQL + migrate + controller (8080) + MCP server (8000); needs POSTGRES_PASSWORD in .env",
       "type": "process",

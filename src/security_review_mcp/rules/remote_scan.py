@@ -13,6 +13,7 @@ The tool start_codebase_scan goes the same way to ``POST /api/v1/scan/tickets`` 
 single-use ticket of a codebase scan (see auth.scan_tickets), which it gives to the agent.
 """
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -75,7 +76,8 @@ def _post(controller_url: str, path: str, authorization: str, body: dict, timeou
         reason = _refusal(exc) if exc.code in (403, 422) else ""
         exc.close()
         raise RemoteScanError(f"the controller answered HTTP {exc.code}{reason}") from None
-    except urllib.error.URLError, OSError:
+    except urllib.error.URLError, OSError, http.client.HTTPException:
+        # HTTPException: answer cut short (IncompleteRead) or malformed, not an OSError
         raise RemoteScanError("the controller cannot be reached") from None
     if len(raw) > MAX_RESPONSE_BYTES:
         raise RemoteScanError("the answer of the controller is too large")
@@ -128,9 +130,12 @@ def scan(
     }
 
 
-def request_ticket(controller_url: str, authorization: str, project: str, timeout: int) -> dict:
+def request_ticket(
+    controller_url: str, authorization: str, project: str, timeout: int, scope: str = "all"
+) -> dict:
     """Ask the controller for a single-use ticket of a codebase scan of ``project`` (see
-    auth.scan_tickets), with the ``authorization`` header of the caller.
+    auth.scan_tickets), with the ``authorization`` header of the caller; ``scope`` (``all``,
+    ``code`` or ``deps``) limits the scans the ticket opens.
 
     Returns:
         ``ticket``, ``project``, ``expires_at``, ``controller_url`` (public URL, may be None)
@@ -139,7 +144,8 @@ def request_ticket(controller_url: str, authorization: str, project: str, timeou
     Raises:
         RemoteScanError: If the controller cannot be reached, refuses or answers unexpectedly.
     """
-    document = _post(controller_url, SCAN_TICKET_PATH, authorization, {"project": project}, timeout)
+    body = {"project": project, "scope": scope}
+    document = _post(controller_url, SCAN_TICKET_PATH, authorization, body, timeout)
     fields = ("ticket", "project", "expires_at")
     if not all(isinstance(document.get(name), str) for name in fields):
         raise RemoteScanError("the controller sent an unexpected answer")

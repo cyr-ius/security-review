@@ -142,7 +142,7 @@ sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
     sache quoi lire en premier sans charger chaque correspondance dans son contexte.
 
 Le ticket n'atteint que le scan du code et le scan des dépendances de son projet, **une fois
-chacun**, avec les droits du jeton qui l'a demandé, relus à chaque usage : seul un utilisateur
+chacun** (seulement le scan de `scope` quand l'agent demande `code` ou `deps`), avec les droits du jeton qui l'a demandé, relus à chaque usage : seul un utilisateur
 qui peut enregistrer des rapports sur le projet (`reports.write`) en obtient un. Il passe par le
 contexte du modèle, qui le recopie dans la commande : il ne vaut plus rien une fois utilisé ou
 expiré ([sécurité](../../reference/security.md#securite-du-serveur-lui-meme)).

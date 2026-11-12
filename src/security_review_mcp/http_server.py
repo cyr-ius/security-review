@@ -64,6 +64,8 @@ class Role(StrEnum):
 
     ``user`` is never the role of a token: it marks a web session, whose rights are the
     permissions of its roles (see access_control.user_grants), checked by each route.
+    ``engine`` is never the role of a stored token either: it marks the OAuth access token of an
+    enrolled scan engine (see auth.engine_clients), which only reaches ENGINE_API_PREFIX.
     """
 
     MCP = "mcp"
@@ -72,6 +74,7 @@ class Role(StrEnum):
     ADMIN = "admin"
     CI = "ci"
     METRICS = "metrics"
+    ENGINE = "engine"
 
 
 DEFAULT_ROLE = Role.MCP
@@ -101,6 +104,9 @@ MCP_CONTROLLER_PATHS = frozenset({CONTENT_SCAN_PATH, SCAN_TICKET_PATH})
 TICKET_PATHS = frozenset({"/api/v1/ci/scan/code", "/api/v1/ci/scan/deps"})
 # Pipeline routes of the controller, the only ones a ``ci`` token reaches
 CI_PREFIX = "/api/v1/ci/"
+# Routes of the controller read by the scan engines (rules), the only ones their OAuth access
+# token reaches, and that no other credential reaches
+ENGINE_API_PREFIX = "/api/v1/engine/"
 UI_PREFIX = "/ui"
 # Title of the MCP server that the clients without a token reach (see
 # server.enrollment_mcp): scan-deps recognizes it to report a missing token
@@ -388,11 +394,14 @@ class BearerAuthMiddleware:
         """True when a token of this role may reach ``path`` on this process.
 
         A ``ci`` token only reaches the pipeline routes of the controller, a ``metrics`` token
-        only its Prometheus endpoint, an ``mcp`` token only the scan delegated by scan_code and
-        the tickets of start_codebase_scan.
+        only its Prometheus endpoint, the access token of a scan engine only ENGINE_API_PREFIX,
+        an ``mcp`` token only the scan delegated by scan_code and the tickets of
+        start_codebase_scan.
         """
         if not self.web:
             return role in MCP_ROLES
+        if path.startswith(ENGINE_API_PREFIX) or role == Role.ENGINE:
+            return role == Role.ENGINE and path.startswith(ENGINE_API_PREFIX)
         if path in MCP_CONTROLLER_PATHS:
             return role in MCP_ROLES
         if path == METRICS_PATH:
@@ -878,6 +887,7 @@ def build_controller_app(
     sessions: SessionVerifier | None = None,
     require_auth: bool = False,
     settings: Settings | None = None,
+    engine_routes: dict[str, ASGIApp] | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``
     and by the session tokens of ``sessions`` (password and OIDC logins), with the security
@@ -886,6 +896,9 @@ def build_controller_app(
     ``require_auth`` (OIDC enabled) asks for a login even while no token nor user is stored.
     With ``settings`` and SECREVIEW_RATE_LIMIT_ENABLED, the requests of each address are
     limited before the token is checked, so that guessing tokens is limited too.
+    ``engine_routes`` (enrollment and access tokens of the scan engines, see
+    engines.enrollment) bypass the tokens and the rate limit: they check the shared secret of
+    the engines, or the credentials of each engine, themselves.
     """
     app: ASGIApp = BearerAuthMiddleware(
         web_app, store, web=True, sessions=sessions, require_auth=require_auth
@@ -899,6 +912,8 @@ def build_controller_app(
             auth_prefix=(AUTH_PREFIX, *OAUTH_LOGIN_PATHS),
             counted=OAUTH_PATHS,
         )
+    if engine_routes:
+        app = PathDispatcher(app, engine_routes)
     # Outermost: the refusals (401, 429) get the headers too
     return SecurityHeadersMiddleware(app)
 

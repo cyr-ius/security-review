@@ -26,6 +26,12 @@ Chaque prompt de revue intègre les checklists de son domaine (selon les langage
 récupère avec `get_review_checklist` quand elles s'appliquent
 ([détails](checklists.md#checklists-des-prompts-de-revue)).
 
+Quand le code, le diff ou l'espace de travail contient des fichiers de dépendances (manifestes,
+lockfiles, SBOM), `security-review`, `api-security-review` et `configuration-review` font aussi
+appeler `scan_dependencies` par l'agent sur chaque fichier complet et parcourir la checklist
+`dependencies`, intégrée quand le code cite un tel fichier. Pour une revue des seules
+dépendances, utilisez `dependency-review`.
+
 ### Langue des rapports
 
 `report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport

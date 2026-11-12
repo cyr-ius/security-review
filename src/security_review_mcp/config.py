@@ -37,6 +37,8 @@ def check_report_language(value: str) -> str:
 
 # Bound of the public URL of the controller (SECREVIEW_PUBLIC_URL or web interface)
 CONTROLLER_URL_MAX_CHARS = 500
+# Shortest secret shared by the controller and the scan engines (SECREVIEW_SCAN_ENGINE_TOKEN)
+MIN_SCAN_ENGINE_TOKEN_CHARS = 32
 # Path of the web interface under the controller URL (http_server.UI_PREFIX)
 WEB_UI_PATH = "/ui"
 
@@ -129,6 +131,62 @@ def check_scan_controller_url(
     if parts.path.strip("/"):
         raise ValueError(f"{variable} is the root URL of the controller, without a path")
     return value.rstrip("/")
+
+
+def check_scan_engine_url(
+    value: str | None, variable: str = "SECREVIEW_SCAN_ENGINE_ADVERTISE_URL"
+) -> str | None:
+    """Return the root URL of a scan engine without trailing slash; None when empty.
+    ``variable`` names the setting in the error messages.
+
+    Raises:
+        ValueError: If the value is not an http(s) URL without credentials, path, query nor
+            fragment.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
+        raise ValueError(f"{variable} must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars")
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError(f"{variable} must be an http(s) URL")
+    if parts.username or parts.password or parts.query or parts.fragment or parts.path.strip("/"):
+        raise ValueError(
+            f"{variable} is the root URL of a scan engine, without credentials, path, query nor "
+            "fragment"
+        )
+    return value.rstrip("/")
+
+
+# Networks the scan engines may advertise their address in (SECREVIEW_SCAN_ENGINE_NETWORKS):
+# private and loopback addresses, where a Kubernetes pod or a Compose container lives
+DEFAULT_SCAN_ENGINE_NETWORKS = (
+    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,fc00::/7,::1/128"
+)
+
+
+def scan_engine_networks(
+    value: str,
+) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """Networks of SECREVIEW_SCAN_ENGINE_NETWORKS.
+
+    Raises:
+        ValueError: If an entry is not an IP network, or the list is empty.
+    """
+    networks = []
+    for entry in (item.strip() for item in value.split(",")):
+        if not entry:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(entry, strict=False))
+        except ValueError:
+            raise ValueError(
+                f"SECREVIEW_SCAN_ENGINE_NETWORKS: '{entry[:50]}' is not an IP network"
+            ) from None
+    if not networks:
+        raise ValueError("SECREVIEW_SCAN_ENGINE_NETWORKS needs at least one network")
+    return networks
 
 
 def check_scan_delegation(value: str | None) -> str | None:
@@ -539,6 +597,32 @@ class Settings(BaseSettings):
     # start_codebase_scan, sent by the delegation of scan_code), with which security-review-ci
     # sends the files of the workstation to the code and dependency scans of one project
     scan_ticket_ttl_seconds: int = Field(default=600, ge=60, le=3600)
+    # Controller only: networks where the enrolled scan engines may advertise their address
+    # (comma-separated CIDRs; the address must be an IP in one of them): the controller sends the
+    # files of the code scans there only. Default: private and loopback addresses.
+    scan_engine_networks: str = DEFAULT_SCAN_ENGINE_NETWORKS
+    # Scan engine only: root URL where the controller reaches this engine, given at its
+    # enrollment, an IP address (e.g. http://10.42.0.17:8000, the pod IP on Kubernetes). Unset:
+    # the IP address of the host name of the engine and its listening port.
+    scan_engine_advertise_url: str | None = None
+    # Controller and scan engines: shared secret of the engines (at least 32 characters). Set on
+    # the controller, it turns the scan engines on: they enroll with it, and the code scans and
+    # scan_code fragments go to the enrolled engines (the SECREVIEW_OPENGREP_* settings then
+    # apply to the engines); the controller sends it as a bearer token with each scan
+    scan_engine_token: SecretStr | None = None
+    # Controller only: time limit of a scan by an engine, above SECREVIEW_OPENGREP_TIMEOUT_SECONDS
+    # of the engines (seconds)
+    scan_engine_timeout_seconds: int = Field(default=660, ge=1, le=7200)
+    # Controller only: when no engine answers, "refuse" the scan (503 with Retry-After: the
+    # controller stays unloaded) or scan "local"ly with the rules and OpenGrep of the controller.
+    # A busy engine (all its OpenGrep slots taken) is never replaced by a local scan.
+    scan_engine_fallback: Literal["refuse", "local"] = "refuse"
+    # Controller only: validity of the OAuth access token of an enrolled scan engine (minutes);
+    # the engine renews it before it expires (client_credentials, see auth.engine_clients)
+    scan_engine_access_token_minutes: int = Field(default=15, ge=1, le=1440)
+    # Controller only: an enrolled scan engine not seen for this many days is deleted (a replica
+    # gone without leaving: a live engine renews its access token, which counts as seen)
+    scan_engine_retention_days: int = Field(default=7, ge=1, le=365)
 
     @field_validator(
         "proxy",
@@ -613,6 +697,31 @@ class Settings(BaseSettings):
     def _check_scancode_delegated(cls, value: str | None) -> str | None:
         """Accept true, false or the root http(s) URL of the controller; empty counts as unset."""
         return check_scan_delegation(value)
+
+    @field_validator("scan_engine_advertise_url")
+    @classmethod
+    def _check_scan_engine_advertise_url(cls, value: str | None) -> str | None:
+        """Accept the root http(s) URL of this engine; empty counts as unset."""
+        return check_scan_engine_url(value)
+
+    @field_validator("scan_engine_networks")
+    @classmethod
+    def _check_scan_engine_networks(cls, value: str) -> str:
+        """Accept a comma-separated list of IP networks."""
+        return ",".join(str(network) for network in scan_engine_networks(value))
+
+    @field_validator("scan_engine_token")
+    @classmethod
+    def _check_scan_engine_token(cls, value: SecretStr | None) -> SecretStr | None:
+        """Refuse a short secret; empty counts as unset."""
+        if value is None or not value.get_secret_value().strip():
+            return None
+        if len(value.get_secret_value().strip()) < MIN_SCAN_ENGINE_TOKEN_CHARS:
+            raise ValueError(
+                f"SECREVIEW_SCAN_ENGINE_TOKEN must have at least {MIN_SCAN_ENGINE_TOKEN_CHARS} "
+                "characters (e.g. openssl rand -hex 32)"
+            )
+        return SecretStr(value.get_secret_value().strip())
 
     @field_validator("mcp_oauth_redirect_hosts")
     @classmethod

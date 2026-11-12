@@ -1,0 +1,388 @@
+@let total = totals();
+<div class="flow">
+  <svg
+    [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+    [style.min-width.px]="width() * 0.75"
+    [style.max-width.px]="width()"
+    role="img"
+    [attr.aria-label]="
+      'scanEngines.flowLabel'
+        | t
+          : {
+              active: total.active,
+              total: data().engines.length,
+              controllers: controllerNodes().length,
+              mcp: mcpNodes().length,
+              codebase: total.activeCodebase,
+              fragments: total.activeFragment,
+            }
+    "
+  >
+    <!-- Links first, under the nodes -->
+    @for (source of sources(); track source.kind) {
+      @if (source.path) {
+        <path
+          class="link"
+          [class]="'link-' + source.kind"
+          [class.idle]="!source.busy"
+          [attr.d]="source.path"
+        />
+        @if (source.busy) {
+          <circle class="dot" [class]="'dot-' + source.kind" r="5">
+            <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="source.path" />
+          </circle>
+        }
+      }
+    }
+    <!-- The agents call scan_code on an MCP server, which delegates it to the Controller server -->
+    @for (node of mcpNodes(); track node.instance.id) {
+      <path class="link link-fragment" [class.idle]="!node.busy" [attr.d]="node.inPath" />
+      <path
+        class="link link-fragment"
+        [class.idle]="!node.busy"
+        [class.inactive]="!node.instance.delegated"
+        [attr.d]="node.outPath"
+      />
+      @if (node.busy) {
+        <circle class="dot dot-fragment" r="5">
+          <animateMotion dur="1.6s" repeatCount="indefinite" [attr.path]="node.inPath" />
+        </circle>
+        @if (node.instance.delegated) {
+          <circle class="dot dot-fragment" r="5">
+            <animateMotion
+              dur="1.6s"
+              begin="0.8s"
+              repeatCount="indefinite"
+              [attr.path]="node.outPath"
+            />
+          </circle>
+        }
+      }
+    }
+    @for (node of nodes(); track node.engine.id) {
+      <path
+        class="link link-engine"
+        [class.inactive]="!node.engine.active"
+        [class.idle]="node.idle"
+        [attr.d]="node.path"
+      />
+      @if (node.busyCodebase) {
+        <circle class="dot dot-codebase" r="5">
+          <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="node.path" />
+        </circle>
+      }
+      @if (node.busyFragment) {
+        <circle class="dot dot-fragment" r="5">
+          <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite" [attr.path]="node.path" />
+        </circle>
+      }
+      <!-- Each new heartbeat recreates the pulse, which travels once from the engine -->
+      @if (node.engine.active) {
+        @for (beat of [node.engine.heartbeat_at]; track beat) {
+          <path class="beat" [attr.d]="node.path" pathLength="100" />
+        }
+      }
+    }
+
+    <!-- Sources: the code scans of the pipelines, the fragments of the agents -->
+    @for (source of sources(); track source.kind) {
+      <g
+        class="node"
+        [class.source-codebase]="source.kind === 'codebase'"
+        [class.source-fragment]="source.kind === 'fragment'"
+        [class.idle]="!source.busy"
+      >
+        <title>
+          {{
+            (source.kind === 'codebase'
+              ? 'scanEngines.flowPipelinesTitle'
+              : 'scanEngines.flowAgentsTitle'
+            ) | t: { count: source.active, total: source.capacity }
+          }}
+        </title>
+        <circle class="surface" [attr.cx]="source.x" [attr.cy]="source.y" [attr.r]="source.r" />
+        <circle
+          class="ring ring-track"
+          [attr.cx]="source.x"
+          [attr.cy]="source.y"
+          [attr.r]="sourceRing"
+          [attr.stroke-width]="ring"
+        />
+        @for (arc of source.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="source.x"
+            [attr.cy]="source.y"
+            [attr.r]="sourceRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + source.x + ' ' + source.y + ')'"
+          />
+        }
+        <foreignObject
+          [attr.x]="source.x - source.r"
+          [attr.y]="source.y - source.r"
+          [attr.width]="source.r * 2"
+          [attr.height]="source.r * 2"
+        >
+          <div class="content">
+            <i
+              class="bi"
+              [class]="source.kind === 'codebase' ? 'bi-diagram-3' : 'bi-robot'"
+              aria-hidden="true"
+            ></i>
+            <span class="value">{{ source.active }}/{{ source.capacity }}</span>
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="source.x" [attr.y]="source.y + source.r + 20">
+          {{
+            (source.kind === 'codebase' ? 'scanEngines.flowPipelines' : 'scanEngines.flowAgents')
+              | t
+          }}
+        </text>
+      </g>
+    }
+
+    <!-- One node per active MCP server (HTTP transport): the scan_code calls it relays -->
+    @for (node of mcpNodes(); track node.instance.id) {
+      <g class="node mcp" [class.idle]="!node.busy">
+        @for (beat of [node.instance.heartbeat_at]; track beat) {
+          <circle
+            class="beat-ring beat-ring-mcp"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="node.r"
+          />
+        }
+        <title>
+          {{ 'scanEngines.flowMcpInstance' | t: { number: node.number } }}.
+          {{
+            (node.instance.delegated
+              ? 'scanEngines.flowMcpTitleDelegated'
+              : 'scanEngines.flowMcpTitleLocal'
+            )
+              | t
+                : {
+                    name: node.instance.name,
+                    version: node.instance.version,
+                    count: node.instance.processing_fragments,
+                  }
+          }}
+        </title>
+        <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
+        <circle
+          class="ring ring-track"
+          [class.ring-mcp]="node.busy"
+          [attr.cx]="node.x"
+          [attr.cy]="node.y"
+          [attr.r]="mcpRing"
+          [attr.stroke-width]="ring"
+        />
+        <foreignObject
+          [attr.x]="node.x - mcpRadius"
+          [attr.y]="node.y - mcpRadius"
+          [attr.width]="mcpRadius * 2"
+          [attr.height]="mcpRadius * 2"
+        >
+          <div class="content">
+            <i class="bi bi-plug" aria-hidden="true"></i>
+            <span class="value">{{ node.instance.processing_fragments }}</span>
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">
+          {{ 'scanEngines.flowMcpInstance' | t: { number: node.number } }}
+        </text>
+        <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 18">
+          {{
+            (node.instance.delegated ? 'scanEngines.flowMcpDelegated' : 'scanEngines.flowMcpLocal')
+              | t
+          }}
+        </text>
+      </g>
+    }
+
+    <!-- One vertically stacked node per active Controller process -->
+    @for (node of controllerNodes(); track node.instance.id) {
+      <g class="node">
+        @if (node.instance.heartbeat_at) {
+          @for (beat of [node.instance.heartbeat_at]; track beat) {
+            <circle
+              class="beat-ring beat-ring-controller"
+              [attr.cx]="node.x"
+              [attr.cy]="node.y"
+              [attr.r]="node.r"
+            />
+          }
+        }
+        <title>
+          {{ 'scanEngines.flowControllerInstance' | t: { number: node.number } }}.
+          {{
+            'scanEngines.flowControllerTitle'
+              | t
+                : {
+                    active: total.active,
+                    total: data().engines.length,
+                    pipelines: total.activeCodebase,
+                    fragments: total.activeFragment,
+                    files: total.files,
+                  }
+          }}
+        </title>
+        <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
+        <circle
+          class="ring ring-track"
+          [attr.cx]="node.x"
+          [attr.cy]="node.y"
+          [attr.r]="controllerRing"
+          [attr.stroke-width]="ring"
+        />
+        @for (arc of total.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="controllerRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + node.x + ' ' + node.y + ')'"
+          />
+        }
+        <foreignObject
+          [attr.x]="node.x - controllerRadius"
+          [attr.y]="node.y - controllerRadius"
+          [attr.width]="controllerRadius * 2"
+          [attr.height]="controllerRadius * 2"
+        >
+          <div class="content">
+            <i class="bi bi-hdd-network" aria-hidden="true"></i>
+            <span class="value">{{ total.active }}/{{ data().engines.length }}</span>
+            <span class="detail">{{ 'scanEngines.flowActive' | t }}</span>
+            <span class="detail">{{ 'scanEngines.flowFiles' | t: { count: total.files } }}</span>
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">
+          {{ 'scanEngines.flowControllerInstance' | t: { number: node.number } }}
+        </text>
+        <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 18">
+          {{
+            (data().fallback === 'local'
+              ? 'scanEngines.flowFallbackLocal'
+              : 'scanEngines.flowFallbackRefuse'
+            ) | t
+          }}
+        </text>
+      </g>
+    }
+
+    <!-- One node per engine: its slots in use, its scans, its failures -->
+    @for (node of nodes(); track node.engine.id) {
+      <g class="node" [class.inactive]="!node.engine.active" [class.idle]="node.idle">
+        <title>
+          {{
+            'scanEngines.flowEngineTitle'
+              | t
+                : {
+                    name: node.engine.name,
+                    version: node.engine.version,
+                    codebase: node.engine.codebase_scans,
+                    fragments: node.engine.fragment_scans,
+                    files: node.engine.scanned_files,
+                    failed: node.engine.failed_scans,
+                    busy: node.engine.busy_refusals,
+                    used: node.used,
+                    capacity: node.capacity,
+                  }
+          }}
+        </title>
+        @if (node.engine.active) {
+          @for (beat of [node.engine.heartbeat_at]; track beat) {
+            <circle
+              class="beat-ring"
+              [attr.cx]="node.x"
+              [attr.cy]="node.y"
+              [attr.r]="engineRadius"
+            />
+          }
+        }
+        <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="engineRadius" />
+        <circle
+          class="ring ring-track"
+          [attr.cx]="node.x"
+          [attr.cy]="node.y"
+          [attr.r]="engineRing"
+          [attr.stroke-width]="ring"
+        />
+        @for (arc of node.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="engineRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + node.x + ' ' + node.y + ')'"
+          />
+        }
+        <foreignObject
+          [attr.x]="node.x - engineRadius"
+          [attr.y]="node.y - engineRadius"
+          [attr.width]="engineRadius * 2"
+          [attr.height]="engineRadius * 2"
+        >
+          <div class="content">
+            <i class="bi bi-cpu" aria-hidden="true"></i>
+            <span class="value">{{ node.used }}/{{ node.capacity }}</span>
+            @if (node.engine.failed_scans) {
+              <span class="detail failed">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                {{ node.engine.failed_scans }}
+              </span>
+            }
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">{{ node.label }}</text>
+        @if (!node.engine.active) {
+          <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 16">
+            {{ 'scanEngines.inactive' | t }}
+          </text>
+        }
+      </g>
+    }
+  </svg>
+</div>
+
+<ul class="legend list-inline small text-body-secondary mb-0">
+  <li class="list-inline-item">
+    <span class="swatch swatch-codebase" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendCodebase' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-fragment" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendFragment' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-engine-idle" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendEngineIdle' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-heartbeat" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendHeartbeat' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-controller-heartbeat" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendControllerHeartbeat' | t }}
+  </li>
+  @if (mcpNodes().length) {
+    <li class="list-inline-item">
+      <span class="swatch swatch-mcp" aria-hidden="true"></span>
+      {{ 'scanEngines.flowLegendMcp' | t }}
+    </li>
+  }
+  <li class="list-inline-item">{{ 'scanEngines.flowLegendLive' | t }}</li>
+</ul>
