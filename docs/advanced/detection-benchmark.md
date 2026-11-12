@@ -38,14 +38,14 @@ methods of a test case shows when they return a constant. Python is unchanged.
 ### With the AI review (estimate)
 
 The scan produces leads that the [AI review](../review/index.md) confirms or dismisses by
-reading the code. To estimate the score of this whole chain, 194 flagged test cases (109 Java,
-85 Python) were sampled at random and triaged blind by an AI agent (Claude Sonnet), which saw
+reading the code. To estimate the score of this whole chain, 394 flagged test cases (209 Java,
+185 Python) were sampled at random and triaged blind by an AI agent (Claude Sonnet), which saw
 only the code of the test file and the alerts, never the expected result:
 
 | Benchmark | Real alerts kept | False alerts dismissed | Estimated score (95 % range) |
 |---|---|---|---|
-| Java 1.2 | 49 / 49 | 60 / 60 | **85 %** (78 to 85 %) |
-| Python 0.1 | 48 / 49 | 31 / 36 | **71 %** (60 to 75 %) |
+| Java 1.2 | 89 / 89 | 119 / 120 | **85 %** (81 to 85 %) |
+| Python 0.1 | 78 / 79 | 93 / 106 | **72 %** (65 to 74 %) |
 
 The rates measured on the sample are applied to the true and false positive rates of the
 whole benchmark; the range comes from the 95 % confidence intervals of these rates. The review
@@ -53,8 +53,10 @@ cannot raise the detection: the estimated score stays below the true positive ra
 
 This is an estimate, not a measure of the benchmark:
 
-- the sample is small (60 safe Java cases, 36 safe Python cases);
-- the Java cases were triaged on the alerts of the rules before `--taint-intrafile`;
+- the sample is limited (120 safe Java cases, 106 safe Python cases), and part of the Java cases
+  were triaged on the alerts of the rules before `--taint-intrafile`;
+- the agent sometimes kept an alert without a specific reason: these errors keep false alerts,
+  so they lower the estimate rather than raise it;
 - the agent saw one file at a time and was told that helpers do what their name says, where a
   real review explores the repository;
 - the OWASP Benchmark is public: the model may know its idioms, which can flatter the triage;
