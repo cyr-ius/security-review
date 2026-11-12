@@ -147,10 +147,10 @@
 
     <!-- One node per active MCP server (HTTP transport): the scan_code calls it relays -->
     @for (node of mcpNodes(); track node.instance.id) {
-      <g class="node source-fragment" [class.idle]="!node.busy">
+      <g class="node mcp" [class.idle]="!node.busy">
         @for (beat of [node.instance.heartbeat_at]; track beat) {
           <circle
-            class="beat-ring beat-ring-controller"
+            class="beat-ring beat-ring-mcp"
             [attr.cx]="node.x"
             [attr.cy]="node.y"
             [attr.r]="node.r"
@@ -174,7 +174,7 @@
         <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
         <circle
           class="ring ring-track"
-          [class.ring-fragment]="node.busy"
+          [class.ring-mcp]="node.busy"
           [attr.cx]="node.x"
           [attr.cy]="node.y"
           [attr.r]="mcpRing"
@@ -376,7 +376,13 @@
   </li>
   <li class="list-inline-item">
     <span class="swatch swatch-controller-heartbeat" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendServerHeartbeat' | t }}
+    {{ 'scanEngines.flowLegendControllerHeartbeat' | t }}
   </li>
+  @if (mcpNodes().length) {
+    <li class="list-inline-item">
+      <span class="swatch swatch-mcp" aria-hidden="true"></span>
+      {{ 'scanEngines.flowLegendMcp' | t }}
+    </li>
+  }
   <li class="list-inline-item">{{ 'scanEngines.flowLegendLive' | t }}</li>
 </ul>

@@ -133,7 +133,7 @@ Above the list, the **Activity** diagram shows the code scans running now:
 
 - on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
   (`scan_code` fragments), with their occupied slots out of the slots of the active engines;
-- next to the agents, one circle per running MCP server (HTTP transport), with the most
+- next to the agents, one yellow circle per running MCP server (HTTP transport), with the most
   `scan_code` calls it ran at once since its previous heartbeat. The agents reach the Controller
   server through it; its link to the Controller server is dashed, with **Local scan**, while the
   delegation of `scan_code` is off: it then scans the fragments itself and they never reach the

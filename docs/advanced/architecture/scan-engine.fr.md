@@ -137,7 +137,7 @@ Au-dessus de la liste, le graphe **Activité** montre les scans de code en cours
 
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
   `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;
-- à côté des agents, un cercle par serveur MCP en marche (transport HTTP), avec le plus grand
+- à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), avec le plus grand
   nombre d'appels `scan_code` simultanés depuis son battement de cœur précédent. Les agents
   passent par lui pour atteindre le serveur Controller ; son lien vers le serveur Controller est en
   pointillés, avec **Scan local**, tant que la délégation de `scan_code` est désactivée : il scanne

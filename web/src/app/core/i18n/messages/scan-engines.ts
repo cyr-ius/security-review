@@ -56,8 +56,9 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendEngineIdle': 'Connected, idle engine',
     'scanEngines.flowLegendHeartbeat':
       'Heartbeat of an engine (every 5 s while it scans, 30 s when idle)',
-    'scanEngines.flowLegendServerHeartbeat':
-      'Heartbeat of the Controller and MCP servers (every 5 s, at once when scan_code runs)',
+    'scanEngines.flowLegendControllerHeartbeat': 'Heartbeat of the Controller server (every 5 s)',
+    'scanEngines.flowLegendMcp':
+      'MCP server and its heartbeat (every 5 s, at once when scan_code runs)',
     'scanEngines.flowMcpInstance': 'MCP server {number}',
     'scanEngines.flowMcpDelegated': 'scan_code delegated',
     'scanEngines.flowMcpLocal': 'Local scan',
@@ -123,8 +124,10 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendEngineIdle': 'Moteur connecté, inactif',
     'scanEngines.flowLegendHeartbeat':
       'Battement de cœur d’un moteur (toutes les 5 s pendant un scan, 30 s au repos)',
-    'scanEngines.flowLegendServerHeartbeat':
-      'Battement de cœur des serveurs Controller et MCP (toutes les 5 s, aussitôt quand scan_code s’exécute)',
+    'scanEngines.flowLegendControllerHeartbeat':
+      'Battement de cœur du serveur Controller (toutes les 5 s)',
+    'scanEngines.flowLegendMcp':
+      'Serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand scan_code s’exécute)',
     'scanEngines.flowMcpInstance': 'Serveur MCP {number}',
     'scanEngines.flowMcpDelegated': 'scan_code délégué',
     'scanEngines.flowMcpLocal': 'Scan local',
@@ -190,8 +193,9 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendEngineIdle': 'Motor conectado, inactivo',
     'scanEngines.flowLegendHeartbeat':
       'Latido de un motor (cada 5 s durante un escaneo, 30 s en reposo)',
-    'scanEngines.flowLegendServerHeartbeat':
-      'Latido de los servidores Controller y MCP (cada 5 s, de inmediato cuando se ejecuta scan_code)',
+    'scanEngines.flowLegendControllerHeartbeat': 'Latido del servidor Controller (cada 5 s)',
+    'scanEngines.flowLegendMcp':
+      'Servidor MCP y su latido (cada 5 s, de inmediato cuando se ejecuta scan_code)',
     'scanEngines.flowMcpInstance': 'Servidor MCP {number}',
     'scanEngines.flowMcpDelegated': 'scan_code delegado',
     'scanEngines.flowMcpLocal': 'Escaneo local',

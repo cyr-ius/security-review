@@ -4,6 +4,8 @@
   --engine-idle-color: var(--app-engine-idle);
   --codebase-idle-color: var(--app-codebase-idle);
   --fragment-idle-color: var(--app-fragment-idle);
+  --mcp-color: var(--app-mcp);
+  --mcp-idle-color: var(--app-mcp-idle);
   overflow-x: auto;
 }
 
@@ -101,6 +103,10 @@ svg {
   animation: beat-ring 1s ease-out forwards;
 }
 
+.beat-ring-mcp {
+  stroke: var(--mcp-color);
+}
+
 .beat-ring-late {
   animation-delay: 1.3s;
 }
@@ -146,6 +152,15 @@ svg {
 
 .node.source-fragment.idle .ring-track {
   stroke: var(--fragment-idle-color);
+}
+
+/* An MCP server: yellow ring, pale while no scan_code call runs */
+.node.mcp .ring-track {
+  stroke: var(--mcp-idle-color);
+}
+
+.node.mcp .ring-track.ring-mcp {
+  stroke: var(--mcp-color);
 }
 
 .ring-codebase {
@@ -229,6 +244,10 @@ svg {
 
 .swatch-controller-heartbeat {
   background: var(--bs-purple);
+}
+
+.swatch-mcp {
+  background: var(--mcp-color);
 }
 
 .legend {
