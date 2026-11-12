@@ -1,6 +1,6 @@
 {
   "name": "security-review-web",
-  "version": "11.3.0",
+  "version": "11.4.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",

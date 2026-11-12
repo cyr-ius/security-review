@@ -1,5 +1,31 @@
 # Changelog
 
+## [11.4.0](https://github.com/cyr-ius/security-review/compare/v11.3.0...v11.4.0) (2026-11-12)
+
+
+### Features
+
+* add 15 more default OpenGrep rules ([7f08e55](https://github.com/cyr-ius/security-review/commit/7f08e5512302adc09320bd7230e58caec19af978))
+* add 17 default OpenGrep rules ([7c86d62](https://github.com/cyr-ius/security-review/commit/7c86d626f028c38c03bbbf4dbb3f55fc34ba7257))
+* add 18 more default OpenGrep rules ([f660cd2](https://github.com/cyr-ius/security-review/commit/f660cd26498d360412174f9d8df86560116f7ad6))
+* cover more Python sources and fix false positives of the default OpenGrep rules ([7556fea](https://github.com/cyr-ius/security-review/commit/7556fea63600bdb4f2b664a570e0c71114a78970))
+* follow Python taint through containers and pathlib bases ([0a0614b](https://github.com/cyr-ius/security-review/commit/0a0614b190f3b1133d2dce2b84fb2580f30109a6))
+* follow the taint across the functions of a file with OpenGrep ([bc1f819](https://github.com/cyr-ius/security-review/commit/bc1f819a6a6478f6973690f6032d3d70d16b1a3a))
+* improve OWASP Benchmark detection of the default OpenGrep rules ([171ddab](https://github.com/cyr-ius/security-review/commit/171ddab3d9a61365d1e2e6e45a16e70d9511309b))
+* raise the detection rate of the default OpenGrep rules ([850b43a](https://github.com/cyr-ius/security-review/commit/850b43ab41912ddef57e091fbe27746401241eb9))
+* widen the Python taint sources and sinks of the default OpenGrep rules ([eef4724](https://github.com/cyr-ius/security-review/commit/eef472445a5522db4cf9103f0585529c19ba7156))
+
+
+### Bug Fixes
+
+* classify PY-007 as a weak hash and widen the Python weak hash and random rules ([94c0d5f](https://github.com/cyr-ius/security-review/commit/94c0d5f29eb78d1a18f2ed90595e87f768c073cf))
+* reduce false positives of 15 default OpenGrep rules ([5a2e534](https://github.com/cyr-ius/security-review/commit/5a2e5346cd934a14545fd3466d7c0ca9aac4c367))
+
+
+### Documentation
+
+* publish the OWASP Benchmark results and describe the scan as a SAST ([d15d92e](https://github.com/cyr-ius/security-review/commit/d15d92effb30851440ffde32f2713749a9109de8))
+
 ## [11.3.0](https://github.com/cyr-ius/security-review/compare/v11.2.0...v11.3.0) (2026-11-09)
 
 
