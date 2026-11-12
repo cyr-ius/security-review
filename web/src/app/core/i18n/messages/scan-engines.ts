@@ -34,16 +34,18 @@ export const scanEngines = defineMessages({
     'scanEngines.loadError': 'The scan engines could not be loaded.',
     'scanEngines.flowTitle': 'Activity',
     'scanEngines.flowLabel':
-      'Flow of the code scans: {codebase} scans from the pipelines and {fragments} fragments from the agents, through the Controller server, to {active} active engines out of {total}.',
+      'Current activity: {codebase} pipeline scans and {fragments} agent fragments in progress, through {controllers} active Controller server processes, to {active} active engines out of {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
     'scanEngines.flowAgents': 'Agents',
-    'scanEngines.flowPipelinesTitle': '{count} code scans (security-review-ci, codebase reviews)',
-    'scanEngines.flowAgentsTitle': '{count} fragments (scan_code of the agents)',
+    'scanEngines.flowPipelinesTitle':
+      '{count}/{total} codebase scan slots occupied (security-review-ci, codebase reviews)',
+    'scanEngines.flowAgentsTitle': '{count}/{total} fragment slots occupied (scan_code requests)',
     'scanEngines.flowController': 'Controller server',
+    'scanEngines.flowControllerInstance': 'Controller server {number}',
     'scanEngines.flowControllerTitle':
-      '{active} active engines out of {total}, {used} of {capacity} slots in use, {files} files scanned',
+      '{active} active engines out of {total}, {pipelines} pipeline scans and {fragments} fragments in progress, {files} files in progress',
     'scanEngines.flowActive': 'active',
-    'scanEngines.flowFiles': '{count} files',
+    'scanEngines.flowFiles': '{count} files in progress',
     'scanEngines.flowSlots': '{used}/{total} slots',
     'scanEngines.flowFallbackLocal': 'Fallback: local scan',
     'scanEngines.flowFallbackRefuse': 'No fallback (503)',
@@ -51,8 +53,12 @@ export const scanEngines = defineMessages({
       '{name} {version}: {codebase} code scans, {fragments} fragments, {files} files, {failed} failed, {busy} refused when busy; {used} of {capacity} slots in use',
     'scanEngines.flowLegendCodebase': 'Code scans (pipelines)',
     'scanEngines.flowLegendFragment': 'Fragments (scan_code)',
+    'scanEngines.flowLegendEngineIdle': 'Connected, idle engine',
+    'scanEngines.flowLegendHeartbeat':
+      'Heartbeat of an engine (every 5 s while it scans, 30 s when idle)',
+    'scanEngines.flowLegendControllerHeartbeat': 'Heartbeat of the Controller server (every 5 s)',
     'scanEngines.flowLegendLive':
-      'Moving dots: scans running now. Counters since each engine started.',
+      'Moving dots: scans running now. Rings: occupied slots; engine details include lifetime counters.',
   },
   fr: {
     'scanEngines.title': 'Moteurs de scan',
@@ -86,16 +92,19 @@ export const scanEngines = defineMessages({
     'scanEngines.loadError': 'Impossible de charger les moteurs de scan.',
     'scanEngines.flowTitle': 'Activité',
     'scanEngines.flowLabel':
-      'Flux des scans de code : {codebase} scans des pipelines et {fragments} fragments des agents, par le serveur Controller, vers {active} moteurs actifs sur {total}.',
+      'Activité en cours : {codebase} scans de pipeline et {fragments} fragments d’agents, par {controllers} instances actives du serveur Controller, vers {active} moteurs actifs sur {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
     'scanEngines.flowAgents': 'Agents',
-    'scanEngines.flowPipelinesTitle': '{count} scans de code (security-review-ci, revues du dépôt)',
-    'scanEngines.flowAgentsTitle': '{count} fragments (scan_code des agents)',
+    'scanEngines.flowPipelinesTitle':
+      '{count}/{total} créneaux de scan de code occupés (security-review-ci, revues du dépôt)',
+    'scanEngines.flowAgentsTitle':
+      '{count}/{total} créneaux de fragment occupés (requêtes scan_code)',
     'scanEngines.flowController': 'Serveur Controller',
+    'scanEngines.flowControllerInstance': 'Serveur Controller {number}',
     'scanEngines.flowControllerTitle':
-      '{active} moteurs actifs sur {total}, {used} créneaux occupés sur {capacity}, {files} fichiers scannés',
+      '{active} moteurs actifs sur {total}, {pipelines} scans de pipeline et {fragments} fragments en cours, {files} fichiers en cours',
     'scanEngines.flowActive': 'actifs',
-    'scanEngines.flowFiles': '{count} fichiers',
+    'scanEngines.flowFiles': '{count} fichiers en cours',
     'scanEngines.flowSlots': '{used}/{total} créneaux',
     'scanEngines.flowFallbackLocal': 'Repli : scan local',
     'scanEngines.flowFallbackRefuse': 'Sans repli (503)',
@@ -103,8 +112,13 @@ export const scanEngines = defineMessages({
       '{name} {version} : {codebase} scans de code, {fragments} fragments, {files} fichiers, {failed} en échec, {busy} refusés car occupé ; {used} créneaux occupés sur {capacity}',
     'scanEngines.flowLegendCodebase': 'Scans de code (pipelines)',
     'scanEngines.flowLegendFragment': 'Fragments (scan_code)',
+    'scanEngines.flowLegendEngineIdle': 'Moteur connecté, inactif',
+    'scanEngines.flowLegendHeartbeat':
+      'Battement de cœur d’un moteur (toutes les 5 s pendant un scan, 30 s au repos)',
+    'scanEngines.flowLegendControllerHeartbeat':
+      'Battement de cœur du serveur Controller (toutes les 5 s)',
     'scanEngines.flowLegendLive':
-      'Points en mouvement : scans en cours. Compteurs depuis le démarrage de chaque moteur.',
+      'Points en mouvement : scans en cours. Anneaux : créneaux occupés ; les détails des moteurs donnent les compteurs cumulés.',
   },
   es: {
     'scanEngines.title': 'Motores de escaneo',
@@ -138,17 +152,19 @@ export const scanEngines = defineMessages({
     'scanEngines.loadError': 'No se pudieron cargar los motores de escaneo.',
     'scanEngines.flowTitle': 'Actividad',
     'scanEngines.flowLabel':
-      'Flujo de los escaneos de código: {codebase} escaneos de los pipelines y {fragments} fragmentos de los agentes, por el servidor Controller, hacia {active} motores activos de {total}.',
+      'Actividad actual: {codebase} escaneos de pipelines y {fragments} fragmentos de agentes en curso, por {controllers} instancias activas del servidor Controller, hacia {active} motores activos de {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
     'scanEngines.flowAgents': 'Agentes',
     'scanEngines.flowPipelinesTitle':
-      '{count} escaneos de código (security-review-ci, revisiones del repositorio)',
-    'scanEngines.flowAgentsTitle': '{count} fragmentos (scan_code de los agentes)',
+      '{count}/{total} huecos de escaneo de código ocupados (security-review-ci, revisiones del repositorio)',
+    'scanEngines.flowAgentsTitle':
+      '{count}/{total} huecos de fragmentos ocupados (solicitudes scan_code)',
     'scanEngines.flowController': 'Servidor Controller',
+    'scanEngines.flowControllerInstance': 'Servidor Controller {number}',
     'scanEngines.flowControllerTitle':
-      '{active} motores activos de {total}, {used} de {capacity} huecos ocupados, {files} archivos escaneados',
+      '{active} motores activos de {total}, {pipelines} escaneos de pipelines y {fragments} fragmentos en curso, {files} archivos en curso',
     'scanEngines.flowActive': 'activos',
-    'scanEngines.flowFiles': '{count} archivos',
+    'scanEngines.flowFiles': '{count} archivos en curso',
     'scanEngines.flowSlots': '{used}/{total} huecos',
     'scanEngines.flowFallbackLocal': 'Respaldo: escaneo local',
     'scanEngines.flowFallbackRefuse': 'Sin respaldo (503)',
@@ -156,7 +172,11 @@ export const scanEngines = defineMessages({
       '{name} {version}: {codebase} escaneos de código, {fragments} fragmentos, {files} archivos, {failed} fallidos, {busy} rechazados por estar ocupado; {used} de {capacity} huecos ocupados',
     'scanEngines.flowLegendCodebase': 'Escaneos de código (pipelines)',
     'scanEngines.flowLegendFragment': 'Fragmentos (scan_code)',
+    'scanEngines.flowLegendEngineIdle': 'Motor conectado, inactivo',
+    'scanEngines.flowLegendHeartbeat':
+      'Latido de un motor (cada 5 s durante un escaneo, 30 s en reposo)',
+    'scanEngines.flowLegendControllerHeartbeat': 'Latido del servidor Controller (cada 5 s)',
     'scanEngines.flowLegendLive':
-      'Puntos en movimiento: escaneos en curso. Contadores desde el arranque de cada motor.',
+      'Puntos en movimiento: escaneos en curso. Anillos: huecos ocupados; los detalles del motor incluyen los contadores acumulados.',
   },
 });

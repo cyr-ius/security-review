@@ -1305,6 +1305,10 @@ export interface ScanEngine {
   codebase_scans: number;
   fragment_scans: number;
   scanned_files: number;
+  /** Files currently being processed (not a lifetime counter). */
+  processing_files: number;
+  processing_codebase_scans: number;
+  processing_fragment_scans: number;
   failed_scans: number;
   busy_refusals: number;
   enrolled_at: string;
@@ -1322,5 +1326,13 @@ export interface ScanEngineList {
   networks: string[];
   access_token_minutes: number;
   retention_days: number;
+  controllers: ControllerInstance[];
   engines: ScanEngine[];
+}
+
+/** A Controller process with a recent database heartbeat. */
+export interface ControllerInstance {
+  id: string;
+  started_at: string;
+  heartbeat_at: string;
 }

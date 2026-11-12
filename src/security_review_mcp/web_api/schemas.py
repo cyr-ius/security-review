@@ -1769,11 +1769,22 @@ class ScanEnginePublic(BaseModel):
     codebase_scans: int = 0
     fragment_scans: int = 0
     scanned_files: int = 0
+    processing_files: int = 0
+    processing_codebase_scans: int = 0
+    processing_fragment_scans: int = 0
     failed_scans: int = 0
     busy_refusals: int = 0
     enrolled_at: datetime
     last_seen_at: datetime
     heartbeat_at: datetime | None = None
+
+
+class ControllerInstancePublic(BaseModel):
+    """A Controller process whose heartbeat is recent."""
+
+    id: str
+    started_at: datetime
+    heartbeat_at: datetime
 
 
 class ScanEngineList(BaseModel):
@@ -1789,4 +1800,5 @@ class ScanEngineList(BaseModel):
     networks: list[str]
     access_token_minutes: int
     retention_days: int
+    controllers: list[ControllerInstancePublic]
     engines: list[ScanEnginePublic]

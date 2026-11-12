@@ -54,6 +54,9 @@ MAX_AUTH_RESPONSE_BYTES = 64 * 1024
 RENEW_AT = 0.8
 # How often the engine sends its heartbeat (the controller stops sending it scans after 90 s)
 HEARTBEAT_SECONDS = 30
+# While it scans, and at most this often when scans start or finish (a burst sends one heartbeat)
+ACTIVE_HEARTBEAT_SECONDS = 5
+MIN_HEARTBEAT_SECONDS = 1.0
 
 
 class ControllerError(OpenGrepError):
@@ -105,6 +108,9 @@ class ControllerClient:
         self._renew_at = 0.0
         self._revoked = False
         self._stop = threading.Event()
+        self._activity_condition = threading.Condition()
+        self._activity_generation = 0
+        self._active = False
         self._thread: threading.Thread | None = None
 
     @property
@@ -185,10 +191,32 @@ class ControllerClient:
     def stop(self) -> None:
         """Stop the background renewal."""
         self._stop.set()
+        with self._activity_condition:
+            self._activity_condition.notify_all()
+
+    def notify_activity_change(self, active: bool) -> None:
+        """Wake the heartbeat thread after a scan starts or finishes."""
+        with self._activity_condition:
+            self._active = active
+            self._activity_generation += 1
+            self._activity_condition.notify_all()
 
     def _heartbeat(self) -> None:
         """Send the heartbeat (renewing the token as needed) until stopped or revoked."""
-        while not self._stop.wait(HEARTBEAT_SECONDS):
+        generation = 0
+        last_beat = time.monotonic()
+        while not self._stop.is_set():
+            with self._activity_condition:
+                if self._activity_generation == generation:
+                    active = self._active
+                    delay = ACTIVE_HEARTBEAT_SECONDS if active else HEARTBEAT_SECONDS
+                    self._activity_condition.wait(delay)
+            # Scans starting and finishing in a burst share one heartbeat
+            if self._stop.wait(max(0.0, last_beat + MIN_HEARTBEAT_SECONDS - time.monotonic())):
+                return
+            with self._activity_condition:
+                generation = self._activity_generation
+            last_beat = time.monotonic()
             try:
                 self.beat()
             except RevokedError:

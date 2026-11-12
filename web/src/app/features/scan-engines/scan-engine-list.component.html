@@ -3,7 +3,7 @@
     <h1 class="h3 mb-0">{{ 'scanEngines.title' | t }} <app-help-link topic="scanEngines" /></h1>
     <p class="text-body-secondary mb-0">{{ 'scanEngines.subtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="engines.isLoading()" (refresh)="engines.reload()" />
+  <app-refresh-button [loading]="initialLoading() || manualRefreshing()" (refresh)="refresh()" />
 </div>
 
 @if (error(); as text) {
@@ -13,7 +13,7 @@
   <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
 }
 
-@if (engines.value(); as data) {
+@if (engineList(); as data) {
   @if (data.enabled && data.engines.length) {
     <section class="card card-body mb-3" aria-labelledby="scan-engines-flow-title">
       <h2 id="scan-engines-flow-title" class="h6">{{ 'scanEngines.flowTitle' | t }}</h2>
@@ -106,6 +106,6 @@
       <p class="text-body-secondary small mb-0">{{ 'scanEngines.none' | t }}</p>
     }
   </section>
-} @else if (engines.error()) {
+} @else if (loadError()) {
   <div class="alert alert-danger" role="alert">{{ 'scanEngines.loadError' | t }}</div>
 }

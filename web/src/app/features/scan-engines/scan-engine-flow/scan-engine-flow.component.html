@@ -1,8 +1,9 @@
 @let total = totals();
 <div class="flow">
   <svg
-    [attr.viewBox]="'0 0 ' + width() + ' ' + height"
+    [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
     [style.min-width.px]="width() * 0.75"
+    [style.max-width.px]="width()"
     role="img"
     [attr.aria-label]="
       'scanEngines.flowLabel'
@@ -10,8 +11,9 @@
           : {
               active: total.active,
               total: data().engines.length,
-              codebase: total.codebase,
-              fragments: total.fragment,
+              controllers: controllerNodes().length,
+              codebase: total.activeCodebase,
+              fragments: total.activeFragment,
             }
     "
   >
@@ -20,8 +22,8 @@
       <path
         class="link"
         [class]="'link-' + source.kind"
+        [class.idle]="!source.busy"
         [attr.d]="source.path"
-        [attr.stroke-width]="source.width"
       />
       @if (source.busy) {
         <circle class="dot" [class]="'dot-' + source.kind" r="5">
@@ -33,8 +35,8 @@
       <path
         class="link link-engine"
         [class.inactive]="!node.engine.active"
+        [class.idle]="node.idle"
         [attr.d]="node.path"
-        [attr.stroke-width]="node.width"
       />
       @if (node.busyCodebase) {
         <circle class="dot dot-codebase" r="5">
@@ -46,28 +48,51 @@
           <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite" [attr.path]="node.path" />
         </circle>
       }
+      <!-- Each new heartbeat recreates the pulse, which travels once from the engine -->
+      @if (node.engine.active) {
+        @for (beat of [node.engine.heartbeat_at]; track beat) {
+          <path class="beat" [attr.d]="node.path" pathLength="100" />
+        }
+      }
     }
 
     <!-- Sources: the code scans of the pipelines, the fragments of the agents -->
     @for (source of sources(); track source.kind) {
-      <g class="node">
+      <g
+        class="node"
+        [class.source-codebase]="source.kind === 'codebase'"
+        [class.source-fragment]="source.kind === 'fragment'"
+        [class.idle]="!source.busy"
+      >
         <title>
           {{
             (source.kind === 'codebase'
               ? 'scanEngines.flowPipelinesTitle'
               : 'scanEngines.flowAgentsTitle'
-            ) | t: { count: source.scans }
+            ) | t: { count: source.active, total: source.capacity }
           }}
         </title>
         <circle class="surface" [attr.cx]="source.x" [attr.cy]="source.y" [attr.r]="source.r" />
         <circle
-          class="ring"
-          [class]="'ring-' + source.kind"
+          class="ring ring-track"
           [attr.cx]="source.x"
           [attr.cy]="source.y"
           [attr.r]="sourceRing"
           [attr.stroke-width]="ring"
         />
+        @for (arc of source.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="source.x"
+            [attr.cy]="source.y"
+            [attr.r]="sourceRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + source.x + ' ' + source.y + ')'"
+          />
+        }
         <foreignObject
           [attr.x]="source.x - source.r"
           [attr.y]="source.y - source.r"
@@ -80,7 +105,7 @@
               [class]="source.kind === 'codebase' ? 'bi-diagram-3' : 'bi-robot'"
               aria-hidden="true"
             ></i>
-            <span class="value">{{ source.scans }}</span>
+            <span class="value">{{ source.active }}/{{ source.capacity }}</span>
           </div>
         </foreignObject>
         <text class="label" [attr.x]="source.x" [attr.y]="source.y + source.r + 20">
@@ -92,80 +117,84 @@
       </g>
     }
 
-    <!-- The Controller server: active engines, and the slots in use over all of them -->
-    <g class="node">
-      <title>
-        {{
-          'scanEngines.flowControllerTitle'
-            | t
-              : {
-                  active: total.active,
-                  total: data().engines.length,
-                  used: total.used,
-                  capacity: total.capacity,
-                  files: total.files,
-                }
-        }}
-      </title>
-      <circle
-        class="surface"
-        [attr.cx]="controller.x"
-        [attr.cy]="controller.y"
-        [attr.r]="controller.r"
-      />
-      <circle
-        class="ring ring-track"
-        [attr.cx]="controller.x"
-        [attr.cy]="controller.y"
-        [attr.r]="controllerRing"
-        [attr.stroke-width]="ring"
-      />
-      @for (arc of total.arcs; track arc.kind) {
+    <!-- One vertically stacked node per active Controller process -->
+    @for (node of controllerNodes(); track node.instance.id) {
+      <g class="node">
+        @if (node.instance.heartbeat_at) {
+          @for (beat of [node.instance.heartbeat_at]; track beat) {
+            <circle
+              class="beat-ring beat-ring-controller"
+              [attr.cx]="node.x"
+              [attr.cy]="node.y"
+              [attr.r]="node.r"
+            />
+          }
+        }
+        <title>
+          {{ 'scanEngines.flowControllerInstance' | t: { number: node.number } }}.
+          {{
+            'scanEngines.flowControllerTitle'
+              | t
+                : {
+                    active: total.active,
+                    total: data().engines.length,
+                    pipelines: total.activeCodebase,
+                    fragments: total.activeFragment,
+                    files: total.files,
+                  }
+          }}
+        </title>
+        <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
         <circle
-          class="ring"
-          [class]="'ring-' + arc.kind"
-          [attr.cx]="controller.x"
-          [attr.cy]="controller.y"
+          class="ring ring-track"
+          [attr.cx]="node.x"
+          [attr.cy]="node.y"
           [attr.r]="controllerRing"
           [attr.stroke-width]="ring"
-          [attr.stroke-dasharray]="arc.dash"
-          [attr.stroke-dashoffset]="arc.offset"
-          [attr.transform]="'rotate(-90 ' + controller.x + ' ' + controller.y + ')'"
         />
-      }
-      <foreignObject
-        [attr.x]="controller.x - controller.r"
-        [attr.y]="controller.y - controller.r"
-        [attr.width]="controller.r * 2"
-        [attr.height]="controller.r * 2"
-      >
-        <div class="content">
-          <i class="bi bi-hdd-network" aria-hidden="true"></i>
-          <span class="value">{{ total.active }}/{{ data().engines.length }}</span>
-          <span class="detail">{{ 'scanEngines.flowActive' | t }}</span>
-          <span class="detail">{{ 'scanEngines.flowFiles' | t: { count: total.files } }}</span>
-        </div>
-      </foreignObject>
-      <text class="label" [attr.x]="controller.x" [attr.y]="controller.y + controller.r + 20">
-        {{ 'scanEngines.flowController' | t }}
-      </text>
-      <text
-        class="label detail"
-        [attr.x]="controller.x"
-        [attr.y]="controller.y + controller.r + 38"
-      >
-        {{
-          (data().fallback === 'local'
-            ? 'scanEngines.flowFallbackLocal'
-            : 'scanEngines.flowFallbackRefuse'
-          ) | t
-        }}
-      </text>
-    </g>
+        @for (arc of total.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="controllerRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + node.x + ' ' + node.y + ')'"
+          />
+        }
+        <foreignObject
+          [attr.x]="node.x - controllerRadius"
+          [attr.y]="node.y - controllerRadius"
+          [attr.width]="controllerRadius * 2"
+          [attr.height]="controllerRadius * 2"
+        >
+          <div class="content">
+            <i class="bi bi-hdd-network" aria-hidden="true"></i>
+            <span class="value">{{ total.active }}/{{ data().engines.length }}</span>
+            <span class="detail">{{ 'scanEngines.flowActive' | t }}</span>
+            <span class="detail">{{ 'scanEngines.flowFiles' | t: { count: total.files } }}</span>
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">
+          {{ 'scanEngines.flowControllerInstance' | t: { number: node.number } }}
+        </text>
+        <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 18">
+          {{
+            (data().fallback === 'local'
+              ? 'scanEngines.flowFallbackLocal'
+              : 'scanEngines.flowFallbackRefuse'
+            ) | t
+          }}
+        </text>
+      </g>
+    }
 
     <!-- One node per engine: its slots in use, its scans, its failures -->
     @for (node of nodes(); track node.engine.id) {
-      <g class="node" [class.inactive]="!node.engine.active">
+      <g class="node" [class.inactive]="!node.engine.active" [class.idle]="node.idle">
         <title>
           {{
             'scanEngines.flowEngineTitle'
@@ -183,6 +212,16 @@
                   }
           }}
         </title>
+        @if (node.engine.active) {
+          @for (beat of [node.engine.heartbeat_at]; track beat) {
+            <circle
+              class="beat-ring"
+              [attr.cx]="node.x"
+              [attr.cy]="node.y"
+              [attr.r]="engineRadius"
+            />
+          }
+        }
         <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="engineRadius" />
         <circle
           class="ring ring-track"
@@ -212,12 +251,7 @@
         >
           <div class="content">
             <i class="bi bi-cpu" aria-hidden="true"></i>
-            <span class="value">{{ node.scans }}</span>
-            @if (node.capacity) {
-              <span class="detail">
-                {{ 'scanEngines.flowSlots' | t: { used: node.used, total: node.capacity } }}
-              </span>
-            }
+            <span class="value">{{ node.used }}/{{ node.capacity }}</span>
             @if (node.engine.failed_scans) {
               <span class="detail failed">
                 <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
@@ -245,6 +279,18 @@
   <li class="list-inline-item">
     <span class="swatch swatch-fragment" aria-hidden="true"></span>
     {{ 'scanEngines.flowLegendFragment' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-engine-idle" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendEngineIdle' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-heartbeat" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendHeartbeat' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-controller-heartbeat" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendControllerHeartbeat' | t }}
   </li>
   <li class="list-inline-item">{{ 'scanEngines.flowLegendLive' | t }}</li>
 </ul>

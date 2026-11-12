@@ -90,9 +90,10 @@ An engine reads no database. At its start, each replica:
    (`POST /engine/v1/token`, client authenticated by HTTP Basic), valid
    `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES`. It renews it before it expires, in the
    background, which also tells the Controller server it is alive;
-3. sends a **heartbeat** every 30 seconds with its free OpenGrep slots, its capacity and what it
-   did since it started (code scans, fragments, files, failures, scans refused when busy)
-   (`POST /api/v1/engine/heartbeat`);
+3. sends a **heartbeat** with its free OpenGrep slots, its capacity, the scans and files it is
+   processing now, and what it did since it started (code scans, fragments, files, failures,
+   scans refused when busy) (`POST /api/v1/engine/heartbeat`): every 30 seconds when idle, every
+   5 seconds while it scans, and at once (at most once a second) when a scan starts or ends;
 4. reads the rules with this token through the REST API of the Controller server
    (`/api/v1/engine/*`, see [Rules](#rules)).
 
@@ -124,14 +125,22 @@ The enrolled engines are listed on the [**Scan engines**](../../usage/index.md#p
 state (active while its heartbeat is recent), URL, free slots, enrollment date and last activity,
 never a secret.
 
-Above the list, the **Activity** diagram shows the flow of the code scans: the pipelines
-(`security-review-ci`, codebase reviews) and the agents (`scan_code` fragments) on the left, the
-Controller server in the middle, one circle per engine on the right. The ring of an engine shows
-its OpenGrep slots in use (code scans and fragments, each in its own color), the number in the
-middle its scans since it started, and a warning sign its failed scans; a link is as thick as the
-share of the scans, and a moving dot marks a scan running now. An engine without a recent
-heartbeat is dimmed. The counters restart from zero when an engine restarts (it enrolls again);
-hovering a circle shows its details, and the list below gives the same engines.
+Above the list, the **Activity** diagram shows the code scans running now:
+
+- on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
+  (`scan_code` fragments), with their occupied slots out of the slots of the active engines;
+- in the middle, one circle per running Controller server process. Each process keeps a heartbeat
+  in the database every 5 seconds and disappears after 30 seconds without one. The replicas share
+  the database, so their circles show the same numbers: active engines, files being processed,
+  and a ring with the pipeline scans and fragments in progress;
+- on the right, one circle per engine, with its occupied OpenGrep slots out of its total.
+
+Thin links carry a moving dot while scans run, and each engine heartbeat sends a green pulse to
+the Controller server. An engine without a recent heartbeat is dimmed. The page reloads itself
+every 2 seconds while it is visible. The number of active fragments counts concurrent `scan_code`
+requests, not distinct agents. Hovering a circle shows its details, including the counters since
+the engine started (they restart from zero when it restarts and enrolls again); the list below
+gives the same engines.
 
 - **Revoke** an engine (page, or `security-review-controller engine revoke <id>`): its client and
   its access token stop working at once, it receives no more scans, and its scans fail. It does not enroll again by itself:

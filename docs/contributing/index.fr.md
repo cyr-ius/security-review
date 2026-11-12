@@ -23,6 +23,7 @@ Dans VS Code (`.vscode/`) :
 | Configuration de `launch.json` | Rôle |
 |---|---|
 | **Controller (debug: FastAPI + Angular)** | Serveur Controller sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud de la page, redémarrage du serveur Controller à chaque enregistrement dans `src/` (`scripts/dev_reload.py`), migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage. Pour rester connecté entre les redémarrages, définissez `SECREVIEW_SECRET_KEY` dans votre `.env` (ignoré par git), par exemple avec la sortie de `openssl rand -hex 32` |
+| **Controller + scan engine (debug)** / **Scan engine (debug, port 8090)** | Serveur Controller sur le port 8080 avec un [moteur de scan](../advanced/architecture/scan-engine.md) sur le port 8090 sous le débogueur, ou le moteur seul (le serveur Controller doit tourner). Les deux lisent le secret partagé `SECREVIEW_SCAN_ENGINE_TOKEN` dans votre `.env` (`openssl rand -hex 32`), qui envoie aussi les scans de code du serveur Controller aux moteurs ; le moteur garde ses règles OpenGrep dans `.venv/var/lib/secreview/scan-engine/` |
 | **MCP server (debug, port 8000)** | Lance la tâche **Database upgrade**, puis le serveur MCP HTTP sous le débogueur |
 | **Controller CLI (prompt for arguments)** | Une commande du serveur Controller (`db status`, `token list`…) sous le débogueur |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` avec rechargement à chaud, ouvre le site dans le navigateur |
@@ -33,6 +34,7 @@ Dans VS Code (`.vscode/`) :
 | **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
 | **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le serveur Controller, ou `ng serve` avec `/api` redirigé vers le port 8080 (arrêté avec le débogueur par **Web UI: stop dev server**) |
+| **Scan engine (port 8090)** | `security-review-scan-engine` sans débogueur, mêmes réglages que la configuration de lancement |
 | **Docker: compose up** / **down** | Pile `docker-compose.yml` de l'image, avec sa propre base PostgreSQL (mêmes ports 8000 et 8080 : arrêtez les configurations de debug avant) |
 
 ### Devcontainer

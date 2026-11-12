@@ -20,7 +20,7 @@ from .deps import advisory_sync
 from .engines import backend as scan_engines
 from .observability import audit_syslog
 from .rules import opengrep_rule_store, registry
-from .storage import retention
+from .storage import controller_instances, retention
 from .storage.database import SchemaError, init_db
 
 logger = logging.getLogger("security_review_mcp.controller")
@@ -184,7 +184,9 @@ def serve(argv: list[str]) -> None:
     )
     if dispatcher:
         dispatcher.start()
+    controller_heartbeat = controller_instances.ControllerHeartbeat()
     try:
+        controller_heartbeat.start()
         http_server.serve(
             http_server.build_controller_app(
                 web_app,
@@ -202,6 +204,7 @@ def serve(argv: list[str]) -> None:
             settings.forwarded_allow_ips,
         )
     finally:
+        controller_heartbeat.stop()
         if updater:
             updater.stop()
         if pruner:

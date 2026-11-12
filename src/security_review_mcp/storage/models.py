@@ -570,6 +570,9 @@ class ScanEngine(SQLModel, table=True):
     codebase_scans: int = Field(default=0, sa_type=BigInteger)
     fragment_scans: int = Field(default=0, sa_type=BigInteger)
     scanned_files: int = Field(default=0, sa_type=BigInteger)
+    processing_files: int = Field(default=0, sa_type=BigInteger)
+    processing_codebase_scans: int = Field(default=0, sa_type=BigInteger)
+    processing_fragment_scans: int = Field(default=0, sa_type=BigInteger)
     failed_scans: int = Field(default=0, sa_type=BigInteger)
     busy_refusals: int = Field(default=0, sa_type=BigInteger)
     # Last heartbeat: the engine receives scans while it is recent
@@ -579,6 +582,14 @@ class ScanEngine(SQLModel, table=True):
     access_expires_at: datetime | None = Field(default=None)
     enrolled_at: datetime = Field(default_factory=utcnow)
     last_seen_at: datetime = Field(default_factory=utcnow, index=True)
+
+
+class ControllerInstance(SQLModel, table=True):
+    """One running Controller process, visible while its database heartbeat is recent."""
+
+    id: str = Field(primary_key=True, max_length=32)
+    started_at: datetime
+    heartbeat_at: datetime = Field(index=True)
 
 
 # ── Requested projects (see access_control.request_project) ──────────────────

@@ -24,6 +24,8 @@ import logging
 import socket
 import threading
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import uvicorn
@@ -53,10 +55,37 @@ __all__ = ["EngineAuth", "build_app", "create_app", "main"]
 
 # What this engine did since it started, sent with each heartbeat (see EngineHeartbeat)
 _counters: Counter[str] = Counter()
+# What it is doing now (gauges): scans by pool ("codebase", "fragment") and their "files"
+_processing: Counter[str] = Counter()
 _counters_lock = threading.Lock()
+_controller_client: controller_client.ControllerClient | None = None
 
 # Copy of the rules of the controller, set by main (None: the rules of this process, in tests)
 _rules: rule_sync.RuleCache | None = None
+
+
+def _notify_controller() -> None:
+    """Wake the heartbeat thread after the current workload changes."""
+    client = _controller_client
+    if client is not None:
+        with _counters_lock:
+            active = _processing["codebase"] + _processing["fragment"] > 0
+        client.notify_activity_change(active)
+
+
+@contextmanager
+def _processing_scan(pool: str, files: int) -> Iterator[None]:
+    """Count a scan of ``pool`` and its files as running while the block runs, waking the
+    heartbeat when it starts and ends."""
+    with _counters_lock:
+        _processing.update({pool: 1, "files": files})
+    _notify_controller()
+    try:
+        yield
+    finally:
+        with _counters_lock:
+            _processing.subtract({pool: 1, "files": files})
+        _notify_controller()
 
 
 def _own_url(host: str, port: int, tls: object) -> str:
@@ -85,11 +114,15 @@ def _status() -> EngineHeartbeat:
     codebase, fragment = opengrep.free_slots()
     with _counters_lock:
         counters = {name: min(value, MAX_ENGINE_COUNTER) for name, value in _counters.items()}
+        processing = dict(_processing)
     return EngineHeartbeat(
         free_codebase_slots=codebase,
         free_fragment_slots=fragment,
         codebase_slots=settings.opengrep_max_concurrent_scans,
         fragment_slots=settings.opengrep_max_concurrent_fragment_scans,
+        processing_files=processing.get("files", 0),
+        processing_codebase_scans=processing.get("codebase", 0),
+        processing_fragment_scans=processing.get("fragment", 0),
         **counters,
     )
 
@@ -145,7 +178,9 @@ def create_app() -> FastAPI:
         """
         try:
             sources = _sources(request, get_settings())
-            result = await run_in_threadpool(_scan, sources, request.fragment)
+            pool = "fragment" if request.fragment else "codebase"
+            with _processing_scan(pool, len(sources)):
+                result = await run_in_threadpool(_scan, sources, request.fragment)
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
         except opengrep.OpenGrepBusyError as exc:
@@ -158,8 +193,8 @@ def create_app() -> FastAPI:
             raise HTTPException(
                 status.HTTP_500_INTERNAL_SERVER_ERROR, "OpenGrep cannot run on the scan engine"
             ) from exc
-        pool = "fragment_scans" if request.fragment else "codebase_scans"
-        _count(**{pool: 1, "scanned_files": len(sources)})
+        scan_counter = "fragment_scans" if request.fragment else "codebase_scans"
+        _count(**{scan_counter: 1, "scanned_files": len(sources)})
         logger.debug("Scanned %d file(s) with %s", len(sources), ", ".join(result["engines"]))
         return EngineResponse.model_validate(result)
 
@@ -205,13 +240,14 @@ def main(argv: list[str] | None = None) -> None:
         tls = http_server.tls_options(settings)
     except ValueError as exc:
         parser.error(str(exc))
-    global _rules
+    global _controller_client, _rules
     # Never the database: no rule until the controller gives them
     registry.publish([], ["no rule received from the Controller server yet"])
     advertised = settings.scan_engine_advertise_url or _own_url(args.host, args.port, tls)
     client = controller_client.ControllerClient(
         settings.controller_url, token, advertised, status=_status
     )
+    _controller_client = client
     client.start()
     _rules = rule_sync.RuleCache(
         client,

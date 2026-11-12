@@ -22,8 +22,10 @@ from ..auth import engine_clients
 from ..config import get_settings, secret_value
 from ..engines.protocol import manifest_digest, rule_digest
 from ..rules import opengrep_rule_store, registry, rules_loader
+from ..storage import controller_instances
 from .deps import Permission, actor_of, engine_identity, require
 from .schemas import (
+    ControllerInstancePublic,
     EngineHeartbeat,
     EngineOpenGrepContents,
     EngineOpenGrepFetch,
@@ -108,6 +110,9 @@ def list_scan_engines(_identity: EngineManager) -> ScanEngineList:
         networks=settings.scan_engine_networks.split(","),
         access_token_minutes=settings.scan_engine_access_token_minutes,
         retention_days=settings.scan_engine_retention_days,
+        controllers=[
+            ControllerInstancePublic(**row) for row in controller_instances.active_instances()
+        ],
         engines=[ScanEnginePublic(**row) for row in engine_clients.list_engines()],
     )
 

@@ -1,16 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ScanEngine, ScanEngineList } from '../../../core/models/api.models';
+import { ControllerInstance, ScanEngine, ScanEngineList } from '../../../core/models/api.models';
 
-/** Geometry of the diagram, in the units of its viewBox (it scales with the card). */
+/** Geometry of the diagram, in the units of its viewBox (it shrinks with the card, at most 1 unit = 1px). */
 const HEIGHT = 430;
 const SOURCE = { x: 72, r: 46, ys: [110, 320] };
 const CONTROLLER = { x: 262, y: 215, r: 66 };
-const ENGINE = { r: 52, x0: 440, dx: 145, rows: [100, 330] };
+const CONTROLLER_ROW_GAP = CONTROLLER.r * 2 + 52;
+const ENGINE = { r: 52, x0: 440, dx: 145, rows: SOURCE.ys };
 const MIN_WIDTH = 620;
-/** Gap between two arcs of a ring, and the thinnest and thickest link. */
+/** Gap between two arcs of a ring. */
 const ARC_GAP = 3;
-const LINK = { min: 1.5, max: 6 };
 const RING = 6;
 
 /** One arc of a ring: a dash of a circle, starting at 12 o'clock. */
@@ -25,6 +25,13 @@ interface Point {
   y: number;
 }
 
+interface ControllerNode extends Point {
+  instance: ControllerInstance;
+  number: number;
+  r: number;
+  labelY: number;
+}
+
 /** An engine as drawn: its place, its ring and the link from the Controller server. */
 interface EngineNode {
   engine: ScanEngine;
@@ -36,11 +43,10 @@ interface EngineNode {
   arcs: Arc[];
   used: number;
   capacity: number;
-  scans: number;
   path: string;
-  width: number;
   busyCodebase: boolean;
   busyFragment: boolean;
+  idle: boolean;
 }
 
 interface SourceNode {
@@ -48,9 +54,10 @@ interface SourceNode {
   x: number;
   y: number;
   r: number;
-  scans: number;
+  active: number;
+  capacity: number;
+  arcs: Arc[];
   path: string;
-  width: number;
   busy: boolean;
 }
 
@@ -87,17 +94,12 @@ function ringArcs(r: number, codebase: number, fragment: number, capacity: numbe
   return arcs;
 }
 
-/** Width of a link carrying ``share`` of the busiest link. */
-function linkWidth(share: number): number {
-  return LINK.min + (LINK.max - LINK.min) * Math.min(1, Math.max(0, share));
-}
-
 /** Point of the circle of the Controller server towards ``target``. */
-function controllerEdge(target: Point): Point {
-  const angle = Math.atan2(target.y - CONTROLLER.y, target.x - CONTROLLER.x);
+function controllerEdge(target: Point, center = CONTROLLER): Point {
+  const angle = Math.atan2(target.y - center.y, target.x - center.x);
   return {
-    x: CONTROLLER.x + CONTROLLER.r * Math.cos(angle),
-    y: CONTROLLER.y + CONTROLLER.r * Math.sin(angle),
+    x: center.x + center.r * Math.cos(angle),
+    y: center.y + center.r * Math.sin(angle),
   };
 }
 
@@ -111,8 +113,9 @@ function shortName(name: string): string {
 /**
  * Flow of the code scans on the Scan engines page: the pipelines and the agents on the left,
  * the Controller server in the middle, each enrolled engine on the right. A ring shows the
- * OpenGrep slots in use, a link is as thick as the share of the scans, and a moving dot marks
- * a scan running now. The table of the page gives the same numbers.
+ * OpenGrep slots in use, thin links carry moving dots for scans running now, and a pulse travels
+ * from an engine to the Controller server at each of its
+ * heartbeats (a new heartbeat_at recreates the pulse, which restarts its CSS animation). The table of the page gives the same numbers.
  */
 @Component({
   selector: 'app-scan-engine-flow',
@@ -124,8 +127,8 @@ function shortName(name: string): string {
 export class ScanEngineFlowComponent {
   readonly data = input.required<ScanEngineList>();
 
-  readonly height = HEIGHT;
-  readonly controller = CONTROLLER;
+  readonly height = computed(() => this.controllerLayout().height);
+  readonly controllerRadius = CONTROLLER.r;
   readonly engineRadius = ENGINE.r;
   readonly ring = RING;
   readonly controllerRing = CONTROLLER.r - RING;
@@ -140,47 +143,78 @@ export class ScanEngineFlowComponent {
 
   private readonly columns = computed(() => Math.ceil(this.engines().length / 2));
 
+  private readonly controllerLayout = computed(() => {
+    const instances = this.data().controllers?.length
+      ? this.data().controllers
+      : [{ id: 'current', started_at: '', heartbeat_at: '' }];
+    const span = (instances.length - 1) * CONTROLLER_ROW_GAP;
+    const height = Math.max(HEIGHT, CONTROLLER.r * 2 + 84 + span);
+    const firstY = (height - span) / 2;
+    return {
+      height,
+      nodes: instances.map((instance, index): ControllerNode => {
+        const y = firstY + index * CONTROLLER_ROW_GAP;
+        return {
+          instance,
+          number: index + 1,
+          x: CONTROLLER.x,
+          y,
+          r: CONTROLLER.r,
+          labelY: y + CONTROLLER.r + 20,
+        };
+      }),
+    };
+  });
+
+  readonly controllerNodes = computed(() => this.controllerLayout().nodes);
+
   readonly width = computed(() =>
     Math.max(MIN_WIDTH, ENGINE.x0 + (this.columns() - 1) * ENGINE.dx + ENGINE.r + 40),
   );
 
+  private closestController(y: number): ControllerNode {
+    return this.controllerNodes().reduce((closest, node) =>
+      Math.abs(node.y - y) < Math.abs(closest.y - y) ? node : closest,
+    );
+  }
+
   readonly totals = computed(() => {
     const totals = {
-      codebase: 0,
-      fragment: 0,
       files: 0,
-      failed: 0,
       active: 0,
-      used: 0,
-      capacity: 0,
+      activeCodebase: 0,
+      activeFragment: 0,
+      capacityCodebase: 0,
+      capacityFragment: 0,
     };
-    let usedCodebase = 0;
-    let usedFragment = 0;
     for (const engine of this.engines()) {
-      totals.codebase += engine.codebase_scans;
-      totals.fragment += engine.fragment_scans;
-      totals.files += engine.scanned_files;
-      totals.failed += engine.failed_scans;
+      totals.files += engine.processing_files;
       if (engine.active) {
-        const used = usedSlots(engine);
         totals.active += 1;
-        totals.capacity += engine.codebase_slots + engine.fragment_slots;
-        usedCodebase += used.codebase;
-        usedFragment += used.fragment;
+        totals.activeCodebase += engine.processing_codebase_scans;
+        totals.activeFragment += engine.processing_fragment_scans;
+        totals.capacityCodebase += engine.codebase_slots;
+        totals.capacityFragment += engine.fragment_slots;
       }
     }
-    totals.used = usedCodebase + usedFragment;
     return {
       ...totals,
-      busyCodebase: usedCodebase > 0,
-      busyFragment: usedFragment > 0,
-      arcs: ringArcs(this.controllerRing, usedCodebase, usedFragment, totals.capacity),
+      busyCodebase: totals.activeCodebase > 0,
+      busyFragment: totals.activeFragment > 0,
+      arcs: ringArcs(
+        this.controllerRing,
+        totals.activeCodebase,
+        totals.activeFragment,
+        Math.max(
+          totals.capacityCodebase + totals.capacityFragment,
+          totals.activeCodebase + totals.activeFragment,
+        ),
+      ),
     };
   });
 
   readonly nodes = computed<EngineNode[]>(() => {
     const engines = this.engines();
-    const busiest = Math.max(1, ...engines.map((e) => e.codebase_scans + e.fragment_scans));
     return engines.map((engine, index) => {
       const single = engines.length === 1;
       const row = index % 2;
@@ -190,13 +224,14 @@ export class ScanEngineFlowComponent {
       const end: Point = single
         ? { x: x - ENGINE.r, y }
         : { x, y: row === 0 ? y + ENGINE.r : y - ENGINE.r };
-      const start = controllerEdge(end);
+      const start = controllerEdge(end, this.closestController(y));
       const pull = single
         ? { x: end.x - 70, y: end.y }
         : { x, y: row === 0 ? end.y + 70 : end.y - 70 };
       const used = usedSlots(engine);
       const capacity = engine.codebase_slots + engine.fragment_slots;
-      const scans = engine.codebase_scans + engine.fragment_scans;
+      const busyCodebase = engine.processing_codebase_scans > 0;
+      const busyFragment = engine.processing_fragment_scans > 0;
       return {
         engine,
         label: shortName(engine.name),
@@ -206,31 +241,38 @@ export class ScanEngineFlowComponent {
         arcs: ringArcs(this.engineRing, used.codebase, used.fragment, capacity),
         used: used.codebase + used.fragment,
         capacity,
-        scans,
         path: `M${f(start.x)},${f(start.y)} C${f(start.x + 60)},${f(start.y)} ${f(pull.x)},${f(pull.y)} ${f(end.x)},${f(end.y)}`,
-        width: linkWidth(scans / busiest),
-        busyCodebase: used.codebase > 0,
-        busyFragment: used.fragment > 0,
+        busyCodebase,
+        busyFragment,
+        idle:
+          engine.active && !busyCodebase && !busyFragment && used.codebase + used.fragment === 0,
       };
     });
   });
 
   readonly sources = computed<SourceNode[]>(() => {
     const totals = this.totals();
-    const busiest = Math.max(1, totals.codebase, totals.fragment);
     return (['codebase', 'fragment'] as const).map((kind, index) => {
       const y = SOURCE.ys[index];
       const start: Point = { x: SOURCE.x + SOURCE.r, y };
-      const end = controllerEdge({ x: SOURCE.x, y });
-      const scans = kind === 'codebase' ? totals.codebase : totals.fragment;
+      const end = controllerEdge({ x: SOURCE.x, y }, this.closestController(y));
       return {
         kind,
         x: SOURCE.x,
         y,
         r: SOURCE.r,
-        scans,
+        active: kind === 'codebase' ? totals.activeCodebase : totals.activeFragment,
+        capacity: kind === 'codebase' ? totals.capacityCodebase : totals.capacityFragment,
+        arcs: ringArcs(
+          this.sourceRing,
+          kind === 'codebase' ? totals.activeCodebase : 0,
+          kind === 'fragment' ? totals.activeFragment : 0,
+          Math.max(
+            kind === 'codebase' ? totals.capacityCodebase : totals.capacityFragment,
+            kind === 'codebase' ? totals.activeCodebase : totals.activeFragment,
+          ),
+        ),
         path: `M${f(start.x)},${f(start.y)} C${f(start.x + 70)},${f(y)} ${f(end.x - 50)},${f(end.y)} ${f(end.x)},${f(end.y)}`,
-        width: linkWidth(scans / busiest),
         busy: kind === 'codebase' ? totals.busyCodebase : totals.busyFragment,
       };
     });

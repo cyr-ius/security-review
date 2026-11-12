@@ -91,9 +91,11 @@ Un moteur ne lit aucune base de données. À son démarrage, chaque réplica :
    (`POST /engine/v1/token`, client authentifié en HTTP Basic), valable
    `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES`. Il le renouvelle avant son expiration, en tâche de
    fond, ce qui indique aussi au serveur Controller qu'il est actif ;
-3. envoie un **battement de cœur** toutes les 30 secondes avec ses créneaux OpenGrep libres, sa
-   capacité et ce qu'il a fait depuis son démarrage (scans de code, fragments, fichiers, échecs,
-   scans refusés car occupé) (`POST /api/v1/engine/heartbeat`) ;
+3. envoie un **battement de cœur** avec ses créneaux OpenGrep libres, sa capacité, les scans et
+   fichiers en cours de traitement et ce qu'il a fait depuis son démarrage (scans de code,
+   fragments, fichiers, échecs, scans refusés car occupé) (`POST /api/v1/engine/heartbeat`) :
+   toutes les 30 secondes au repos, toutes les 5 secondes pendant un scan, et aussitôt (au plus une
+   fois par seconde) quand un scan commence ou se termine ;
 4. lit les règles avec ce jeton par l'API REST du serveur Controller (`/api/v1/engine/*`, voir
    [Règles](#regles)).
 
@@ -126,15 +128,24 @@ Les moteurs enrôlés sont listés dans la page [**Moteurs de scan**](../../usag
 état (actif tant que son battement de cœur est récent), URL, créneaux libres, date d'enrôlement et
 dernière activité, jamais un secret.
 
-Au-dessus de la liste, le graphe **Activité** montre le flux des scans de code : les pipelines
-(`security-review-ci`, revues du dépôt) et les agents (fragments de `scan_code`) à gauche, le
-serveur Controller au centre, un cercle par moteur à droite. L'anneau d'un moteur montre ses
-créneaux OpenGrep occupés (scans de code et fragments, chacun de sa couleur), le nombre au centre
-ses scans depuis son démarrage, et un panneau d'avertissement ses scans en échec ; un lien est
-d'autant plus épais que sa part des scans est grande, et un point en mouvement signale un scan en
-cours. Un moteur sans battement de cœur récent est grisé. Les compteurs repartent de zéro quand un
-moteur redémarre (il s'enrôle de nouveau) ; le survol d'un cercle affiche son détail, et la liste
-en dessous donne les mêmes moteurs.
+Au-dessus de la liste, le graphe **Activité** montre les scans de code en cours :
+
+- à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
+  `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;
+- au centre, un cercle par processus du serveur Controller en marche. Chaque processus entretient
+  un battement de cœur en base toutes les 5 secondes et disparaît après 30 secondes sans battement.
+  Les réplicas partagent la base, leurs cercles montrent donc les mêmes nombres : moteurs actifs,
+  fichiers en cours de traitement, et un anneau avec les scans de pipeline et les fragments en
+  cours ;
+- à droite, un cercle par moteur, avec ses créneaux OpenGrep occupés sur son total.
+
+Des traits fins portent un point en mouvement pendant les scans, et chaque battement de cœur d'un
+moteur envoie une impulsion verte vers le serveur Controller. Un moteur sans battement de cœur
+récent est grisé. La page se recharge d'elle-même toutes les 2 secondes tant qu'elle est visible.
+Le nombre de fragments actifs compte les requêtes `scan_code` simultanées, pas les agents
+distincts. Le survol d'un cercle affiche son détail, dont les compteurs depuis le démarrage du
+moteur (ils repartent de zéro quand il redémarre et s'enrôle de nouveau) ; la liste en dessous
+donne les mêmes moteurs.
 
 - **Révoquer** un moteur (page, ou `security-review-controller engine revoke <id>`) : son client et
   son jeton d'accès cessent aussitôt de fonctionner, il ne reçoit plus de scans, et ses scans

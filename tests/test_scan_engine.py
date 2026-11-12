@@ -7,6 +7,7 @@ import io
 import json
 import subprocess
 import sys
+import threading
 import urllib.error
 from urllib.parse import urlsplit
 
@@ -33,6 +34,8 @@ from security_review_mcp.engines.protocol import (
 from security_review_mcp.http_server import Role
 from security_review_mcp.rules import codescan, registry
 from security_review_mcp.rules.codescan import SourceFile
+from security_review_mcp.storage import controller_instances
+from security_review_mcp.storage.models import utcnow
 
 TOKEN = "engine-secret-for-tests-0123456789abcdef"
 URL = "http://10.0.0.5:8000"
@@ -96,6 +99,8 @@ def engines(monkeypatch):
     reached through ``opener``."""
     backend.ENGINE_REQUESTS.clear()
     monkeypatch.setattr(worker, "_counters", type(worker._counters)())
+    monkeypatch.setattr(worker, "_processing", type(worker._processing)())
+    monkeypatch.setattr(worker, "_controller_client", None)
 
     def use(opener, enroll: bool = True):
         monkeypatch.setattr(get_settings(), "scan_engine_token", SecretStr(TOKEN))
@@ -107,8 +112,41 @@ def engines(monkeypatch):
     return use
 
 
-def test_the_controller_gets_the_same_scan_from_the_engines(engines):
+def test_the_controller_gets_the_same_scan_from_the_engines(engines, monkeypatch):
     local = codescan.scan_files(FILES)
+    processing: list[tuple[int, int, int]] = []
+    persisted: list[tuple[int, int, int]] = []
+    notifications: list[bool] = []
+    scan = worker._scan
+
+    class Notifier:
+        def notify_activity_change(self, active):
+            notifications.append(active)
+
+    monkeypatch.setattr(worker, "_controller_client", Notifier())
+
+    def observe_processing(sources, fragment):
+        status = worker._status()
+        processing.append(
+            (
+                status.processing_codebase_scans,
+                status.processing_fragment_scans,
+                status.processing_files,
+            )
+        )
+        engine_id = engine_clients.active_engines(fragment)[0][0]
+        engine_clients.heartbeat(engine_id, status)
+        listed = engine_clients.list_engines()[0]
+        persisted.append(
+            (
+                listed["processing_codebase_scans"],
+                listed["processing_fragment_scans"],
+                listed["processing_files"],
+            )
+        )
+        return scan(sources, fragment)
+
+    monkeypatch.setattr(worker, "_scan", observe_processing)
     opener = engines(_EngineOpener())
 
     delegated = codescan.scan_files(FILES)
@@ -124,10 +162,32 @@ def test_the_controller_gets_the_same_scan_from_the_engines(engines):
     # The engine counts what it did, and its heartbeat shows it on the Scan engines page
     beat = worker._status()
     assert (beat.codebase_scans, beat.fragment_scans, beat.scanned_files) == (1, 1, 3)
+    assert processing == [(1, 0, 2), (0, 1, 1)]
+    assert persisted == processing
+    assert notifications == [True, False, True, False]
+    assert beat.processing_files == 0
+    assert (beat.processing_codebase_scans, beat.processing_fragment_scans) == (0, 0)
     engine_clients.heartbeat(engine_clients.active_engines(False)[0][0], beat)
     [listed] = engine_clients.list_engines()
     assert listed["codebase_scans"] == 1 and listed["scanned_files"] == 3
     assert listed["codebase_slots"] == get_settings().opengrep_max_concurrent_scans
+    assert listed["processing_files"] == 0
+
+
+def test_activity_notification_wakes_the_heartbeat_thread(monkeypatch):
+    monkeypatch.setattr(controller_client, "MIN_HEARTBEAT_SECONDS", 0)
+    client = controller_client.ControllerClient(URL, TOKEN, URL)
+    sent = threading.Event()
+    client.beat = sent.set
+    client.notify_activity_change(True)
+    heartbeat = threading.Thread(target=client._heartbeat)
+    heartbeat.start()
+
+    received = sent.wait(timeout=1)
+    client.stop()
+    heartbeat.join(timeout=1)
+    assert received
+    assert not heartbeat.is_alive()
 
 
 def test_the_engine_refuses_a_request_without_its_secret_before_reading_it():
@@ -387,7 +447,14 @@ def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_datab
     assert engine_clients.active_engines(False) == [(engine.client_id, "http://10.0.0.7:8000")]
 
     # Listed for the administrators, and revoked: the engine stops scanning at once
-    listed = controller.get("/api/v1/scan-engines", headers=admin).json()["engines"]
+    controller_instances.register_instance("controller-one", utcnow())
+    controller_instances.register_instance("controller-two", utcnow())
+    response = controller.get("/api/v1/scan-engines", headers=admin).json()
+    listed = response["engines"]
+    assert [instance["id"] for instance in response["controllers"]] == [
+        "controller-one",
+        "controller-two",
+    ]
     assert [(e["id"], e["name"], e["active"]) for e in listed] == [
         (engine.client_id, "engine-1", True)
     ]
@@ -397,6 +464,25 @@ def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_datab
     with pytest.raises(opengrep.OpenGrepError, match="revoked"), cache.use():
         pass
     assert engine.revoked
+
+
+def test_controller_heartbeat_registers_and_unregisters():
+    heartbeat = controller_instances.ControllerHeartbeat()
+    heartbeat.start()
+    assert [instance["id"] for instance in controller_instances.active_instances()] == [
+        heartbeat.instance_id
+    ]
+
+    # A record purged by another replica (long pause, restored database) comes back
+    controller_instances.unregister_instance(heartbeat.instance_id)
+    controller_instances.heartbeat(heartbeat.instance_id, heartbeat.started_at)
+    assert [instance["id"] for instance in controller_instances.active_instances()] == [
+        heartbeat.instance_id
+    ]
+
+    heartbeat.stop()
+
+    assert controller_instances.active_instances() == []
 
 
 def test_only_the_holders_of_the_shared_secret_enroll_and_get_tokens(monkeypatch, capsys):

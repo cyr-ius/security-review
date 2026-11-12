@@ -2,6 +2,18 @@
   "version": "0.2.0",
   "compounds": [
     {
+      // Controller (port 8080) and a scan engine (port 8090) that takes its code scans; both
+      // read the shared secret SECREVIEW_SCAN_ENGINE_TOKEN from .env (openssl rand -hex 32)
+      "name": "Controller + scan engine (debug)",
+      "configurations": [
+        "Controller: FastAPI (port 8080)",
+        "Controller: Angular (port 4200)",
+        "MCP server (debug, port 8000)",
+        "Scan engine (debug, port 8090)"
+      ],
+      "stopAll": true
+    },
+    {
       // FastAPI controller under debugpy (port 8080) and Angular dev server (port 4200, /api
       // proxied to 8080) in Chrome with the TypeScript breakpoints mapped, live reload on save
       "name": "Controller (debug: FastAPI + Angular)",
@@ -25,7 +37,8 @@
         "SECREVIEW_LOG_LEVEL": "DEBUG",
         "SECREVIEW_OPENGREP_ENABLED": "true",
         "SECREVIEW_OPENGREP_RULES_DIR": "${workspaceFolder}/.venv/var/lib/secreview/rules/opengrep",
-        "SECREVIEW_PUBLIC_URL": "http://localhost:8080"
+        "SECREVIEW_PUBLIC_URL": "http://localhost:8080",
+        "SECREVIEW_OSV_AUTO_UPDATE": "true"
       },
       "console": "integratedTerminal",
       "justMyCode": false,
@@ -55,6 +68,28 @@
         "SECREVIEW_LOG_LEVEL": "DEBUG"
       },
       "preLaunchTask": "Database upgrade",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      // Scan engine: reads no database, enrolls with the controller on port 8080 (start it first,
+      // or the compound above) and copies its rules before each scan. Needs
+      // SECREVIEW_SCAN_ENGINE_TOKEN in .env, which also turns the engines on for the controller
+      "name": "Scan engine (debug, port 8090)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "security_review_mcp.engines.worker",
+      "args": ["--host", "127.0.0.1", "--port", "8090"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "SECREVIEW_LOG_LEVEL": "DEBUG",
+        "SECREVIEW_CONTROLLER_URL": "http://127.0.0.1:8080",
+        "SECREVIEW_PUBLIC_URL": "http://127.0.0.1:8080",
+        "SECREVIEW_OPENGREP_ENABLED": "true",
+        "SECREVIEW_OPENGREP_RULES_DIR": "${workspaceFolder}/.venv/var/lib/secreview/scan-engine/rules/opengrep"
+      },
       "console": "integratedTerminal",
       "justMyCode": false
     },

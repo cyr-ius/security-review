@@ -126,6 +126,10 @@ class EngineHeartbeat(BaseModel):
     codebase_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
     fragment_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
     scanned_files: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
+    # Files in scans currently running; unlike the counters above, this can decrease.
+    processing_files: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
+    processing_codebase_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
+    processing_fragment_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
     failed_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
     busy_refusals: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
 

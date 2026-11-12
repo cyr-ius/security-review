@@ -63,6 +63,9 @@ STAT_FIELDS = (
     "codebase_scans",
     "fragment_scans",
     "scanned_files",
+    "processing_files",
+    "processing_codebase_scans",
+    "processing_fragment_scans",
     "failed_scans",
     "busy_refusals",
 )

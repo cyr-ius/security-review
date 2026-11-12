@@ -23,6 +23,7 @@ In VS Code (`.vscode/`):
 | `launch.json` configuration | Role |
 |---|---|
 | **Controller (debug: FastAPI + Angular)** | Controller server on port 8080 and `ng serve` on port 4200 under the debugger, then Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints; hot reload of the page, restart of the Controller server on each save of `src/` (`scripts/dev_reload.py`), migrates the database and shows the password of the initial `admin` account at first start. To stay logged in across the restarts, set `SECREVIEW_SECRET_KEY` in your `.env` (ignored by git), for example to the output of `openssl rand -hex 32` |
+| **Controller + scan engine (debug)** / **Scan engine (debug, port 8090)** | Controller server on port 8080 with a [scan engine](../advanced/architecture/scan-engine.md) on port 8090 under the debugger, or the engine alone (the Controller server must run). Both read the shared secret `SECREVIEW_SCAN_ENGINE_TOKEN` from your `.env` (`openssl rand -hex 32`), which also sends the code scans of the Controller server to the engines; the engine keeps its OpenGrep rules in `.venv/var/lib/secreview/scan-engine/` |
 | **MCP server (debug, port 8000)** | Runs the **Database upgrade** task, then the HTTP MCP server under the debugger |
 | **Controller CLI (prompt for arguments)** | A Controller server command (`db status`, `token list`…) under the debugger |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` with live reload, opens the site in the browser |
@@ -33,6 +34,7 @@ In VS Code (`.vscode/`):
 | **Database upgrade** | `uv run security-review-controller db upgrade` (after **Build**) |
 | **Tests** / **Lint** | `pytest`, then ruff and `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Angular build served by the Controller server, or `ng serve` with `/api` forwarded to port 8080 (stopped with the debugger by **Web UI: stop dev server**) |
+| **Scan engine (port 8090)** | `security-review-scan-engine` without the debugger, same settings as the launch configuration |
 | **Docker: compose up** / **down** | `docker-compose.yml` stack of the image, with its own PostgreSQL database (same ports 8000 and 8080: stop the debug configurations first) |
 
 ### Devcontainer
