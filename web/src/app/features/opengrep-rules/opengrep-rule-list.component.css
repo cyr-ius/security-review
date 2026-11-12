@@ -1,5 +1,5 @@
 .opengrep-yaml {
-  min-height: 28rem;
+  min-height: 24rem;
   tab-size: 2;
   white-space: pre;
   overflow-wrap: normal;
@@ -10,4 +10,45 @@
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Editor dialog, as on the Rules page */
+.rule-dialog {
+  inline-size: min(72rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.rule-dialog::backdrop {
+  background: var(--app-backdrop);
+}
+
+.rule-editor {
+  max-block-size: calc(100dvh - 2rem);
+}
+
+.rule-editor .card-body {
+  overflow-y: auto;
+}
+
+.rule-name {
+  min-width: 18rem;
+}
+
+/* The first two lines of the message; the editor shows it in full */
+.rule-message {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.action-button {
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
 }

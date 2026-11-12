@@ -159,13 +159,22 @@ Controller (`docker compose exec controller security-review-controller opengrep 
 
 ## Gestion des règles depuis l’interface web
 
-Le Controller propose une page de gestion authentifiée à l’adresse `/ui/opengrep-rules`.
-Les utilisateurs disposant de `rules.read` peuvent consulter les fichiers YAML du répertoire
-`SECREVIEW_OPENGREP_RULES_DIR`. Ceux disposant de `rules.manage` peuvent créer, modifier,
-valider et supprimer ces fichiers. Chaque fichier géré contient exactement une règle et son
-identifiant YAML doit correspondre à celui du fichier. Toute écriture est validée avec
-`opengrep validate <fichier>` avant un remplacement atomique. Le Controller ne télécharge
-aucun pack de règles et ne suit aucune source distante à la place de l’administrateur.
+Le serveur Controller propose une page de gestion authentifiée à l’adresse
+`/ui/opengrep-rules` (**Règles OpenGrep**). Les utilisateurs disposant de `rules.read` peuvent
+consulter les fichiers YAML du répertoire `SECREVIEW_OPENGREP_RULES_DIR`. Ceux disposant de
+`rules.manage` peuvent créer, modifier, valider et supprimer ces fichiers. Chaque fichier géré
+contient exactement une règle et son identifiant YAML doit correspondre à celui du fichier. Toute
+écriture est validée avec `opengrep validate <fichier>` avant un remplacement atomique. Le
+serveur Controller ne télécharge aucun pack de règles et ne suit aucune source distante à la
+place de l’administrateur.
+
+Les règles sont listées dans un tableau : identifiant, message, CWE, langage, sévérité des
+findings (`ERROR` donne **Haute**, `WARNING` **Moyenne**, `INFO` **Basse**) et date de la
+dernière modification, lus dans le YAML de chaque fichier (un champ écrit autrement affiche
+`—`). Le champ de recherche porte sur l'identifiant, le message et la CWE ; les filtres gardent
+un ou plusieurs langages et sévérités, et chaque colonne sauf le message trie le tableau. Le
+crayon (l'œil avec `rules.read` seulement) ouvre le YAML de la règle dans une boîte de dialogue,
+avec **Valider**, **Enregistrer** et **Supprimer**.
 
 ## Règles proposées par les agents
 
