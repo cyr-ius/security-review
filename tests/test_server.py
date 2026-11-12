@@ -21,7 +21,13 @@ from security_review_mcp.server import (
     mcp,
     set_enrollment_web_url,
 )
-from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
+from security_review_mcp.storage import server_instances
+from security_review_mcp.storage.models import (
+    FindingCreate,
+    ReviewType,
+    ServerKind,
+    Severity,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -411,8 +417,12 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     sent = []
     opengrep_match = {"rule_id": "OPENGREP:secreview.python.shell", "line": 1}
 
+    # Heartbeat of the MCP server (HTTP transport): the calls running are counted
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, server._scan_code_delegated)
+    monkeypatch.setattr(server, "_heartbeat", heartbeat)
+
     def controller(url, authorization, text, language, timeout):
-        sent.append((url, authorization, language))
+        sent.append((url, authorization, language, heartbeat.activity()["processing_fragments"]))
         if len(sent) > 1:
             raise server.remote_scan.RemoteScanError("the controller answered HTTP 503")
         return {"matches": [opengrep_match], "suppressed": [], "engines": ["rules", "opengrep"]}
@@ -431,7 +441,11 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
         failed = json.loads(text_of(await client.call_tool("scan_code", content)))
 
     assert [url for url, *_ in sent] == ["https://sr.example", "http://controller:8080"]
-    assert sent[0][1:] == ("Bearer agent-token", "python")
+    assert sent[0][1:] == ("Bearer agent-token", "python", 1)
+    # Shown on the Scan engines page: delegated, with the calls run since the last heartbeat
+    heartbeat.beat()
+    [instance] = server_instances.active_instances(ServerKind.MCP)
+    assert (instance["delegated"], instance["processing_fragments"]) == (True, 1)
     assert (alone["engines"], alone["controller_error"]) == (["rules"], None)
     assert delegated["engines"] == ["rules", "opengrep"]
     assert delegated["matches"] == [opengrep_match]

@@ -133,6 +133,13 @@ Above the list, the **Activity** diagram shows the code scans running now:
 
 - on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
   (`scan_code` fragments), with their occupied slots out of the slots of the active engines;
+- next to the agents, one yellow circle per running MCP server (HTTP transport), with the most
+  `scan_code` calls it ran at once since its previous heartbeat. The agents reach the Controller
+  server through it; its link to the Controller server is dashed, with **Local scan**, while the
+  delegation of `scan_code` is off: it then scans the fragments itself and they never reach the
+  engines. The pipelines go straight to the Controller server. The MCP servers in local mode
+  (stdio) have their own database and never show. Without any MCP server running, the agents
+  are linked straight to the Controller server;
 - in the middle, one circle per running Controller server process. Each process keeps a heartbeat
   in the database every 5 seconds and disappears after 30 seconds without one. The replicas share
   the database, so their circles show the same numbers: active engines, files being processed,

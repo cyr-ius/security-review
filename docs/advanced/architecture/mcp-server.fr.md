@@ -33,7 +33,13 @@ En HTTP, `security-review-mcp serve` :
 2. vérifie les réglages TLS, charge les règles de la base ;
 3. sert `/mcp`. Tant qu'aucun jeton n'existe, il reste **fermé** : un client n'atteint que
    le serveur d'enrôlement, sauf si le serveur écoute sur localhost ou avec
-   `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (voir [Jetons Bearer](../bearer-tokens.md)).
+   `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (voir [Jetons Bearer](../bearer-tokens.md)) ;
+4. entretient un **battement de cœur** en base : toutes les 5 secondes, et aussitôt (au plus une
+   fois par seconde) quand un appel `scan_code` commence ou se termine, avec son nom d'hôte, sa
+   version, l'état de la délégation de `scan_code` au serveur Controller, et le plus grand nombre
+   d'appels `scan_code` simultanés depuis le battement précédent. Le serveur Controller l'affiche
+   sur la page [**Moteurs de scan**](scan-engine.md#administration). Il le supprime à son arrêt ;
+   un serveur disparu sans s'arrêter quitte la page au bout de 30 secondes.
 
 En stdio, `security-review-mcp local` migre lui-même sa base locale.
 

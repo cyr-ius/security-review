@@ -20,8 +20,9 @@ from .deps import advisory_sync
 from .engines import backend as scan_engines
 from .observability import audit_syslog
 from .rules import opengrep_rule_store, registry
-from .storage import controller_instances, retention
+from .storage import retention, server_instances
 from .storage.database import SchemaError, init_db
+from .storage.models import ServerKind
 
 logger = logging.getLogger("security_review_mcp.controller")
 
@@ -184,7 +185,7 @@ def serve(argv: list[str]) -> None:
     )
     if dispatcher:
         dispatcher.start()
-    controller_heartbeat = controller_instances.ControllerHeartbeat()
+    controller_heartbeat = server_instances.ServerHeartbeat(ServerKind.CONTROLLER)
     try:
         controller_heartbeat.start()
         http_server.serve(

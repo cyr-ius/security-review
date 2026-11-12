@@ -12,6 +12,7 @@
               active: total.active,
               total: data().engines.length,
               controllers: controllerNodes().length,
+              mcp: mcpNodes().length,
               codebase: total.activeCodebase,
               fragments: total.activeFragment,
             }
@@ -19,16 +20,43 @@
   >
     <!-- Links first, under the nodes -->
     @for (source of sources(); track source.kind) {
+      @if (source.path) {
+        <path
+          class="link"
+          [class]="'link-' + source.kind"
+          [class.idle]="!source.busy"
+          [attr.d]="source.path"
+        />
+        @if (source.busy) {
+          <circle class="dot" [class]="'dot-' + source.kind" r="5">
+            <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="source.path" />
+          </circle>
+        }
+      }
+    }
+    <!-- The agents call scan_code on an MCP server, which delegates it to the Controller server -->
+    @for (node of mcpNodes(); track node.instance.id) {
+      <path class="link link-fragment" [class.idle]="!node.busy" [attr.d]="node.inPath" />
       <path
-        class="link"
-        [class]="'link-' + source.kind"
-        [class.idle]="!source.busy"
-        [attr.d]="source.path"
+        class="link link-fragment"
+        [class.idle]="!node.busy"
+        [class.inactive]="!node.instance.delegated"
+        [attr.d]="node.outPath"
       />
-      @if (source.busy) {
-        <circle class="dot" [class]="'dot-' + source.kind" r="5">
-          <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="source.path" />
+      @if (node.busy) {
+        <circle class="dot dot-fragment" r="5">
+          <animateMotion dur="1.6s" repeatCount="indefinite" [attr.path]="node.inPath" />
         </circle>
+        @if (node.instance.delegated) {
+          <circle class="dot dot-fragment" r="5">
+            <animateMotion
+              dur="1.6s"
+              begin="0.8s"
+              repeatCount="indefinite"
+              [attr.path]="node.outPath"
+            />
+          </circle>
+        }
       }
     }
     @for (node of nodes(); track node.engine.id) {
@@ -111,6 +139,64 @@
         <text class="label" [attr.x]="source.x" [attr.y]="source.y + source.r + 20">
           {{
             (source.kind === 'codebase' ? 'scanEngines.flowPipelines' : 'scanEngines.flowAgents')
+              | t
+          }}
+        </text>
+      </g>
+    }
+
+    <!-- One node per active MCP server (HTTP transport): the scan_code calls it relays -->
+    @for (node of mcpNodes(); track node.instance.id) {
+      <g class="node mcp" [class.idle]="!node.busy">
+        @for (beat of [node.instance.heartbeat_at]; track beat) {
+          <circle
+            class="beat-ring beat-ring-mcp"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="node.r"
+          />
+        }
+        <title>
+          {{ 'scanEngines.flowMcpInstance' | t: { number: node.number } }}.
+          {{
+            (node.instance.delegated
+              ? 'scanEngines.flowMcpTitleDelegated'
+              : 'scanEngines.flowMcpTitleLocal'
+            )
+              | t
+                : {
+                    name: node.instance.name,
+                    version: node.instance.version,
+                    count: node.instance.processing_fragments,
+                  }
+          }}
+        </title>
+        <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
+        <circle
+          class="ring ring-track"
+          [class.ring-mcp]="node.busy"
+          [attr.cx]="node.x"
+          [attr.cy]="node.y"
+          [attr.r]="mcpRing"
+          [attr.stroke-width]="ring"
+        />
+        <foreignObject
+          [attr.x]="node.x - mcpRadius"
+          [attr.y]="node.y - mcpRadius"
+          [attr.width]="mcpRadius * 2"
+          [attr.height]="mcpRadius * 2"
+        >
+          <div class="content">
+            <i class="bi bi-plug" aria-hidden="true"></i>
+            <span class="value">{{ node.instance.processing_fragments }}</span>
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">
+          {{ 'scanEngines.flowMcpInstance' | t: { number: node.number } }}
+        </text>
+        <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 18">
+          {{
+            (node.instance.delegated ? 'scanEngines.flowMcpDelegated' : 'scanEngines.flowMcpLocal')
               | t
           }}
         </text>
@@ -292,5 +378,11 @@
     <span class="swatch swatch-controller-heartbeat" aria-hidden="true"></span>
     {{ 'scanEngines.flowLegendControllerHeartbeat' | t }}
   </li>
+  @if (mcpNodes().length) {
+    <li class="list-inline-item">
+      <span class="swatch swatch-mcp" aria-hidden="true"></span>
+      {{ 'scanEngines.flowLegendMcp' | t }}
+    </li>
+  }
   <li class="list-inline-item">{{ 'scanEngines.flowLegendLive' | t }}</li>
 </ul>

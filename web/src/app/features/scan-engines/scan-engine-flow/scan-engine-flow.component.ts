@@ -1,10 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ControllerInstance, ScanEngine, ScanEngineList } from '../../../core/models/api.models';
+import { ScanEngine, ScanEngineList, ServerInstance } from '../../../core/models/api.models';
 
 /** Geometry of the diagram, in the units of its viewBox (it shrinks with the card, at most 1 unit = 1px). */
 const HEIGHT = 430;
 const SOURCE = { x: 72, r: 46, ys: [110, 320] };
+/** Column of the MCP servers, between the agents and the Controller server (when any is running). */
+const MCP = { x: 232, r: 40, minY: 205 };
+const MCP_ROW_GAP = MCP.r * 2 + 40;
+/** Width taken by the column of the MCP servers: the next columns move right by this much. */
+const MCP_COLUMN = 160;
 const CONTROLLER = { x: 262, y: 215, r: 66 };
 const CONTROLLER_ROW_GAP = CONTROLLER.r * 2 + 52;
 const ENGINE = { r: 52, x0: 440, dx: 145, rows: SOURCE.ys };
@@ -26,10 +31,21 @@ interface Point {
 }
 
 interface ControllerNode extends Point {
-  instance: ControllerInstance;
+  instance: ServerInstance;
   number: number;
   r: number;
   labelY: number;
+}
+
+/** An MCP server as drawn: the link from the agents, and its link to the Controller server. */
+interface McpNode extends Point {
+  instance: ServerInstance;
+  number: number;
+  r: number;
+  labelY: number;
+  inPath: string;
+  outPath: string;
+  busy: boolean;
 }
 
 /** An engine as drawn: its place, its ring and the link from the Controller server. */
@@ -94,8 +110,8 @@ function ringArcs(r: number, codebase: number, fragment: number, capacity: numbe
   return arcs;
 }
 
-/** Point of the circle of the Controller server towards ``target``. */
-function controllerEdge(target: Point, center = CONTROLLER): Point {
+/** Point of the circle ``center`` (the Controller server by default) towards ``target``. */
+function controllerEdge(target: Point, center: Point & { r: number } = CONTROLLER): Point {
   const angle = Math.atan2(target.y - center.y, target.x - center.x);
   return {
     x: center.x + center.r * Math.cos(angle),
@@ -111,8 +127,9 @@ function shortName(name: string): string {
 }
 
 /**
- * Flow of the code scans on the Scan engines page: the pipelines and the agents on the left,
- * the Controller server in the middle, each enrolled engine on the right. A ring shows the
+ * Flow of the code scans on the Scan engines page: the pipelines and the agents on the left, the
+ * MCP servers that relay the scan_code fragments of the agents, the Controller server in the
+ * middle, each enrolled engine on the right. A ring shows the
  * OpenGrep slots in use, thin links carry moving dots for scans running now, and a pulse travels
  * from an engine to the Controller server at each of its
  * heartbeats (a new heartbeat_at recreates the pulse, which restarts its CSS animation). The table of the page gives the same numbers.
@@ -134,6 +151,8 @@ export class ScanEngineFlowComponent {
   readonly controllerRing = CONTROLLER.r - RING;
   readonly engineRing = ENGINE.r - RING;
   readonly sourceRing = SOURCE.r - RING;
+  readonly mcpRadius = MCP.r;
+  readonly mcpRing = MCP.r - RING;
 
   /** The active engines first, in the order of the API (the most recently seen first). */
   private readonly engines = computed(() => {
@@ -143,12 +162,39 @@ export class ScanEngineFlowComponent {
 
   private readonly columns = computed(() => Math.ceil(this.engines().length / 2));
 
+  private readonly mcpServers = computed(() => this.data().mcp_servers ?? []);
+
+  /** How far the Controller server and the engines move right to make room for the MCP servers. */
+  private readonly offset = computed(() => (this.mcpServers().length ? MCP_COLUMN : 0));
+
+  /** Centre of the MCP servers, stacked around the agents and below the pipelines. */
+  private readonly mcpYs = computed(() => {
+    const count = this.mcpServers().length;
+    const firstY = Math.max(MCP.minY, SOURCE.ys[1] - ((count - 1) * MCP_ROW_GAP) / 2);
+    return this.mcpServers().map((_, index) => firstY + index * MCP_ROW_GAP);
+  });
+
   private readonly controllerLayout = computed(() => {
-    const instances = this.data().controllers?.length
+    const instances: ServerInstance[] = this.data().controllers?.length
       ? this.data().controllers
-      : [{ id: 'current', started_at: '', heartbeat_at: '' }];
+      : [
+          {
+            id: 'current',
+            name: '',
+            version: '',
+            started_at: '',
+            heartbeat_at: '',
+            delegated: false,
+            processing_fragments: 0,
+          },
+        ];
     const span = (instances.length - 1) * CONTROLLER_ROW_GAP;
-    const height = Math.max(HEIGHT, CONTROLLER.r * 2 + 84 + span);
+    const lastMcp = this.mcpYs().at(-1);
+    const height = Math.max(
+      HEIGHT,
+      CONTROLLER.r * 2 + 84 + span,
+      lastMcp === undefined ? 0 : lastMcp + MCP.r + 56,
+    );
     const firstY = (height - span) / 2;
     return {
       height,
@@ -157,7 +203,7 @@ export class ScanEngineFlowComponent {
         return {
           instance,
           number: index + 1,
-          x: CONTROLLER.x,
+          x: CONTROLLER.x + this.offset(),
           y,
           r: CONTROLLER.r,
           labelY: y + CONTROLLER.r + 20,
@@ -169,7 +215,10 @@ export class ScanEngineFlowComponent {
   readonly controllerNodes = computed(() => this.controllerLayout().nodes);
 
   readonly width = computed(() =>
-    Math.max(MIN_WIDTH, ENGINE.x0 + (this.columns() - 1) * ENGINE.dx + ENGINE.r + 40),
+    Math.max(
+      MIN_WIDTH,
+      ENGINE.x0 + this.offset() + (this.columns() - 1) * ENGINE.dx + ENGINE.r + 40,
+    ),
   );
 
   private closestController(y: number): ControllerNode {
@@ -218,8 +267,8 @@ export class ScanEngineFlowComponent {
     return engines.map((engine, index) => {
       const single = engines.length === 1;
       const row = index % 2;
-      const x = ENGINE.x0 + Math.floor(index / 2) * ENGINE.dx;
-      const y = single ? CONTROLLER.y : ENGINE.rows[row];
+      const x = ENGINE.x0 + this.offset() + Math.floor(index / 2) * ENGINE.dx;
+      const y = single ? this.closestController(CONTROLLER.y).y : ENGINE.rows[row];
       // Enter the engine from below (top row), from above (bottom row) or from the left
       const end: Point = single
         ? { x: x - ENGINE.r, y }
@@ -250,8 +299,31 @@ export class ScanEngineFlowComponent {
     });
   });
 
+  /** The MCP servers, the agents linked to each, each linked to the closest Controller server. */
+  readonly mcpNodes = computed<McpNode[]>(() =>
+    this.mcpServers().map((instance, index) => {
+      const y = this.mcpYs()[index];
+      const agents: Point = { x: SOURCE.x + SOURCE.r, y: SOURCE.ys[1] };
+      const inEnd: Point = { x: MCP.x - MCP.r, y };
+      const outStart: Point = { x: MCP.x + MCP.r, y };
+      const outEnd = controllerEdge(outStart, this.closestController(y));
+      return {
+        instance,
+        number: index + 1,
+        x: MCP.x,
+        y,
+        r: MCP.r,
+        labelY: y + MCP.r + 20,
+        inPath: `M${f(agents.x)},${f(agents.y)} C${f(agents.x + 40)},${f(agents.y)} ${f(inEnd.x - 40)},${f(y)} ${f(inEnd.x)},${f(y)}`,
+        outPath: `M${f(outStart.x)},${f(y)} C${f(outStart.x + 60)},${f(y)} ${f(outEnd.x - 50)},${f(outEnd.y)} ${f(outEnd.x)},${f(outEnd.y)}`,
+        busy: instance.processing_fragments > 0,
+      };
+    }),
+  );
+
   readonly sources = computed<SourceNode[]>(() => {
     const totals = this.totals();
+    const relayed = this.mcpServers().length > 0;
     return (['codebase', 'fragment'] as const).map((kind, index) => {
       const y = SOURCE.ys[index];
       const start: Point = { x: SOURCE.x + SOURCE.r, y };
@@ -272,7 +344,11 @@ export class ScanEngineFlowComponent {
             kind === 'codebase' ? totals.activeCodebase : totals.activeFragment,
           ),
         ),
-        path: `M${f(start.x)},${f(start.y)} C${f(start.x + 70)},${f(y)} ${f(end.x - 50)},${f(end.y)} ${f(end.x)},${f(end.y)}`,
+        // The fragments reach the Controller server through the MCP servers, when any is running
+        path:
+          kind === 'fragment' && relayed
+            ? ''
+            : `M${f(start.x)},${f(start.y)} C${f(start.x + 70)},${f(y)} ${f(end.x - 50)},${f(end.y)} ${f(end.x)},${f(end.y)}`,
         busy: kind === 'codebase' ? totals.busyCodebase : totals.busyFragment,
       };
     });

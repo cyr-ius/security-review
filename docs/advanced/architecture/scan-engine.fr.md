@@ -137,6 +137,14 @@ Au-dessus de la liste, le graphe **Activité** montre les scans de code en cours
 
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
   `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;
+- à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), avec le plus grand
+  nombre d'appels `scan_code` simultanés depuis son battement de cœur précédent. Les agents
+  passent par lui pour atteindre le serveur Controller ; son lien vers le serveur Controller est en
+  pointillés, avec **Scan local**, tant que la délégation de `scan_code` est désactivée : il scanne
+  alors les fragments lui-même et ils n'atteignent jamais les moteurs. Les pipelines vont
+  directement au serveur Controller. Les serveurs MCP en mode local (stdio) ont leur propre base
+  et n'apparaissent jamais. Sans aucun serveur MCP en marche, les agents sont reliés directement au
+  serveur Controller ;
 - au centre, un cercle par processus du serveur Controller en marche. Chaque processus entretient
   un battement de cœur en base toutes les 5 secondes et disparaît après 30 secondes sans battement.
   Les réplicas partagent la base, leurs cercles montrent donc les mêmes nombres : moteurs actifs,

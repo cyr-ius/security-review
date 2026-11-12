@@ -584,12 +584,28 @@ class ScanEngine(SQLModel, table=True):
     last_seen_at: datetime = Field(default_factory=utcnow, index=True)
 
 
-class ControllerInstance(SQLModel, table=True):
-    """One running Controller process, visible while its database heartbeat is recent."""
+class ServerKind(StrEnum):
+    """Kind of a running server process that keeps a heartbeat in the database."""
+
+    CONTROLLER = "controller"
+    MCP = "mcp"
+
+
+class ServerInstance(SQLModel, table=True):
+    """One running Controller or MCP server process (HTTP transport), visible while its database
+    heartbeat is recent (see server_instances): the activity diagram of the Scan engines page."""
 
     id: str = Field(primary_key=True, max_length=32)
+    kind: ServerKind = Field(sa_type=String(20), index=True, max_length=20)
+    # Host name of the process (the pod name in Kubernetes) and its version
+    name: str = Field(default="", max_length=200)
+    version: str = Field(default="", max_length=40)
     started_at: datetime
     heartbeat_at: datetime = Field(index=True)
+    # MCP server: scan_code is delegated to the Controller server, and the scan_code calls
+    # running now (a gauge)
+    delegated: bool = Field(default=False)
+    processing_fragments: int = Field(default=0)
 
 
 # ── Requested projects (see access_control.request_project) ──────────────────
