@@ -78,7 +78,8 @@ as **Public URL of the Controller server**; on the **Tokens** page, enter
 ([OAuth login of MCP clients](https://cyr-ius.github.io/security-review/advanced/mcp-oauth/)). Declare the server in
 `.mcp.json` at the root of the repository (VS Code, GitHub Copilot, Claude Code), without a
 token: at the first connection, the host opens the browser to sign in. These `127.0.0.1` URLs
-in plain HTTP are for a test on the same machine: for the team, enable HTTPS.
+in plain HTTP are for a test on the same machine, but the ports are open on every interface: for
+the team, enable HTTPS.
 
 ```json
 {

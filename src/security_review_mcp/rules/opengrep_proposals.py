@@ -122,12 +122,13 @@ def propose_rule(
 ) -> dict[str, Any]:
     """Store an OpenGrep rule proposed by an agent, without installing it.
 
-    A proposal with the id of a pending one replaces it. It is written to the audit log
-    (``actor``, default the token ``proposed_by``).
+    A proposal with the id of a pending one of the same project replaces it. It is written to
+    the audit log (``actor``, default the token ``proposed_by``).
 
     Raises:
         ValueError: If the rule, the reason or the test code is invalid, if the rule duplicates
-            an installed rule or another pending proposal, or if too many proposals are
+            an installed rule or another pending proposal, if a pending proposal of another
+            project has the same id, or if too many proposals are
             pending (SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS).
     """
     settings = get_settings()
@@ -145,6 +146,9 @@ def propose_rule(
             )
         ).first()
         replaced = row is not None
+        if row is not None and row.project != project:
+            # Only the project of a pending proposal replaces it, never named to the others
+            raise ValueError("A pending proposal already has this id: choose another id")
         if row is None:
             pending = session.exec(
                 select(func.count())

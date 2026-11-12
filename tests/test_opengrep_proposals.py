@@ -56,6 +56,11 @@ def test_a_proposed_rule_is_installed_only_by_an_approval_and_never_over_a_rule(
     # A new proposal of the same rule replaces the pending one
     replaced = propose(content=RULE.replace("ERROR", "WARNING"))
     assert replaced["id"] == first["id"] and replaced["project"] == "shop"
+    # ...but never from another project, which is not told whose proposal it is
+    with pytest.raises(ValueError, match="already has this id") as refused:
+        opengrep_proposals.propose_rule("other", RULE_ID, RULE, REASON, TEST_CODE, "other-token")
+    assert "shop" not in str(refused.value)
+    assert opengrep_proposals.list_proposals()[0]["proposed_by"] == "agent-token"
     assert [item["id"] for item in opengrep_proposals.list_proposals()] == [first["id"]]
     assert not (rules_dir / f"{RULE_ID}.yaml").exists()
 

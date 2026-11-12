@@ -35,6 +35,10 @@ deprecated: still read with a warning, it takes precedence.
   `https://` URL when the Controller server is not on the same private network.
 - The fragments have their own OpenGrep slots (`SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`):
   agents that call `scan_code` many times never make the codebase scans of the pipelines wait.
+  The two pools add up: size the host for
+  (`SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` + `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`)
+  scans at once, each with `SECREVIEW_OPENGREP_JOBS` cores and `SECREVIEW_OPENGREP_MAX_MEMORY_MB`
+  MiB (keep a memory limit).
 
 ## Docker image
 
@@ -174,8 +178,9 @@ database, and the review prompts tell the agent to propose a rule only after sav
   invisible characters, is refused. The reason is masked and bounded like the reason of a
   status proposal.
 - The token must reach the project and hold `reports.write` on it (as for
-  `save_security_report`). A new proposal with the identifier of a pending one replaces it; at
-  most `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` proposals wait at the same time.
+  `save_security_report`). A new proposal with the identifier of a pending one of the same
+  project replaces it (from another project, it is refused); at most
+  `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` proposals wait at the same time.
 - Duplicates are refused: a rule whose identifier is already installed, or that detects the
   same code as an installed rule, a default rule or another pending proposal. Two rules detect
   the same code when they differ only by their `id`, `message`, `metadata`, `severity` or

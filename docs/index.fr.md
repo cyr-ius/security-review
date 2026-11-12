@@ -132,8 +132,10 @@ L'agent lit le code, s'appuie sur les checklists et enregistre son rapport avec
 `save_security_report`.
 Consultez-le et triez-le dans l'interface web.
 
-Cette installation ne fonctionne que depuis la machine qui fait tourner les conteneurs : les URL
-sont en `127.0.0.1`, en HTTP simple, ce que la connexion OAuth n'accepte qu'en local. Avant que
+Cette installation est un essai sur la machine qui fait tourner les conteneurs : les URL sont en
+`127.0.0.1`, en HTTP simple, ce que la connexion OAuth n'accepte qu'en local. Les ports restent
+pourtant ouverts sur toutes les interfaces de la machine, en HTTP simple : ne la lancez pas sur
+un réseau partagé. Avant que
 l'équipe s'en serve, activez le HTTPS et indiquez les URL publiques des deux serveurs : voir
 [Mise en service du serveur](getting-started/deploy.md) et
 [Connexion OAuth des clients MCP](advanced/mcp-oauth.md#activation).

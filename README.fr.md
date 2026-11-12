@@ -80,7 +80,8 @@ saisissez `http://127.0.0.1:8000/mcp` comme **Point d’accès MCP** et activez 
 ([connexion OAuth des clients MCP](https://cyr-ius.github.io/security-review/fr/advanced/mcp-oauth/)). Déclarez le serveur dans
 `.mcp.json` à la racine du dépôt (VS Code, GitHub Copilot, Claude Code), sans jeton : à la
 première connexion, l'hôte ouvre le navigateur pour vous connecter. Ces URL en `127.0.0.1`, en
-HTTP simple, servent à un essai sur la même machine : pour l'équipe, activez le HTTPS.
+HTTP simple, servent à un essai sur la même machine, mais les ports sont ouverts sur toutes les
+interfaces : pour l'équipe, activez le HTTPS.
 
 ```json
 {

@@ -13,6 +13,7 @@ The tool start_codebase_scan goes the same way to ``POST /api/v1/scan/tickets`` 
 single-use ticket of a codebase scan (see auth.scan_tickets), which it gives to the agent.
 """
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -75,7 +76,8 @@ def _post(controller_url: str, path: str, authorization: str, body: dict, timeou
         reason = _refusal(exc) if exc.code in (403, 422) else ""
         exc.close()
         raise RemoteScanError(f"the controller answered HTTP {exc.code}{reason}") from None
-    except urllib.error.URLError, OSError:
+    except urllib.error.URLError, OSError, http.client.HTTPException:
+        # HTTPException: answer cut short (IncompleteRead) or malformed, not an OSError
         raise RemoteScanError("the controller cannot be reached") from None
     if len(raw) > MAX_RESPONSE_BYTES:
         raise RemoteScanError("the answer of the controller is too large")
