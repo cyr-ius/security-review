@@ -1,5 +1,33 @@
 # Changelog
 
+## [12.0.0](https://github.com/cyr-ius/security-review/compare/v11.4.0...v12.0.0) (2026-11-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* `security-review-ci agent-review` no longer exists and exits with a usage error (2). Remove the agent-review hook from .pre-commit-config.yaml (and `post-commit` from default_install_hook_types), then run `prek uninstall -t post-commit`.
+
+### Features
+
+* let an agent scan the dependencies with the single-use ticket ([3197ce4](https://github.com/cyr-ius/security-review/commit/3197ce440e7c87f0e36de640fa0be80e82deaed7))
+* let an agent scan the dependencies with the single-use ticket ([935cbe0](https://github.com/cyr-ius/security-review/commit/935cbe0dda5004fcc625a73536e30e79cbc24f8d))
+* let an agent scan the whole repository with a single-use ticket ([0d83116](https://github.com/cyr-ius/security-review/commit/0d8311624f0a77297b5c883dbed344b01e219c0f))
+* let an agent scan the whole repository with a single-use ticket ([e42cc15](https://github.com/cyr-ius/security-review/commit/e42cc15d9a90449773dd15101e4151bc6c7702b7))
+* let the Controller server decide the scan_code delegation and the enrollment ([05b7aeb](https://github.com/cyr-ius/security-review/commit/05b7aeb7dbd33276a15aa94368bd06417eca3133))
+* remove commented note about Prettier in pre-commit configuration ([b7e4038](https://github.com/cyr-ius/security-review/commit/b7e4038c9c47ac7fc5d20894f4b67615797583fd))
+* remove the agent-review command of security-review-ci ([6ec2be9](https://github.com/cyr-ius/security-review/commit/6ec2be9d82e543e042fd8c42d163e062a07e42c2))
+
+
+### Bug Fixes
+
+* never read a file through a linked directory in scan-code ([9030e0d](https://github.com/cyr-ius/security-review/commit/9030e0dcbd10d5f5db525a6e4719fbe2a7a20249))
+
+
+### Documentation
+
+* base the estimated benchmark score on 394 triaged cases ([9e516d9](https://github.com/cyr-ius/security-review/commit/9e516d964175ed1c8f383d35f5ea4c8847e33654))
+* publish the estimated benchmark score with the AI review ([3ef447d](https://github.com/cyr-ius/security-review/commit/3ef447d558b06a295ef9aececf6194a844221df0))
+
 ## [11.4.0](https://github.com/cyr-ius/security-review/compare/v11.3.0...v11.4.0) (2026-11-12)
 
 
