@@ -111,7 +111,8 @@ Dans l'hôte, lancez le prompt `codebase-review`, avec au choix :
 
 `languages` choisit les checklists, `focus` et `context` orientent la revue (voir
 [prompts et outils](../prompts-tools.md#prompts)). Le prompt `dependency-review` fait de même
-pour les dépendances avec `security-review-ci scan-deps`.
+pour les dépendances : `start_codebase_scan` avec `scope` `deps`, sinon `security-review-ci scan-deps`
+([analyse des dépendances](dependencies.md#scan-lance-par-lagent)).
 
 ### Scan lancé par l'agent (`start_codebase_scan`)
 
@@ -122,7 +123,8 @@ sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
 1. l'agent appelle `start_codebase_scan` avec le projet ; le serveur MCP relaie son jeton (accès
    OAuth ou jeton `mcp` personnel) au serveur Controller, qui émet un **ticket à usage unique**
    valable quelques minutes (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 600 secondes par défaut) ;
-2. l'outil renvoie deux commandes, que l'agent exécute à la racine du dépôt :
+2. l'outil renvoie deux commandes (une seule avec `scope` `code` ou `deps`), que l'agent exécute
+   à la racine du dépôt :
 
     ```bash
     echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
@@ -134,7 +136,8 @@ sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
     sans l'installer (seul `uv` est nécessaire) ; le ticket passe par l'entrée standard, jamais
     par la ligne de commande ;
 3. le serveur Controller scanne les fichiers et enregistre un rapport `code-scan` (et un
-    rapport `dependency-scan` avec la commande `scan-deps`) ; `--format summary` n'affiche que
+    rapport `dependency-scan` avec la commande `scan-deps .`, qui trouve elle-même les manifestes,
+    lockfiles et SBOM) ; `--format summary` n'affiche que
     les compteurs et les fichiers et règles qui ont le plus de correspondances, pour que l'agent
     sache quoi lire en premier sans charger chaque correspondance dans son contexte.
 

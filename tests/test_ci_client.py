@@ -557,6 +557,59 @@ def test_scan_deps_refuses_symlinks_and_unsupported_files(
     assert run(controller, monkeypatch, argv, ci_token) == 2
 
 
+def test_scan_deps_finds_the_dependency_files_of_a_directory(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    import_advisory(tmp_path)
+    repo = tmp_path / "repo"
+    (repo / "api").mkdir(parents=True)
+    (repo / "api" / "requirements.txt").write_text("requests==2.19.0\n", encoding="utf-8")
+    (repo / "web").mkdir()
+    (repo / "web" / "package.json").write_text('{"dependencies": {}}', encoding="utf-8")
+    # Not dependency files of the project: other files, installed packages, excluded paths
+    (repo / "api" / "app.py").write_text("print(1)\n", encoding="utf-8")
+    (repo / "web" / "node_modules" / "left-pad").mkdir(parents=True)
+    (repo / "web" / "node_modules" / "left-pad" / "package.json").write_text("{}")
+    (repo / "tests").mkdir()
+    (repo / "tests" / "requirements.txt").write_text("flask==0.1\n", encoding="utf-8")
+    argv = ["scan-deps", str(repo), "--project", "shop-api", "--no-git", "--format", "json"]
+
+    assert run(controller, monkeypatch, [*argv, "--exclude", "tests/", "--save"], ci_token) == 1
+    data = json.loads(capsys.readouterr().out)
+    # Sent with their path relative to the directory: two manifests of a monorepo stay distinct
+    assert [f["file"] for f in data["files"]] == ["api/requirements.txt", "web/package.json"]
+    report = services.get_report(data["saved_report"]["report_id"])
+    assert {f.file_path for f in report.findings} == {"api/requirements.txt"}
+
+    # A path listed by git through a directory replaced by a link never leaves the directory
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "package.json").write_text("{}", encoding="utf-8")
+    (repo / "linked").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(ci_client, "list_files", lambda base, git: (["linked/package.json"], "git"))
+    assert ci_client.find_dependency_files(repo) == []
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert (
+        run(controller, monkeypatch, ["scan-deps", str(empty), "--project", "shop-api"], ci_token)
+        == 2
+    )
+    assert "No dependency file found" in capsys.readouterr().err
+
+
+def test_dependency_file_names_are_those_of_the_controller():
+    # The client imports nothing from the package: its copy must follow deps/dependencies.py
+    from security_review_mcp.deps import dependencies
+
+    assert set(dependencies._PARSERS) == ci_client.DEPENDENCY_FILE_NAMES
+    assert dependencies._MSBUILD_PROJECTS == ci_client.DEPENDENCY_PROJECT_SUFFIXES
+    assert dependencies._SBOM_NAME.pattern == ci_client.DEPENDENCY_SBOM_NAME.pattern
+    assert dependencies._REQUIREMENTS_NAME.pattern == ci_client.DEPENDENCY_REQUIREMENTS_NAME.pattern
+    assert ci_client.is_dependency_file("requirements/base.in")
+    assert not ci_client.is_dependency_file("docs/notes.txt")
+
+
 def test_scans_need_a_ci_or_admin_token(controller, monkeypatch, capsys, tmp_path):
     reader = token_store.create_token("viewer", Role.MCP)["token"]
     manifest = tmp_path / "requirements.txt"

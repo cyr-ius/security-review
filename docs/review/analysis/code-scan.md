@@ -106,7 +106,8 @@ In the host, start the `codebase-review` prompt, either:
 
 `languages` selects the checklists, `focus` and `context` steer the review (see
 [prompts and tools](../prompts-tools.md#prompts)). The `dependency-review` prompt does the same
-for the dependencies with `security-review-ci scan-deps`.
+for the dependencies: `start_codebase_scan` with `scope` `deps`, else `security-review-ci scan-deps`
+([dependency analysis](dependencies.md#scan-started-by-the-agent)).
 
 ### Scan started by the agent (`start_codebase_scan`)
 
@@ -118,17 +119,21 @@ files** and without the developer installing anything or creating a `ci` token:
    OAuth access or a personal `mcp` token) to the Controller server, which issues a
    **single-use ticket** valid a few minutes (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 600 seconds
    by default);
-2. the tool returns two commands, which the agent runs at the root of the repository:
+2. the tool returns two commands (only one with `scope` `code` or `deps`), which the agent runs
+   at the root of the repository:
 
     ```bash
-    echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/         security-review-ci@latest scan-code . --url https://secreview.example.com         --project portal --save --token-stdin --format summary
+    echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
+        security-review-ci@latest scan-code . --url https://secreview.example.com \
+        --project portal --save --token-stdin --format summary
     ```
 
     `uvx` runs the [client served by the Controller server](../../advanced/architecture/ci.md#from-the-controller-server)
     without installing it (only `uv` is needed); the ticket goes on the standard input, never on
     the command line;
 3. the Controller server scans the files and saves a `code-scan` report (and a
-    `dependency-scan` report with the `scan-deps` command); `--format summary` only prints the
+    `dependency-scan` report with the `scan-deps .` command, which finds the manifests, lockfiles
+    and SBOMs itself); `--format summary` only prints the
     counts and the files and rules with the most matches, so the agent knows what to read first
     without loading every match in its context.
 

@@ -141,6 +141,28 @@ security-review-controller advisories update --ecosystem npm  # repeatable optio
 The Controller server downloads at most a few hundred MiB a day (the npm export is the largest): plan
 the matching space in its temporary folder (`/tmp`).
 
+## Scan started by the agent
+
+During a `dependency-review`, an agent that can run shell commands calls
+[`start_codebase_scan`](code-scan.md#scan-started-by-the-agent-start_codebase_scan) with `scope`
+`deps` and runs the command it gives at the root of the repository. The developer installs
+nothing (`uvx` runs the client, only `uv` is needed) and needs no `ci` token (a single-use ticket
+on the standard input):
+
+```bash
+echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
+    security-review-ci@latest scan-deps . --url https://secreview.example.com \
+    --project my-project --save --token-stdin
+```
+
+`scan-deps .` finds the manifests, lockfiles and SBOMs of the repository itself (`git ls-files`,
+`--exclude GLOB` to skip some) and sends them as they are: the agent does not read them, and a
+large lockfile is not limited by the size of a tool call as with `scan_dependencies`. The
+files keep their path in the repository (`web/package-lock.json`), so the manifests of a
+monorepo give distinct findings. Without this tool (stdio, delegation of `scan_code` off),
+the agent falls back on `security-review-ci scan-deps` with a personal `ci` token, then on
+`scan_dependencies` file by file.
+
 ## Scan in a pipeline (`security-review-ci scan-deps`)
 
 In a pipeline, the [pipeline client](../../advanced/architecture/ci.md) sends

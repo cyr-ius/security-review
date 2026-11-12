@@ -440,7 +440,7 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
             "ticket": "secreview_scan_abc",
             "project": project,
             "expires_at": "2026-11-12T10:10:00+00:00",
-            "controller_url": "https://sr.example" if len(sent) == 1 else "https://sr.example/;id",
+            "controller_url": "https://sr.example/;id" if len(sent) == 2 else "https://sr.example",
             "client_download": True,
         }
 
@@ -456,6 +456,13 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
         )
         # A URL the shell would interpret never reaches a command
         unsafe = await client.call_tool("start_codebase_scan", {"project": "shop-api"})
+        deps = json.loads(
+            text_of(
+                await client.call_tool(
+                    "start_codebase_scan", {"project": "shop-api", "scope": "deps"}
+                )
+            )
+        )
 
     assert local.is_error and "delegation of scan_code" in text_of(local)
     assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api")
@@ -465,7 +472,9 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
     assert command.startswith("echo 'secreview_scan_abc' | uvx --no-index --find-links ")
     assert "https://sr.example/api/ci-client/ security-review-ci@latest scan-code . " in command
     assert "--project shop-api --save --token-stdin" in command and "--format summary" in command
-    assert "scan-deps MANIFEST_FILES" in result["scan_deps_command"]
+    # The dependency scan finds the manifests itself: nothing for the agent to fill in
+    assert "security-review-ci@latest scan-deps . --url" in result["scan_deps_command"]
+    assert "scan_code_command" not in deps and "scan-deps . " in deps["scan_deps_command"]
 
 
 async def test_triage_prompt_sets_the_report_language():

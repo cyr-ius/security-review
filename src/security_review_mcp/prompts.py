@@ -301,13 +301,13 @@ def build_dependency_review_prompt(
 ## Method
 1. List the dependency files of the project (manifests and lockfiles). Prefer lockfiles: they \
 contain the exact resolved versions, including transitive dependencies.
-2. If you can run commands and `security-review-ci` is installed, run \
-`security-review-ci scan-deps <files> --project <name> --format json` (it needs \
-`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_CI_TOKEN`): it sends \
-the files \
-exactly as they are, without the size limit of a tool call. Otherwise call the \
-`scan_dependencies` tool for each file with its content and its file name; a lockfile too \
-large for a tool call needs that command.
+2. If you can run shell commands, call `start_codebase_scan` with the project and `scope` \
+`deps`, and run the command it gives at the root of the repository: it finds the dependency \
+files, sends them to the Controller server exactly as they are (without you reading them nor \
+the size limit of a tool call) and saves the scan. If that tool is not available or fails, \
+and `security-review-ci` is set up (`SECREVIEW_CONTROLLER_URL` and a personal ci token in \
+`SECREVIEW_CI_TOKEN`), run `security-review-ci scan-deps . --project <name> --format json`. \
+Otherwise call the `scan_dependencies` tool for each file with its content and its file name.
 3. Read `vulnerability_check` first. If it is not `performed`, say clearly that vulnerable \
 versions could NOT be checked: never report "no vulnerability" in that case.
 4. Read `advisory_database`: report its age; a stale database means recent issues may be missing.

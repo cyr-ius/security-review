@@ -66,7 +66,8 @@ start a structured review, and `codebase-review` to review a whole repository (n
 language, write your reply and the free-text fields of the report in that language.
 - To scan a whole repository when you can run shell commands, call `start_codebase_scan` and \
 run the commands it gives: the files reach the Controller server without you reading them, and \
-its summary tells you which files to read first.
+its summary tells you which files to read first. For the dependencies only, call it with \
+`scope` `deps` rather than `scan_dependencies` file by file.
 - At the end of a review, call `save_security_report` once to store the report in the \
 database: the server records the user of the token as its author. Use \
 `list_security_reports`, `get_security_report` and `get_project_security_posture` to read \
@@ -1195,15 +1196,26 @@ def _ci_command(controller_url: str, download: bool, project: str, ticket: str, 
 
 @mcp.tool(annotations=WRITE)
 @_tool_errors
-def start_codebase_scan(ctx: Context, project: ProjectArg) -> dict:
+def start_codebase_scan(
+    ctx: Context,
+    project: ProjectArg,
+    scope: Annotated[
+        Literal["all", "code", "deps"],
+        Field(
+            description="Scans to run: all (code and dependencies), code only, or deps only "
+            "(manifests, lockfiles and SBOMs, for a dependency review)"
+        ),
+    ] = "all",
+) -> dict:
     """Get the commands that scan the whole repository on the Controller server, without reading
     the files: run them in a shell at the root of the repository.
 
     The files go from the workstation to the Controller server through `security-review-ci`
     (run with uvx, nothing to install), with a single-use ticket valid a few minutes: one code
     scan and one dependency scan. The scans are saved as reports of the project; the code scan
-    prints a short summary of its leads (files and rules), which tells you what to read first.
-    Needs the HTTP MCP server with the delegation of scan_code turned on.
+    prints a short summary of its leads (files and rules), which tells you what to read first,
+    and the dependency scan finds the manifests and lockfiles itself and prints the vulnerable
+    packages. Needs the HTTP MCP server with the delegation of scan_code turned on.
     """
     settings = get_settings()
     allowed = _caller_write_projects(ctx)
@@ -1238,20 +1250,19 @@ def start_codebase_scan(ctx: Context, project: ProjectArg) -> dict:
         "Scan ticket of %s given to %s", ticket["project"], _auth_state(ctx).get("auth_client")
     )
     args = (public_url, ticket["client_download"], ticket["project"], ticket["ticket"])
-    return {
-        "project": ticket["project"],
-        "expires_at": ticket["expires_at"],
-        "scan_code_command": _ci_command(*args, "scan-code . --format summary"),
-        "scan_deps_command": _ci_command(*args, "scan-deps MANIFEST_FILES"),
-        "note": (
-            "Run the commands at the root of the repository, unchanged except: replace "
-            "MANIFEST_FILES with the dependency files of the repository (or skip "
-            "that command), and you may add --branch, --commit and --exclude GLOB. The ticket "
-            "works once per command until expires_at; call start_codebase_scan again for a "
-            "new one. Do not read the files to scan them: the summary gives the leads to "
-            "verify by reading the code."
-        ),
-    }
+    result: dict = {"project": ticket["project"], "expires_at": ticket["expires_at"]}
+    if scope in ("all", "code"):
+        result["scan_code_command"] = _ci_command(*args, "scan-code . --format summary")
+    if scope in ("all", "deps"):
+        result["scan_deps_command"] = _ci_command(*args, "scan-deps .")
+    result["note"] = (
+        "Run the commands at the root of the repository, unchanged except that you may add "
+        "--branch, --commit and --exclude GLOB (repeatable). The dependency scan finds the "
+        "manifests, lockfiles and SBOMs itself (it exits 2 when there is none). The ticket "
+        "works once per command until expires_at; call start_codebase_scan again for a new "
+        "one. Do not read the files to scan them: the output gives the leads to verify."
+    )
+    return result
 
 
 def _enrollment_prompt() -> str:

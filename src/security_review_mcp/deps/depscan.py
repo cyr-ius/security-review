@@ -197,13 +197,14 @@ def scan_files(files: Sequence[tuple[str, str]], require_database: bool = False)
         )
     results: list[dict] = []
     for path, content in files:
-        name = PurePosixPath(path.replace("\\", "/")).name
+        # The relative path, so that the manifests of a monorepo keep distinct findings
+        label = PurePosixPath(path.replace("\\", "/")).as_posix()
         if len(content) > settings.max_dependency_chars:
             raise ValueError(
-                f"{name} is too large ({len(content)} characters); the limit is "
+                f"{label} is too large ({len(content)} characters); the limit is "
                 f"{settings.max_dependency_chars} (SECREVIEW_MAX_DEPENDENCY_CHARS)"
             )
-        results.append(scan_dependencies(content, name))
+        results.append(scan_dependencies(content, label))
     unchecked = [r["file"] for r in results if r["vulnerability_check"] != "performed"]
     if require_database and unchecked:
         raise ValueError(

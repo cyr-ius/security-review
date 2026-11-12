@@ -7,7 +7,8 @@ It is the only command line for these pipeline commands (the controller CLI does
 and opens no database: no database driver, no SQLModel, no database URL in the pipeline.
 
 ``scan-code`` lists the files of a directory (``git ls-files`` or a walk of the tree) and
-``scan-deps`` reads the dependency files given by the operator; both send the content to the
+``scan-deps`` reads the dependency files given by the operator, or finds them in a directory
+the same way; both send the content to the
 controller, which scans it with its rules or its advisory database and stores the report with
 ``--save``. Symbolic links are never followed: the content leaves the build agent.
 
@@ -444,9 +445,10 @@ def collect_sources(
     }
 
 
-def read_dependency_file(name: str) -> dict:
+def read_dependency_file(name: str | Path, label: str | None = None) -> dict:
     """Read a dependency file given by the operator (never through a symbolic link: the content
-    leaves the machine), bounded by MAX_DEPENDENCY_FILE_BYTES."""
+    leaves the machine), bounded by MAX_DEPENDENCY_FILE_BYTES. It is sent as ``label`` (default:
+    its file name)."""
     path = Path(name)
     if path.is_symlink():
         raise ValueError(f"Refusing to read a symbolic link: {path}")
@@ -454,7 +456,104 @@ def read_dependency_file(name: str) -> dict:
         raise ValueError(f"File not found: {path}")
     if path.stat().st_size > MAX_DEPENDENCY_FILE_BYTES:
         raise ValueError(f"File too large (> {MAX_DEPENDENCY_FILE_BYTES} bytes): {path}")
-    return {"path": path.name, "content": path.read_text(encoding="utf-8", errors="replace")}
+    content = path.read_text(encoding="utf-8", errors="replace")
+    return {"path": label or path.name, "content": content}
+
+
+# Names of the dependency files the controller parses: a copy of deps/dependencies.py (the
+# client imports nothing from the package), kept identical by a test
+DEPENDENCY_FILE_NAMES = frozenset(
+    {
+        "pyproject.toml",
+        "poetry.lock",
+        "pipfile.lock",
+        "uv.lock",
+        "package.json",
+        "package-lock.json",
+        "npm-shrinkwrap.json",
+        "yarn.lock",
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        "go.mod",
+        "cargo.lock",
+        "cargo.toml",
+        "packages.lock.json",
+        "packages.config",
+        "nuget.config",
+        "directory.packages.props",
+        "directory.build.props",
+    }
+)
+DEPENDENCY_PROJECT_SUFFIXES = (".csproj", ".fsproj", ".vbproj")
+DEPENDENCY_REQUIREMENTS_NAME = re.compile(r"^[\w.-]*(requirements|constraints)[\w.-]*\.(txt|in)$")
+DEPENDENCY_SBOM_NAME = re.compile(r"^(?:[\w.-]*[._-])?(?:s?bom|cdx)\.(json|xml)$")
+
+
+def is_dependency_file(path: str) -> bool:
+    """Tell whether the controller parses the file at this relative path as a manifest, a
+    lockfile or an SBOM (the rules of deps.dependencies.parse_dependency_file)."""
+    posix = PurePosixPath(path.replace("\\", "/").lower())
+    name = posix.name
+    return (
+        name in DEPENDENCY_FILE_NAMES
+        or name.endswith(DEPENDENCY_PROJECT_SUFFIXES)
+        or DEPENDENCY_SBOM_NAME.match(name) is not None
+        or DEPENDENCY_REQUIREMENTS_NAME.match(name) is not None
+        or (name.endswith((".txt", ".in")) and posix.parent.name in {"requirements", "constraints"})
+    )
+
+
+def find_dependency_files(
+    root: str | Path, excludes: list[str] | None = None, use_git: bool = True
+) -> list[str]:
+    """List the dependency files under ``root`` (relative paths with forward slashes), as
+    ``scan-code`` lists the sources: ``git ls-files`` when possible, else a walk of the tree.
+    Files in dependency, build and VCS directories (node_modules, .venv...) are skipped, even
+    when they are committed, and so are symbolic links and the files reached through a linked
+    directory (their content would come from outside root).
+
+    Raises:
+        ValueError: If root is not a directory.
+    """
+    base = Path(root).resolve()
+    if not base.is_dir():
+        raise ValueError(f"Not a directory: {root}")
+    patterns = list(excludes or [])
+    names, _ = list_files(base, use_git)
+    return [
+        name
+        for name in names
+        if is_dependency_file(name)
+        and not SKIPPED_DIRS & set(PurePosixPath(name).parts[:-1])
+        and not _excluded(name, patterns)
+        and not (base / name).is_symlink()
+        and (base / name).resolve().is_relative_to(base)
+        and (base / name).is_file()
+    ]
+
+
+def read_dependency_files(
+    targets: list[str], excludes: list[str] | None = None, use_git: bool = True
+) -> list[dict]:
+    """Read the dependency files of ``scan-deps``: a file is read as given, a directory is
+    searched for its dependency files (sent with their path relative to that directory).
+
+    Raises:
+        ValueError: If a file is missing, a symbolic link or too large, or a directory holds no
+            dependency file.
+    """
+    files: list[dict] = []
+    for target in targets:
+        path = Path(target)
+        if not path.is_dir() or path.is_symlink():
+            files.append(read_dependency_file(path))
+            continue
+        found = find_dependency_files(path, excludes, use_git)
+        if not found:
+            raise ValueError(f"No dependency file found under {target}")
+        files.extend(read_dependency_file(path / name, name) for name in found)
+    return files
 
 
 # ── Output of the scans ──────────────────────────────────────────────────────
@@ -915,7 +1014,23 @@ def _parser() -> argparse.ArgumentParser:
         parents=[common],
         help="scan dependency manifests and lockfiles with the advisories of the controller",
     )
-    deps.add_argument("files", nargs="+", help="manifests or lockfiles")
+    deps.add_argument(
+        "files",
+        nargs="+",
+        help="manifests, lockfiles or SBOMs; a directory is searched for them (e.g. .)",
+    )
+    deps.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="in a directory, file or directory glob to skip, relative to it; repeat the option",
+    )
+    deps.add_argument(
+        "--no-git",
+        action="store_true",
+        help="in a directory, walk the tree instead of using git ls-files",
+    )
     deps.add_argument("--format", choices=["text", "json"], default="text")
     deps.add_argument(
         "--require-database",
@@ -1010,7 +1125,7 @@ def _scan_code(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
 
 def _scan_deps(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> int:
     """Run ``scan-deps``: read the files, scan them on the controller, print the result."""
-    files = [read_dependency_file(name) for name in args.files]
+    files = read_dependency_files(args.files, args.exclude, not args.no_git)
     payload = _report_fields(args) | {
         "files": files,
         "require_database": args.require_database,
