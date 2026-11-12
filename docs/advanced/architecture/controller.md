@@ -281,7 +281,7 @@ address** fills in the address of this Controller server.
 |---|---|
 | `GET /api/v1/settings` | For each setting: the stored `value`, the variable `env`, `env_set` (the variable is set and takes precedence) and the effective value |
 | `PUT /api/v1/settings/controller-url` | `value` (`null` deletes it) |
-| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown; audited, `mcp_scan_delegation.changed`) |
+| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown or while `SECREVIEW_SCANCODE_DELEGATED` is set; audited, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` and `no_proxy`: `null` deletes the stored value, `"url": ""` forces the direct connection, a missing field is unchanged. Passwords are never shown again (`***`): sending `***` back keeps the stored one |
 | `PUT /api/v1/settings/osv-ecosystems` | `ecosystems`: list of the ecosystems to download, among `supported` of `GET /api/v1/settings` (`422` for an empty list or an unknown ecosystem); `null` deletes it (`SECREVIEW_OSV_ECOSYSTEMS` or its default applies again) |
 

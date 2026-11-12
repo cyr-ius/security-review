@@ -1850,10 +1850,11 @@ def test_admin_sets_the_controller_url(client):
     assert delegation.json()["mcp_scan_delegation"] == {
         "enabled": True,
         "url": "https://sr.example",
+        "env_set": False,
     }
     reset = client.put(url, json={"value": None}).json()
     assert reset["controller_url"]["effective"] is None
-    assert reset["mcp_scan_delegation"] == {"enabled": False, "url": None}
+    assert reset["mcp_scan_delegation"] == {"enabled": False, "url": None, "env_set": False}
 
 
 def test_settings_whose_variable_is_set_are_refused(client, monkeypatch):

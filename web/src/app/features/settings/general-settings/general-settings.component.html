@@ -196,7 +196,9 @@
           aria-describedby="scan-delegation-help"
           [checked]="current.mcp_scan_delegation.enabled"
           [disabled]="
-            busy() || (!current.mcp_scan_delegation.enabled && !current.controller_url.effective)
+            busy() ||
+            current.mcp_scan_delegation.env_set ||
+            (!current.mcp_scan_delegation.enabled && !current.controller_url.effective)
           "
           (change)="setScanDelegation($event)"
         />
@@ -204,8 +206,23 @@
           'settings.scanDelegationLabel' | t
         }}</label>
         <div id="scan-delegation-help" class="form-text">
-          {{ 'settings.scanDelegationHelp' | t: { variable: 'SECREVIEW_MCP_SCAN_CONTROLLER_URL' } }}
-          @if (!current.controller_url.effective) {
+          {{ 'settings.scanDelegationHelp' | t: { variable: 'SECREVIEW_SCANCODE_DELEGATED' } }}
+          @if (current.mcp_scan_delegation.env_set) {
+            @if (current.mcp_scan_delegation.url) {
+              {{
+                'settings.scanDelegationLocked'
+                  | t
+                    : {
+                        variable: 'SECREVIEW_SCANCODE_DELEGATED',
+                        url: current.mcp_scan_delegation.url,
+                      }
+              }}
+            } @else {
+              {{
+                'settings.scanDelegationLockedOff' | t: { variable: 'SECREVIEW_SCANCODE_DELEGATED' }
+              }}
+            }
+          } @else if (!current.controller_url.effective) {
             {{ 'settings.scanDelegationNeedsUrl' | t }}
           }
         </div>

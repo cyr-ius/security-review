@@ -215,7 +215,8 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Seule exception du serveur MCP : `scan_code` délégué au contrôleur (`rules/remote_scan.py`,
-  **désactivé par défaut**, `SECREVIEW_MCP_SCAN_CONTROLLER_URL`), qui relaie le jeton de l'appelant
+  **désactivé par défaut**, décidé par le serveur Controller : `SECREVIEW_SCANCODE_DELEGATED` ou la
+  page **Général**, enregistré en base), qui relaie le jeton de l'appelant
   à `POST /api/v1/scan/content` (seule route du contrôleur ouverte au rôle `mcp`, qui ne lit ni
   n'enregistre rien), sans proxy ni redirection, réponse bornée, jeton jamais journalisé, et revient
   aux règles locales en cas d'échec. Autres exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS

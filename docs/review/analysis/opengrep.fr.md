@@ -8,19 +8,23 @@ Le serveur Controller lance OpenGrep comme second moteur d'analyse statique lors
 ## Scans de fragments (`scan_code`)
 
 Par défaut, l'outil `scan_code` scanne le fragment reçu avec les seules règles du serveur MCP, sans
-lancer de processus externe. Avec `SECREVIEW_MCP_SCAN_CONTROLLER_URL` défini sur le serveur MCP (URL
-racine du serveur Controller, par exemple `http://controller:8080` dans Compose), il envoie le fragment
+lancer de processus externe. Quand la délégation est activée, il envoie le fragment
 à `POST /api/v1/scan/content` du serveur Controller avec le jeton de l'agent : le serveur Controller
 applique ses règles, puis ses règles OpenGrep quand le moteur est activé, et n'enregistre rien. La
 réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`).
 
-Sans la variable, un administrateur peut activer la délégation dans l'interface web : dans la page
+Le serveur Controller décide, et enregistre son choix en base, où le serveur MCP le lit à chaque
+appel. `SECREVIEW_SCANCODE_DELEGATED`, défini sur le serveur Controller, vaut `true` (vers son URL
+publique), l'URL racine du serveur Controller vue du serveur MCP (par exemple
+`http://controller:8080` dans Compose : les fragments restent alors sur le réseau interne) ou
+`false`. Sans la variable, un administrateur peut activer la délégation dans l'interface web : dans la page
 **Général**, sous **Adresse du serveur Controller**, l'interrupteur **Déléguer l'outil scan_code à ce
 serveur Controller** envoie les fragments à cette adresse publique (le serveur MCP doit la joindre).
 Il est désactivé par défaut, exige une adresse connue, s'applique au prochain appel de `scan_code`,
 et se désactive quand l'adresse change (réactivez-le pour la nouvelle adresse : les jetons ne
-suivent jamais une adresse modifiée). Chaque changement est enregistré dans le journal d'audit (`mcp_scan_delegation.changed`). La
-variable, si elle est définie sur le serveur MCP, est prioritaire.
+suivent jamais une adresse modifiée). Chaque changement est enregistré dans le journal d'audit (`mcp_scan_delegation.changed`). Quand
+la variable est définie, l'interrupteur est verrouillé. `SECREVIEW_MCP_SCAN_CONTROLLER_URL`, ancienne
+variable du serveur MCP, est obsolète : encore lue avec un avertissement, elle est prioritaire.
 
 - Le jeton de l'agent est relayé tel quel : un jeton `mcp` ou `admin` n'atteint que cette route, pas
   le reste de l'API REST.

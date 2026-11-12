@@ -106,9 +106,11 @@ def check_mcp_url(value: str | None) -> str | None:
     return value.rstrip("/")
 
 
-def check_scan_controller_url(value: str | None) -> str | None:
+def check_scan_controller_url(
+    value: str | None, variable: str = "SECREVIEW_SCANCODE_DELEGATED"
+) -> str | None:
     """Return the root URL of the controller that scan_code delegates to, without trailing
-    slash; None when empty.
+    slash; None when empty. ``variable`` names the setting in the error messages.
 
     Raises:
         ValueError: If the value is not an http(s) URL without credentials, path, query nor
@@ -118,22 +120,28 @@ def check_scan_controller_url(value: str | None) -> str | None:
     if not value:
         return None
     if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
-        raise ValueError(
-            f"SECREVIEW_MCP_SCAN_CONTROLLER_URL must be a URL of at most "
-            f"{CONTROLLER_URL_MAX_CHARS} chars"
-        )
+        raise ValueError(f"{variable} must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars")
     parts = urlsplit(value)
     if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise ValueError("SECREVIEW_MCP_SCAN_CONTROLLER_URL must be an http(s) URL")
+        raise ValueError(f"{variable} must be true, false or an http(s) URL")
     if parts.username or parts.password or parts.query or parts.fragment:
-        raise ValueError(
-            "SECREVIEW_MCP_SCAN_CONTROLLER_URL must not contain credentials, a query or a fragment"
-        )
+        raise ValueError(f"{variable} must not contain credentials, a query or a fragment")
     if parts.path.strip("/"):
-        raise ValueError(
-            "SECREVIEW_MCP_SCAN_CONTROLLER_URL is the root URL of the controller, without a path"
-        )
+        raise ValueError(f"{variable} is the root URL of the controller, without a path")
     return value.rstrip("/")
+
+
+def check_scan_delegation(value: str | None) -> str | None:
+    """Return SECREVIEW_SCANCODE_DELEGATED normalized: "true", "false", the root URL of the
+    controller as seen by the MCP server, or None when empty (unset).
+
+    Raises:
+        ValueError: If the value is neither a boolean nor such a URL.
+    """
+    value = (value or "").strip()
+    if value.lower() in ("true", "false"):
+        return value.lower()
+    return check_scan_controller_url(value)
 
 
 def redirect_schemes(value: str) -> list[str]:
@@ -245,9 +253,13 @@ class Settings(BaseSettings):
     # project for a user holding projects.create, or requests it: the project stays pending
     # until a user holding projects.create approves it (Projects screen or `project approve`),
     # which gives the requesting user access to it; a request nobody approved within
-    # project_enrollment_ttl_days is deleted. false: no welcome server (401) and no request.
-    enrollment: bool = True
+    # project_enrollment_ttl_days is deleted. The welcome server only answers while the public URL
+    # of the controller is known (it tells where to create the token); otherwise, and while the
+    # OAuth login is on, a client without a token gets a 401.
     project_enrollment_ttl_days: int = Field(default=7, ge=1, le=365)
+    # Removed: SECREVIEW_ENROLLMENT, read only to log a warning (the enrollment server now
+    # follows the public URL of the controller and project requests are always on)
+    enrollment: bool | None = None
     # Public root URL of the controller (SECREVIEW_PUBLIC_URL), e.g. https://secreview.example.com.
     # The MCP server gives the address of its web interface (/ui) to the clients without a valid
     # token (enrollment, 401), so that the user knows where to sign in and create a personal MCP
@@ -508,12 +520,18 @@ class Settings(BaseSettings):
     # MCP server: OpenGrep rules proposed by agents (propose_opengrep_rule) and waiting for a
     # person at the same time; a new proposal is refused beyond
     opengrep_max_pending_proposals: int = Field(default=100, ge=1, le=10_000)
-    # HTTP MCP server only: root URL of the controller (e.g. http://controller:8080 inside
-    # Compose) to which scan_code delegates its scan, so that the agents get the matches of the
-    # rules and of the OpenGrep rules of the controller (POST /api/v1/scan/content). The MCP
-    # server relays the bearer token of the caller, without redirect nor proxy; without a caller
-    # token (stdio) or when the controller cannot answer, scan_code scans with its own rules.
-    # Unset (default): no delegation, the MCP server makes no outgoing connection.
+    # Controller only: delegation of scan_code of the HTTP MCP server to the controller, so that
+    # the agents get the matches of its rules and OpenGrep rules (POST /api/v1/scan/content).
+    # "true": to the public URL (SECREVIEW_PUBLIC_URL); a root URL (e.g. http://controller:8080
+    # inside Compose): to that address, as seen by the MCP server; "false": off. The controller
+    # stores it in the database at start, where the MCP server reads it at each scan (it needs no
+    # variable); set, the web interface cannot change it. The MCP server relays the bearer token
+    # of the caller, without redirect nor proxy; without a caller token (stdio) or when the
+    # controller cannot answer, scan_code scans with its own rules. Unset (default): an
+    # administrator may turn it on in the web interface (General), to the public URL.
+    scancode_delegated: str | None = None
+    # Deprecated (MCP server): former way to delegate scan_code, still read with a warning; it
+    # wins over the delegation stored by the controller. Use SECREVIEW_SCANCODE_DELEGATED.
     mcp_scan_controller_url: str | None = None
     # Time limit of a delegated scan, OpenGrep included (seconds)
     mcp_scan_timeout_seconds: int = Field(default=120, ge=1, le=7200)
@@ -584,7 +602,13 @@ class Settings(BaseSettings):
     @classmethod
     def _check_scan_controller_url(cls, value: str | None) -> str | None:
         """Accept the root http(s) URL of the controller; empty counts as unset."""
-        return check_scan_controller_url(value)
+        return check_scan_controller_url(value, "SECREVIEW_MCP_SCAN_CONTROLLER_URL")
+
+    @field_validator("scancode_delegated")
+    @classmethod
+    def _check_scancode_delegated(cls, value: str | None) -> str | None:
+        """Accept true, false or the root http(s) URL of the controller; empty counts as unset."""
+        return check_scan_delegation(value)
 
     @field_validator("mcp_oauth_redirect_hosts")
     @classmethod

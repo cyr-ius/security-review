@@ -710,7 +710,8 @@ def http_app():
 
 @pytest.fixture
 def enrolling_app():
-    """The HTTP app with the enrollment server, once an administrator token exists."""
+    """The HTTP app with the enrollment server, once an administrator token exists and the
+    address of the web interface is known."""
     from starlette.testclient import TestClient
 
     from security_review_mcp import http_server
@@ -718,7 +719,11 @@ def enrolling_app():
 
     token_store.create_token("ops", "admin")
     app = http_server.build_mcp_app(
-        mcp, "127.0.0.1", token_store.DatabaseTokenStore(), enrollment_server=enrollment_mcp
+        mcp,
+        "127.0.0.1",
+        token_store.DatabaseTokenStore(),
+        enrollment_server=enrollment_mcp,
+        web_url=lambda: "https://secreview.example/ui",
     )
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         yield client
@@ -932,17 +937,6 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     ]
     events = audit.list_events(action="enrollment.requested")["events"]
     assert {event["actor"] for event in events} == {"token:alice:agent"}
-
-    monkeypatch.setattr(get_settings(), "enrollment", False)
-    is_error, text = alice.call("request_project", {"project": "crm"})
-    assert is_error and "Project requests are disabled" in text
-    # Nor does a token that reaches every project create one
-    from security_review_mcp.storage.database import session_scope
-
-    _, text = erin.call("request_project", {"project": "crm"})
-    assert json.loads(text) == {"project": "crm", "status": "accessible"}
-    with session_scope() as session:
-        assert not access_control.project_exists(session, "crm")
 
 
 async def test_tools_normalize_the_project_name():

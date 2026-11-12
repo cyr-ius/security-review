@@ -91,8 +91,8 @@
   ([`security-review-ci`](../advanced/architecture/ci.md)) n'ouvre
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
-- **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
-  serveur MCP restreint **sans aucun outil**, dont les prompts invitent l'utilisateur à créer un
+- **Enrôlement** (tant que l'URL publique du serveur Controller est connue ; sinon `401`) : un
+  client sans jeton atteint un serveur MCP restreint **sans aucun outil**, dont les prompts invitent l'utilisateur à créer un
   jeton MCP personnel dans l'interface web, après s'être connecté : rien n'est écrit sans jeton,
   et le serveur MCP ne sert aucune autre route publique que `/healthz`. Aucun jeton n'est jamais
   créé pour un client. Avec un jeton, `request_project` ne crée un nouveau projet que pour un
@@ -113,8 +113,8 @@
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du serveur Controller qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. Seule exception, désactivée par défaut : avec
-  `SECREVIEW_MCP_SCAN_CONTROLLER_URL` (ou la délégation activée par un administrateur dans la page
-  **Général**, auditée), `scan_code` envoie son fragment au serveur Controller avec le
+  `SECREVIEW_SCANCODE_DELEGATED` défini sur le serveur Controller (ou la délégation activée par un
+  administrateur dans la page **Général**), auditée et enregistrée en base, `scan_code` envoie son fragment au serveur Controller avec le
   jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
   journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
   un jeton `mcp` n'atteint que cette route. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active

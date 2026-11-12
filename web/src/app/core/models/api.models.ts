@@ -1075,11 +1075,13 @@ export interface AppSettings {
     env_set: boolean;
     effective: string | null;
   };
-  /** scan_code of the MCP server delegated to the public URL of the controller. */
+  /** scan_code of the MCP server delegated to the controller. */
   mcp_scan_delegation: {
     enabled: boolean;
     /** URL used, null while off or while the controller URL is unknown. */
     url: string | null;
+    /** SECREVIEW_SCANCODE_DELEGATED is set: the web interface cannot change it. */
+    env_set: boolean;
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {

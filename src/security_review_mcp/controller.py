@@ -105,6 +105,8 @@ def serve(argv: list[str]) -> None:
         # The MCP server reads the URL of the controller, and of its own endpoint while the
         # OAuth login is enabled, in the database; the OAuth routes need them (create_app)
         app_settings.sync_controller_url(settings)
+        # After the controller URL, which SECREVIEW_SCANCODE_DELEGATED=true needs
+        app_settings.sync_mcp_scan_delegation(settings)
         app_settings.sync_mcp_oauth(settings)
         app_settings.sync_personal_mcp_tokens(settings)
         # SECREVIEW_MCP_OAUTH_ENABLED, or the value stored in the web interface

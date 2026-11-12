@@ -86,8 +86,8 @@
   ([`security-review-ci`](../advanced/architecture/ci.md)) opens no
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
   localhost, credentials in the URL and redirects, and bounds the answers.
-- **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
-  a restricted MCP server **without any tool**, whose prompts tell the user to create a personal
+- **Enrollment** (while the public URL of the Controller server is known; otherwise `401`): a
+  client without a token reaches a restricted MCP server **without any tool**, whose prompts tell the user to create a personal
   MCP token in the web interface, after logging in: nothing is written without a token, and the
   MCP server serves no other public route than `/healthz`. No token is ever created for a
   client. With a token, `request_project` creates a new project only for a user holding
@@ -106,8 +106,9 @@
   [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the Controller server that make them (advisory download, OIDC, syslog, connectors, version check):
-  a test checks it. Only exception, disabled by default: with `SECREVIEW_MCP_SCAN_CONTROLLER_URL`
-  (or the delegation turned on by an administrator on the **General** page, audited),
+  a test checks it. Only exception, disabled by default: with `SECREVIEW_SCANCODE_DELEGATED` set
+  on the Controller server (or the delegation turned on by an administrator on the **General**
+  page), audited and stored in the database,
   `scan_code` sends its fragment to the Controller server with the token of the agent, to that URL
   only, without proxy nor redirect, answer bounded, token never logged (see
   [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); an `mcp` token reaches

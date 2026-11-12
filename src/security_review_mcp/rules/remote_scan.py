@@ -1,5 +1,6 @@
-"""Scan of the scan_code tool delegated to the controller (SECREVIEW_MCP_SCAN_CONTROLLER_URL, or
-the public URL of the controller when the delegation is turned on in the web interface).
+"""Scan of the scan_code tool delegated to the controller (the URL stored by the controller from
+SECREVIEW_SCANCODE_DELEGATED or the web interface, or the deprecated
+SECREVIEW_MCP_SCAN_CONTROLLER_URL).
 
 The only outgoing connection of the MCP server, disabled by default: it sends the fragment given
 to scan_code to ``POST /api/v1/scan/content`` of the controller with the bearer token of the

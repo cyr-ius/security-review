@@ -307,7 +307,8 @@ class BearerAuthMiddleware:
     ``allow_open`` (see allows_open_mcp) lets every request through.
 
     ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
-    with an empty bearer value): the client may create its project there. A token that is
+    with an empty bearer value) while ``web_url`` gives the address of the web interface, where
+    the user creates a token; without that address such a request gets a 401. A token that is
     unknown, revoked or expired always gets a 401; on the MCP server, its description tells the
     user to sign in to the web interface and create a new personal MCP token. ``web_url``
     returns the address of that interface (stored by the controller); it is called in a
@@ -429,10 +430,12 @@ class BearerAuthMiddleware:
                 AUTH_REJECTIONS["invalid_token"] += 1
                 await self.unauthorized(send, "Missing bearer token", error=None)
                 return
-            if self.enrollment_app is not None:
-                # No token yet: the enrollment server tells the user how to create one
-                if self.web_url is not None:
-                    await anyio.to_thread.run_sync(self.web_url)
+            if (
+                self.enrollment_app is not None
+                and self.web_url is not None
+                and await anyio.to_thread.run_sync(self.web_url) is not None
+            ):
+                # No token yet: the enrollment server tells the user where to create one
                 await self.enrollment_app(scope, receive, send)
                 return
         info = await self.identify(authorization)

@@ -497,7 +497,8 @@ class CodeMatch(BaseModel):
 
 
 class ContentScanRequest(BaseModel):
-    """Fragment sent by the scan_code tool of the MCP server (SECREVIEW_MCP_SCAN_CONTROLLER_URL)."""
+    """Fragment sent by the scan_code tool of the MCP server (see
+    app_settings.mcp_scan_controller_url)."""
 
     # Bounded by SECREVIEW_MAX_CONTENT_CHARS once received
     content: str
@@ -1285,8 +1286,7 @@ class ControllerUrlUpdate(BaseModel):
 class McpScanDelegationUpdate(BaseModel):
     """Body of PUT /settings/mcp-scan-delegation: delegate scan_code of the MCP server to the
     public URL of the controller (the MCP server relays the token of its callers there). Refused
-    (422) when turned on while that URL is unknown. SECREVIEW_MCP_SCAN_CONTROLLER_URL, when set on
-    the MCP server, takes precedence."""
+    (422) when turned on while that URL is unknown, or while SECREVIEW_SCANCODE_DELEGATED is set."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1330,11 +1330,13 @@ class ControllerUrlSetting(BaseModel):
 
 
 class McpScanDelegationSetting(BaseModel):
-    """Delegation of scan_code to the public URL of the controller: whether it is turned on, and
-    the URL used (None while off or while the URL is unknown)."""
+    """Delegation of scan_code to the controller: whether it is turned on, the URL used (None
+    while off or while the URL is unknown), and whether SECREVIEW_SCANCODE_DELEGATED sets it (the
+    web interface then cannot change it)."""
 
     enabled: bool
     url: str | None
+    env_set: bool
 
 
 class ProxyValue(BaseModel):

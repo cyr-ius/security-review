@@ -1152,20 +1152,14 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     label = state.get("auth_client")
     actor = audit.token_actor(label) if label is not None else None
     if allowed is None:
-        # A token of a user that reaches every project still creates the project, unless the
-        # project requests are disabled
-        if state.get("auth_owner") is None or not get_settings().enrollment:
+        # A token of a user that reaches every project still creates the project
+        if state.get("auth_owner") is None:
             return {"project": project, "status": "accessible"}
         adopted = access_control.adopt_project(project, state["auth_owner"], actor)
         logger.info("Project %s %s by %s", adopted["project"], adopted["status"], label)
         return adopted
     if project in allowed:
         return {"project": project, "status": "accessible"}
-    if not get_settings().enrollment:
-        raise ValueError(
-            "Project requests are disabled on this server; ask an administrator for access to "
-            f"project '{project}'"
-        )
     requested = access_control.request_project(
         project, state.get("auth_owner"), _caller_address(ctx), actor
     )
@@ -1485,8 +1479,16 @@ def serve(argv: list[str]) -> None:
         tls = http_server.tls_options(settings)
     except ValueError as exc:
         parser.error(str(exc))
-    if settings.enrollment:
-        logger.info("Enrollment enabled: clients without a token are told how to get one")
+    if settings.enrollment is not None:
+        logger.warning(
+            "SECREVIEW_ENROLLMENT is ignored: clients without a token are told how to get one "
+            "while the public URL of the Controller server is known, and get a 401 otherwise"
+        )
+    if settings.mcp_scan_controller_url:
+        logger.warning(
+            "SECREVIEW_MCP_SCAN_CONTROLLER_URL is deprecated: set SECREVIEW_SCANCODE_DELEGATED "
+            "on the Controller server instead (this variable still wins while it is set)"
+        )
     if settings.controller_url and not settings.legacy_controller_url:
         # Often shared with the controller (ConfigMap, .env): only the controller copies it.
         # SECREVIEW_CONTROLLER_URL alone is rather the variable of security-review-ci.
@@ -1502,7 +1504,7 @@ def serve(argv: list[str]) -> None:
         mcp,
         args.host,
         store,
-        enrollment_mcp if settings.enrollment else None,
+        enrollment_mcp,
         allow_open=allow_open,
         web_url=enrollment_web_url,
         oauth=oauth_resource,
