@@ -9,7 +9,7 @@ relance toutes les vérifications (`lint.yml`, `tests.yml`, `docs.yml`, `docker.
 uv run ruff check --fix . && uv run ruff format .           # Python
 npm --prefix web exec --no -- prettier --check <files>      # web/src/, YAML et JSON
 prek install          # mêmes contrôles avant chaque commit, scan des dépendances si
-                      # SECREVIEW_CONTROLLER_URL est défini, et hook post-commit agent-review
+                      # SECREVIEW_CONTROLLER_URL est défini
 ```
 
 Le hook `prettier` formate les fichiers YAML et JSON et les sources de `web/src/` avec la
@@ -55,37 +55,14 @@ prompt `security-review` (ou `api-security-review`, `configuration-review`,
 `dependency-review` selon les fichiers), aidé de `scan_code` et `get_review_checklist`, puis un
 rapport enregistré avec `save_security_report` (projet `security-review-mcp`). Les findings
 `critical` et `high` sont corrigés, avec un test ; les autres sont corrigés ou justifiés par
-`propose_finding_status`, qu'une personne valide dans l'interface web. L'agent ajoute ensuite
-le trailer `Security-Review: <identifiant du rapport>` à son message de commit, pour que le
-hook `agent-review` ne relise pas le commit une seconde fois. La procédure complète est dans
-`AGENTS.md`.
+`propose_finding_status`, qu'une personne valide dans l'interface web. La procédure complète
+est dans `AGENTS.md`.
 
-Les hooks `scan-deps` et `agent-review` lancent le `security-review-ci` du serveur Controller désigné par
-`SECREVIEW_CONTROLLER_URL` ([client du serveur Controller](../getting-started/commit-hooks.md)), et sont
-sautés tant qu'elle n'est pas définie. Avec un jeton `ci` personnel dans
+Le hook `scan-deps` lance le `security-review-ci` du serveur Controller désigné par
+`SECREVIEW_CONTROLLER_URL` ([client du serveur Controller](../getting-started/commit-hooks.md)), et est
+sauté tant qu'elle n'est pas définie. Avec un jeton `ci` personnel dans
 `SECREVIEW_CI_TOKEN`, `scan-deps` analyse les dépendances quand `uv.lock`, `pyproject.toml` ou
 `web/package*.json` changent.
-
-### Revue de sécurité de chaque commit
-
-Le hook `agent-review` lance
-[`security-review-ci agent-review`](../advanced/architecture/ci.md#revue-de-chaque-commit-par-un-agent) après
-chacun de vos commits : votre agent de code (Claude Code, GitHub Copilot ou Codex) le relit sous
-l'angle de la sécurité en arrière-plan, avec le serveur `security-review` de votre `.mcp.json`,
-et enregistre un rapport, que vous lisez dans l'interface web. `prek install` l'installe avec
-les hooks pre-commit (`default_install_hook_types`), et le devcontainer le lance à sa création :
-il vous reste à installer le CLI de votre agent, à vous connecter et à créer votre `.mcp.json`.
-
-```bash
-prek install                          # hooks pre-commit et post-commit
-export AGENT_REVIEW_CLI=copilot       # facultatif : choisir l'agent
-SKIP=agent-review git commit ...      # la sauter pour un commit
-```
-
-Le commit n'est jamais bloqué, même s'il reste des findings ouverts ; le journal est dans
-`.git/agent-review/<commit>.log`. Un commit qui porte le trailer `Security-Review:
-<identifiant du rapport>`, déjà relu dans la session de son agent, n'est pas relu une seconde
-fois.
 
 ## Branches
 

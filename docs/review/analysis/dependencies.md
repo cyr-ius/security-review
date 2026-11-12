@@ -168,7 +168,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 ## Scan from a workstation (commit hook)
 
-Step-by-step setup, with the agent review: [Commit hooks](../../getting-started/commit-hooks.md).
+Step-by-step setup: [Commit hooks](../../getting-started/commit-hooks.md).
 
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
 [personal `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens) created in
