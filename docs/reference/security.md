@@ -155,11 +155,18 @@
   [audit events](../advanced/audit-log.md#forwarding-to-syslog) to that syslog server (UDP
   or TCP in clear, TLS with the certificate and host name of the server verified, or Unix
   socket; no proxy); the events hold no secret (masked details), and the MCP server still
-  connects nowhere. With `SECREVIEW_SCAN_ENGINE_URL` (unset by default), the Controller server
-  sends the files of the code scans to the
-  [scan engines](../advanced/architecture/scan-engine.md#security) with a shared secret, to that
-  URL only, without proxy nor redirect, answer bounded and validated; an engine refuses any
-  request without the secret before reading it, connects nowhere and writes nothing.
+  connects nowhere. With `SECREVIEW_SCAN_ENGINE_TOKEN` (unset by default), the Controller server
+  sends the files of the code scans to the enrolled
+  [scan engines](../advanced/architecture/scan-engine.md#security) with a shared secret, to the
+  URL each one gave at its enrollment only, an IP address of `SECREVIEW_SCAN_ENGINE_NETWORKS`
+  (private networks by default), without proxy nor redirect, answer bounded and validated; an engine refuses any
+  request without the secret before reading it and writes nothing but its copy of the OpenGrep
+  rules. An engine reads no database: it enrolls with the Controller server at
+  `SECREVIEW_CONTROLLER_URL` with the same secret, gets its own OAuth client
+  (`client_credentials`, SHA-256 digests only kept, revocable on the **Scan engines** page) and
+  reads the rules with a short-lived access token of the `engine` role, which reaches
+  `/api/v1/engine/*` only; to that URL only, without proxy nor redirect, answers bounded and
+  validated: its only outgoing connection.
 - **Initial administrator**: created by the Controller server at its first start with a random
   password that nobody knows, never logged nor passed through a variable; the only way to a
   password is `security-review-controller user reset-password`, run by an operator, which

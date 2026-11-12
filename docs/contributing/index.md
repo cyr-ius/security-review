@@ -148,9 +148,12 @@ src/security_review_mcp/
 ├── engines/       # where the scans run: OpenGrep, and the optional scan engines
 │   ├── opengrep.py        # OpenGrep sub-process: workspace, slots, normalized matches
 │   ├── local.py           # rules then OpenGrep on bounded files, in the process
-│   ├── backend.py         # local scan or scan engines (SECREVIEW_SCAN_ENGINE_URL), fallback
+│   ├── backend.py         # local scan or active enrolled scan engines, the freest first, fallback
 │   ├── remote.py          # client of the scan engines (Controller server only)
-│   ├── protocol.py        # messages of POST /engine/v1/scan
+│   ├── protocol.py        # messages between the Controller server and the engines, shared secret
+│   ├── enrollment.py      # enrollment of the engines and their OAuth tokens (Controller server only)
+│   ├── controller_client.py # client of the Controller server on an engine: enrollment, token
+│   ├── rule_sync.py       # copy of the rules on an engine, brought up to date before each scan
 │   └── worker.py          # `security-review-scan-engine`: the scan engine process
 ├── clients/       # clients of the Controller server
 │   └── ci_wheel.py        # wheel of security-review-ci built and served by the Controller server (/api/ci-client/)
@@ -168,7 +171,7 @@ web/               # Angular application (built into src/security_review_mcp/web
 The MCP server never imports the modules of the Controller server that open outgoing connections or
 serve its routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
 `observability/audit_syslog`, `connectors`, `update_check`, `web_api`, `engines/remote`,
-`engines/worker`), not even indirectly:
+`engines/worker`, `engines/enrollment`, `engines/controller_client`, `engines/rule_sync`), not even indirectly:
 `tests/test_server.py` checks it. A module shared by both processes (such as
 `app_settings`) imports them inside the function that needs them, never at the top.
 

@@ -134,6 +134,12 @@ export class LayoutComponent {
       icon: 'bi-plug',
       permission: 'settings.manage',
     },
+    {
+      path: '/scan-engines',
+      label: 'layout.scanEngines',
+      icon: 'bi-cpu',
+      permission: 'settings.manage',
+    },
     { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text', permission: 'audit.read' },
   ];
 

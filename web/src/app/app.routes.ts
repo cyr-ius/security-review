@@ -159,6 +159,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'scan-engines',
+        title: 'layout.scanEngines',
+        canActivate: [permissionGuard('settings.manage')],
+        loadComponent: () =>
+          import('./features/scan-engines/scan-engine-list.component').then(
+            (m) => m.ScanEngineListComponent,
+          ),
+      },
+      {
         path: 'audit',
         title: 'layout.audit',
         canActivate: [permissionGuard('audit.read')],

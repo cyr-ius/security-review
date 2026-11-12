@@ -1,71 +1,83 @@
 """Scan engine (``security-review-scan-engine``): runs the rules and OpenGrep for the controller.
 
-Optional (SECREVIEW_SCAN_ENGINE_URL on the controller): with many developers, the code scans of
+Optional (SECREVIEW_SCAN_ENGINE_TOKEN on the controller): with many developers, the code scans of
 ``security-review-ci`` and the fragments of scan_code take the CPU and the memory of the
 controller. The engines take this work over, as many replicas as needed behind one address;
 the controller keeps the authentication, the scan tickets, the reports and the verdicts.
 
 An engine serves ``POST /engine/v1/scan`` to the controller only (shared secret
 SECREVIEW_SCAN_ENGINE_TOKEN, compared by its SHA-256 digest in constant time, checked before the
-body is read) and ``/healthz``. It keeps no state, writes nothing to the database (it reads the
-rules: a read-only database account is enough), opens no outgoing connection and loads none of
-the modules of the controller. Its OpenGrep rules are the directory SECREVIEW_OPENGREP_RULES_DIR,
-the volume of the controller mounted read-only.
+body is read) and ``/healthz``. It keeps no state, reads no database and loads none of the
+modules of the controller.
+
+At its start it enrolls with the controller at SECREVIEW_CONTROLLER_URL with the URL where the
+controller reaches it (SECREVIEW_SCAN_ENGINE_ADVERTISE_URL, or its IP address and port), then
+gets an OAuth access token of its own and sends a heartbeat with its free OpenGrep slots
+(engines.controller_client); no address to configure on the controller. Before each scan it
+brings its copy of the internal rules and of the OpenGrep rules of the controller up to date
+(engines.rule_sync).
+That is its only outgoing connection, to the controller only.
 """
 
 import argparse
-import hashlib
-import hmac
-import json
 import logging
+import socket
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from starlette.concurrency import run_in_threadpool
-from starlette.datastructures import Headers
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp
 
 from .. import __version__, http_server
 from ..config import Settings, configure_logging, get_settings, secret_value
 from ..rules import registry, scanner
-from ..storage.database import SchemaError, check_db
-from . import local, opengrep
-from .protocol import ENGINE_SCAN_PATH, EngineRequest, EngineResponse
+from . import controller_client, local, opengrep, rule_sync
+from .protocol import (
+    ENGINE_SCAN_PATH,
+    EngineAuth,
+    EngineHeartbeat,
+    EngineRequest,
+    EngineResponse,
+)
 
 logger = logging.getLogger("security_review_mcp.engines")
 
 PROGRAM = "security-review-scan-engine"
 
+__all__ = ["EngineAuth", "build_app", "create_app", "main"]
 
-class EngineAuth:
-    """Refuse (401) every request but ``/healthz`` without the shared secret of the engines."""
 
-    def __init__(self, app: ASGIApp, token: str) -> None:
-        self.app = app
-        self.digest = hashlib.sha256(token.encode()).digest()
+# Copy of the rules of the controller, set by main (None: the rules of this process, in tests)
+_rules: rule_sync.RuleCache | None = None
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope.get("path") == http_server.HEALTH_PATH:
-            await self.app(scope, receive, send)
-            return
-        scheme, _, credentials = Headers(scope=scope).get("authorization", "").partition(" ")
-        presented = hashlib.sha256(credentials.strip().encode()).digest()
-        if scheme.lower() == "bearer" and hmac.compare_digest(presented, self.digest):
-            await self.app(scope, receive, send)
-            return
-        body = json.dumps({"detail": "Missing or invalid scan engine token"}).encode()
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 401,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"content-length", str(len(body)).encode("ascii")),
-                    (b"www-authenticate", b'Bearer realm="secreview-scan-engine"'),
-                ],
-            }
-        )
-        await send({"type": "http.response.body", "body": body})
+
+def _own_url(host: str, port: int, tls: object) -> str:
+    """URL of this engine when SECREVIEW_SCAN_ENGINE_ADVERTISE_URL is unset: the IP address of
+    its host name (the pod or container IP), or the loopback address it listens on."""
+    if host in http_server.LOOPBACK_HOSTS:
+        address = "127.0.0.1"
+    else:
+        try:
+            address = socket.gethostbyname(socket.gethostname())
+        except OSError:
+            address = "127.0.0.1"
+    return f"{'https' if tls else 'http'}://{address}:{port}"
+
+
+def _status() -> EngineHeartbeat:
+    """Free OpenGrep slots of this engine, sent with each heartbeat."""
+    codebase, fragment = opengrep.free_slots()
+    return EngineHeartbeat(free_codebase_slots=codebase, free_fragment_slots=fragment)
+
+
+def _scan(sources: list[local.Source], fragment: bool) -> dict:
+    """Scan ``sources`` with the rules of the controller, brought up to date first (see
+    engines.rule_sync)."""
+    if _rules is None:
+        return local.scan(sources, fragment)
+    with _rules.use() as opengrep_rules:
+        return local.scan(sources, fragment, opengrep_rules)
 
 
 def _sources(request: EngineRequest, settings: Settings) -> list[local.Source]:
@@ -110,7 +122,7 @@ def create_app() -> FastAPI:
         """
         try:
             sources = _sources(request, get_settings())
-            result = await run_in_threadpool(local.scan, sources, request.fragment)
+            result = await run_in_threadpool(_scan, sources, request.fragment)
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
         except opengrep.OpenGrepBusyError as exc:
@@ -157,13 +169,32 @@ def main(argv: list[str] | None = None) -> None:
     token = secret_value(settings.scan_engine_token)
     if not token:
         parser.error("SECREVIEW_SCAN_ENGINE_TOKEN is required (the secret of the controller)")
+    if not settings.controller_url:
+        parser.error(
+            "SECREVIEW_CONTROLLER_URL is required: the internal address of the controller, where "
+            "the engine enrolls and reads the rules"
+        )
     try:
-        # Never migrates: the controller does
-        check_db()
         tls = http_server.tls_options(settings)
-    except (ValueError, SchemaError) as exc:
+    except ValueError as exc:
         parser.error(str(exc))
-    registry.reload()
+    global _rules
+    # Never the database: no rule until the controller gives them
+    registry.publish([], ["no rule received from the Controller server yet"])
+    advertised = settings.scan_engine_advertise_url or _own_url(args.host, args.port, tls)
+    client = controller_client.ControllerClient(
+        settings.controller_url, token, advertised, status=_status
+    )
+    client.start()
+    _rules = rule_sync.RuleCache(
+        client,
+        Path(settings.opengrep_rules_dir).expanduser() if settings.opengrep_enabled else None,
+    )
+    try:
+        _rules.refresh()
+    except opengrep.OpenGrepError as exc:
+        # The controller may start after the engine: the next scan tries again
+        logger.warning("%s; retrying at the next scan", exc)
     logger.info(
         "Scan engine %s listening on %s:%d (OpenGrep %s)",
         __version__,

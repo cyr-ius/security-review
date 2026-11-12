@@ -64,9 +64,10 @@ def test_the_transport_accepts_http_and_any_case(monkeypatch):
 @pytest.mark.parametrize(
     ("variable", "value"),
     [
-        # The engines are reached at their root URL, without credentials
-        ("SECREVIEW_SCAN_ENGINE_URL", "http://scan-engine:8000/engine"),
-        ("SECREVIEW_SCAN_ENGINE_URL", "http://user:secret@scan-engine:8000"),
+        # An engine is reached at its root URL, without credentials, in IP networks
+        ("SECREVIEW_SCAN_ENGINE_ADVERTISE_URL", "http://10.0.0.5:8000/engine"),
+        ("SECREVIEW_SCAN_ENGINE_ADVERTISE_URL", "http://user:secret@10.0.0.5:8000"),
+        ("SECREVIEW_SCAN_ENGINE_NETWORKS", "10.0.0.0/8,internal"),
         ("SECREVIEW_SCAN_ENGINE_TOKEN", "too-short"),
     ],
 )

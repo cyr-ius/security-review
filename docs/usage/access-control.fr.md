@@ -24,7 +24,7 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `standards.read` | Lire les normes de développement, et les exporter | |
 | `standards.manage` | Modifier les normes de développement (comprend `standards.read`) | |
 | `tokens.manage` | Gérer les jetons de projet | |
-| `settings.manage` | Modifier les réglages généraux, le proxy sortant et la base OSV | |
+| `settings.manage` | Modifier les réglages généraux, le proxy sortant et la base OSV ; lister et révoquer les moteurs de scan | |
 | `users.manage` | Gérer les utilisateurs et leurs rôles, les rôles, les correspondances OIDC et la connexion OIDC | |
 | `audit.read` | Lire le journal d'audit | |
 | `projects.create` | [Créer un projet](projects.md#creation-dun-projet) et valider les projets demandés par les agents | |

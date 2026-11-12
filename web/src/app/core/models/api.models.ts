@@ -333,7 +333,10 @@ export type AuditAction =
   | 'opengrep_rule.proposed'
   | 'opengrep_rule.approved'
   | 'opengrep_rule.rejected'
-  | 'scan_ticket.issued';
+  | 'scan_ticket.issued'
+  | 'scan_engine.enrolled'
+  | 'scan_engine.revoked'
+  | 'scan_engine.expired';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -383,6 +386,9 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'opengrep_rule.approved',
   'opengrep_rule.rejected',
   'scan_ticket.issued',
+  'scan_engine.enrolled',
+  'scan_engine.revoked',
+  'scan_engine.expired',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -1277,4 +1283,33 @@ export type OidcSettingsUpdate = Partial<Record<OidcSettingName, string | boolea
 export interface OidcTestResult {
   success: boolean;
   steps: { name: string; ok: boolean; detail: string }[];
+}
+
+/** A scan engine enrolled with the Controller server (never its secret nor its token). */
+export interface ScanEngine {
+  /** OAuth client id of the engine (eng_...). */
+  id: string;
+  name: string;
+  version: string;
+  address: string | null;
+  /** Where the Controller server sends the scans (an IP address). */
+  url: string;
+  /** Recent heartbeat: the engine receives scans. */
+  active: boolean;
+  free_codebase_slots: number;
+  free_fragment_slots: number;
+  enrolled_at: string;
+  last_seen_at: string;
+  heartbeat_at: string | null;
+}
+
+/** The enrolled scan engines (Scan engines page, settings.manage). */
+export interface ScanEngineList {
+  /** The engines are on (SECREVIEW_SCAN_ENGINE_TOKEN set): they enroll and scan the code. */
+  enabled: boolean;
+  /** Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS). */
+  networks: string[];
+  access_token_minutes: number;
+  retention_days: number;
+  engines: ScanEngine[];
 }

@@ -543,6 +543,35 @@ class ScanTicket(SQLModel, table=True):
     deps_used_at: datetime | None = Field(default=None)
 
 
+class ScanEngine(SQLModel, table=True):
+    """A scan engine (security-review-scan-engine) enrolled with the shared secret of the
+    engines (see auth.engine_clients).
+
+    ``id`` is its OAuth client id; only the SHA-256 digests of its client secret and of its
+    current access token (client_credentials) are kept. Each replica enrolls at its start with
+    the URL where the controller sends it the scans, and sends a heartbeat with its free slots;
+    one not seen for SECREVIEW_SCAN_ENGINE_RETENTION_DAYS is deleted.
+    """
+
+    id: str = Field(primary_key=True, max_length=64)
+    name: str = Field(max_length=200)
+    version: str = Field(max_length=40)
+    # Address the engine enrolled from (as seen by the controller)
+    address: str | None = Field(default=None, max_length=64)
+    # Root URL where the controller sends the scans (an IP of SECREVIEW_SCAN_ENGINE_NETWORKS)
+    url: str = Field(max_length=500)
+    # Free OpenGrep slots of the engine (codebase scans, scan_code fragments), from its heartbeat
+    free_codebase_slots: int = Field(default=0)
+    free_fragment_slots: int = Field(default=0)
+    # Last heartbeat: the engine receives scans while it is recent
+    heartbeat_at: datetime | None = Field(default=None, index=True)
+    secret_hash: str = Field(unique=True, index=True, max_length=64)
+    access_token_hash: str | None = Field(default=None, unique=True, index=True, max_length=64)
+    access_expires_at: datetime | None = Field(default=None)
+    enrolled_at: datetime = Field(default_factory=utcnow)
+    last_seen_at: datetime = Field(default_factory=utcnow, index=True)
+
+
 # ── Requested projects (see access_control.request_project) ──────────────────
 
 

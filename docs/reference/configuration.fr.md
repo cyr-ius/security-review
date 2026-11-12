@@ -203,10 +203,14 @@ Moteur du serveur Controller pour `scan-code`, désactivé par défaut et ignor�
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_SCAN_ENGINE_URL` | — | Serveur Controller : URL racine des moteurs (une seule adresse, répartie) ; absente : le serveur Controller scanne lui-même |
-| `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Serveur Controller et moteurs : secret partagé (32 caractères au moins), obligatoire des deux côtés |
+| `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Serveur Controller et moteurs : secret partagé (32 caractères au moins), obligatoire des deux côtés. Défini sur le serveur Controller, il active les [moteurs de scan](../advanced/architecture/scan-engine.md) : ils s'enrôlent avec leur propre adresse et les scans de code partent vers les moteurs actifs ; absent : le serveur Controller scanne lui-même |
+| `SECREVIEW_SCAN_ENGINE_NETWORKS` | réseaux privés et de bouclage | Serveur Controller : réseaux (CIDR séparés par des virgules) où les moteurs peuvent [annoncer leur adresse](../advanced/architecture/scan-engine.md#comment-les-scans-parviennent-aux-moteurs), une adresse IP uniquement |
+| `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL` | IP du nom d'hôte, port d'écoute | Moteurs de scan : URL racine où le serveur Controller leur envoie les scans, donnée à leur enrôlement (par ex. `http://10.42.0.17:8000`, l'IP du pod) |
 | `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Serveur Controller : durée maximale d'un scan par un moteur (1 à 7200) |
 | `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Serveur Controller : quand aucun moteur ne répond, refuser le scan (`refuse`, `503` avec `Retry-After`) ou scanner localement (`local`) |
+| `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES` | `15` | Serveur Controller : durée de validité du jeton d'accès OAuth d'un [moteur enrôlé](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) (1 à 1440) |
+| `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` | `7` | Serveur Controller : un moteur enrôlé absent depuis ce nombre de jours est supprimé (1 à 365) |
+| `SECREVIEW_CONTROLLER_URL` | — | Moteurs de scan (obligatoire) : adresse interne du serveur Controller (par ex. `http://controller:8000`), où ils [s'enrôlent](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) et [lisent les règles](../advanced/architecture/scan-engine.md#regles) avant chaque scan, les règles OpenGrep copiées dans leur propre `SECREVIEW_OPENGREP_RULES_DIR` ; les moteurs ne lisent aucune base de données |
 
 ## Clients
 

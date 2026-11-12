@@ -45,6 +45,7 @@ exists exactly when the change was committed.
 | `oauth.refresh_reused` | A refresh token already replaced is presented again: the grant is revoked |
 | `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface |
 | `opengrep_rule.proposed` | An agent proposes an OpenGrep rule with `propose_opengrep_rule` (never installed by it), or replaces its pending proposal (`replaced`) |
+| `scan_engine.enrolled` / `scan_engine.revoked` / `scan_engine.expired` | A [scan engine](architecture/scan-engine.md#administration) enrolls with the shared secret (the actor is `engine:<name>`), is revoked by an administrator, or is deleted after `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` without being seen (actor `system`) |
 | `scan_ticket.issued` | The Controller server issues the single-use ticket of a [codebase scan started by an agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan) (`start_codebase_scan`); the actor is the token of the agent |
 | `opengrep_rule.approved` / `opengrep_rule.rejected` | A person logged in with `rules.manage` approves a [proposed rule](../review/analysis/opengrep.md#rules-proposed-by-agents) (the rule file is created; `edited` when the YAML was corrected) or rejects it |
 

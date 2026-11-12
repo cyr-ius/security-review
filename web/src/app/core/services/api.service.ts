@@ -30,6 +30,7 @@ import {
   LoginSession,
   OAuthGrant,
   OAuthOverview,
+  ScanEngineList,
   OAuthPendingRequest,
   OAuthRedirect,
   OAuthSettings,
@@ -500,6 +501,16 @@ export class ApiService {
 
   revokeOAuthGrant(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/oauth/grants/${encodeURIComponent(id)}`);
+  }
+
+  /** The scan engines enrolled with the Controller server (settings.manage). */
+  scanEngines(): Observable<ScanEngineList> {
+    return this.http.get<ScanEngineList>(`${API_URL}/scan-engines`);
+  }
+
+  /** Revoke an enrolled scan engine: its access token stops working at once. */
+  revokeScanEngine(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/scan-engines/${encodeURIComponent(id)}`);
   }
 
   deleteOAuthClient(clientId: string): Observable<void> {

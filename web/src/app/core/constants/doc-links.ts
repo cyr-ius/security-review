@@ -33,6 +33,10 @@ export const DOC_LINKS = {
     path: 'usage/tokens/',
     anchor: { en: 'personal-tokens', fr: 'jetons-personnels' },
   },
+  scanEngines: {
+    path: 'advanced/architecture/scan-engine/',
+    anchor: { en: 'administration', fr: 'administration' },
+  },
   oauthClients: {
     path: 'advanced/mcp-oauth/',
     anchor: { en: 'administration', fr: 'administration' },

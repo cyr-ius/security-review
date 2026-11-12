@@ -1,9 +1,10 @@
 """Client of the scan engines (``security-review-scan-engine``), used by the controller only.
 
-With SECREVIEW_SCAN_ENGINE_URL, the controller sends the files of a code scan or a fragment of
-scan_code to ``POST /engine/v1/scan`` of the engines, with the shared secret
-SECREVIEW_SCAN_ENGINE_TOKEN as a bearer token. It goes to the configured URL only, without
-proxy (the engines are an internal service) nor redirect, with a time limit and a bounded
+With SECREVIEW_SCAN_ENGINE_TOKEN, the controller sends the files of a code scan or a fragment of
+scan_code to ``POST /engine/v1/scan`` of an enrolled engine, with the shared secret as a bearer
+token. It goes to the URL the engine gave at its enrollment only (an IP address of
+SECREVIEW_SCAN_ENGINE_NETWORKS, see engine_clients), without proxy (the engines are an internal
+service) nor redirect, with a time limit and a bounded
 answer, which is validated before it becomes matches. The secret and the content are never
 logged: an error only carries a short reason.
 

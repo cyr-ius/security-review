@@ -58,7 +58,7 @@ def test_scan_content_adds_the_opengrep_matches_of_the_fragment(monkeypatch):
     scanned: list = []
     opengrep_match = {"rule_id": "OPENGREP:secreview.python.eval", "line": 1}
 
-    def fake_opengrep(files, fragment):
+    def fake_opengrep(files, fragment, rules_dir=None):
         assert fragment  # in the slots of the fragments, not of the pipelines
         scanned.extend(files)
         return {files[0][0]: [opengrep_match]}

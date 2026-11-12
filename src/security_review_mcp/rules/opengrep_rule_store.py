@@ -104,17 +104,34 @@ def known_rules() -> dict[str, str]:
         for files in bundled_rules().values()
         for path in files
     }
+    known.update(installed_rules())
+    return known
+
+
+def installed_rules() -> dict[str, str]:
+    """Contents of the rules installed in the rules directory, by id (a ``.yaml`` file wins
+    over a ``.yml`` one), without symbolic links nor files above MAX_RULE_CHARS.
+
+    Unlike rules_dir, the rules directory is not created: the MCP server may not see it. The
+    scan engines download these rules (see engines.rule_feed).
+    """
     directory = Path(get_settings().opengrep_rules_dir).expanduser()
     if directory.is_symlink() or not directory.is_dir():
-        return known
-    for path in sorted((*directory.glob("*.yaml"), *directory.glob("*.yml"))):
+        return {}
+    installed: dict[str, str] = {}
+    for path in (*sorted(directory.glob("*.yml")), *sorted(directory.glob("*.yaml"))):
         if path.is_symlink() or not path.is_file() or not RULE_ID.fullmatch(path.stem):
             continue
         try:
-            known[path.stem] = path.read_text(encoding="utf-8")
+            content = path.read_text(encoding="utf-8")
         except OSError, UnicodeError:
             logger.warning("Could not read OpenGrep rule file %s", path.name)
-    return known
+            continue
+        if len(content) > MAX_RULE_CHARS:
+            logger.warning("Ignoring the OpenGrep rule file %s above 256 KiB", path.name)
+            continue
+        installed[path.stem] = content
+    return installed
 
 
 def validate_rule(rule_id: str, content: str) -> str:

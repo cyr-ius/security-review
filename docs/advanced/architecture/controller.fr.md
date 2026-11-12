@@ -15,6 +15,8 @@ base (voir [Architecture](index.md)).
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` (personnel ou non) |
 | `/api/v1/scan/content` | le serveur MCP : `scan_code` [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code) (ne lit ni n'enregistre rien) | jeton `mcp` ou `admin` de l'agent, relayé |
 | `/api/v1/scan/tickets` | le serveur MCP : ticket à usage unique de `start_codebase_scan` ([scan lancé par l'agent](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)), utilisé ensuite par `security-review-ci` sur `/api/v1/ci/scan/code` et `/scan/deps` | jeton `mcp` ou `admin` de l'agent, relayé |
+| `/engine/v1/enroll`, `/engine/v1/token` | les [moteurs de scan](scan-engine.md#enrolement-et-jetons-dacces) : enrôlement, puis jeton d'accès OAuth (`client_credentials`) ; servies seulement avec `SECREVIEW_SCAN_ENGINE_TOKEN` | secret partagé des moteurs, puis client de chaque moteur |
+| `/api/v1/engine/` | les moteurs de scan : leurs règles et règles OpenGrep ([règles](scan-engine.md#regles)) | jeton d'accès d'un moteur enrôlé uniquement |
 | `/metrics` | Prometheus ([métriques](../../reference/metrics.md)) | jeton `metrics` ou `admin` |
 | `/api/docs` | Swagger : documentation OpenAPI de l'API REST, sans données, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../../usage/tokens.md#jetons-api)) |
 | `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-serveur-controller), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |

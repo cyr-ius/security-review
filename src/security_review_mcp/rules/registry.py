@@ -39,6 +39,8 @@ class Snapshot:
 _lock = threading.Lock()
 _snapshot: Snapshot | None = None
 _checked_at = 0.0
+# A scan engine: the rules come from the controller (see publish), never from the database
+_external = False
 
 
 def _build(loaded: LoadResult, revision: int | None) -> Snapshot:
@@ -91,12 +93,26 @@ def _load() -> tuple[LoadResult, int | None]:
 
 
 def reload() -> Snapshot:
-    """(Re)read the rules from the database and publish a new snapshot."""
+    """(Re)read the rules from the database and publish a new snapshot (a scan engine keeps
+    the rules published by publish)."""
     global _snapshot, _checked_at
-    snapshot = _build(*_load())
+    if _external:
+        return snapshot()
+    loaded = _build(*_load())
+    with _lock:
+        _snapshot = loaded
+        _checked_at = time.monotonic()
+    return loaded
+
+
+def publish(rules: list[Rule], errors: list[str] | None = None) -> Snapshot:
+    """Use ``rules`` from now on, never reading the database again (a scan engine, whose rules
+    come from the controller: see engines.rule_sync)."""
+    global _snapshot, _external
+    snapshot = _build(LoadResult(rules=list(rules), errors=list(errors or [])), None)
     with _lock:
         _snapshot = snapshot
-        _checked_at = time.monotonic()
+        _external = True
     return snapshot
 
 
@@ -104,6 +120,9 @@ def snapshot() -> Snapshot:
     """Return the current snapshot, reloading it when another process changed the rules."""
     global _checked_at
     current = _snapshot
+    if _external:
+        # Published by a scan engine before each scan: no rule until the first one
+        return current or _build(LoadResult(), None)
     if current is None:
         return reload()
     if time.monotonic() - _checked_at < REFRESH_SECONDS:
@@ -118,9 +137,10 @@ def snapshot() -> Snapshot:
 
 def reset() -> None:
     """Forget the loaded content (used by tests)."""
-    global _snapshot
+    global _snapshot, _external
     with _lock:
         _snapshot = None
+        _external = False
 
 
 # ── Scanning ─────────────────────────────────────────────────────────────────

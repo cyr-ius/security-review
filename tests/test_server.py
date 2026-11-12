@@ -1211,6 +1211,10 @@ CONTROLLER_MODULES = (
     "security_review_mcp.web_api",
     "security_review_mcp.engines.remote",
     "security_review_mcp.engines.worker",
+    "security_review_mcp.engines.enrollment",
+    "security_review_mcp.engines.controller_client",
+    "security_review_mcp.engines.rule_sync",
+    "security_review_mcp.auth.engine_clients",
 )
 
 

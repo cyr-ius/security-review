@@ -148,9 +148,12 @@ src/security_review_mcp/
 ├── engines/       # où tournent les scans : OpenGrep et les moteurs de scan facultatifs
 │   ├── opengrep.py        # sous-processus OpenGrep : espace de travail, créneaux, correspondances normalisées
 │   ├── local.py           # règles puis OpenGrep sur des fichiers bornés, dans le processus
-│   ├── backend.py         # scan local ou moteurs de scan (SECREVIEW_SCAN_ENGINE_URL), repli
+│   ├── backend.py         # scan local ou moteurs enrôlés actifs, le plus libre d'abord, repli
 │   ├── remote.py          # client des moteurs de scan (serveur Controller uniquement)
-│   ├── protocol.py        # messages de POST /engine/v1/scan
+│   ├── protocol.py        # messages entre le serveur Controller et les moteurs, secret partagé
+│   ├── enrollment.py      # enrôlement des moteurs et leurs jetons OAuth (serveur Controller uniquement)
+│   ├── controller_client.py # client du serveur Controller sur un moteur : enrôlement, jeton
+│   ├── rule_sync.py       # copie des règles sur un moteur, mise à jour avant chaque scan
 │   └── worker.py          # `security-review-scan-engine` : le processus du moteur de scan
 ├── clients/       # clients du serveur Controller
 │   └── ci_wheel.py        # wheel de security-review-ci construite et servie par le serveur Controller (/api/ci-client/)
@@ -168,7 +171,7 @@ web/               # application Angular (compilée dans src/security_review_mcp
 Le serveur MCP n'importe jamais les modules du serveur Controller qui ouvrent des connexions sortantes
 ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
 `observability/audit_syslog`, `connectors`, `update_check`, `web_api`, `engines/remote`,
-`engines/worker`), même indirectement :
+`engines/worker`, `engines/enrollment`, `engines/controller_client`, `engines/rule_sync`), même indirectement :
 `tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
 `app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 

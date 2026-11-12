@@ -7,6 +7,7 @@ this same function. The caller has already detected the language and bounded the
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from ..config import get_settings
 from ..rules import registry
@@ -25,9 +26,12 @@ class Source:
     content: str
 
 
-def scan(sources: Sequence[Source], fragment: bool = False) -> dict:
+def scan(
+    sources: Sequence[Source], fragment: bool = False, opengrep_rules_dir: Path | None = None
+) -> dict:
     """Scan ``sources`` with the active rules, then OpenGrep when it is enabled.
 
+    OpenGrep runs the rules of ``opengrep_rules_dir`` (default: SECREVIEW_OPENGREP_RULES_DIR).
     A ``fragment`` of scan_code runs OpenGrep in its own slots, and not at all when
     SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS is 0.
 
@@ -56,7 +60,11 @@ def scan(sources: Sequence[Source], fragment: bool = False) -> dict:
         engines.append("opengrep")
         # OpenGrep runs once per codebase, not once per file
         found = (
-            opengrep.scan_files([(s.path, s.content) for s in sources], fragment=fragment)
+            opengrep.scan_files(
+                [(s.path, s.content) for s in sources],
+                fragment=fragment,
+                rules_dir=opengrep_rules_dir,
+            )
             if sources
             else {}
         )

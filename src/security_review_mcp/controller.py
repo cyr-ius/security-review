@@ -34,6 +34,7 @@ commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
   db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
   token        manage the bearer tokens
+  engine       list or revoke the enrolled scan engines
   user         manage the web users (local and OIDC) and their roles
   role         list the roles (with their permissions) and the OIDC mappings
   project      list, approve or reject the projects requested by an enrollment
@@ -142,7 +143,6 @@ def serve(argv: list[str]) -> None:
             advisory_sync.validate_settings(settings)
         audit_syslog.validate_settings(settings)
         connectors.validate_settings(settings)
-        scan_engines.validate_settings(settings)
         bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
@@ -152,10 +152,9 @@ def serve(argv: list[str]) -> None:
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
-    if settings.scan_engine_url:
+    if settings.scan_engine_token is not None:
         logger.info(
-            "Code scans sent to the scan engines at %s (fallback: %s)",
-            settings.scan_engine_url,
+            "Scan engines on: they enroll here and scan the code (fallback: %s)",
             settings.scan_engine_fallback,
         )
     oidc_login = web_app.state.oidc.current()
@@ -193,6 +192,7 @@ def serve(argv: list[str]) -> None:
                 web_users.SessionVerifier(signer),
                 require_auth=oidc_login is not None,
                 settings=settings,
+                engine_routes=scan_engines.engine_routes(settings),
             ),
             args.host,
             args.port,

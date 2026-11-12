@@ -6,27 +6,13 @@
 #       --from-literal=SECREVIEW_SCAN_ENGINE_TOKEN="$(openssl rand -hex 32)"
 #   kubectl -n secreview apply -f examples/kubernetes/scan-engine.yaml
 #
-# Then give the controller the same secret and the address of the engines (Deployment
-# secreview-controller): the secretRef secreview-scan-engine in its envFrom, and in the
-# secreview-config ConfigMap
-#
-#   SECREVIEW_SCAN_ENGINE_URL: "http://secreview-scan-engine"
-#
-# The engines read the rules in the database (a read-only PostgreSQL account is enough: give
-# them their own secreview-db Secret) and the OpenGrep rules in the directory of the controller:
-# mount the PersistentVolumeClaim secreview-opengrep-rules (ReadWriteMany storage class) on the
-# controller at /var/lib/secreview/rules/opengrep, where it installs and approves them. Without
-# it, the engines run the internal rules only.
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: secreview-opengrep-rules
-spec:
-  accessModes: ["ReadWriteMany"]
-  resources:
-    requests:
-      storage: 100Mi
+# Then give the controller the same secret (Deployment secreview-controller: the secretRef
+# secreview-scan-engine in its envFrom): it turns the engines on. No address to give it: each
+# replica enrolls with the controller at its start (SECREVIEW_CONTROLLER_URL, with the same
+# secret) with the IP address of its pod, where the controller sends it the scans, then gets its
+# own OAuth access token, sends a heartbeat with its free OpenGrep slots, and reads the rules
+# through the REST API before each scan. No Service, volume nor database account is needed; the
+# enrolled engines are listed on the Scan engines page.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -62,9 +48,18 @@ spec:
           args: ["scan-engine"]
           envFrom:
             - secretRef:
-                name: secreview-db
-            - secretRef:
                 name: secreview-scan-engine
+          env:
+            # Internal address of the controller, where the engines enroll and read the rules
+            - name: SECREVIEW_CONTROLLER_URL
+              value: "http://secreview-controller"
+            # Where the controller sends the scans to this replica: the IP address of its pod
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SECREVIEW_SCAN_ENGINE_ADVERTISE_URL
+              value: "http://$(POD_IP):8000"
           ports:
             - name: http
               containerPort: 8000
@@ -90,29 +85,14 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            # Copy of the OpenGrep rules of the controller, downloaded at start and at each scan
             - name: opengrep-rules
               mountPath: /var/lib/secreview/rules/opengrep
-              readOnly: true
       volumes:
         - name: tmp
           emptyDir: {}
         - name: opengrep-rules
-          persistentVolumeClaim:
-            claimName: secreview-opengrep-rules
-            readOnly: true
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: secreview-scan-engine
-spec:
-  selector:
-    app.kubernetes.io/name: secreview
-    app.kubernetes.io/component: scan-engine
-  ports:
-    - name: http
-      port: 80
-      targetPort: http
+          emptyDir: {}
 ---
 # Only the controller reaches the engines (no Ingress)
 apiVersion: networking.k8s.io/v1
@@ -133,10 +113,17 @@ spec:
               app.kubernetes.io/component: controller
       ports:
         - port: 8000
-  # The database and DNS only: an engine opens no other connection
+  # The controller (enrollment and rules) and DNS only: an engine opens no other connection,
+  # not even to the database
   egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: secreview
+              app.kubernetes.io/component: controller
+      ports:
+        - port: 8000
     - ports:
-        - port: 5432
         - port: 53
           protocol: UDP
         - port: 53

@@ -169,7 +169,7 @@ def test_codebase_scan_merges_opengrep_findings(monkeypatch):
     monkeypatch.setattr(
         opengrep,
         "scan_files",
-        lambda files, fragment=False: {
+        lambda files, fragment=False, rules_dir=None: {
             "app.py": [
                 {
                     "title": "Unsafe subprocess",

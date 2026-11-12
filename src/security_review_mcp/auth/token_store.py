@@ -225,7 +225,11 @@ class DatabaseTokenStore:
                 )
             ).first()
             if row is None:
-                return _oauth_info(session, digest) or _ticket_info(session, digest)
+                return (
+                    _oauth_info(session, digest)
+                    or _ticket_info(session, digest)
+                    or _engine_info(session, digest)
+                )
             if row.role not in TOKEN_ROLES or not _matches(row, digest):
                 return None
             info = _info(row, _links(session, [row.id])[row.id])
@@ -377,6 +381,13 @@ def _ticket_info(session: Session, digest: bytes) -> TokenInfo | None:
     from . import scan_tickets  # scan_tickets reads the tokens of this module
 
     return scan_tickets.ticket_info(session, digest)
+
+
+def _engine_info(session: Session, digest: bytes) -> TokenInfo | None:
+    """Identity of the access token of an enrolled scan engine (see engine_clients), or None."""
+    from . import engine_clients  # engine_clients reads the roles of http_server, as this module
+
+    return engine_clients.engine_info(session, digest)
 
 
 def _matches(row: ApiToken, digest: bytes) -> bool:

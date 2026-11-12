@@ -158,6 +158,15 @@ def metrics_identity(
     return _identity_with_role(request, METRICS_ROLES)
 
 
+def engine_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the routes read by the scan engines: the OAuth access token of an enrolled
+    engine only (see engine_clients)."""
+    return _identity_with_role(request, {Role.ENGINE})
+
+
 def actor_of(identity: Identity) -> str:
     """Actor written to the audit log: a web user (session) or a bearer token."""
     if identity.auth_source is not None:

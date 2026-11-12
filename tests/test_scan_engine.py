@@ -1,23 +1,37 @@
 """Scan engines (engines/worker.py, engines/remote.py, engines/backend.py): the controller sends
-the rules and OpenGrep work to security-review-scan-engine."""
+the rules and OpenGrep work to security-review-scan-engine, which enrolls with the controller and
+reads its rules without any database (engines/enrollment.py, engines/controller_client.py,
+engines/rule_sync.py, web_api/engine_routes.py)."""
 
 import io
 import json
 import subprocess
 import sys
 import urllib.error
+from urllib.parse import urlsplit
 
 import pytest
 from pydantic import SecretStr
 from starlette.testclient import TestClient
 
+from security_review_mcp import cli, http_server, web_api
+from security_review_mcp.auth import engine_clients, token_store
 from security_review_mcp.config import get_settings
-from security_review_mcp.engines import backend, opengrep, remote, worker
-from security_review_mcp.rules import codescan
+from security_review_mcp.engines import (
+    backend,
+    controller_client,
+    opengrep,
+    remote,
+    rule_sync,
+    worker,
+)
+from security_review_mcp.engines.protocol import ENGINE_ENROLL_PATH, ENGINE_TOKEN_PATH
+from security_review_mcp.http_server import Role
+from security_review_mcp.rules import codescan, registry
 from security_review_mcp.rules.codescan import SourceFile
 
 TOKEN = "engine-secret-for-tests-0123456789abcdef"
-URL = "http://scan-engine:8000"
+URL = "http://10.0.0.5:8000"
 FILES = [
     SourceFile("app/views.py", "import subprocess\nsubprocess.run(cmd, shell=True)\n"),
     SourceFile("settings.properties", 'password = "Sup3rSecret99"\n'),
@@ -27,8 +41,9 @@ FILES = [
 class _Answer:
     """Answer of the fake opener, read like the one of urllib."""
 
-    def __init__(self, body: bytes) -> None:
+    def __init__(self, body: bytes, status: int = 200) -> None:
         self.body = io.BytesIO(body)
+        self.status = status
 
     def __enter__(self):
         return self
@@ -53,7 +68,7 @@ class _EngineOpener:
         if self.answer is not None:
             return _Answer(self.answer)
         response = self.client.post(
-            request.full_url.removeprefix(URL), content=request.data, headers=request.headers
+            urlsplit(request.full_url).path, content=request.data, headers=request.headers
         )
         if response.status_code >= 400:
             raise urllib.error.HTTPError(
@@ -62,15 +77,23 @@ class _EngineOpener:
         return _Answer(response.content)
 
 
+def _enroll(url: str = URL, free: int = 1) -> str:
+    """Enroll an engine reached at ``url`` and record its heartbeat; return its id."""
+    engine_id = engine_clients.enroll("engine", "1.0.0", url)["client_id"]
+    engine_clients.heartbeat(engine_id, free, free)
+    return engine_id
+
+
 @pytest.fixture
 def engines(monkeypatch):
-    """Return a function that sends the scans of the controller to the scan engines at URL,
+    """Return a function that sends the scans of the controller to an engine enrolled at URL,
     reached through ``opener``."""
     backend.ENGINE_REQUESTS.clear()
 
-    def use(opener):
-        monkeypatch.setattr(get_settings(), "scan_engine_url", URL)
+    def use(opener, enroll: bool = True):
         monkeypatch.setattr(get_settings(), "scan_engine_token", SecretStr(TOKEN))
+        if enroll:
+            _enroll()
         monkeypatch.setattr(remote, "_OPENER", opener)
         return opener
 
@@ -172,8 +195,13 @@ def test_without_engine_the_scan_is_refused_or_run_on_the_controller(engines, mo
         def open(self, request, timeout):
             raise urllib.error.URLError("connection refused")
 
+    # No engine enrolled yet: refused by default, like a busy OpenGrep (503 with Retry-After)
+    engines(Down(), enroll=False)
+    with pytest.raises(opengrep.OpenGrepBusyError):
+        codescan.scan_files(FILES)
+    backend.ENGINE_REQUESTS.clear()
+    # An enrolled engine that does not answer: refused too
     engines(Down())
-    # Refused by default: answered like a busy OpenGrep (503 with Retry-After)
     with pytest.raises(opengrep.OpenGrepBusyError):
         codescan.scan_files(FILES)
 
@@ -181,14 +209,38 @@ def test_without_engine_the_scan_is_refused_or_run_on_the_controller(engines, mo
     assert codescan.scan_files(FILES)["matches_count"] > 0
     assert (backend.ENGINE_REQUESTS["unavailable"], backend.ENGINE_REQUESTS["fallback"]) == (1, 1)
 
-    # A busy engine is never replaced by a local scan
+    # Busy engines are never replaced by a local scan
     def busy(sources, fragment):
         raise opengrep.OpenGrepBusyError("OpenGrep is busy with other scans; retry later")
 
     monkeypatch.setattr(worker.local, "scan", busy)
-    engines(_EngineOpener())
+    engines(_EngineOpener(), enroll=False)
     with pytest.raises(remote.ScanEngineBusyError):
         codescan.scan_files(FILES)
+
+
+def test_the_scans_go_to_the_freest_active_engine_and_skip_a_busy_one(engines, monkeypatch):
+    busy, free = "http://10.0.0.6:8000", "http://10.0.0.7:8000"
+    stale = engine_clients.enroll("gone", "1.0.0", "http://10.0.0.8:8000")["client_id"]
+    _enroll(busy, free=3)
+    _enroll(free, free=1)
+    opener = engines(_EngineOpener(), enroll=False)
+    opened: list[str] = []
+
+    scan = opener.open
+
+    def route(request, timeout):
+        opened.append(request.full_url)
+        if request.full_url.startswith(busy):
+            raise urllib.error.HTTPError(request.full_url, 429, "", {}, io.BytesIO(b"{}"))
+        return scan(request, timeout)
+
+    monkeypatch.setattr(opener, "open", route)
+
+    assert codescan.scan_files(FILES)["matches_count"] > 0
+    # The freest engine first; the busy one replaced by the next; never the one without heartbeat
+    assert [url.rsplit("/engine", 1)[0] for url in opened] == [busy, free]
+    assert stale not in json.dumps(opened)
 
 
 def test_the_engine_loads_none_of_the_controller_modules():
@@ -200,6 +252,8 @@ def test_the_engine_loads_none_of_the_controller_modules():
         "security_review_mcp.auth.oidc",
         "security_review_mcp.deps.advisory_sync",
         "security_review_mcp.engines.remote",
+        "security_review_mcp.engines.enrollment",
+        "security_review_mcp.auth.engine_clients",
     )
     code = (
         "import sys, security_review_mcp.engines.worker\n"
@@ -209,3 +263,162 @@ def test_the_engine_loads_none_of_the_controller_modules():
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "[]"
+
+
+CONTROLLER = "http://controller:8000"
+
+
+def _controller(monkeypatch) -> TestClient:
+    """The controller app, with the enrollment of the engines (shared secret TOKEN)."""
+    monkeypatch.setattr(get_settings(), "scan_engine_token", SecretStr(TOKEN))
+    app = http_server.build_controller_app(
+        web_api.create_app(),
+        token_store.DatabaseTokenStore(include_users=True),
+        engine_routes=backend.engine_routes(get_settings()),
+    )
+    return TestClient(app, base_url="http://127.0.0.1")
+
+
+class _ControllerOpener:
+    """Send the requests of a scan engine to the controller app in memory (no network)."""
+
+    def __init__(self, client: TestClient) -> None:
+        self.client = client
+        self.requests: list = []
+
+    def open(self, request, timeout):
+        self.requests.append(request)
+        response = self.client.request(
+            request.get_method(),
+            request.full_url.removeprefix(CONTROLLER),
+            content=request.data,
+            headers=request.headers,
+        )
+        if response.status_code >= 300:
+            raise urllib.error.HTTPError(
+                request.full_url, response.status_code, "", {}, io.BytesIO(response.content)
+            )
+        return _Answer(response.content, response.status_code)
+
+
+def _rule(rule_id: str, pattern: str) -> str:
+    return (
+        f"rules:\n  - id: {rule_id}\n    languages: [python]\n    severity: ERROR\n"
+        f"    message: m\n    pattern: {pattern}\n"
+    )
+
+
+def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_database(
+    tmp_path, monkeypatch
+):
+    controller_dir, engine_dir = tmp_path / "controller", tmp_path / "engine"
+    controller_dir.mkdir()
+    for rule_id in ("rule-one", "rule-two"):
+        (controller_dir / f"{rule_id}.yaml").write_text(_rule(rule_id, "eval(...)"))
+    monkeypatch.setattr(get_settings(), "opengrep_rules_dir", str(controller_dir))
+    controller = _controller(monkeypatch)
+    admin = {"Authorization": f"Bearer {token_store.create_token('admin', Role.ADMIN)['token']}"}
+    opener = _ControllerOpener(controller)
+    monkeypatch.setattr(controller_client, "_OPENER", opener)
+    published: list = []
+    engine = controller_client.ControllerClient(
+        CONTROLLER, TOKEN, "http://10.0.0.7:8000", name="engine-1"
+    )
+    cache = rule_sync.RuleCache(engine, engine_dir, lambda rules, errors: published.append(rules))
+
+    def posted() -> list[str]:
+        """OpenGrep rules asked for by the engine since the last call."""
+        ids = [
+            rule_id
+            for request in opener.requests
+            if request.get_method() == "POST" and request.full_url.endswith("opengrep-rules")
+            for rule_id in json.loads(request.data)["ids"]
+        ]
+        opener.requests.clear()
+        return sorted(ids)
+
+    with cache.use() as first:
+        assert sorted(p.name for p in first.iterdir()) == ["rule-one.yaml", "rule-two.yaml"]
+    # The shared secret only goes to the enrollment; the rules need the token of the engine
+    assert {
+        r.full_url.removeprefix(CONTROLLER)
+        for r in opener.requests
+        if r.get_header("Authorization") == f"Bearer {TOKEN}"
+    } == {ENGINE_ENROLL_PATH}
+    # The active internal rules of the controller, validated again by the engine
+    assert {rule.id for rule in published[-1]} == {rule.id for rule in registry.snapshot().rules}
+    assert posted() == ["rule-one", "rule-two"]
+    # Unchanged: conditional requests answered 304, nothing downloaded nor published again
+    with cache.use() as same:
+        assert same == first
+    assert posted() == [] and len(published) == 1
+
+    # One OpenGrep rule changed, one added, one deleted: only the first two are downloaded
+    (controller_dir / "rule-one.yaml").write_text(_rule("rule-one", "exec(...)"))
+    (controller_dir / "rule-three.yaml").write_text(_rule("rule-three", "pickle.loads(...)"))
+    (controller_dir / "rule-two.yaml").unlink()
+    with cache.use() as second:
+        assert sorted(p.name for p in second.iterdir()) == ["rule-one.yaml", "rule-three.yaml"]
+    assert posted() == ["rule-one", "rule-three"]
+    assert not first.exists()
+
+    # The access token of the engine reaches its routes only, and nothing else reaches them
+    access = {"Authorization": f"Bearer {engine.access_token()}"}
+    assert controller.get("/api/v1/engine/rules", headers=access).status_code == 200
+    assert controller.get("/api/v1/projects", headers=access).status_code == 403
+    assert controller.get("/api/v1/engine/rules", headers=admin).status_code == 403
+
+    # Its heartbeat makes it active: the scans go to the URL it gave
+    engine.beat()
+    assert engine_clients.active_engines(False) == [(engine.client_id, "http://10.0.0.7:8000")]
+
+    # Listed for the administrators, and revoked: the engine stops scanning at once
+    listed = controller.get("/api/v1/scan-engines", headers=admin).json()["engines"]
+    assert [(e["id"], e["name"], e["active"]) for e in listed] == [
+        (engine.client_id, "engine-1", True)
+    ]
+    assert "secret" not in json.dumps(listed)
+    revoked = controller.delete(f"/api/v1/scan-engines/{engine.client_id}", headers=admin)
+    assert revoked.status_code == 204
+    with pytest.raises(opengrep.OpenGrepError, match="revoked"), cache.use():
+        pass
+    assert engine.revoked
+
+
+def test_only_the_holders_of_the_shared_secret_enroll_and_get_tokens(monkeypatch, capsys):
+    assert backend.engine_routes(get_settings()) == {}
+    controller = _controller(monkeypatch)
+    enroll = {"name": "engine", "version": "1.0.0", "url": "http://10.1.2.3:8000"}
+
+    for headers in ({}, {"Authorization": "Bearer wrong"}):
+        # An invalid body is not even parsed: 401, not 422
+        assert controller.post(ENGINE_ENROLL_PATH, content=b"{", headers=headers).status_code == 401
+    secret = {"Authorization": f"Bearer {TOKEN}"}
+    # The files never go to a host name nor to an address outside SECREVIEW_SCAN_ENGINE_NETWORKS
+    for url in ("http://scan-engine:8000", "http://203.0.113.9:8000"):
+        refused = controller.post(ENGINE_ENROLL_PATH, json=enroll | {"url": url}, headers=secret)
+        assert refused.status_code == 422
+    credentials = controller.post(ENGINE_ENROLL_PATH, json=enroll, headers=secret).json()
+    assert credentials["client_id"].startswith(engine_clients.CLIENT_ID_PREFIX)
+
+    def token(grant: str, client_secret: str):
+        return controller.post(
+            ENGINE_TOKEN_PATH,
+            data={"grant_type": grant},
+            auth=(credentials["client_id"], client_secret),
+        )
+
+    assert token("password", credentials["client_secret"]).json()["error"] == (
+        "unsupported_grant_type"
+    )
+    refused = token("client_credentials", "wrong")
+    assert refused.status_code == 401 and refused.json()["error"] == "invalid_client"
+    issued = token("client_credentials", credentials["client_secret"])
+    assert issued.status_code == 200 and issued.json()["token_type"] == "Bearer"
+    assert issued.headers["cache-control"] == "no-store"
+
+    # Listed by the CLI, never with a secret
+    assert cli.run(["engine", "list"]) == cli.EXIT_PASSED
+    listed = json.loads(capsys.readouterr().out)
+    assert [entry["id"] for entry in listed] == [credentials["client_id"]]
+    assert credentials["client_secret"] not in json.dumps(listed)

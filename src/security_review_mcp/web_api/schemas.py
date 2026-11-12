@@ -15,6 +15,7 @@ from .. import app_settings, proxy, standards
 from ..auth import access_control, token_store, web_users
 from ..config import CONTROLLER_URL_MAX_CHARS, MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..connectors import api as connectors_api
+from ..engines import protocol as engine_protocol
 from ..http_server import Role
 from ..observability import audit_syslog
 from ..reports import services
@@ -1735,3 +1736,45 @@ class OpenGrepRuleRejection(BaseModel):
     """Body of POST /opengrep/proposals/{id}/reject: an optional reason."""
 
     reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+
+
+# ── Scan engines ─────────────────────────────────────────────────────────────
+
+# Answers of the routes read by the scan engines (their models are shared with the engines,
+# which load no module of the controller)
+EngineRuleSet = engine_protocol.EngineRuleSet
+EngineOpenGrepManifest = engine_protocol.RuleManifest
+EngineOpenGrepFetch = engine_protocol.RuleFetch
+EngineOpenGrepContents = engine_protocol.RuleContents
+EngineHeartbeat = engine_protocol.EngineHeartbeat
+
+
+class ScanEnginePublic(BaseModel):
+    """A scan engine enrolled with the controller (never its secret nor its token)."""
+
+    id: str
+    name: str
+    version: str
+    address: str | None = None
+    # Where the controller sends the scans
+    url: str
+    # True while its heartbeat is recent: it receives scans
+    active: bool
+    free_codebase_slots: int
+    free_fragment_slots: int
+    enrolled_at: datetime
+    last_seen_at: datetime
+    heartbeat_at: datetime | None = None
+
+
+class ScanEngineList(BaseModel):
+    """The enrolled scan engines and how the controller uses them."""
+
+    # True when the engines are on (SECREVIEW_SCAN_ENGINE_TOKEN set): they enroll, and the code
+    # scans go to the active ones
+    enabled: bool
+    # Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS)
+    networks: list[str]
+    access_token_minutes: int
+    retention_days: int
+    engines: list[ScanEnginePublic]
