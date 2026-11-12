@@ -5,16 +5,21 @@ only read. The scans (``/scan/code``, ``/scan/deps``) receive the content of the
 pipeline, scan it with the rules or the advisory database of the controller and, with ``save``,
 store the result as a report: they need a ``ci`` or ``admin`` token (see deps.scan_identity),
 a personal one saving only on the projects of ``reports.write`` of its user, and their body is
-bounded by http_server.BodyLimit (see body_limit) before it is parsed.
+bounded by http_server.BodyLimit (see body_limit) before it is parsed. A scan ticket of the MCP
+tool start_codebase_scan (see auth.scan_tickets) reaches them too, as a ``ci`` token of its
+project, once each.
 """
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
+from ..auth import scan_tickets
 from ..deps import depscan
 from ..engines.opengrep import OpenGrepBusyError, OpenGrepError
 from ..reports import services, trends
@@ -101,6 +106,26 @@ async def ci_trend(
 # ── Scans (security-review-ci scan-code and scan-deps) ───────────────────────
 
 
+@asynccontextmanager
+async def _ticket_use(request: Request, kind: scan_tickets.Kind) -> AsyncIterator[None]:
+    """Use the scan ticket of the request, if any, for one scan of this ``kind``: 401 when it
+    was already used for it; given back when the scan fails (the client may retry)."""
+    ticket_id = (request.scope.get("state") or {}).get("auth_ticket_id")
+    if ticket_id is None:
+        yield
+        return
+    if not await run_in_threadpool(scan_tickets.consume, ticket_id, kind):
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "This scan ticket was already used or has expired: ask the agent for a new one",
+        )
+    try:
+        yield
+    except BaseException:
+        await run_in_threadpool(scan_tickets.release, ticket_id, kind)
+        raise
+
+
 def _verdict(blocking: int, request: CodeScanRequest | DependencyScanRequest) -> dict:
     """Verdict fields of a scan answer."""
     return {"fail_on": request.fail_on, "blocked": blocking > 0, "blocking_findings": blocking}
@@ -160,7 +185,11 @@ def _dependency_scan(request: DependencyScanRequest, client: str, owner: str | N
 
 @router.post("/scan/code")
 async def ci_code_scan(
-    request: CodeScanRequest, identity: ScanIdentity, owner: TokenOwner, writable: WriteProjects
+    request: CodeScanRequest,
+    identity: ScanIdentity,
+    owner: TokenOwner,
+    writable: WriteProjects,
+    http_request: Request,
 ) -> CodeScanResult:
     """Pattern-scan the files of a codebase sent by ``security-review-ci scan-code``.
 
@@ -172,7 +201,8 @@ async def ci_code_scan(
     if request.save:
         ensure_write_scope(writable, project)
     try:
-        result = await run_in_threadpool(_code_scan, request, identity.client, owner)
+        async with _ticket_use(http_request, "code"):
+            result = await run_in_threadpool(_code_scan, request, identity.client, owner)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     except OpenGrepError as exc:
@@ -196,6 +226,7 @@ async def ci_dependency_scan(
     identity: ScanIdentity,
     owner: TokenOwner,
     writable: WriteProjects,
+    http_request: Request,
 ) -> DependencyScanResult:
     """Scan the manifests and lockfiles sent by ``security-review-ci scan-deps``.
 
@@ -207,7 +238,8 @@ async def ci_dependency_scan(
     if request.save:
         ensure_write_scope(writable, project)
     try:
-        result = await run_in_threadpool(_dependency_scan, request, identity.client, owner)
+        async with _ticket_use(http_request, "deps"):
+            result = await run_in_threadpool(_dependency_scan, request, identity.client, owner)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info(

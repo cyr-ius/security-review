@@ -14,6 +14,7 @@ base (voir [Architecture](index.md)).
 | `/api/v1/` | l'interface web, les scripts, Swagger | session web, jeton `admin` ou `api` |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` (personnel ou non) |
 | `/api/v1/scan/content` | le serveur MCP : `scan_code` [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code) (ne lit ni n'enregistre rien) | jeton `mcp` ou `admin` de l'agent, relayé |
+| `/api/v1/scan/tickets` | le serveur MCP : ticket à usage unique de `start_codebase_scan` ([scan lancé par l'agent](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)), utilisé ensuite par `security-review-ci` sur `/api/v1/ci/scan/code` et `/scan/deps` | jeton `mcp` ou `admin` de l'agent, relayé |
 | `/metrics` | Prometheus ([métriques](../../reference/metrics.md)) | jeton `metrics` ou `admin` |
 | `/api/docs` | Swagger : documentation OpenAPI de l'API REST, sans données, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../../usage/tokens.md#jetons-api)) |
 | `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-serveur-controller), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |
@@ -292,7 +293,7 @@ OSV, le proxy aussi à la prochaine connexion OIDC. **Utiliser l'adresse actuell
 |---|---|
 | `GET /api/v1/settings` | Pour chaque réglage : la valeur enregistrée `value`, la variable `env`, `env_set` (la variable est définie et prioritaire) et la valeur effective |
 | `PUT /api/v1/settings/controller-url` | `value` (`null` la supprime) |
-| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled` : délègue `scan_code` du serveur MCP à l'adresse du serveur Controller (`422` tant que l'adresse est inconnue ; audité, `mcp_scan_delegation.changed`) |
+| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled` : délègue `scan_code` du serveur MCP à l'adresse du serveur Controller (`422` tant que l'adresse est inconnue ou que `SECREVIEW_SCANCODE_DELEGATED` est définie ; audité, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` et `no_proxy` : `null` supprime la valeur enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé. Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré |
 | `PUT /api/v1/settings/osv-ecosystems` | `ecosystems` : liste des écosystèmes à télécharger, parmi `supported` de `GET /api/v1/settings` (`422` pour une liste vide ou un écosystème inconnu) ; `null` la supprime (`SECREVIEW_OSV_ECOSYSTEMS` ou sa valeur par défaut s'applique de nouveau) |
 

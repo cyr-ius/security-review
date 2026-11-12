@@ -41,7 +41,7 @@ En stdio, `security-review-mcp local` migre lui-même sa base locale.
 
 | Client | Réponse |
 |---|---|
-| Sans jeton | le [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement) : aucun outil, des prompts qui expliquent comment obtenir un jeton ; `401` avec `SECREVIEW_ENROLLMENT=false` |
+| Sans jeton | le [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement) : aucun outil, des prompts qui expliquent comment obtenir un jeton ; `401` tant que l'URL publique du serveur Controller est inconnue |
 | Jeton inconnu, révoqué ou expiré | `401` qui indique à l'utilisateur où créer un nouveau jeton ([jeton refusé](#jeton-refuse-se-reconnecter)) |
 | Jeton `mcp` ou `admin` valide | tous les prompts, outils et ressources, sur les projets du jeton ([jetons restreints à un projet](../bearer-tokens.md#jetons-restreints-a-un-projet)) |
 
@@ -99,6 +99,7 @@ message de toute autre erreur lui est masqué.
 | `list_checklists` | lecture seule | aucun | Domaines (intégrés et internes) avec leur nombre d'éléments |
 | `get_review_checklist` | lecture seule | `domain` | La checklist en Markdown, suivie de la langue des rapports si elle est configurée |
 | `scan_code` | lecture seule | `content` (au plus `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (règle, ligne, extrait masqué), `suppressed` (lignes marquées `secreview:ignore`), compteurs, `engines` (`rules`, `opengrep` quand il est [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)), `controller_error`, `report_language` ; des pistes à vérifier, pas un SAST complet |
+| `start_codebase_scan` | écriture | `project` | `scan_code_command` et `scan_deps_command` (`security-review-ci` lancé avec `uvx`, ticket à usage unique sur l'entrée standard), `expires_at` ; demande la délégation de `scan_code` ([scan lancé par l'agent](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
 | `list_rules` | lecture seule | `language` (facultatif) | Règles actives, `disabled_rules`, `load_errors` des règles internes |
 | `reload_rules` | écriture | aucun | Relit aussitôt les règles en base (sinon en 5 secondes) ; refusé à un jeton restreint à des projets |
 
@@ -166,8 +167,9 @@ sans argument, qui expliquent comment obtenir un jeton.
 - Il ne fait **aucune connexion sortante** (la base OSV est importée par le serveur Controller), et ne
   charge aucun module du serveur Controller. Seule exception, désactivée par défaut : `scan_code`
   [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)
-  (`SECREVIEW_MCP_SCAN_CONTROLLER_URL`, ou l'interrupteur de la page **Général**), avec le jeton
-  de l'agent.
+  (`SECREVIEW_SCANCODE_DELEGATED` sur le serveur Controller, ou l'interrupteur de la page
+  **Général**), avec le jeton de l'agent, et `start_codebase_scan`, qui demande de la même façon un
+  [ticket de scan](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan).
 - Ses outils **ne lisent jamais le disque** à partir d'un chemin donné par le client : ils
   travaillent sur le contenu transmis.
 - Toute entrée est bornée (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,
@@ -203,9 +205,14 @@ Toutes leurs options : [Ligne de commande](../../reference/cli.md#security-revie
 
 ## Enrôlement : jeton personnel et demande de projet
 
-Le serveur MCP **ne crée jamais de jeton** et n'écrit rien pour un client sans jeton.
-L'enrôlement est activé par défaut (`SECREVIEW_ENROLLMENT=true`), même avant la création du
-premier jeton (sauf sur un [serveur ouvert](../bearer-tokens.md), qui n'a pas besoin de jeton).
+Le serveur MCP **ne crée jamais de jeton** et n'écrit rien pour un client sans jeton. Le
+serveur d'enrôlement répond dès que l'URL publique du serveur Controller est connue
+([`SECREVIEW_PUBLIC_URL`](../../reference/configuration.md#interface-web-et-sessions) ou la page
+**Général**), même avant la création du premier jeton (sauf sur un
+[serveur ouvert](../bearer-tokens.md), qui n'a pas besoin de jeton) : sans cette URL, il ne
+pourrait pas dire où créer un jeton, et un client sans jeton reçoit donc `401`. Avec la
+[connexion OAuth](../mcp-oauth.md) active, il reçoit le `401` qui lance la connexion. Les demandes
+de projet (`request_project`) sont toujours disponibles.
 
 1. **Jeton personnel.** Un client MCP qui se connecte **sans** en-tête `Authorization` n'est
    pas rejeté : il atteint un serveur MCP restreint (même nom `security-review`) **sans aucun
@@ -266,9 +273,8 @@ utilisateur) demande au plus 5 projets par heure, et une demande en attente expi
 `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Chaque demande, validation, refus et expiration est
 écrit dans le [journal d'audit](../audit-log.md) (`enrollment.requested`,
 `enrollment.approved`, `enrollment.rejected`, avec le jeton, l'utilisateur demandeur et
-l'adresse cliente). Pour désactiver l'enrôlement : `SECREVIEW_ENROLLMENT=false` (les clients
-sans jeton reçoivent alors `401`, avec le même conseil, et `request_project` refuse les projets
-que le jeton n'atteint pas).
+l'adresse cliente). `SECREVIEW_ENROLLMENT`, qui désactivait l'enrôlement, est ignorée (le
+serveur MCP journalise un avertissement quand elle est définie).
 
 ## Jeton refusé : se reconnecter
 

@@ -106,6 +106,39 @@ def test_scan_delegation_needs_the_controller_url_and_is_audited():
     ]
 
 
+def test_scancode_delegated_on_the_controller_drives_the_mcp_server():
+    # true needs the public URL; an address of the controller does not
+    with pytest.raises(ValueError, match="SECREVIEW_SCANCODE_DELEGATED=true"):
+        app_settings.sync_mcp_scan_delegation(make_settings(scancode_delegated="true"))
+    with pytest.raises(ValueError, match="true, false or an http"):
+        make_settings(scancode_delegated="yes")
+    internal = make_settings(scancode_delegated="http://controller:8080/")
+    app_settings.sync_mcp_scan_delegation(internal)
+    assert app_settings.mcp_scan_controller_url() == "http://controller:8080"
+    assert app_settings.describe(internal)["mcp_scan_delegation"]["env_set"] is True
+    # The web interface cannot change it, and a new public URL does not turn it off
+    with pytest.raises(ValueError, match="SECREVIEW_SCANCODE_DELEGATED is set"):
+        app_settings.set_mcp_scan_delegation(False, "user:alice", internal)
+    app_settings.set_controller_url("https://secreview.example", "user:alice", make_settings())
+    assert app_settings.mcp_scan_controller_url() == "http://controller:8080"
+
+    public = make_settings(scancode_delegated="TRUE")
+    app_settings.sync_mcp_scan_delegation(public)
+    assert app_settings.mcp_scan_controller_url() == "https://secreview.example"
+    app_settings.sync_mcp_scan_delegation(make_settings(scancode_delegated="false"))
+    assert app_settings.mcp_scan_controller_url() is None
+
+    # Variable removed: an address it gave is no longer followed
+    app_settings.sync_mcp_scan_delegation(internal)
+    app_settings.sync_mcp_scan_delegation(make_settings())
+    assert app_settings.mcp_scan_controller_url() is None
+    events = audit.list_events(action="mcp_scan_delegation.changed")["events"]
+    assert [(e["actor"], e["details"]) for e in events][:2] == [
+        ("environment", {"enabled": False}),
+        ("environment", {"enabled": True, "url": "http://controller:8080"}),
+    ]
+
+
 @pytest.mark.parametrize(
     "value",
     ["javascript:alert(1)", "https://bob:pw@evil.example", "https://secreview.example/ui/"],

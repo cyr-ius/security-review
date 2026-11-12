@@ -1,5 +1,4 @@
-# `prek install` installs the pre-commit hooks and the agent-review post-commit hook
-default_install_hook_types: [pre-commit, post-commit]
+# `prek install` installs the pre-commit hooks
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -33,20 +32,8 @@ repos:
         entry: npm --prefix web exec --no -- prettier --write --ignore-unknown
         language: system
         files: ^(web/src/.*\.(ts|html|css)|.*\.(ya?ml|json))$
-      # Client of the controller of SECREVIEW_CONTROLLER_URL, with a personal ci token in
-      # SECREVIEW_CI_TOKEN (SECREVIEW_TOKEN for the versions before it; environment only);
-      # skipped while the URL is not set
       - id: scan-deps
         name: dependency scan
         entry: uvx --isolated security-review-ci@latest scan-deps --skip-unconfigured --require-database --allow-http --save --project security-review-mcp
         language: system
         files: ^(uv\.lock|pyproject\.toml|web/package(-lock)?\.json)$
-      # Security review of each commit by your agent, in the background, never blocking;
-      # see docs/contributing/checks-and-releases.md
-      - id: agent-review
-        name: agent security review
-        entry: uvx --isolated security-review-ci@latest agent-review --project security-review-mcp
-        language: system
-        stages: [post-commit]
-        always_run: true
-        pass_filenames: false

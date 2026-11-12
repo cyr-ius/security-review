@@ -1850,10 +1850,11 @@ def test_admin_sets_the_controller_url(client):
     assert delegation.json()["mcp_scan_delegation"] == {
         "enabled": True,
         "url": "https://sr.example",
+        "env_set": False,
     }
     reset = client.put(url, json={"value": None}).json()
     assert reset["controller_url"]["effective"] is None
-    assert reset["mcp_scan_delegation"] == {"enabled": False, "url": None}
+    assert reset["mcp_scan_delegation"] == {"enabled": False, "url": None, "env_set": False}
 
 
 def test_settings_whose_variable_is_set_are_refused(client, monkeypatch):
@@ -3197,6 +3198,59 @@ def test_the_delegated_content_scan_is_the_only_route_of_an_mcp_token(
     assert secured.post("/api/v1/scan/content", json=body).status_code == 401
     # The token of the agent reaches nothing else of the Controller server
     assert secured.get("/api/v1/reports", headers=auth("mcp")).status_code == 403
+
+
+def test_a_scan_ticket_runs_each_scan_once_on_its_project_only(secured, reports):
+    alice = make_user("alice", USER_PASSWORD, "reviewer", ["shop-api"])
+    agent = token_store.create_personal_token(alice["id"], "agent", role="mcp")
+    issued = secured.post(
+        "/api/v1/scan/tickets", json={"project": "shop-api"}, headers=_bearer(agent["token"])
+    )
+    assert issued.status_code == 201, issued.text
+    ticket = _bearer(issued.json()["ticket"])
+    deps = {"project": "shop-api", "files": [{"path": "requirements.txt", "content": "a==1"}]}
+
+    # Only the two scans of its project: no read route, no other project
+    assert secured.get("/api/v1/ci/gate?project=shop-api", headers=ticket).status_code == 403
+    assert secured.get("/api/v1/reports", headers=ticket).status_code == 403
+    other = secured.post("/api/v1/ci/scan/code", json=code_scan_body("billing"), headers=ticket)
+    assert other.status_code == 404
+    # A failed scan gives the ticket back
+    strict = deps | {"require_database": True}
+    assert secured.post("/api/v1/ci/scan/deps", json=strict, headers=ticket).status_code == 422
+    body = code_scan_body(save=True, author="mallory")
+    saved = secured.post("/api/v1/ci/scan/code", json=body, headers=ticket)
+    assert saved.status_code == 200, saved.text
+    report = services.get_report(saved.json()["saved_report"]["report_id"])
+    assert (report.author, report.submitted_by) == ("alice", "alice:agent:ticket")
+    # Once per scan
+    assert secured.post("/api/v1/ci/scan/code", json=body, headers=ticket).status_code == 401
+    assert secured.post("/api/v1/ci/scan/deps", json=deps, headers=ticket).status_code == 200
+    assert secured.post("/api/v1/ci/scan/deps", json=deps, headers=ticket).status_code == 401
+    # A ticket follows the token that asked for it
+    revoked = secured.post(
+        "/api/v1/scan/tickets", json={"project": "shop-api"}, headers=_bearer(agent["token"])
+    ).json()["ticket"]
+    token_store.revoke_personal_token(alice["id"], agent["id"])
+    late = secured.post("/api/v1/ci/scan/code", json=body, headers=_bearer(revoked))
+    assert late.status_code == 401
+
+
+def test_only_an_agent_that_may_save_on_the_project_gets_a_scan_ticket(secured, web_sessions):
+    bob = make_user("bob", USER_PASSWORD, "reader", ["shop-api"])
+    reader = token_store.create_personal_token(bob["id"], "agent", role="mcp")["token"]
+
+    refused = secured.post(
+        "/api/v1/scan/tickets", json={"project": "shop-api"}, headers=_bearer(reader)
+    )
+
+    assert refused.status_code == 422 and "reports.write" in refused.json()["detail"]
+    for role in ("reader", "metrics"):
+        response = secured.post(
+            "/api/v1/scan/tickets", json={"project": "shop-api"}, headers=auth(role)
+        )
+        assert response.status_code == 403, role
+    assert secured.post("/api/v1/scan/tickets", json={"project": "shop-api"}).status_code == 401
 
 
 def test_scans_refuse_a_web_session(accounts):

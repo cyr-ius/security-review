@@ -161,10 +161,9 @@ token: replace it in the host as in step 4 (see
 [rejected token](../advanced/architecture/mcp-server.md#rejected-token-sign-in-again)).
 
 !!! note
-    If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
-    a token gets `401`, and `request_project` creates or requests no project: create your
-    personal MCP token in the web interface directly, and ask an administrator for access to the
-    project.
+    While the public URL of the Controller server is unknown, a host without a token gets `401`
+    instead of the enrollment server: create your personal MCP token in the web interface
+    directly.
 
 ## Other cases
 

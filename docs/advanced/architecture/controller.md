@@ -14,6 +14,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/api/v1/` | the web interface, scripts, Swagger | web session, `admin` or `api` token |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token (personal or not) |
 | `/api/v1/scan/content` | the MCP server: `scan_code` [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code) (reads and stores nothing) | `mcp` or `admin` token of the agent, relayed |
+| `/api/v1/scan/tickets` | the MCP server: single-use ticket of `start_codebase_scan` ([scan started by the agent](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)), then used by `security-review-ci` on `/api/v1/ci/scan/code` and `/scan/deps` | `mcp` or `admin` token of the agent, relayed |
 | `/metrics` | Prometheus ([metrics](../../reference/metrics.md)) | `metrics` or `admin` token |
 | `/api/docs` | Swagger: OpenAPI documentation of the REST API, without data, only with `SECREVIEW_SWAGGER_ENABLED=true` | none (the calls need an [API token](../../usage/tokens.md#api-tokens)) |
 | `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller-server), unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | none |
@@ -281,7 +282,7 @@ address** fills in the address of this Controller server.
 |---|---|
 | `GET /api/v1/settings` | For each setting: the stored `value`, the variable `env`, `env_set` (the variable is set and takes precedence) and the effective value |
 | `PUT /api/v1/settings/controller-url` | `value` (`null` deletes it) |
-| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown; audited, `mcp_scan_delegation.changed`) |
+| `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown or while `SECREVIEW_SCANCODE_DELEGATED` is set; audited, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` and `no_proxy`: `null` deletes the stored value, `"url": ""` forces the direct connection, a missing field is unchanged. Passwords are never shown again (`***`): sending `***` back keeps the stored one |
 | `PUT /api/v1/settings/osv-ecosystems` | `ecosystems`: list of the ecosystems to download, among `supported` of `GET /api/v1/settings` (`422` for an empty list or an unknown ecosystem); `null` deletes it (`SECREVIEW_OSV_ECOSYSTEMS` or its default applies again) |
 

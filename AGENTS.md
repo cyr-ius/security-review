@@ -124,7 +124,7 @@ l'utiliser.
 | Moteur de scan, masquage des secrets ; `scan_code` délégué au contrôleur (client du serveur MCP, route du contrôleur) | `rules/scanner.py` ; `rules/remote_scan.py`, `web_api/scan_routes.py`, `rules/codescan.py` (`scan_content`) |
 | Règles et checklists par défaut (copiées en base au premier lancement) ; règles OpenGrep par défaut (une par fichier, installées par `security-review-controller opengrep install`, ou au démarrage du contrôleur quand OpenGrep est activé et son exécutable présent (image `-opengrep`), sans toucher une règle modifiée ou supprimée) et leur gestion ; règles OpenGrep proposées par un agent (`propose_opengrep_rule`), approuvées ou rejetées par une personne | `rules/default_rules.toml` ; `rules/opengrep/<langage>/*.yaml`, `rules/opengrep_rule_store.py`, `engines/opengrep.py` ; `rules/opengrep_proposals.py` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
 | Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
@@ -215,10 +215,15 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Seule exception du serveur MCP : `scan_code` délégué au contrôleur (`rules/remote_scan.py`,
-  **désactivé par défaut**, `SECREVIEW_MCP_SCAN_CONTROLLER_URL`), qui relaie le jeton de l'appelant
-  à `POST /api/v1/scan/content` (seule route du contrôleur ouverte au rôle `mcp`, qui ne lit ni
-  n'enregistre rien), sans proxy ni redirection, réponse bornée, jeton jamais journalisé, et revient
-  aux règles locales en cas d'échec. Autres exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
+  **désactivé par défaut**, décidé par le serveur Controller : `SECREVIEW_SCANCODE_DELEGATED` ou la
+  page **Général**, enregistré en base), qui relaie le jeton de l'appelant
+  à `POST /api/v1/scan/content` (qui ne lit ni n'enregistre rien), sans proxy ni redirection,
+  réponse bornée, jeton jamais journalisé, et revient aux règles locales en cas d'échec ; par le
+  même chemin, `start_codebase_scan` demande à `POST /api/v1/scan/tickets` un ticket de scan à
+  usage unique (`auth/scan_tickets.py` : empreinte seule, scans `ci/scan/code` et `ci/scan/deps`
+  du projet une fois chacun, droits du demandeur relus à chaque usage, durée courte) que l'agent
+  passe à `security-review-ci` sur l'entrée standard. Ce sont les deux seules routes du contrôleur
+  ouvertes au rôle `mcp`. Autres exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le OIDC) jamais journalisé
   avec ses identifiants, et la
   connexion OIDC du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
@@ -332,9 +337,6 @@ une PR, quelle que soit la taille du changement :
    change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
 5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
    la description de PR.
-6. Quand vous commitez le changement relu, ajoutez le trailer `Security-Review: <identifiant du
-   rapport>` au message de commit : le hook post-commit `agent-review` ne relance pas de revue
-   pour un commit qui le porte. Sans revue faite, n'ajoutez pas ce trailer.
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
