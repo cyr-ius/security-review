@@ -299,7 +299,8 @@
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Pour le scan du
   dépôt complet, le client de pipeline (`security-review-ci scan-code`), lancé par l'opérateur
-  sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques et envoie
+  sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques (ni un dossier lié : un fichier hors
+  de ce dossier n'est jamais lu) et envoie
   leur contenu au serveur Controller, qui le scanne sans lire son propre disque.
 - **Scans de pipeline** : `POST /api/v1/ci/scan/code` et `/scan/deps` demandent un jeton `ci` ou
   `admin` (une session web est refusée) et restent dans les

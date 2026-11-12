@@ -55,8 +55,8 @@ Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre 
   (règles `AI-*`). Les lockfiles, `*.min.js` et `*.d.ts` sont ignorés. Seuls ces fichiers sont
   envoyés.
 - Fichiers ignorés : `--exclude GLOB` (répétable, ex. `--exclude tests/`, seulement comptés),
-  et, signalés, les fichiers au-delà de `--max-file-bytes` (1 Mio par défaut), les binaires et
-  les liens symboliques.
+  et, signalés, les fichiers au-delà de `--max-file-bytes` (1 Mio par défaut), les binaires,
+  les liens symboliques et les fichiers atteints par un dossier lié (hors du dossier scanné).
 
 !!! note "Le contenu quitte l'agent de build"
     Le code source est envoyé au serveur Controller (HTTPS, ou HTTP simple vers une adresse de bouclage

@@ -53,7 +53,8 @@ The client chooses the files; the Controller server never reads its own disk.
   or `.clinerules/`), scanned for hidden text and injected instructions (`AI-*` rules).
   Lockfiles, `*.min.js` and `*.d.ts` are skipped. Only these files are sent.
 - Skipped files: `--exclude GLOB` (repeatable, e.g. `--exclude tests/`, only counted), and,
-  reported, files beyond `--max-file-bytes` (1 MiB by default), binaries and symbolic links.
+  reported, files beyond `--max-file-bytes` (1 MiB by default), binaries, symbolic links and
+  files reached through a linked directory (outside the scanned folder).
 
 !!! note "The content leaves the build agent"
     The source code is sent to the Controller server (HTTPS, or plain HTTP to a loopback address or

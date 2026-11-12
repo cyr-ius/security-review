@@ -376,10 +376,14 @@ def _excluded(path: str, patterns: list[str]) -> bool:
     )
 
 
-def _read_source(path: Path, max_bytes: int) -> tuple[str | None, str | None]:
-    """Read a text file; return ``(content, None)`` or ``(None, reason it was skipped)``."""
+def _read_source(path: Path, max_bytes: int, root: Path) -> tuple[str | None, str | None]:
+    """Read a text file under ``root``; return ``(content, None)`` or ``(None, reason it was
+    skipped)``."""
     if path.is_symlink():
         return None, "symbolic link"
+    # A path listed by git through a directory replaced by a link would read outside root
+    if not path.resolve().is_relative_to(root):
+        return None, "outside the directory (linked directory)"
     if not path.is_file():
         return None, "not a regular file"
     size = path.stat().st_size
@@ -429,7 +433,7 @@ def collect_sources(
             excluded += 1
             continue
         try:
-            content, reason = _read_source(base / name, max_file_bytes)
+            content, reason = _read_source(base / name, max_file_bytes, base)
         except OSError as exc:
             content, reason = None, f"unreadable: {exc.strerror or exc}"
         if content is None:

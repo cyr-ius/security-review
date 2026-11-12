@@ -361,7 +361,7 @@ def test_collect_sources_ignores_repository_fsmonitor_command(tmp_path):
     assert not marker.exists()
 
 
-def test_collect_sources_excludes_large_binary_and_symlinks(tmp_path):
+def test_collect_sources_excludes_large_binary_and_symlinks(tmp_path, monkeypatch):
     make_tree(tmp_path)
     (tmp_path / "big.py").write_text("x = 1\n" * 100, encoding="utf-8")
     (tmp_path / "blob.py").write_bytes(b"\0\1\2eval(x)")
@@ -375,6 +375,18 @@ def test_collect_sources_excludes_large_binary_and_symlinks(tmp_path):
     assert reasons["blob.py"] == "binary file"
     assert reasons["link.py"] == "symbolic link"
     assert {entry["path"] for entry in sources["files"]} == {"Dockerfile"}
+
+    # A path listed by git through a directory replaced by a link is never read
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    (outside / "secret.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "linked").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(ci_client, "list_files", lambda base, git: (["linked/secret.py"], "git"))
+    sources = ci_client.collect_sources(tmp_path)
+    assert sources["files"] == []
+    assert sources["skipped"] == [
+        {"file": "linked/secret.py", "reason": "outside the directory (linked directory)"}
+    ]
 
 
 def test_collect_sources_rejects_a_file(tmp_path):
