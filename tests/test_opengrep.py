@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from security_review_mcp.config import Settings
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.engines import opengrep
 from security_review_mcp.rules import codescan, opengrep_rule_store
 from security_review_mcp.rules.codescan import SourceFile
@@ -165,16 +165,11 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
 
 
 def test_codebase_scan_merges_opengrep_findings(monkeypatch):
-    settings = SimpleNamespace(
-        opengrep_enabled=True,
-        max_scan_files=10,
-        max_scan_file_chars=1000,
-    )
-    monkeypatch.setattr(codescan, "get_settings", lambda: settings)
+    monkeypatch.setattr(get_settings(), "opengrep_enabled", True)
     monkeypatch.setattr(
-        codescan.opengrep,
+        opengrep,
         "scan_files",
-        lambda files: {
+        lambda files, fragment=False: {
             "app.py": [
                 {
                     "title": "Unsafe subprocess",

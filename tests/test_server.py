@@ -1209,6 +1209,8 @@ CONTROLLER_MODULES = (
     "security_review_mcp.connectors",
     "security_review_mcp.update_check",
     "security_review_mcp.web_api",
+    "security_review_mcp.engines.remote",
+    "security_review_mcp.engines.worker",
 )
 
 

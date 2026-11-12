@@ -40,6 +40,9 @@ token.
 The routes, start-up, schema migrations, background tasks and exposure of each process: see
 [MCP server](mcp-server.md) and [Controller server](controller.md).
 
+With many developers, optional [scan engines](scan-engine.md) (`security-review-scan-engine`)
+run the rules and OpenGrep of the code scans in place of the Controller server.
+
 !!! note "Shared database"
     With SQLite, both processes must run on the same machine and share the file. As soon as
     they are in different pods or on different machines, use PostgreSQL (`postgres` extra

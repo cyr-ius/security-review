@@ -85,6 +85,25 @@ services:
     ports:
       - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:8000:8000"
 
+  # Optional scan engine (docs/advanced/architecture/scan-engine.md), started with
+  #   docker compose --profile scan-engine up -d
+  # after adding to .env SECREVIEW_SCAN_ENGINE_TOKEN (openssl rand -hex 32) and, for the
+  # controller, SECREVIEW_SCAN_ENGINE_URL=http://scan-engine:8000. It reads the rules in the
+  # database; OpenGrep needs the -opengrep image (target: opengrep) and the rules directory of
+  # the controller mounted read-only.
+  scan-engine:
+    <<: *secreview
+    profiles: ["scan-engine"]
+    command: ["scan-engine"]
+    restart: unless-stopped
+    depends_on:
+      controller:
+        condition: service_healthy
+    environment:
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
+      SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
+      SECREVIEW_SCAN_ENGINE_TOKEN: ${SECREVIEW_SCAN_ENGINE_TOKEN:?set SECREVIEW_SCAN_ENGINE_TOKEN in .env}
+
 volumes:
   secreview-pg:
 

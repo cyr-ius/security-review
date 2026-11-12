@@ -162,7 +162,11 @@
   [événements d'audit](../advanced/audit-log.md#envoi-vers-syslog) à ce serveur syslog (UDP
   ou TCP en clair, TLS avec vérification du certificat et du nom d'hôte du serveur, ou socket
   Unix ; pas de proxy) ; les événements ne contiennent aucun secret (détails masqués), et le
-  serveur MCP ne se connecte toujours nulle part.
+  serveur MCP ne se connecte toujours nulle part. Avec `SECREVIEW_SCAN_ENGINE_URL` (absente par
+  défaut), le serveur Controller envoie les fichiers des scans de code aux
+  [moteurs de scan](../advanced/architecture/scan-engine.md#securite) avec un secret partagé, à
+  cette URL uniquement, sans proxy ni redirection, réponse bornée et validée ; un moteur refuse
+  toute requête sans le secret avant de la lire, ne se connecte nulle part et n'écrit rien.
 - **Administrateur initial** : créé par le serveur Controller à son premier démarrage avec un mot de
   passe aléatoire que personne ne connaît, jamais journalisé ni passé par une variable ; le seul
   moyen d'obtenir un mot de passe est `security-review-controller user reset-password`, lancé par

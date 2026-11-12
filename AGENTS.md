@@ -123,6 +123,7 @@ l'utiliser.
 | Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
 | Moteur de scan, masquage des secrets ; `scan_code` délégué au contrôleur (client du serveur MCP, route du contrôleur) | `rules/scanner.py` ; `rules/remote_scan.py`, `web_api/scan_routes.py`, `rules/codescan.py` (`scan_content`) |
 | Règles et checklists par défaut (copiées en base au premier lancement) ; règles OpenGrep par défaut (une par fichier, installées par `security-review-controller opengrep install`, ou au démarrage du contrôleur quand OpenGrep est activé et son exécutable présent (image `-opengrep`), sans toucher une règle modifiée ou supprimée) et leur gestion ; règles OpenGrep proposées par un agent (`propose_opengrep_rule`), approuvées ou rejetées par une personne | `rules/default_rules.toml` ; `rules/opengrep/<langage>/*.yaml`, `rules/opengrep_rule_store.py`, `engines/opengrep.py` ; `rules/opengrep_proposals.py` |
+| Moteurs de scan facultatifs (`security-review-scan-engine`) : règles et OpenGrep d'un scan de code exécutés hors du contrôleur ; scan local, répartition (local ou moteurs, repli), client du contrôleur, protocole, processus du moteur | `engines/local.py`, `engines/backend.py`, `engines/remote.py`, `engines/protocol.py`, `engines/worker.py` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
 | CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
@@ -211,7 +212,8 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Le serveur MCP ne charge aucun module du contrôleur** qui sort sur le réseau ou sert ses
   routes (`controller`, `advisory_sync`, `oidc`, `oauth_server`, `audit_syslog`, `connectors`,
-  `update_check`, `web_api`), même indirectement ; `tests/test_server.py` le vérifie. Un module partagé par les
+  `update_check`, `web_api`, `engines.remote`, `engines.worker`), même indirectement ;
+  `tests/test_server.py` le vérifie. Un module partagé par les
   deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Seule exception du serveur MCP : `scan_code` délégué au contrôleur (`rules/remote_scan.py`,
@@ -231,7 +233,10 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   du contrôleur (`update_check`, **désactivée par défaut**, HTTPS vers l'API GitHub, par le
   proxy, réponse bornée et mise en cache), l'envoi syslog du journal d'audit par le contrôleur
   (`audit_syslog`, **désactivé par défaut**, qui lit les événements en base : le serveur MCP n'y
-  participe pas) et l'envoi des findings par les connecteurs du contrôleur (`connectors`, **chaque connecteur
+  participe pas), l'envoi des scans de code aux moteurs de scan par le contrôleur
+  (`engines.remote`, **désactivé par défaut** : `SECREVIEW_SCAN_ENGINE_URL`, secret partagé
+  `SECREVIEW_SCAN_ENGINE_TOKEN`, URL configurée uniquement, sans proxy ni redirection, réponse
+  bornée et validée ; le moteur n'ouvre aucune connexion et n'écrit rien) et l'envoi des findings par les connecteurs du contrôleur (`connectors`, **chaque connecteur
   désactivé par défaut**, activé dans l'interface par un administrateur, tous verrouillés par
   `SECREVIEW_CONNECTORS_ENABLED=false`) : un connecteur (Jira, ServiceNow ou tiers) ne sort que par `connectors.transport`
   (HTTPS, URL configurée uniquement, par le proxy, sans suivre de redirection, réponse bornée,

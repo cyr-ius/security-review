@@ -17,6 +17,7 @@ from . import __version__, app_settings, cli, connectors, http_server, web_api
 from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
+from .engines import backend as scan_engines
 from .observability import audit_syslog
 from .rules import opengrep_rule_store, registry
 from .storage import retention
@@ -141,6 +142,7 @@ def serve(argv: list[str]) -> None:
             advisory_sync.validate_settings(settings)
         audit_syslog.validate_settings(settings)
         connectors.validate_settings(settings)
+        scan_engines.validate_settings(settings)
         bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
@@ -150,6 +152,12 @@ def serve(argv: list[str]) -> None:
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
+    if settings.scan_engine_url:
+        logger.info(
+            "Code scans sent to the scan engines at %s (fallback: %s)",
+            settings.scan_engine_url,
+            settings.scan_engine_fallback,
+        )
     oidc_login = web_app.state.oidc.current()
     updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
     if updater:

@@ -5,8 +5,9 @@
 #   docker build -t security-review .   # SQLite and PostgreSQL (driver included)
 #   docker build --target opengrep -t security-review:opengrep .   # plus the OpenGrep engine
 #
-# The first argument chooses the process (scripts/docker-entrypoint.sh): `mcp` (default) or
-# `controller`, followed by their own arguments.
+# The first argument chooses the process (scripts/docker-entrypoint.sh): `mcp` (default),
+# `controller` or `scan-engine` (optional scan engine of the controller), followed by their own
+# arguments.
 #
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -e SECREVIEW_TRANSPORT=stdio -v secreview-data:/var/lib/secreview \
