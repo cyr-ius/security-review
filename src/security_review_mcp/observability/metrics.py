@@ -2,7 +2,8 @@
 
 The values are read from the database at each scrape, so every replica of the controller
 answers the same thing, except ``secreview_auth_rejections_total`` which counts the requests
-rejected by the process that answers. The endpoint is reached with a ``metrics`` token (only this
+rejected by the process that answers, and ``secreview_scan_engine_requests_total`` the scans it
+sent to the scan engines. The endpoint is reached with a ``metrics`` token (only this
 endpoint) or an ``admin`` one; it exposes counts and project names, never a finding, a token or a
 secret. Written by hand: the server adds no dependency.
 """
@@ -15,6 +16,7 @@ from sqlmodel import func, select
 from .. import __version__, http_server
 from ..auth import access_control, token_store
 from ..deps import advisories
+from ..engines import backend as scan_engines
 from ..reports import services
 from ..storage.database import session_scope
 from ..storage.models import AdvisoryUpdate, Severity, WebUser, as_utc
@@ -181,5 +183,15 @@ def render() -> str:
         "counter",
         "Requests rejected by the bearer authentication of this process, by reason.",
         [(rejections.get(reason, 0), {"reason": reason}) for reason in REJECTION_REASONS],
+    )
+    engine_requests = scan_engines.ENGINE_REQUESTS
+    lines += _family(
+        "secreview_scan_engine_requests_total",
+        "counter",
+        "Scans sent to the scan engines by this process, by outcome.",
+        [
+            (engine_requests.get(outcome, 0), {"outcome": outcome})
+            for outcome in scan_engines.ENGINE_OUTCOMES
+        ],
     )
     return "\n".join(lines) + "\n"

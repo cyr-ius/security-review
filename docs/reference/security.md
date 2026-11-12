@@ -155,7 +155,11 @@
   [audit events](../advanced/audit-log.md#forwarding-to-syslog) to that syslog server (UDP
   or TCP in clear, TLS with the certificate and host name of the server verified, or Unix
   socket; no proxy); the events hold no secret (masked details), and the MCP server still
-  connects nowhere.
+  connects nowhere. With `SECREVIEW_SCAN_ENGINE_URL` (unset by default), the Controller server
+  sends the files of the code scans to the
+  [scan engines](../advanced/architecture/scan-engine.md#security) with a shared secret, to that
+  URL only, without proxy nor redirect, answer bounded and validated; an engine refuses any
+  request without the secret before reading it, connects nowhere and writes nothing.
 - **Initial administrator**: created by the Controller server at its first start with a random
   password that nobody knows, never logged nor passed through a variable; the only way to a
   password is `security-review-controller user reset-password`, run by an operator, which

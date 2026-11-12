@@ -1,0 +1,143 @@
+# Optional scan engines of the controller (docs/advanced/architecture/scan-engine.md): they run
+# the rules and OpenGrep of the code scans, so that many developers do not load the controller.
+# Apply after security-review.yaml:
+#
+#   kubectl -n secreview create secret generic secreview-scan-engine \
+#       --from-literal=SECREVIEW_SCAN_ENGINE_TOKEN="$(openssl rand -hex 32)"
+#   kubectl -n secreview apply -f examples/kubernetes/scan-engine.yaml
+#
+# Then give the controller the same secret and the address of the engines (Deployment
+# secreview-controller): the secretRef secreview-scan-engine in its envFrom, and in the
+# secreview-config ConfigMap
+#
+#   SECREVIEW_SCAN_ENGINE_URL: "http://secreview-scan-engine"
+#
+# The engines read the rules in the database (a read-only PostgreSQL account is enough: give
+# them their own secreview-db Secret) and the OpenGrep rules in the directory of the controller:
+# mount the PersistentVolumeClaim secreview-opengrep-rules (ReadWriteMany storage class) on the
+# controller at /var/lib/secreview/rules/opengrep, where it installs and approves them. Without
+# it, the engines run the internal rules only.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: secreview-opengrep-rules
+spec:
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secreview-scan-engine
+  labels:
+    app.kubernetes.io/name: secreview
+    app.kubernetes.io/component: scan-engine
+spec:
+  # Stateless: add replicas (or a HorizontalPodAutoscaler on the CPU) as the scans grow
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: secreview
+      app.kubernetes.io/component: scan-engine
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: secreview
+        app.kubernetes.io/component: scan-engine
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      containers:
+        - name: scan-engine
+          # The -opengrep image ships OpenGrep and enables it (SECREVIEW_OPENGREP_ENABLED)
+          image: ghcr.io/cyr-ius/security-review:latest-opengrep
+          args: ["scan-engine"]
+          envFrom:
+            - secretRef:
+                name: secreview-db
+            - secretRef:
+                name: secreview-scan-engine
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe: &probe
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe: *probe
+          resources:
+            # One OpenGrep scan at a time (SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS), 2 cores
+            # (SECREVIEW_OPENGREP_JOBS) and 2 GiB (SECREVIEW_OPENGREP_MAX_MEMORY_MB)
+            requests:
+              cpu: "2"
+              memory: 1Gi
+            limits:
+              memory: 3Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: opengrep-rules
+              mountPath: /var/lib/secreview/rules/opengrep
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: opengrep-rules
+          persistentVolumeClaim:
+            claimName: secreview-opengrep-rules
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secreview-scan-engine
+spec:
+  selector:
+    app.kubernetes.io/name: secreview
+    app.kubernetes.io/component: scan-engine
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Only the controller reaches the engines (no Ingress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secreview-scan-engine
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: secreview
+      app.kubernetes.io/component: scan-engine
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: secreview
+              app.kubernetes.io/component: controller
+      ports:
+        - port: 8000
+  # The database and DNS only: an engine opens no other connection
+  egress:
+    - ports:
+        - port: 5432
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

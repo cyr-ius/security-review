@@ -40,6 +40,7 @@ docs = [
 security-review-mcp = "security_review_mcp.server:main"
 security-review-controller = "security_review_mcp.controller:main"
 security-review-ci = "security_review_mcp.ci_client:main"
+security-review-scan-engine = "security_review_mcp.engines.worker:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

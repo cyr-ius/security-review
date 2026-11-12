@@ -197,6 +197,17 @@ Engine of the Controller server for `scan-code`, disabled by default and skipped
 | `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Follow the data flow through the functions of a same file (`--taint-intrafile`); `false` for an older OpenGrep executable that lacks the option |
 | `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | MCP server: OpenGrep rules proposed by agents (`propose_opengrep_rule`) and waiting for a decision at the same time; a new proposal is refused beyond |
 
+### Scan engines
+
+Optional [scan engines](../advanced/architecture/scan-engine.md) (`security-review-scan-engine`) that run the rules and OpenGrep of the code scans in place of the Controller server. The `SECREVIEW_OPENGREP_*` settings then apply to the engines.
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_SCAN_ENGINE_URL` | — | Controller server: root URL of the engines (one address, load-balanced); unset: the Controller server scans itself |
+| `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Controller server and engines: shared secret (at least 32 characters), required on both sides |
+| `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Controller server: time limit of a scan by an engine (1 to 7200) |
+| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Controller server: when no engine answers, `refuse` the scan (`503` with `Retry-After`) or scan `local`ly |
+
 ## Clients
 
 Read by the pipeline client `security-review-ci` (`SECREVIEW_CI_TOKEN` never by the servers).

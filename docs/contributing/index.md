@@ -145,6 +145,13 @@ src/security_review_mcp/
 │   ├── audit.py           # audit log: events of triage decisions, proposals, tokens and project requests
 │   ├── audit_syslog.py    # forwarding of the audit events to syslog by the Controller server (optional)
 │   └── metrics.py         # Prometheus metrics of the Controller server (/metrics)
+├── engines/       # where the scans run: OpenGrep, and the optional scan engines
+│   ├── opengrep.py        # OpenGrep sub-process: workspace, slots, normalized matches
+│   ├── local.py           # rules then OpenGrep on bounded files, in the process
+│   ├── backend.py         # local scan or scan engines (SECREVIEW_SCAN_ENGINE_URL), fallback
+│   ├── remote.py          # client of the scan engines (Controller server only)
+│   ├── protocol.py        # messages of POST /engine/v1/scan
+│   └── worker.py          # `security-review-scan-engine`: the scan engine process
 ├── clients/       # clients of the Controller server
 │   └── ci_wheel.py        # wheel of security-review-ci built and served by the Controller server (/api/ci-client/)
 ├── connectors/    # findings sent to external systems: api (connector API), registry,
@@ -160,7 +167,8 @@ web/               # Angular application (built into src/security_review_mcp/web
 
 The MCP server never imports the modules of the Controller server that open outgoing connections or
 serve its routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
-`observability/audit_syslog`, `connectors`, `update_check`, `web_api`), not even indirectly:
+`observability/audit_syslog`, `connectors`, `update_check`, `web_api`, `engines/remote`,
+`engines/worker`), not even indirectly:
 `tests/test_server.py` checks it. A module shared by both processes (such as
 `app_settings`) imports them inside the function that needs them, never at the top.
 

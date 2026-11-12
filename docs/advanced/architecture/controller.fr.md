@@ -86,7 +86,8 @@ Le serveur Controller peut tourner en plusieurs réplicas sur la même base Post
 s'attendent (verrou consultatif), les sessions sont partagées grâce à `SECREVIEW_SECRET_KEY`, les
 compteurs de connexion et de limite de débit sont tenus en base, un seul réplica à la fois
 télécharge les avis OSV, et un lot syslog n'est envoyé qu'une fois. Donnez le même
-`SECREVIEW_SECRET_KEY` à tous les réplicas.
+`SECREVIEW_SECRET_KEY` à tous les réplicas. Pour retirer les scans du serveur Controller plutôt
+que d'ajouter des réplicas, utilisez les [moteurs de scan](scan-engine.md).
 
 ## Commandes d'administration
 

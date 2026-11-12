@@ -197,6 +197,17 @@ Moteur du serveur Controller pour `scan-code`, désactivé par défaut et ignor�
 | `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Suit le flux de données à travers les fonctions d'un même fichier (`--taint-intrafile`) ; `false` pour un exécutable OpenGrep plus ancien qui ne connaît pas l'option |
 | `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | Serveur MCP : règles OpenGrep proposées par les agents (`propose_opengrep_rule`) en attente de décision en même temps ; une nouvelle proposition est refusée au-delà |
 
+### Moteurs de scan
+
+[Moteurs de scan](../advanced/architecture/scan-engine.md) facultatifs (`security-review-scan-engine`) qui exécutent les règles et OpenGrep des scans de code à la place du serveur Controller. Les réglages `SECREVIEW_OPENGREP_*` s'appliquent alors aux moteurs.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_SCAN_ENGINE_URL` | — | Serveur Controller : URL racine des moteurs (une seule adresse, répartie) ; absente : le serveur Controller scanne lui-même |
+| `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Serveur Controller et moteurs : secret partagé (32 caractères au moins), obligatoire des deux côtés |
+| `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Serveur Controller : durée maximale d'un scan par un moteur (1 à 7200) |
+| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Serveur Controller : quand aucun moteur ne répond, refuser le scan (`refuse`, `503` avec `Retry-After`) ou scanner localement (`local`) |
+
 ## Clients
 
 Lues par le client de pipeline `security-review-ci` (`SECREVIEW_CI_TOKEN` jamais par les serveurs).

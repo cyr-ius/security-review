@@ -94,6 +94,7 @@ plugins:
             How a review works: Fonctionnement d'une revue
             Kubernetes: Kubernetes
             Reverse proxy: Reverse proxy
+            Scan engines: Moteurs de scan
             Local mode (stdio): Mode local (stdio)
             Manual installation (without containers): Installation manuelle (sans conteneur)
             MCP server: Serveur MCP
@@ -197,6 +198,7 @@ nav:
           - MCP server: advanced/architecture/mcp-server.md
           - Controller server: advanced/architecture/controller.md
           - Pipeline client (CI/CD): advanced/architecture/ci.md
+          - Scan engines: advanced/architecture/scan-engine.md
       - Access control through the REST API: advanced/access-control-api.md
       - Audit log in detail: advanced/audit-log.md
       - Bearer tokens: advanced/bearer-tokens.md

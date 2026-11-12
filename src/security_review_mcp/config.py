@@ -37,6 +37,8 @@ def check_report_language(value: str) -> str:
 
 # Bound of the public URL of the controller (SECREVIEW_PUBLIC_URL or web interface)
 CONTROLLER_URL_MAX_CHARS = 500
+# Shortest secret shared by the controller and the scan engines (SECREVIEW_SCAN_ENGINE_TOKEN)
+MIN_SCAN_ENGINE_TOKEN_CHARS = 32
 # Path of the web interface under the controller URL (http_server.UI_PREFIX)
 WEB_UI_PATH = "/ui"
 
@@ -128,6 +130,32 @@ def check_scan_controller_url(
         raise ValueError(f"{variable} must not contain credentials, a query or a fragment")
     if parts.path.strip("/"):
         raise ValueError(f"{variable} is the root URL of the controller, without a path")
+    return value.rstrip("/")
+
+
+def check_scan_engine_url(value: str | None) -> str | None:
+    """Return the root URL of the scan engines (SECREVIEW_SCAN_ENGINE_URL) without trailing
+    slash; None when empty.
+
+    Raises:
+        ValueError: If the value is not an http(s) URL without credentials, path, query nor
+            fragment.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
+        raise ValueError(
+            f"SECREVIEW_SCAN_ENGINE_URL must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars"
+        )
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("SECREVIEW_SCAN_ENGINE_URL must be an http(s) URL")
+    if parts.username or parts.password or parts.query or parts.fragment or parts.path.strip("/"):
+        raise ValueError(
+            "SECREVIEW_SCAN_ENGINE_URL is the root URL of the scan engines, without credentials, "
+            "path, query nor fragment"
+        )
     return value.rstrip("/")
 
 
@@ -539,6 +567,22 @@ class Settings(BaseSettings):
     # start_codebase_scan, sent by the delegation of scan_code), with which security-review-ci
     # sends the files of the workstation to the code and dependency scans of one project
     scan_ticket_ttl_seconds: int = Field(default=600, ge=60, le=3600)
+    # Controller only: scan engines (security-review-scan-engine) that run the rules and OpenGrep
+    # in place of the controller, which keeps the authentication, the tickets and the reports.
+    # Unset (default): the controller scans itself. A root URL (e.g. http://scan-engine:8000, a
+    # load-balanced service): every code scan and scan_code fragment is sent there, without proxy
+    # nor redirect; the SECREVIEW_OPENGREP_* settings then apply to the engines.
+    scan_engine_url: str | None = None
+    # Controller and scan engines: shared secret of the engines (at least 32 characters), sent
+    # by the controller as a bearer token; required on both sides when the engines are used
+    scan_engine_token: SecretStr | None = None
+    # Controller only: time limit of a scan by an engine, above SECREVIEW_OPENGREP_TIMEOUT_SECONDS
+    # of the engines (seconds)
+    scan_engine_timeout_seconds: int = Field(default=660, ge=1, le=7200)
+    # Controller only: when no engine answers, "refuse" the scan (503 with Retry-After: the
+    # controller stays unloaded) or scan "local"ly with the rules and OpenGrep of the controller.
+    # A busy engine (all its OpenGrep slots taken) is never replaced by a local scan.
+    scan_engine_fallback: Literal["refuse", "local"] = "refuse"
 
     @field_validator(
         "proxy",
@@ -613,6 +657,25 @@ class Settings(BaseSettings):
     def _check_scancode_delegated(cls, value: str | None) -> str | None:
         """Accept true, false or the root http(s) URL of the controller; empty counts as unset."""
         return check_scan_delegation(value)
+
+    @field_validator("scan_engine_url")
+    @classmethod
+    def _check_scan_engine_url(cls, value: str | None) -> str | None:
+        """Accept the root http(s) URL of the scan engines; empty counts as unset."""
+        return check_scan_engine_url(value)
+
+    @field_validator("scan_engine_token")
+    @classmethod
+    def _check_scan_engine_token(cls, value: SecretStr | None) -> SecretStr | None:
+        """Refuse a short secret; empty counts as unset."""
+        if value is None or not value.get_secret_value().strip():
+            return None
+        if len(value.get_secret_value().strip()) < MIN_SCAN_ENGINE_TOKEN_CHARS:
+            raise ValueError(
+                f"SECREVIEW_SCAN_ENGINE_TOKEN must have at least {MIN_SCAN_ENGINE_TOKEN_CHARS} "
+                "characters (e.g. openssl rand -hex 32)"
+            )
+        return SecretStr(value.get_secret_value().strip())
 
     @field_validator("mcp_oauth_redirect_hosts")
     @classmethod

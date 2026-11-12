@@ -59,3 +59,19 @@ def test_the_transport_accepts_http_and_any_case(monkeypatch):
     monkeypatch.setenv("SECREVIEW_TRANSPORT", "sse")
     with pytest.raises(ValidationError, match="transport"):
         Settings()
+
+
+@pytest.mark.parametrize(
+    ("variable", "value"),
+    [
+        # The engines are reached at their root URL, without credentials
+        ("SECREVIEW_SCAN_ENGINE_URL", "http://scan-engine:8000/engine"),
+        ("SECREVIEW_SCAN_ENGINE_URL", "http://user:secret@scan-engine:8000"),
+        ("SECREVIEW_SCAN_ENGINE_TOKEN", "too-short"),
+    ],
+)
+def test_the_scan_engine_settings_are_checked(monkeypatch, variable, value):
+    monkeypatch.setenv(variable, value)
+
+    with pytest.raises(ValidationError, match=variable):
+        Settings()

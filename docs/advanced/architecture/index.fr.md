@@ -41,6 +41,10 @@ créer un jeton personnel.
 Routes, démarrage, migrations du schéma, tâches de fond et exposition de chaque processus : voir
 [Serveur MCP](mcp-server.md) et [Serveur Controller](controller.md).
 
+Avec de nombreux développeurs, des [moteurs de scan](scan-engine.md) facultatifs
+(`security-review-scan-engine`) exécutent les règles et OpenGrep des scans de code à la place du
+serveur Controller.
+
 !!! note "Base partagée"
     Avec SQLite, les deux processus doivent tourner sur la même machine et partager le fichier.
     Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL

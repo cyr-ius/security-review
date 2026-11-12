@@ -83,7 +83,8 @@ The Controller server can run several replicas on the same PostgreSQL database: 
 for each other (advisory lock), the sessions are shared through `SECREVIEW_SECRET_KEY`, the login
 and rate limit counters are kept in the database, only one replica downloads the OSV
 advisories at a time, and a syslog batch is sent once. Set the same `SECREVIEW_SECRET_KEY` on
-every replica.
+every replica. To take the scans off the Controller server rather than adding replicas, use the
+[scan engines](scan-engine.md).
 
 ## Administration commands
 

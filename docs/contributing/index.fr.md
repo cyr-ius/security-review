@@ -145,6 +145,13 @@ src/security_review_mcp/
 │   ├── audit.py           # journal d'audit : événements des décisions de triage, propositions, jetons et demandes de projet
 │   ├── audit_syslog.py    # envoi des événements d'audit vers syslog par le serveur Controller (facultatif)
 │   └── metrics.py         # métriques Prometheus du serveur Controller (/metrics)
+├── engines/       # où tournent les scans : OpenGrep et les moteurs de scan facultatifs
+│   ├── opengrep.py        # sous-processus OpenGrep : espace de travail, créneaux, correspondances normalisées
+│   ├── local.py           # règles puis OpenGrep sur des fichiers bornés, dans le processus
+│   ├── backend.py         # scan local ou moteurs de scan (SECREVIEW_SCAN_ENGINE_URL), repli
+│   ├── remote.py          # client des moteurs de scan (serveur Controller uniquement)
+│   ├── protocol.py        # messages de POST /engine/v1/scan
+│   └── worker.py          # `security-review-scan-engine` : le processus du moteur de scan
 ├── clients/       # clients du serveur Controller
 │   └── ci_wheel.py        # wheel de security-review-ci construite et servie par le serveur Controller (/api/ci-client/)
 ├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
@@ -160,7 +167,8 @@ web/               # application Angular (compilée dans src/security_review_mcp
 
 Le serveur MCP n'importe jamais les modules du serveur Controller qui ouvrent des connexions sortantes
 ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
-`observability/audit_syslog`, `connectors`, `update_check`, `web_api`), même indirectement :
+`observability/audit_syslog`, `connectors`, `update_check`, `web_api`, `engines/remote`,
+`engines/worker`), même indirectement :
 `tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
 `app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 

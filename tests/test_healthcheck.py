@@ -95,6 +95,8 @@ def test_the_health_path_is_the_one_served_by_both_processes():
             ["security-review-controller", "serve", "--tls-certfile", "/certs/tls.crt"],
             "https://127.0.0.1:8000/healthz",
         ),
+        # A scan engine has no serve command
+        (["/opt/venv/bin/security-review-scan-engine"], "http://127.0.0.1:8000/healthz"),
     ],
 )
 def test_the_url_follows_the_command_of_the_container(settings, args, expected):
@@ -202,13 +204,18 @@ def test_the_image_listens_on_every_interface_and_compose_chooses_the_exposure()
         (["mcp", "enroll"], "security-review-mcp enroll"),
         (["controller"], "security-review-controller serve"),
         (["controller", "token", "list"], "security-review-controller token list"),
+        (["scan-engine", "--port", "9000"], "security-review-scan-engine --port 9000"),
         # Former usage: the arguments of security-review-mcp
         (["serve", "--transport", "stdio"], "security-review-mcp serve --transport stdio"),
     ],
 )
 def test_the_entry_point_of_the_image_starts_the_chosen_process(tmp_path, args, expected):
     # Each program prints its name and its arguments: the script only chooses and execs one
-    for program in ("security-review-mcp", "security-review-controller"):
+    for program in (
+        "security-review-mcp",
+        "security-review-controller",
+        "security-review-scan-engine",
+    ):
         fake = tmp_path / program
         fake.write_text(f'#!/bin/sh\necho {program} "$@"\n', encoding="utf-8")
         fake.chmod(0o755)
