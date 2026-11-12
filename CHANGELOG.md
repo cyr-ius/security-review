@@ -1,5 +1,17 @@
 # Changelog
 
+## [12.2.0](https://github.com/cyr-ius/security-review/compare/v12.1.0...v12.2.0) (2026-11-12)
+
+
+### Features
+
+* add the help link of the OpenGrep rules page and check every help link ([abc39fb](https://github.com/cyr-ius/security-review/commit/abc39fb0f5ee1f879517765651bd35e510a1bb2b))
+* list the OpenGrep rules in a table with an editor dialog ([fc0d5a0](https://github.com/cyr-ius/security-review/commit/fc0d5a0c8fa89e6ae7ab41d4fdb159914908213c))
+* move the MCP clients to a page of their own ([9b28da0](https://github.com/cyr-ius/security-review/commit/9b28da0dd9a68321bcc4d8a540d4e595ac90dbeb))
+* move the OSV database to the Reference section of the menu ([36faec5](https://github.com/cyr-ius/security-review/commit/36faec519f891fcbd509800b732b0d6158acc938))
+* shorten the page subtitles and align the header buttons ([fa6596b](https://github.com/cyr-ius/security-review/commit/fa6596b175ac87f75665edb769a7a6c25efda229))
+* show the activity diagram without any scan engine ([2e89112](https://github.com/cyr-ius/security-review/commit/2e89112e6ef94770d10354fe4373acdbebc7b850))
+
 ## [12.1.0](https://github.com/cyr-ius/security-review/compare/v12.0.0...v12.1.0) (2026-11-12)
 
 
