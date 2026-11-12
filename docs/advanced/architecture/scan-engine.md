@@ -129,7 +129,9 @@ The enrolled engines are listed on the [**Scan engines**](../../usage/index.md#p
 state (active while its heartbeat is recent), URL, free slots, enrollment date and last activity,
 never a secret.
 
-Above the list, the **Activity** diagram shows the code scans running now:
+Above the list, the **Activity** diagram shows the code scans running now. It shows even
+without any engine (engines off, or none enrolled): then the agents, the MCP servers and the
+Controller server only, which says **Scans itself (engines off)** when the engines are off:
 
 - on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
   (`scan_code` fragments), with their occupied slots out of the slots of the active engines;

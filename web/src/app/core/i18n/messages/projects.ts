@@ -91,10 +91,8 @@ export const projects = defineMessages({
     'projectFindings.title': 'Findings to review',
     'projectFindings.heading': 'Findings to review: {project}',
     'projectFindings.headingAll': 'Findings to review: all projects',
-    'projectFindings.subtitleAll':
-      'Every finding of every project you can see, across all reports, worst first, for a review by a security expert.',
-    'projectFindings.subtitle':
-      'Every finding of the project across all its reports, worst first, for a review by a security expert.',
+    'projectFindings.subtitleAll': 'Every finding of every project',
+    'projectFindings.subtitle': 'Every finding of the project',
     'projectFindings.count': '{shown} of {total} finding(s)',
     'projectFindings.triaged': '{count} triaged on this page',
     'projectFindings.loadMore': 'Load more',
@@ -207,10 +205,8 @@ export const projects = defineMessages({
     'projectFindings.title': 'Findings à revoir',
     'projectFindings.heading': 'Findings à revoir : {project}',
     'projectFindings.headingAll': 'Findings à revoir : tous les projets',
-    'projectFindings.subtitleAll':
-      "Tous les findings des projets que vous pouvez voir, sur l'ensemble des rapports, du plus grave au moins grave, pour une revue par un expert en cybersécurité.",
-    'projectFindings.subtitle':
-      "Tous les findings du projet, sur l'ensemble de ses rapports, du plus grave au moins grave, pour une revue par un expert en cybersécurité.",
+    'projectFindings.subtitleAll': "Tous les findings de l'ensemble des projets",
+    'projectFindings.subtitle': 'Tous les findings du projet',
     'projectFindings.count': '{shown} sur {total} finding(s)',
     'projectFindings.triaged': '{count} trié(s) sur cette page',
     'projectFindings.loadMore': 'Afficher plus',
@@ -324,10 +320,8 @@ export const projects = defineMessages({
     'projectFindings.title': 'Hallazgos por revisar',
     'projectFindings.heading': 'Hallazgos por revisar: {project}',
     'projectFindings.headingAll': 'Hallazgos por revisar: todos los proyectos',
-    'projectFindings.subtitleAll':
-      'Todos los hallazgos de los proyectos que puede ver, en todos los informes, del más grave al menos grave, para una revisión por un experto en ciberseguridad.',
-    'projectFindings.subtitle':
-      'Todos los hallazgos del proyecto en todos sus informes, del más grave al menos grave, para una revisión por un experto en ciberseguridad.',
+    'projectFindings.subtitleAll': 'Todos los hallazgos de todos los proyectos',
+    'projectFindings.subtitle': 'Todos los hallazgos del proyecto',
     'projectFindings.count': '{shown} de {total} hallazgo(s)',
     'projectFindings.triaged': '{count} clasificado(s) en esta página',
     'projectFindings.loadMore': 'Cargar más',

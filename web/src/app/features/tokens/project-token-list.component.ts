@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { PERMISSION_META, TOKEN_ROLE_LABELS } from '../../core/constants/labels';
@@ -22,7 +23,6 @@ import {
   TokenRoleChoice,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
-import { OAuthClientsComponent } from './oauth-clients/oauth-clients.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlMultiFilter,
@@ -53,8 +53,8 @@ const TOKEN_FILTER_ROLES: readonly ProjectTokenRole[] = ['mcp', 'ci', 'api'];
     DatePipe,
     MultiSelectDropdownComponent,
     FormField,
-    OAuthClientsComponent,
     RefreshButtonComponent,
+    RouterLink,
     SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,

@@ -1,11 +1,17 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">{{ 'rules.title' | t }} <app-help-link topic="rules" /></h1>
-    <p class="text-body-secondary mb-0">
-      {{ 'rules.subtitle' | t }} <code>security-review-controller rules</code>
-    </p>
+    <p class="text-body-secondary mb-0">{{ 'rules.subtitle' | t }}</p>
   </div>
   <div class="d-flex flex-wrap gap-2">
+    <!-- Export / Import then New, at the same place as on the Checklists and Standards pages -->
+    @if (canManage()) {
+      <app-refresh-button
+        [label]="'rules.reload' | t"
+        [loading]="reloading() || catalog.isLoading()"
+        (refresh)="reload()"
+      />
+    }
     <app-pack-transfer
       [busy]="transferring()"
       [importable]="canManage()"
@@ -14,11 +20,6 @@
       (fileRejected)="onPackRejected($event)"
     />
     @if (canManage()) {
-      <app-refresh-button
-        [label]="'rules.reload' | t"
-        [loading]="reloading() || catalog.isLoading()"
-        (refresh)="reload()"
-      />
       <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
         {{ 'rules.new' | t }}

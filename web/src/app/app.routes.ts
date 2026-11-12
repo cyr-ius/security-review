@@ -159,6 +159,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'mcp-clients',
+        title: 'layout.mcpClients',
+        canActivate: [permissionGuard('tokens.manage')],
+        loadComponent: () =>
+          import('./features/mcp-clients/oauth-clients/oauth-clients.component').then(
+            (m) => m.OAuthClientsComponent,
+          ),
+      },
+      {
         path: 'scan-engines',
         title: 'layout.scanEngines',
         canActivate: [permissionGuard('settings.manage')],

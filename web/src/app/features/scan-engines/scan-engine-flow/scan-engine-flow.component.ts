@@ -214,11 +214,14 @@ export class ScanEngineFlowComponent {
 
   readonly controllerNodes = computed(() => this.controllerLayout().nodes);
 
+  /** Up to the last engine, or up to the Controller server when there is no engine. */
   readonly width = computed(() =>
-    Math.max(
-      MIN_WIDTH,
-      ENGINE.x0 + this.offset() + (this.columns() - 1) * ENGINE.dx + ENGINE.r + 40,
-    ),
+    this.engines().length
+      ? Math.max(
+          MIN_WIDTH,
+          ENGINE.x0 + this.offset() + (this.columns() - 1) * ENGINE.dx + ENGINE.r + 40,
+        )
+      : CONTROLLER.x + this.offset() + CONTROLLER.r + 60,
   );
 
   private closestController(y: number): ControllerNode {

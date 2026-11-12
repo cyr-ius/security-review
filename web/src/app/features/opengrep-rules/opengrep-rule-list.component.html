@@ -1,21 +1,27 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-1">{{ 'opengrepRules.title' | t }}</h1>
+    <h1 class="h3 mb-1">{{ 'opengrepRules.title' | t }} <app-help-link topic="opengrepRules" /></h1>
     <p class="text-body-secondary mb-0">{{ 'opengrepRules.subtitle' | t }}</p>
   </div>
-  @if (canManage()) {
-    <button type="button" class="btn btn-primary" (click)="startCreate()">
-      <i class="bi bi-plus-lg" aria-hidden="true"></i>
-      {{ 'opengrepRules.new' | t }}
-    </button>
-  }
+  <div class="d-flex flex-wrap gap-2">
+    <app-refresh-button [loading]="catalog.isLoading()" (refresh)="reload()" />
+    @if (canManage()) {
+      <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        {{ 'opengrepRules.new' | t }}
+      </button>
+    }
+  </div>
 </div>
 
-@if (error(); as message) {
-  <div class="alert alert-danger py-2" role="alert">{{ message | t }}</div>
-}
-@if (notice(); as message) {
-  <div class="alert alert-success py-2" role="status">{{ message | t }}</div>
+<!-- While the editor is open, its messages are shown in it -->
+@if (!editorOpen()) {
+  @if (error(); as message) {
+    <div class="alert alert-danger py-2" role="alert">{{ message | t }}</div>
+  }
+  @if (notice(); as message) {
+    <div class="alert alert-success py-2" role="status">{{ message | t }}</div>
+  }
 }
 @if (!canManage()) {
   <div class="alert alert-info py-2" role="status">{{ 'opengrepRules.readOnly' | t }}</div>
@@ -25,7 +31,7 @@
 } @else if (catalog.isLoading() && !catalog.hasValue()) {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Loading</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else {
   @if (pendingProposals().length) {
@@ -58,206 +64,268 @@
       </div>
     </section>
   }
-  <div class="row g-3">
-    <section class="col-lg-4" aria-label="OpenGrep rule files">
-      <div class="card h-100">
-        <div class="card-header fw-semibold">
-          {{ 'opengrepRules.rules' | t }} ({{ filteredRules().length }})
-        </div>
-        <div class="card-body">
-          <label class="visually-hidden" for="opengrep-rule-search">
-            {{ 'opengrepRules.search' | t }}
-          </label>
-          <input
-            id="opengrep-rule-search"
-            class="form-control mb-3"
-            type="search"
-            [placeholder]="'opengrepRules.search' | t"
-            [value]="search()"
-            (input)="search.set($any($event.target).value)"
-          />
-          <div class="list-group list-group-flush">
-            @for (rule of filteredRules(); track rule.id) {
-              <button
-                type="button"
-                class="list-group-item list-group-item-action"
-                [class.active]="selectedId() === rule.id"
-                [attr.aria-current]="selectedId() === rule.id ? 'true' : null"
-                (click)="select(rule)"
-              >
-                <code>{{ rule.id }}</code>
-                <small class="d-block opacity-75">
-                  {{ 'opengrepRules.updatedAt' | t }}:
-                  {{ rule.updated_at | date: 'dd/MM/yyyy HH:mm' }}
-                </small>
-              </button>
-            } @empty {
-              <p class="text-body-secondary small mb-0">{{ 'opengrepRules.empty' | t }}</p>
-            }
-          </div>
-        </div>
-      </div>
-    </section>
-    <section class="col-lg-8" aria-label="OpenGrep rule editor">
-      <div class="card">
-        @if (hasSelection()) {
-          <div class="card-header d-flex flex-wrap align-items-center gap-2">
-            <strong>{{ isNew() ? ('opengrepRules.create' | t) : formModel().id }}</strong>
-            @if (proposal()) {
-              <span class="badge text-bg-warning">{{ 'opengrepRules.proposals' | t }}</span>
-            }
-            @if (canManage() && !isNew() && !proposal()) {
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-danger ms-auto"
-                [disabled]="deleting()"
-                (click)="remove()"
-              >
-                <i class="bi bi-trash" aria-hidden="true"></i>
-                {{ 'opengrepRules.delete' | t }}
-              </button>
-            }
-          </div>
-          <form class="card-body" novalidate (submit)="save($event)">
-            @if (proposal(); as current) {
-              <div class="alert alert-info py-2 small" role="note">
-                {{ 'opengrepRules.proposalHelp' | t }}
-              </div>
-              <dl class="row small mb-3">
-                <dt class="col-sm-3">{{ 'opengrepRules.project' | t }}</dt>
-                <dd class="col-sm-9">{{ current.project }}</dd>
-                <dt class="col-sm-3">{{ 'opengrepRules.proposalFrom' | t }}</dt>
-                <dd class="col-sm-9">{{ current.proposed_by }}</dd>
-                <dt class="col-sm-3">{{ 'opengrepRules.reason' | t }}</dt>
-                <dd class="col-sm-9 text-break">{{ current.reason }}</dd>
-              </dl>
-              @if (current.test_code) {
-                <div class="mb-3">
-                  <div class="form-label">{{ 'opengrepRules.testCode' | t }}</div>
-                  <pre class="border rounded p-2 small bg-body-tertiary opengrep-output">{{
-                    current.test_code
-                  }}</pre>
-                </div>
-              }
-            }
-            <div class="mb-3">
-              <label class="form-label" for="opengrep-rule-id">
-                {{ 'opengrepRules.identifier' | t }}
-              </label>
-              <input
-                id="opengrep-rule-id"
-                class="form-control font-monospace"
-                aria-describedby="opengrep-rule-id-errors"
-                [formField]="ruleForm.id"
-                [class.is-invalid]="ruleForm.id().touched() && ruleForm.id().invalid()"
-              />
-              <div id="opengrep-rule-id-errors" aria-live="polite">
-                @if (ruleForm.id().touched() && ruleForm.id().invalid()) {
-                  @for (err of ruleForm.id().errors(); track err.kind) {
-                    <div class="invalid-feedback d-block">{{ err.message }}</div>
+  <app-table-controls
+    idPrefix="opengrep-rules"
+    [search]="search()"
+    [searchPlaceholder]="'opengrepRules.search' | t"
+    [multiFilters]="filters()"
+    (searchChange)="search.set($event)"
+    (multiFilterChange)="onTableFilter($event)"
+  >
+    <span aria-live="polite">{{
+      'opengrepRules.count' | t: { count: visibleRules().length }
+    }}</span>
+  </app-table-controls>
+  <div class="card">
+    @if (visibleRules().length > 0) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col" [appSortHeader]="sort" sortKey="id">
+                {{ 'opengrepRules.rule' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="language">
+                {{ 'opengrepRules.language' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="severity">
+                {{ 'opengrepRules.severity' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="updated">
+                {{ 'opengrepRules.updatedAt' | t }}
+              </th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of visibleRules(); track row.rule.id) {
+              <tr>
+                <td class="rule-name">
+                  <code>{{ row.rule.id }}</code>
+                  @if (row.message) {
+                    <div class="rule-message small">{{ row.message }}</div>
                   }
-                }
-              </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-label" for="opengrep-rule-yaml">
-                {{ 'opengrepRules.yaml' | t }}
-              </label>
-              <textarea
-                id="opengrep-rule-yaml"
-                class="form-control font-monospace opengrep-yaml"
-                rows="22"
-                spellcheck="false"
-                aria-describedby="opengrep-rule-yaml-help opengrep-rule-yaml-errors"
-                [formField]="ruleForm.content"
-                [class.is-invalid]="ruleForm.content().touched() && ruleForm.content().invalid()"
-              ></textarea>
-              <div id="opengrep-rule-yaml-errors" aria-live="polite">
-                @if (ruleForm.content().touched() && ruleForm.content().invalid()) {
-                  @for (err of ruleForm.content().errors(); track err.kind) {
-                    <div class="invalid-feedback d-block">{{ err.message }}</div>
+                  @if (row.cwe) {
+                    <span class="small text-body-secondary">{{ row.cwe }}</span>
                   }
-                }
-              </div>
-              <div id="opengrep-rule-yaml-help" class="form-text">
-                {{ 'opengrepRules.editorHelp' | t }}
-              </div>
-            </div>
-            @if (validationOutput(); as output) {
-              <div class="mt-3">
-                <div class="form-label">{{ 'opengrepRules.validationOutput' | t }}</div>
-                <pre class="border rounded p-2 small bg-body-tertiary opengrep-output">
-                  {{ output }}
-                </pre>
-              </div>
-            }
-            @if (canManage() && proposal()) {
-              <div class="mt-3">
-                <label class="form-label" for="opengrep-reject-reason">
-                  {{ 'opengrepRules.rejectReason' | t }}
-                </label>
-                <input
-                  id="opengrep-reject-reason"
-                  class="form-control"
-                  [formField]="ruleForm.rejectReason"
-                  [class.is-invalid]="ruleForm.rejectReason().invalid()"
-                />
-              </div>
-            }
-            @if (canManage()) {
-              <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  [disabled]="validating() || saving()"
-                  (click)="validate()"
-                >
-                  @if (validating()) {
-                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                </td>
+                <td>{{ row.languages.join(', ') || '—' }}</td>
+                <td class="text-nowrap">
+                  @if (row.severity; as severity) {
+                    {{ severityMeta[severity].label | t }}
+                  } @else {
+                    —
                   }
-                  {{ 'opengrepRules.validate' | t }}
-                </button>
-                @if (proposal()) {
+                </td>
+                <td class="text-nowrap">{{ row.rule.updated_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="text-end text-nowrap">
                   <button
                     type="button"
-                    class="btn btn-outline-danger"
-                    [disabled]="deciding() || validating()"
-                    (click)="reject()"
+                    class="btn btn-sm btn-outline-secondary action-button"
+                    [attr.aria-label]="
+                      (canManage() ? 'opengrepRules.editRule' : 'opengrepRules.viewRule')
+                        | t: { id: row.rule.id }
+                    "
+                    [title]="(canManage() ? 'common.edit' : 'opengrepRules.view') | t"
+                    (click)="select(row.rule)"
                   >
-                    {{ 'opengrepRules.reject' | t }}
+                    <i
+                      class="bi"
+                      [class.bi-pencil]="canManage()"
+                      [class.bi-eye]="!canManage()"
+                      aria-hidden="true"
+                    ></i>
                   </button>
-                  <button
-                    type="button"
-                    class="btn btn-primary"
-                    [disabled]="deciding() || validating()"
-                    (click)="approve()"
-                  >
-                    @if (deciding()) {
-                      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-                    }
-                    {{ 'opengrepRules.approve' | t }}
-                  </button>
-                } @else {
-                  <button
-                    type="submit"
-                    class="btn btn-primary"
-                    [disabled]="saving() || validating() || deleting()"
-                  >
-                    @if (saving()) {
-                      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-                    }
-                    {{ isNew() ? ('opengrepRules.create' | t) : ('opengrepRules.save' | t) }}
-                  </button>
-                }
-              </div>
+                </td>
+              </tr>
             }
-          </form>
-        } @else {
-          <div class="card-body text-center text-body-secondary py-5">
-            {{ 'opengrepRules.select' | t }}
-          </div>
-        }
+          </tbody>
+        </table>
       </div>
-    </section>
+    } @else if (rows().length) {
+      <p class="card-body text-body-secondary mb-0">{{ 'common.noMatches' | t }}</p>
+    } @else {
+      <p class="card-body text-body-secondary mb-0">{{ 'opengrepRules.empty' | t }}</p>
+    }
   </div>
 }
+
+<dialog
+  #editorDialog
+  class="rule-dialog shadow"
+  aria-labelledby="opengrep-dialog-title"
+  (close)="onEditorClosed()"
+>
+  @if (editorOpen()) {
+    <div class="card rule-editor">
+      <div class="card-header d-flex flex-wrap align-items-center gap-2">
+        <h2 id="opengrep-dialog-title" class="h6 mb-0">
+          {{ isNew() ? ('opengrepRules.create' | t) : formModel().id }}
+        </h2>
+        @if (proposal()) {
+          <span class="badge text-bg-warning">{{ 'opengrepRules.proposals' | t }}</span>
+        }
+        @if (canManage() && !isNew() && !proposal()) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger ms-auto"
+            [disabled]="deleting()"
+            (click)="remove()"
+          >
+            <i class="bi bi-trash" aria-hidden="true"></i>
+            {{ 'opengrepRules.delete' | t }}
+          </button>
+        }
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          [class.ms-auto]="!canManage() || isNew() || proposal()"
+          [attr.aria-label]="'common.closeForm' | t"
+          (click)="closeEditor()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      @if (error(); as message) {
+        <div class="alert alert-danger py-2 m-3 mb-0" role="alert">{{ message | t }}</div>
+      }
+      @if (notice(); as message) {
+        <div class="alert alert-success py-2 m-3 mb-0" role="status">{{ message | t }}</div>
+      }
+      <form class="card-body" novalidate (submit)="save($event)">
+        @if (proposal(); as current) {
+          <div class="alert alert-info py-2 small" role="note">
+            {{ 'opengrepRules.proposalHelp' | t }}
+          </div>
+          <dl class="row small mb-3">
+            <dt class="col-sm-3">{{ 'opengrepRules.project' | t }}</dt>
+            <dd class="col-sm-9">{{ current.project }}</dd>
+            <dt class="col-sm-3">{{ 'opengrepRules.proposalFrom' | t }}</dt>
+            <dd class="col-sm-9">{{ current.proposed_by }}</dd>
+            <dt class="col-sm-3">{{ 'opengrepRules.reason' | t }}</dt>
+            <dd class="col-sm-9 text-break">{{ current.reason }}</dd>
+          </dl>
+          @if (current.test_code) {
+            <div class="mb-3">
+              <div class="form-label">{{ 'opengrepRules.testCode' | t }}</div>
+              <pre class="border rounded p-2 small bg-body-tertiary opengrep-output">{{
+                current.test_code
+              }}</pre>
+            </div>
+          }
+        }
+        <div class="mb-3">
+          <label class="form-label" for="opengrep-rule-id">
+            {{ 'opengrepRules.identifier' | t }}
+          </label>
+          <input
+            id="opengrep-rule-id"
+            class="form-control font-monospace"
+            aria-describedby="opengrep-rule-id-errors"
+            [formField]="ruleForm.id"
+            [class.is-invalid]="ruleForm.id().touched() && ruleForm.id().invalid()"
+          />
+          <div id="opengrep-rule-id-errors" aria-live="polite">
+            @if (ruleForm.id().touched() && ruleForm.id().invalid()) {
+              @for (err of ruleForm.id().errors(); track err.kind) {
+                <div class="invalid-feedback d-block">{{ err.message }}</div>
+              }
+            }
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="opengrep-rule-yaml">
+            {{ 'opengrepRules.yaml' | t }}
+          </label>
+          <textarea
+            id="opengrep-rule-yaml"
+            class="form-control font-monospace opengrep-yaml"
+            rows="22"
+            spellcheck="false"
+            aria-describedby="opengrep-rule-yaml-help opengrep-rule-yaml-errors"
+            [formField]="ruleForm.content"
+            [class.is-invalid]="ruleForm.content().touched() && ruleForm.content().invalid()"
+          ></textarea>
+          <div id="opengrep-rule-yaml-errors" aria-live="polite">
+            @if (ruleForm.content().touched() && ruleForm.content().invalid()) {
+              @for (err of ruleForm.content().errors(); track err.kind) {
+                <div class="invalid-feedback d-block">{{ err.message }}</div>
+              }
+            }
+          </div>
+          <div id="opengrep-rule-yaml-help" class="form-text">
+            {{ 'opengrepRules.editorHelp' | t }}
+          </div>
+        </div>
+        @if (validationOutput(); as output) {
+          <div class="mt-3">
+            <div class="form-label">{{ 'opengrepRules.validationOutput' | t }}</div>
+            <pre class="border rounded p-2 small bg-body-tertiary opengrep-output">
+              {{ output }}
+            </pre>
+          </div>
+        }
+        @if (canManage() && proposal()) {
+          <div class="mt-3">
+            <label class="form-label" for="opengrep-reject-reason">
+              {{ 'opengrepRules.rejectReason' | t }}
+            </label>
+            <input
+              id="opengrep-reject-reason"
+              class="form-control"
+              [formField]="ruleForm.rejectReason"
+              [class.is-invalid]="ruleForm.rejectReason().invalid()"
+            />
+          </div>
+        }
+        @if (canManage()) {
+          <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              [disabled]="validating() || saving()"
+              (click)="validate()"
+            >
+              @if (validating()) {
+                <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              }
+              {{ 'opengrepRules.validate' | t }}
+            </button>
+            @if (proposal()) {
+              <button
+                type="button"
+                class="btn btn-outline-danger"
+                [disabled]="deciding() || validating()"
+                (click)="reject()"
+              >
+                {{ 'opengrepRules.reject' | t }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                [disabled]="deciding() || validating()"
+                (click)="approve()"
+              >
+                @if (deciding()) {
+                  <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                }
+                {{ 'opengrepRules.approve' | t }}
+              </button>
+            } @else {
+              <button
+                type="submit"
+                class="btn btn-primary"
+                [disabled]="saving() || validating() || deleting()"
+              >
+                @if (saving()) {
+                  <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                }
+                {{ isNew() ? ('opengrepRules.create' | t) : ('opengrepRules.save' | t) }}
+              </button>
+            }
+          </div>
+        }
+      </form>
+    </div>
+  }
+</dialog>

@@ -19,8 +19,8 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 - The **sidebar** groups the pages in four sections: **Supervision** (projects),
   **Review** (findings and risk acceptances, with `reports.read`), **Reference** (rules,
-  checklists, standards) and **Administration**. You only see the pages your permissions
-  allow. **Findings** shows the number of open findings in the projects you read.
+  checklists, standards, OSV database) and **Administration**. You only see the pages your
+  permissions allow. **Findings** shows the number of open findings in the projects you read.
 - The **search field** in the middle of the top bar (Ctrl+K, ⌘K on a Mac) searches the
   findings and the reports in your projects, and offers the projects whose name contains the
   text (open the project, its findings or its reports). While you type, the list shows the first
@@ -73,13 +73,14 @@ A page is missing? You do not hold its permission: ask an administrator (see
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 | **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status), Markdown and SARIF download |
 
-**Reference**, edited by the administrators (**Export** and **Import** exchange TOML files)
+**Reference**, edited by the administrators (**Export** and **Import** exchange the rules, checklists and standards as TOML files)
 
 | Page | What for |
 |---|---|
 | **Rules** | The patterns of the code scan ([rules](../review/rules.md)) |
 | **Checklists** | The check items followed by the agents ([checklists](../review/checklists.md)) |
 | **Standards** | The development standards given to the AI assistants ([standards](../review/standards.md)) |
+| **OSV database** | State and update of the vulnerability database, choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) (`settings.manage`) |
 
 In the edit form, the long text fields (content of a standard, advice of a rule, checkpoint of a
 checklist item) have a full screen button: the text opens in a large editor, next to its
@@ -93,8 +94,8 @@ together. The changes go to the form, which still saves or cancels them.
 | **General** | Report language, Controller server address (and delegation of `scan_code` to it) and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
 | **Users**, **Roles** | The accounts, their roles and their projects ([roles and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
+| **MCP clients** | The MCP clients that log in through the browser ([OAuth login](../advanced/mcp-oauth.md#administration)): turning the login on or off, registered clients and approved accesses, revocation (`tokens.manage`) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |
-| **OSV database** | State and update of the vulnerability database, choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
 | **Scan engines** | The [scan engines](../advanced/architecture/scan-engine.md#administration) enrolled with the Controller server (activity diagram, version, address, last activity) and their revocation (`settings.manage`) |
 | **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |

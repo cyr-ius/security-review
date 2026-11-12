@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
   OAuthClientAdmin,
   OAuthOverview,
@@ -21,7 +22,7 @@ type OAuthGrantAdmin = OAuthOverview['grants'][number];
 const MAX_URL_CHARS = 500;
 
 /**
- * OAuth login of the MCP clients (Tokens page, tokens.manage): the settings in use, every
+ * MCP clients page (tokens.manage): the OAuth login of the MCP clients, the settings in use, every
  * grant (revocable, one by one or all at once) and every registered client (deletable), also
  * while the login is off (the grants are then suspended). The holders of settings.manage turn
  * the login on or off and set the URL of the MCP endpoint, unless their variable
@@ -29,7 +30,7 @@ const MAX_URL_CHARS = 500;
  */
 @Component({
   selector: 'app-oauth-clients',
-  imports: [HelpLinkComponent, DatePipe, FormField, TranslatePipe],
+  imports: [HelpLinkComponent, DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
   templateUrl: './oauth-clients.component.html',
 })
 export class OAuthClientsComponent {

@@ -48,6 +48,7 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFiles': '{count} files in progress',
     'scanEngines.flowSlots': '{used}/{total} slots',
     'scanEngines.flowFallbackLocal': 'Fallback: local scan',
+    'scanEngines.flowControllerScans': 'Scans itself (engines off)',
     'scanEngines.flowFallbackRefuse': 'No fallback (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version}: {codebase} code scans, {fragments} fragments, {files} files, {failed} failed, {busy} refused when busy; {used} of {capacity} slots in use',
@@ -116,6 +117,7 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFiles': '{count} fichiers en cours',
     'scanEngines.flowSlots': '{used}/{total} créneaux',
     'scanEngines.flowFallbackLocal': 'Repli : scan local',
+    'scanEngines.flowControllerScans': 'Scanne lui-même (moteurs désactivés)',
     'scanEngines.flowFallbackRefuse': 'Sans repli (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version} : {codebase} scans de code, {fragments} fragments, {files} fichiers, {failed} en échec, {busy} refusés car occupé ; {used} créneaux occupés sur {capacity}',
@@ -185,6 +187,7 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFiles': '{count} archivos en curso',
     'scanEngines.flowSlots': '{used}/{total} huecos',
     'scanEngines.flowFallbackLocal': 'Respaldo: escaneo local',
+    'scanEngines.flowControllerScans': 'Escanea él mismo (motores desactivados)',
     'scanEngines.flowFallbackRefuse': 'Sin respaldo (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version}: {codebase} escaneos de código, {fragments} fragmentos, {files} archivos, {failed} fallidos, {busy} rechazados por estar ocupado; {used} de {capacity} huecos ocupados',

@@ -41,7 +41,7 @@ exists exactly when the change was committed.
 | `mcp_scan_delegation.changed` | The [delegation of `scan_code`](../review/analysis/opengrep.md#fragment-scans-scan_code) to the Controller server address is turned on or off on the **General** page, or turned off by a change of that address (`enabled`) |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** page |
-| `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, on the **Tokens** page (one or all), by the client (`/revoke`), or with its user |
+| `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, on the **MCP clients** page (one or all), by the client (`/revoke`), or with its user |
 | `oauth.refresh_reused` | A refresh token already replaced is presented again: the grant is revoked |
 | `mcp_oauth.changed` | The [OAuth login](mcp-oauth.md) is turned on or off, or its MCP endpoint changed, in the web interface |
 | `opengrep_rule.proposed` | An agent proposes an OpenGrep rule with `propose_opengrep_rule` (never installed by it), or replaces its pending proposal (`replaced`) |

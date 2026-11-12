@@ -20,7 +20,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 
 - La **barre latérale** regroupe les pages en quatre sections : **Supervision** (projets),
   **Revue** (findings et acceptations de risque, avec `reports.read`),
-  **Référentiel** (règles, checklists, normes) et **Administration**. Vous ne voyez que les
+  **Référentiel** (règles, checklists, normes, base OSV) et **Administration**. Vous ne voyez que les
   pages permis par vos permissions. **Findings** affiche le nombre de findings ouverts dans les
   projets que vous lisez.
 - Le **champ de recherche** au milieu de la barre du haut (Ctrl+K, ⌘K sur Mac) cherche dans les
@@ -76,13 +76,14 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
 | **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings (recherche par texte, filtres de sévérité et de statut), téléchargement Markdown et SARIF |
 
-**Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent des fichiers TOML)
+**Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent les règles, checklists et normes en fichiers TOML)
 
 | Page | À quoi elle sert |
 |---|---|
 | **Règles** | Les motifs du scan de code ([règles](../review/rules.md)) |
 | **Checklists** | Les points de contrôle suivis par les agents ([checklists](../review/checklists.md)) |
 | **Normes** | Les normes de développement données aux assistants IA ([normes](../review/standards.md)) |
+| **Base OSV** | État et mise à jour de la base de vulnérabilités, choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) (`settings.manage`) |
 
 Dans le formulaire d'édition, les champs de texte long (contenu d'une norme, conseil d'une
 règle, point de contrôle d'une checklist) ont un bouton plein écran : le texte s'ouvre dans un
@@ -97,8 +98,8 @@ qui les enregistre ou les annule.
 | **Général** | Langue des rapports, adresse du serveur Controller (et délégation de `scan_code` à celle-ci) et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
 | **Utilisateurs**, **Rôles** | Les comptes, leurs rôles et leurs projets ([rôles et permissions](access-control.md)) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
+| **Clients MCP** | Les clients MCP qui se connectent par le navigateur ([connexion OAuth](../advanced/mcp-oauth.md#administration)) : activation de la connexion, clients enregistrés et accès approuvés, révocation (`tokens.manage`) |
 | **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
-| **Base OSV** | État et mise à jour de la base de vulnérabilités, choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
 | **Moteurs de scan** | Les [moteurs de scan](../advanced/architecture/scan-engine.md#administration) enrôlés auprès du serveur Controller (graphe d'activité, version, adresse, dernière activité) et leur révocation (`settings.manage`) |
 | **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |

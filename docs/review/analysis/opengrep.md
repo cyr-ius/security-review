@@ -158,12 +158,21 @@ the command in the Controller server container
 
 ## Managing rules from the web interface
 
-The Controller exposes an authenticated rule-management page at `/ui/opengrep-rules`.
-Users with `rules.read` can inspect the YAML files in `SECREVIEW_OPENGREP_RULES_DIR`;
-users with `rules.manage` can create, edit, validate and delete them. Each managed YAML file
-contains exactly one rule, and its rule id must match the file identifier. Writes are validated
-with `opengrep validate <file>` before an atomic replacement. The Controller does not download
-rule packs or follow remote rule sources on behalf of the administrator.
+The Controller server exposes an authenticated rule-management page at `/ui/opengrep-rules`
+(**OpenGrep rules**). Users with `rules.read` can inspect the YAML files in
+`SECREVIEW_OPENGREP_RULES_DIR`; users with `rules.manage` can create, edit, validate and delete
+them. Each managed YAML file contains exactly one rule, and its rule id must match the file
+identifier. Writes are validated with `opengrep validate <file>` before an atomic replacement.
+The Controller server does not download rule packs or follow remote rule sources on behalf of
+the administrator.
+
+The rules are listed in a table: identifier, message, CWE, language, severity of the findings
+(`ERROR` gives **High**, `WARNING` **Medium**, `INFO` **Low**) and date of the last change,
+read from the YAML of each file (a field written otherwise shows `—`). The search field looks
+in the identifier, the message and the CWE; the filters keep one or several languages and
+severities, and every column but the message sorts the table. The pencil (the eye with
+`rules.read` only) opens the YAML of the rule in a dialog, with **Validate**, **Save rule**
+and **Delete rule**.
 
 ## Rules proposed by agents
 

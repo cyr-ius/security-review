@@ -4,6 +4,7 @@ import { defineMessages } from '../catalog';
 export const tokens = defineMessages({
   en: {
     'tokens.title': 'Project tokens',
+    'tokens.mcpClientsMoved': 'The MCP clients that log in with OAuth are on the page',
     'tokens.subtitle': 'Access to the selected projects or to every project',
     'tokens.newToken': 'New token',
     'tokens.copyNow': 'Copy this token now',
@@ -71,6 +72,7 @@ export const tokens = defineMessages({
   },
   fr: {
     'tokens.title': 'Jetons de projet',
+    'tokens.mcpClientsMoved': 'Les clients MCP qui se connectent par OAuth sont sur la page',
     'tokens.subtitle': 'Accès aux projets sélectionnés ou à tous les projets',
     'tokens.newToken': 'Nouveau jeton',
     'tokens.copyNow': 'Copiez ce jeton maintenant',
@@ -138,6 +140,7 @@ export const tokens = defineMessages({
   },
   es: {
     'tokens.title': 'Tokens de proyecto',
+    'tokens.mcpClientsMoved': 'Los clientes MCP que inician sesión con OAuth están en la página',
     'tokens.subtitle': 'Acceso a los proyectos seleccionados o a todos los proyectos',
     'tokens.newToken': 'Nuevo token',
     'tokens.copyNow': 'Copie este token ahora',
