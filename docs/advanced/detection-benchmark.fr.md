@@ -35,6 +35,34 @@ Mesuré le 12/11/2026 avec OpenGrep 1.31.0 et `--taint-intrafile`, et les règle
 `--taint-intrafile`, Java obtient 51 % (TPR 84 %, FPR 34 %) : suivre la valeur dans les méthodes
 d'aide d'un cas de test montre quand elles renvoient une constante. Python est inchangé.
 
+### Avec la revue par l'IA (estimation)
+
+Le scan produit des pistes que la [revue par l'IA](../review/index.md) confirme ou écarte
+en lisant le code. Pour estimer le score de cette chaîne complète, 194 cas de test signalés
+(109 Java, 85 Python) ont été tirés au hasard et triés à l'aveugle par un agent IA (Claude
+Sonnet), qui ne voyait que le code du fichier de test et les alertes, jamais le résultat
+attendu :
+
+| Benchmark | Vraies alertes gardées | Fausses alertes écartées | Score estimé (fourchette à 95 %) |
+|---|---|---|---|
+| Java 1.2 | 49 / 49 | 60 / 60 | **85 %** (78 à 85 %) |
+| Python 0.1 | 48 / 49 | 31 / 36 | **71 %** (60 à 75 %) |
+
+Les taux mesurés sur l'échantillon sont appliqués aux taux de vrais et de faux positifs de tout
+le benchmark ; la fourchette vient des intervalles de confiance à 95 % de ces taux. La revue ne
+peut pas augmenter la détection : le score estimé reste sous le taux de vrais positifs des
+règles.
+
+C'est une estimation, pas une mesure du benchmark :
+
+- l'échantillon est petit (60 cas Java sûrs, 36 cas Python sûrs) ;
+- les cas Java ont été triés sur les alertes des règles d'avant `--taint-intrafile` ;
+- l'agent voyait un fichier à la fois et avait pour consigne de supposer que les fonctions
+  d'aide font ce que leur nom indique, là où une vraie revue explore le dépôt ;
+- l'OWASP Benchmark est public : le modèle connaît peut-être ses idiomes, ce qui peut flatter le
+  tri ;
+- le score dépend du modèle de l'hôte qui fait la revue.
+
 ### Java, par catégorie (les deux moteurs)
 
 | Catégorie | CWE | TPR | FPR | Score |
