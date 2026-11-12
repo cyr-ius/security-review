@@ -58,6 +58,7 @@ without any rule, `scan-code` runs the built-in scanner only. Environment variab
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments of [`scan_code`](#fragment-scans-scan_code) scanned with OpenGrep at the same time, in their own slots so that the agents never take those of the codebase scans (`503` beyond: the MCP server scans with its rules); `0`: fragments are scanned with the rules only |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one OpenGrep scan (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one OpenGrep scan (`--max-memory`, `0`: no limit) |
+| `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Follow the data flow through the functions of a same file (`--taint-intrafile`, about 10 to 30 % longer); `false` for an older OpenGrep executable that lacks the option |
 
 The [default rules](#default-rules) are installed at start-up by the `-opengrep` image, or by
 `security-review-controller opengrep install`; add your own rule packs in the configured
@@ -88,8 +89,9 @@ what a line-by-line pattern cannot see:
   redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
   `secure_filename`, `path.basename`, `html.EscapeString`...) stops it. Local data (command line
   arguments, standard input, environment variables) is not a source: a command line tool that
-  acts on what its own user asks crosses no trust boundary. The value is followed inside a
-  function, not across functions or files ([detection benchmark](../../advanced/detection-benchmark.md));
+  acts on what its own user asks crosses no trust boundary. The value is followed within a
+  file, across its functions (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), but not from one file to
+  another ([detection benchmark](../../advanced/detection-benchmark.md));
 - **structure**: an option that is missing (an XML factory without
   `disallow-doctype-decl`, an archive extracted without a filter, an HTTP server without timeouts,
   a Dockerfile without `USER`) or a combination of arguments (CORS with any origin *and*

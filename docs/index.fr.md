@@ -182,11 +182,11 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 
 !!! warning "Ce que couvre l'analyse statique"
     Avec le [moteur OpenGrep](review/analysis/opengrep.md) (image `-opengrep`), Security Review
-    fait une **analyse statique (SAST)** qui suit le flux de données à l'intérieur d'une
-    fonction : 147 règles, dont 60 de propagation (taint), sur Java, Python,
+    fait une **analyse statique (SAST)** qui suit le flux de données dans un fichier, d'une
+    fonction à l'autre : 147 règles, dont 60 de propagation (taint), sur Java, Python,
     JavaScript/TypeScript, C#, Go et Rust,
     [mesurées sur l'OWASP Benchmark](advanced/detection-benchmark.md). Sans lui, le scan par
     motifs ne produit que des **pistes**, avec des faux positifs. Aucun des deux ne suit un flux
-    d'une fonction ou d'un fichier à l'autre, ni ne voit la logique métier ou un contrôle absent :
+    d'un fichier à l'autre, ni ne voit la logique métier ou un contrôle absent :
     cela reste le travail de la revue par l'IA et d'une relecture humaine. Ce n'est pas non plus
     une analyse SCA complète. Voir [Sécurité et limites](reference/security.md).

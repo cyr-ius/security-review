@@ -105,9 +105,9 @@ Autres cas : [sans conteneurs](https://cyr-ius.github.io/security-review/fr/adva
 
 ## Limites
 
-Avec le moteur OpenGrep (image `-opengrep`), le scan est une analyse statique (SAST) qui suit le flux de données à l'intérieur d'une fonction
+Avec le moteur OpenGrep (image `-opengrep`), le scan est une analyse statique (SAST) qui suit le flux de données dans un fichier, d'une fonction à l'autre
 ([résultats sur l'OWASP Benchmark](https://cyr-ius.github.io/security-review/fr/advanced/detection-benchmark/)) ; sans lui, le scan par motifs
-ne produit que des pistes, avec des faux positifs. Aucun des deux ne suit un flux d'une fonction ou d'un fichier à l'autre : la revue par l'IA
+ne produit que des pistes, avec des faux positifs. Aucun des deux ne suit un flux d'un fichier à l'autre : la revue par l'IA
 et une relecture humaine couvrent le reste. Ce n'est pas une analyse SCA complète. Voir
 [sécurité et limites](https://cyr-ius.github.io/security-review/fr/reference/security/).
 

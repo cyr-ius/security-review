@@ -13,10 +13,10 @@ tournent : les règles par motifs intégrées et les règles OpenGrep par défau
 | [Règles intégrées](../review/rules.md) (toujours actives) | Motifs ligne par ligne (expressions régulières) | Pistes : algorithmes faibles, appels risqués, secrets, configuration. Larges, avec des faux positifs |
 | [Règles OpenGrep](../review/analysis/opengrep.md#regles-par-defaut) (image `-opengrep`) | Arbre syntaxique, et flux de données pour les 60 règles de propagation (taint) | Analyse statique (SAST) : une valeur lue dans la requête est suivie jusqu'à un appel dangereux, un assainissement en chemin l'arrête |
 
-L'analyse de propagation suit une valeur **à l'intérieur d'une fonction** : à travers les
-variables, la construction de chaînes, les listes et les dictionnaires. Elle ne suit pas une
-valeur passée à une autre fonction, ni d'un fichier à l'autre (contrôleur, puis service, puis
-couche d'accès aux données). La revue par l'IA, guidée par les
+L'analyse de propagation suit une valeur **dans un fichier** : à travers les variables, la
+construction de chaînes, les listes et les dictionnaires, et à travers les fonctions du fichier
+(`--taint-intrafile`, `SECREVIEW_OPENGREP_TAINT_INTRAFILE`). Elle ne suit pas une valeur d'un
+fichier à l'autre (contrôleur, puis service, puis couche d'accès aux données). La revue par l'IA, guidée par les
 [checklists](../review/checklists.md), et une relecture humaine couvrent ces flux, la logique
 métier et les contrôles absents (autorisation, par exemple).
 
@@ -27,27 +27,29 @@ par catégorie, puis moyenne des catégories. Un outil qui signale tout, ou rien
 
 | Benchmark | Cas de test | Règles intégrées | Règles OpenGrep | Les deux moteurs |
 |---|---|---|---|---|
-| Java 1.2 | 2 740 | 23 % | 42 % | **51 %** (TPR 84 %, FPR 34 %) |
+| Java 1.2 | 2 740 | 23 % | 59 % | **67 %** (TPR 85 %, FPR 19 %) |
 | Python 0.1 | 1 230 | 16 % | 31 % | **45 %** (TPR 77 %, FPR 31 %) |
 
-Mesuré le 11/11/2026 avec OpenGrep 1.31.0 et les règles du commit `0a0614b1` (147 règles
-OpenGrep, règles intégrées de `default_rules.toml`).
+Mesuré le 12/11/2026 avec OpenGrep 1.31.0 et `--taint-intrafile`, et les règles du commit
+`0a0614b1` (147 règles OpenGrep, règles intégrées de `default_rules.toml`). Sans
+`--taint-intrafile`, Java obtient 51 % (TPR 84 %, FPR 34 %) : suivre la valeur dans les méthodes
+d'aide d'un cas de test montre quand elles renvoient une constante. Python est inchangé.
 
 ### Java, par catégorie (les deux moteurs)
 
 | Catégorie | CWE | TPR | FPR | Score |
 |---|---|---|---|---|
-| Injection de commande | 78 | 60 % | 46 % | 15 % |
+| Injection de commande | 78 | 63 % | 35 % | 27 % |
 | Chiffrement faible | 327 | 75 % | 0 % | 75 % |
 | Hachage faible | 328 | 69 % | 0 % | 69 % |
-| Injection LDAP | 90 | 89 % | 53 % | 36 % |
-| Traversée de chemin | 22 | 80 % | 61 % | 19 % |
+| Injection LDAP | 90 | 89 % | 22 % | 67 % |
+| Traversée de chemin | 22 | 82 % | 31 % | 51 % |
 | Cookie non sécurisé | 614 | 100 % | 0 % | 100 % |
-| Injection SQL | 89 | 89 % | 54 % | 35 % |
-| Violation de frontière de confiance | 501 | 87 % | 53 % | 33 % |
+| Injection SQL | 89 | 94 % | 26 % | 68 % |
+| Violation de frontière de confiance | 501 | 87 % | 47 % | 40 % |
 | Aléa faible | 330 | 100 % | 0 % | 100 % |
-| Injection XPath | 643 | 93 % | 50 % | 43 % |
-| Cross-site scripting | 79 | 86 % | 54 % | 32 % |
+| Injection XPath | 643 | 93 % | 15 % | 78 % |
+| Cross-site scripting | 79 | 89 % | 32 % | 57 % |
 
 ### Python, par catégorie (les deux moteurs)
 
@@ -70,11 +72,12 @@ OpenGrep, règles intégrées de `default_rules.toml`).
 
 ## Lecture des résultats
 
-- **Beaucoup de faux positifs viennent de l'analyse limitée à une fonction.** Un cas de test
-  est sûr quand la valeur est abandonnée ou remplacée en chemin (une branche jamais prise, un
-  élément de liste qui n'est pas celui relu, une valeur remplacée dans un dictionnaire). OpenGrep
-  n'évalue pas les conditions et ne distingue pas les clés d'un conteneur : un tel cas est
-  signalé, et laissé à la revue.
+- **La plupart des faux positifs restants viennent des conditions et des conteneurs.** Un cas
+  de test est sûr quand la valeur est abandonnée ou remplacée en chemin (une branche jamais
+  prise, un élément de liste qui n'est pas celui relu, une valeur remplacée dans un
+  dictionnaire). OpenGrep n'évalue pas les conditions et ne distingue pas les clés d'un
+  conteneur : un tel cas est signalé, et laissé à la revue. Les méthodes d'aide qui renvoient une
+  constante ne sont plus signalées, puisque l'analyse suit les fonctions du fichier.
 - **Les deux moteurs se complètent.** Les règles OpenGrep strictes ne signalent un hachage ou un
   aléa faible que pour un secret nommé (mot de passe, jeton, clé) ; les règles intégrées, larges,
   signalent chaque usage, ce qu'attend le benchmark. Le gate ne bloque pas ces pistes de
@@ -99,7 +102,7 @@ l'environnement ne sont pas des sources.
 ## Méthode
 
 1. Scanner le code du benchmark avec les règles OpenGrep par défaut du langage
-   (`opengrep scan --json --config src/security_review_mcp/rules/opengrep/<language> <benchmark>`),
+   (`opengrep scan --json --taint-intrafile --config src/security_review_mcp/rules/opengrep/<language> <benchmark>`),
    et chaque fichier de test avec les règles intégrées (`scanner.scan_content_detailed`).
 2. Un cas de test est **signalé** quand un finding sur son fichier porte la CWE de sa catégorie,
    ou une CWE fille (338 pour 330, 95 pour 94, 77 pour 78, 80 pour 79, 326 pour 327, 916 pour

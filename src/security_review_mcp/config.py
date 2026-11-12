@@ -501,6 +501,10 @@ class Settings(BaseSettings):
     opengrep_max_concurrent_fragment_scans: int = Field(default=1, ge=0, le=64)
     opengrep_jobs: int = Field(default=2, ge=1, le=256)
     opengrep_max_memory_mb: int = Field(default=2048, ge=0)
+    # Follow taint through the functions of a same file (--taint-intrafile of OpenGrep):
+    # fewer false positives when a helper returns a constant, more findings when it passes the
+    # request value on. Disable it for an older OpenGrep executable that lacks the option.
+    opengrep_taint_intrafile: bool = True
     # MCP server: OpenGrep rules proposed by agents (propose_opengrep_rule) and waiting for a
     # person at the same time; a new proposal is refused beyond
     opengrep_max_pending_proposals: int = Field(default=100, ge=1, le=10_000)

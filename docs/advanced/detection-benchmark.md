@@ -13,8 +13,9 @@ run: the built-in pattern rules and the default OpenGrep rules.
 | [Built-in rules](../review/rules.md) (always enabled) | Line-by-line patterns (regular expressions) | Leads: weak algorithms, risky calls, secrets, configuration. Broad, with false positives |
 | [OpenGrep rules](../review/analysis/opengrep.md#default-rules) (`-opengrep` image) | Syntax tree, and data flow for the 60 taint rules | Static analysis (SAST): a value read from the request is followed to a dangerous call, a sanitizer on the way stops it |
 
-The taint analysis follows a value **inside a function**: through variables, string building,
-lists and dictionaries. It does not follow a value passed to another function, nor across files
+The taint analysis follows a value **within a file**: through variables, string building, lists
+and dictionaries, and through the functions of the file (`--taint-intrafile`,
+`SECREVIEW_OPENGREP_TAINT_INTRAFILE`). It does not follow a value from one file to another
 (controller, then service, then data access layer). The AI review, guided by the
 [checklists](../review/checklists.md), and a human reviewer cover these flows, the business logic
 and the missing checks (authorization, for example).
@@ -26,27 +27,29 @@ category, then averaged over the categories. A tool that flags everything, or no
 
 | Benchmark | Test cases | Built-in rules | OpenGrep rules | Both engines |
 |---|---|---|---|---|
-| Java 1.2 | 2,740 | 23 % | 42 % | **51 %** (TPR 84 %, FPR 34 %) |
+| Java 1.2 | 2,740 | 23 % | 59 % | **67 %** (TPR 85 %, FPR 19 %) |
 | Python 0.1 | 1,230 | 16 % | 31 % | **45 %** (TPR 77 %, FPR 31 %) |
 
-Measured on 2026-11-11 with OpenGrep 1.31.0 and the rules of commit `0a0614b1` (147 OpenGrep
-rules, built-in rules of `default_rules.toml`).
+Measured on 2026-11-12 with OpenGrep 1.31.0 and `--taint-intrafile`, and the rules of commit
+`0a0614b1` (147 OpenGrep rules, built-in rules of `default_rules.toml`). Without
+`--taint-intrafile`, Java scores 51 % (TPR 84 %, FPR 34 %): following the value into the helper
+methods of a test case shows when they return a constant. Python is unchanged.
 
 ### Java, per category (both engines)
 
 | Category | CWE | TPR | FPR | Score |
 |---|---|---|---|---|
-| Command injection | 78 | 60 % | 46 % | 15 % |
+| Command injection | 78 | 63 % | 35 % | 27 % |
 | Weak cipher | 327 | 75 % | 0 % | 75 % |
 | Weak hash | 328 | 69 % | 0 % | 69 % |
-| LDAP injection | 90 | 89 % | 53 % | 36 % |
-| Path traversal | 22 | 80 % | 61 % | 19 % |
+| LDAP injection | 90 | 89 % | 22 % | 67 % |
+| Path traversal | 22 | 82 % | 31 % | 51 % |
 | Insecure cookie | 614 | 100 % | 0 % | 100 % |
-| SQL injection | 89 | 89 % | 54 % | 35 % |
-| Trust boundary violation | 501 | 87 % | 53 % | 33 % |
+| SQL injection | 89 | 94 % | 26 % | 68 % |
+| Trust boundary violation | 501 | 87 % | 47 % | 40 % |
 | Weak random | 330 | 100 % | 0 % | 100 % |
-| XPath injection | 643 | 93 % | 50 % | 43 % |
-| Cross-site scripting | 79 | 86 % | 54 % | 32 % |
+| XPath injection | 643 | 93 % | 15 % | 78 % |
+| Cross-site scripting | 79 | 89 % | 32 % | 57 % |
 
 ### Python, per category (both engines)
 
@@ -69,11 +72,12 @@ rules, built-in rules of `default_rules.toml`).
 
 ## Reading the results
 
-- **Many false positives come from the analysis within a function.** A test case is safe when
-  the value is dropped or replaced along the way (a branch that is never taken, a list element
-  that is not the one read back, a value replaced in a dictionary). OpenGrep does not evaluate
-  conditions and does not tell the keys of a container apart: such a case is flagged, and left
-  to the review.
+- **Most remaining false positives come from conditions and containers.** A test case is safe
+  when the value is dropped or replaced along the way (a branch that is never taken, a list
+  element that is not the one read back, a value replaced in a dictionary). OpenGrep does not
+  evaluate conditions and does not tell the keys of a container apart: such a case is flagged,
+  and left to the review. Helper methods that return a constant are no longer flagged, since the
+  analysis follows the functions of the file.
 - **The two engines complement each other.** The strict OpenGrep rules flag a weak hash or a
   weak random value only for a named secret (password, token, key); the broad built-in rules flag
   every use, which is what the benchmark expects. The gate does not block these medium leads at
@@ -96,7 +100,7 @@ which command line arguments and the environment are not sources.
 ## Method
 
 1. Scan the source of the benchmark with the default OpenGrep rules of the language
-   (`opengrep scan --json --config src/security_review_mcp/rules/opengrep/<language> <benchmark>`),
+   (`opengrep scan --json --taint-intrafile --config src/security_review_mcp/rules/opengrep/<language> <benchmark>`),
    and each test file with the built-in rules (`scanner.scan_content_detailed`).
 2. A test case is **flagged** when a finding on its file has the CWE of its category, or a child
    CWE (338 for 330, 95 for 94, 77 for 78, 80 for 79, 326 for 327, 916 for 328).

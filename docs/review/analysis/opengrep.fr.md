@@ -58,6 +58,7 @@ règle, `scan-code` n'exécute que le scanner intégré. Variables d'environneme
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de [`scan_code`](#scans-de-fragments-scan_code) scannés par OpenGrep en même temps, dans leurs propres créneaux pour que les agents ne prennent jamais ceux des scans du dépôt (`503` au-delà : le serveur MCP scanne avec ses règles) ; `0` : les fragments ne sont scannés qu'avec les règles |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan OpenGrep (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
+| `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Suit le flux de données à travers les fonctions d'un même fichier (`--taint-intrafile`, environ 10 à 30 % plus long) ; `false` pour un exécutable OpenGrep plus ancien qui ne connaît pas l'option |
 
 Les [règles par défaut](#regles-par-defaut) sont installées au démarrage par l'image
 `-opengrep`, ou par `security-review-controller opengrep install` ; ajoutez vos propres packs de
@@ -90,8 +91,8 @@ avec ce qu'un motif ligne par ligne ne voit pas :
   `html.EscapeString`...) l'arrête. Les données locales (arguments de la ligne de commande,
   entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
   commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
-  confiance. La valeur est suivie à l'intérieur d'une fonction, ni d'une fonction ni d'un fichier
-  à l'autre ([mesure de la détection](../../advanced/detection-benchmark.md)) ;
+  confiance. La valeur est suivie dans un fichier, d'une fonction à l'autre
+  (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../advanced/detection-benchmark.md)) ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
   combinaison d'arguments (CORS avec toute origine *et* identifiants).

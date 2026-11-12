@@ -103,9 +103,9 @@ Other cases: [without containers](https://cyr-ius.github.io/security-review/adva
 
 ## Limits
 
-With the OpenGrep engine (`-opengrep` image), the scan is a static analysis (SAST) that follows the data flow inside a function
+With the OpenGrep engine (`-opengrep` image), the scan is a static analysis (SAST) that follows the data flow within a file, across its functions
 ([OWASP Benchmark results](https://cyr-ius.github.io/security-review/advanced/detection-benchmark/)); without it, the pattern scan
-only produces leads, with false positives. Neither follows a flow across functions or files: the AI review and a human review
+only produces leads, with false positives. Neither follows a flow from one file to another: the AI review and a human review
 cover the rest. It is not a full SCA analysis. See
 [security and limits](https://cyr-ius.github.io/security-review/reference/security/).
 
