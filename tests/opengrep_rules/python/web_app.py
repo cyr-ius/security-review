@@ -5,6 +5,7 @@ import pickle
 import shlex
 import subprocess
 import tarfile
+import zipfile
 from typing import Annotated
 
 import httpx
@@ -197,15 +198,25 @@ def unpack(path, target):
     with tarfile.open(path) as archive:
         # ok: secreview.python.archive-extract-unfiltered
         archive.extractall(target, filter="data")
+    with tarfile.open(path) as archive:
+        # ok: secreview.python.archive-extract-unfiltered
+        archive.extractall(target, filter=lambda member, dest: member)
+    with zipfile.ZipFile(path) as bundle:
+        # ok: secreview.python.archive-extract-unfiltered
+        bundle.extractall(target)
 
 
-def digest(data):
+def digest(data, salt, password):
     # ruleid: secreview.python.weak-hash-for-security
     signature = hashlib.md5(data).hexdigest()
     # ok: secreview.python.weak-hash-for-security
     etag = hashlib.md5(data, usedforsecurity=False).hexdigest()
+    # ruleid: secreview.python.weak-hash-for-security
+    digest = hashlib.sha1(salt + password).hexdigest()
     # ok: secreview.python.weak-hash-for-security
-    return signature, etag, hashlib.sha256(data).hexdigest()
+    cache_key = hashlib.sha1(data).hexdigest()
+    # ok: secreview.python.weak-hash-for-security
+    return signature, etag, digest, cache_key, hashlib.sha256(data).hexdigest()
 
 
 @app.get("/session")

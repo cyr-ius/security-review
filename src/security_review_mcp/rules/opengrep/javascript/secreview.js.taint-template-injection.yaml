@@ -1,0 +1,60 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-template-injection
+    message: >-
+      Request data is compiled as a template (ejs, pug, Handlebars, lodash template, nunjucks): the
+      template language can run code on the server (server-side template injection). Keep templates
+      in files or constants and pass the request data as the template context.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1336: Improper Neutralization of Special Elements Used in a Template Engine"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$FIELD
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|params|headers|cookies|signedCookies|files|file|originalUrl|url|path|hostname)$
+          - patterns:
+              - pattern: $REQ.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(param|get|header)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      $METHOD(..., $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      async $METHOD(..., $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(Get|Post|Put|Patch|Delete|All|Head|Options)$
+              - pattern: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: ejs.render($TEMPLATE, ...)
+              - pattern: ejs.compile($TEMPLATE, ...)
+              - pattern: pug.render($TEMPLATE, ...)
+              - pattern: pug.compile($TEMPLATE, ...)
+              - pattern: Handlebars.compile($TEMPLATE, ...)
+              - pattern: handlebars.compile($TEMPLATE, ...)
+              - pattern: _.template($TEMPLATE, ...)
+              - pattern: nunjucks.renderString($TEMPLATE, ...)
+              - pattern: new Function($TEMPLATE)
+          - focus-metavariable: $TEMPLATE

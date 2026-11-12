@@ -1,0 +1,23 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.http-request-without-timeout
+    message: >-
+      An HTTP request is sent with requests without a timeout: requests waits forever by default, so
+      a slow or hostile server blocks the worker (denial of service). Pass timeout= to every call, or
+      use httpx, which applies a default timeout.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-400: Uncontrolled Resource Consumption"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern: requests.$METHOD(...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(get|post|put|patch|delete|head|options|request)$
+      - pattern-not: requests.$METHOD(..., timeout=$T, ...)
+      - pattern-not: requests.$METHOD(..., **$KWARGS)

@@ -193,6 +193,7 @@ Engine of the Controller server for `scan-code`, disabled by default and skipped
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments of `scan_code` [delegated by the MCP server](../review/analysis/opengrep.md#fragment-scans-scan_code) scanned at the same time, in their own slots (`503` beyond); `0`: rules only for the fragments |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cores used by one scan |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one scan (`0`: no limit) |
+| `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Follow the data flow through the functions of a same file (`--taint-intrafile`); `false` for an older OpenGrep executable that lacks the option |
 | `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS` | `100` | MCP server: OpenGrep rules proposed by agents (`propose_opengrep_rule`) and waiting for a decision at the same time; a new proposal is refused beyond |
 
 ## Clients

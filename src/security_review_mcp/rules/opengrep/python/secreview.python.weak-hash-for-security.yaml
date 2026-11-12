@@ -2,9 +2,9 @@
 rules:
   - id: secreview.python.weak-hash-for-security
     message: >-
-      MD5 or SHA-1 is used without usedforsecurity=False: both are broken for signatures,
-      integrity and passwords. Use SHA-256 or better (and a password hash such as Argon2id, scrypt
-      or bcrypt for passwords), or mark a non-security use with usedforsecurity=False.
+      MD5 or SHA-1 hashes a password, secret, token or signature: both are broken for this use
+      (collisions, fast brute force). Use SHA-256 or better, HMAC for signatures and a password hash
+      such as Argon2id, scrypt or bcrypt for passwords.
     languages: [python]
     severity: WARNING
     metadata:
@@ -14,12 +14,30 @@ rules:
       confidence: LOW
       source: Security Review
       license: Apache-2.0
-    patterns:
-      - pattern-either:
-          - pattern: hashlib.md5(...)
-          - pattern: hashlib.sha1(...)
-          - pattern: hashlib.new("md5", ...)
-          - pattern: hashlib.new("sha1", ...)
-          - pattern: hashlib.new("MD5", ...)
-          - pattern: hashlib.new("SHA1", ...)
-      - pattern-not: hashlib.$FUNC(..., usedforsecurity=False, ...)
+    # MD5 and SHA-1 stay fine for cache keys, checksums and ETags: only a secret counts
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: hashlib.md5($...ARGS)
+              - pattern: hashlib.sha1($...ARGS)
+              - pattern: hashlib.new("md5", $...ARGS)
+              - pattern: hashlib.new("sha1", $...ARGS)
+              - pattern: hashlib.new("MD5", $...ARGS)
+              - pattern: hashlib.new("SHA1", $...ARGS)
+          - pattern-not: hashlib.$FUNC(..., usedforsecurity=False, ...)
+          - metavariable-regex:
+              metavariable: $...ARGS
+              regex: (?i).*(password|passwd|pwd|secret|token|signature|hmac|otp|nonce|salt|api_?key|credential).*
+      - patterns:
+          - pattern-either:
+              - pattern: hashlib.md5($...ARGS)
+              - pattern: hashlib.sha1($...ARGS)
+              - pattern: hashlib.new("md5", $...ARGS)
+              - pattern: hashlib.new("sha1", $...ARGS)
+              - pattern: hashlib.new("MD5", $...ARGS)
+              - pattern: hashlib.new("SHA1", $...ARGS)
+          - pattern-not: hashlib.$FUNC(..., usedforsecurity=False, ...)
+          - pattern-inside: $TARGET = ...
+          - metavariable-regex:
+              metavariable: $TARGET
+              regex: (?i).*(password|passwd|pwd|secret|token|signature|hmac|otp|nonce|salt|api_?key|credential).*

@@ -1,0 +1,19 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.jwt-signature-not-verified
+    message: >-
+      The JWT is read without checking its signature (ParseUnverified, or the "none" algorithm
+      accepted): anyone can forge its claims. Use jwt.Parse or ParseWithClaims with a key function
+      that checks the signing method, and never accept UnsafeAllowNoneSignatureType.
+    languages: [go]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-347: Improper Verification of Cryptographic Signature"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $PARSER.ParseUnverified(...)
+      - pattern: jwt.UnsafeAllowNoneSignatureType

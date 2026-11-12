@@ -31,18 +31,27 @@ rules:
           - patterns:
               - pattern-either:
                   - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
                   - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
               - metavariable-regex:
                   metavariable: $GETTER
-                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
     pattern-sinks:
       - patterns:
           - pattern-either:
               - pattern: (Context $CTX).lookup($NAME)
+              - pattern: (javax.naming.Context $CTX).lookup($NAME)
               - pattern: (InitialContext $CTX).lookup($NAME)
+              - pattern: (javax.naming.InitialContext $CTX).lookup($NAME)
               - pattern: new InitialContext().lookup($NAME)
+              - pattern: new javax.naming.InitialContext().lookup($NAME)
               - pattern: (DirContext $CTX).search($BASE, $NAME, ...)
+              - pattern: (javax.naming.directory.DirContext $CTX).search($BASE, $NAME, ...)
               - pattern: (InitialDirContext $CTX).search($BASE, $NAME, ...)
+              - pattern: (javax.naming.directory.InitialDirContext $CTX).search($BASE, $NAME, ...)
               - pattern: (LdapTemplate $LDAP).search($BASE, $NAME, ...)
               - pattern: (JndiTemplate $JNDI).lookup($NAME, ...)
           - focus-metavariable: $NAME

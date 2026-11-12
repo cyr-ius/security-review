@@ -30,16 +30,22 @@ rules:
           - patterns:
               - pattern-either:
                   - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
                   - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
               - metavariable-regex:
                   metavariable: $GETTER
-                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
     pattern-sinks:
       - patterns:
           - pattern-either:
               - pattern: $STMT.executeQuery($QUERY)
               - pattern: $STMT.executeUpdate($QUERY, ...)
-              - pattern: $STMT.execute($QUERY, ...)
+              - pattern: (Statement $STMT).execute($QUERY, ...)
+              - pattern: (java.sql.Statement $STMT).execute($QUERY, ...)
+              - pattern: $CONN.createStatement(...).execute($QUERY, ...)
               - pattern: $STMT.addBatch($QUERY)
               - pattern: $CONN.prepareStatement($QUERY, ...)
               - pattern: $CONN.prepareCall($QUERY, ...)
@@ -48,6 +54,20 @@ rules:
               - pattern: (JdbcTemplate $JDBC).$METHOD($QUERY, ...)
               - pattern: (NamedParameterJdbcTemplate $JDBC).$METHOD($QUERY, ...)
               - pattern: (JdbcClient $JDBC).sql($QUERY)
+              # JdbcTemplate reached through a field of another class: its type is not visible
+              - patterns:
+                  - pattern: $JDBC.$METHOD($QUERY, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(queryForObject|queryForList|queryForMap|queryForRowSet|queryForLong|queryForInt|queryForStream|batchUpdate)$
+              - patterns:
+                  - pattern: $JDBC.$METHOD($QUERY, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(query|update|execute)$
+                  - metavariable-regex:
+                      metavariable: $JDBC
+                      regex: (?i).*jdbc.*
           - focus-metavariable: $QUERY
     pattern-sanitizers:
       - pattern-either:

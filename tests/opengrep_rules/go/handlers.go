@@ -4,6 +4,7 @@ package main
 import (
 	"archive/zip"
 	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/tls"
 	"database/sql"
@@ -75,6 +76,9 @@ func hello(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<p>Hello %s</p>", html.EscapeString(name))
 	// ruleid: secreview.go.taint-xss
 	_ = template.HTML(name)
+	logFile, _ := os.Create("/tmp/access.log")
+	// ok: secreview.go.taint-xss
+	fmt.Fprintf(logFile, "visit %s\n", name)
 }
 
 func client() *http.Client {
@@ -113,9 +117,14 @@ func serve(handler http.Handler) {
 	server.ListenAndServe()
 }
 
-func digest(data []byte) {
+func digest(data []byte, password string) {
 	// ruleid: secreview.go.weak-crypto
-	md5.Sum(data)
+	md5.Sum([]byte(password))
+	// ruleid: secreview.go.weak-crypto
+	tokenHash := sha1.Sum(data)
+	// ok: secreview.go.weak-crypto
+	checksum := md5.Sum(data)
+	_, _ = tokenHash, checksum
 	// ok: secreview.go.weak-crypto
 	sha256.Sum256(data)
 }

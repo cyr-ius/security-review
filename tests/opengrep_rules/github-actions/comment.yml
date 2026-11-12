@@ -1,0 +1,22 @@
+# Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
+name: Comment command
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+jobs:
+  # ok: secreview.github-actions.issue-comment-checkout
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          # ruleid: secreview.github-actions.issue-comment-checkout
+          ref: refs/pull/${{ github.event.issue.number }}/head
+      # ruleid: secreview.github-actions.issue-comment-checkout
+      - run: gh pr checkout ${{ github.event.issue.number }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          # ok: secreview.github-actions.issue-comment-checkout
+          ref: main

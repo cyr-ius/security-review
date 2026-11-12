@@ -1,0 +1,22 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.http-client-without-timeout
+    message: >-
+      An outgoing request uses the http.Get, http.Post, http.PostForm or http.Head helpers: they use
+      http.DefaultClient, which has no timeout and takes no context, so a slow or hostile server
+      blocks the goroutine (denial of service). Use an http.Client with Timeout, or a request built
+      with http.NewRequestWithContext and a deadline.
+    languages: [go]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-400: Uncontrolled Resource Consumption"
+      owasp: "A05:2021 - Security Misconfiguration"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: http.Get(...)
+      - pattern: http.Post(...)
+      - pattern: http.PostForm(...)
+      - pattern: http.Head(...)

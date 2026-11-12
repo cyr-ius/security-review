@@ -16,10 +16,17 @@ rules:
       license: Apache-2.0
     patterns:
       - pattern-either:
-          - pattern-inside: $TARGET.addEventListener("message", ($E) => { ... }, ...)
-          - pattern-inside: $TARGET.addEventListener("message", function ($E) { ... }, ...)
-          - pattern-inside: $TARGET.onmessage = ($E) => { ... }
-          - pattern-inside: $TARGET.onmessage = function ($E) { ... }
+          # Only the window receives cross-origin messages: a Worker, a MessagePort, a WebSocket
+          # or an EventSource only talks to its own origin or server
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: $TARGET.addEventListener("message", ($E) => { ... }, ...)
+                  - pattern-inside: $TARGET.addEventListener("message", function ($E) { ... }, ...)
+                  - pattern-inside: $TARGET.onmessage = ($E) => { ... }
+                  - pattern-inside: $TARGET.onmessage = function ($E) { ... }
+              - metavariable-regex:
+                  metavariable: $TARGET
+                  regex: ^(window|globalThis|top|parent)$
           - pattern-inside: |
               @HostListener("window:message", ...)
               $METHOD($E, ...) { ... }

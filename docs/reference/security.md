@@ -323,9 +323,12 @@
 
 ## Known limits
 
-- The pattern scan produces leads and false positives; it replaces neither a SAST, nor a full
-  SCA analysis (no transitive resolution of the manifests, database to keep up to date), nor a
-  human review.
+- The pattern scan produces leads and false positives. With the
+  [OpenGrep engine](../review/analysis/opengrep.md), the scan is a static analysis (SAST) that
+  follows the data flow within a file, across its functions, but not from one file to another
+  ([measured on the OWASP Benchmark](../advanced/detection-benchmark.md)). Neither replaces a
+  full SCA analysis (no transitive resolution of the manifests, database to keep up to date) nor
+  a human review.
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.

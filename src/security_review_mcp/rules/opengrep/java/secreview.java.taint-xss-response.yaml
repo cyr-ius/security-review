@@ -30,16 +30,25 @@ rules:
           - patterns:
               - pattern-either:
                   - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
                   - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
               - metavariable-regex:
                   metavariable: $GETTER
-                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
     pattern-sinks:
       - patterns:
           - pattern-either:
-              - pattern: (HttpServletResponse $RESP).getWriter().$WRITE($HTML)
-              - pattern: (PrintWriter $WRITER).$WRITE($HTML)
-              - pattern: (ServletOutputStream $OUT).$WRITE($HTML)
+              - pattern: (HttpServletResponse $RESP).getWriter().$WRITE(..., $HTML, ...)
+              - pattern: (javax.servlet.http.HttpServletResponse $RESP).getWriter().$WRITE(..., $HTML, ...)
+              - pattern: (jakarta.servlet.http.HttpServletResponse $RESP).getWriter().$WRITE(..., $HTML, ...)
+              - pattern: (PrintWriter $WRITER).$WRITE(..., $HTML, ...)
+              - pattern: (java.io.PrintWriter $WRITER).$WRITE(..., $HTML, ...)
+              - pattern: (ServletOutputStream $OUT).$WRITE(..., $HTML, ...)
+              - pattern: (javax.servlet.ServletOutputStream $OUT).$WRITE(..., $HTML, ...)
+              - pattern: (jakarta.servlet.ServletOutputStream $OUT).$WRITE(..., $HTML, ...)
           - metavariable-regex:
               metavariable: $WRITE
               regex: ^(write|print|println|append|format|printf)$

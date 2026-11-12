@@ -76,6 +76,7 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
         opengrep_max_concurrent_scans=1,
         opengrep_jobs=2,
         opengrep_max_memory_mb=512,
+        opengrep_taint_intrafile=True,
         max_scan_file_chars=1000,
     )
     monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
@@ -91,6 +92,9 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
         assert kwargs["env"]["XDG_CACHE_HOME"] == "/opt/opengrep/cache"
         assert command[1:4] == ["scan", "--json", "--config"]
         assert command[5:9] == ["--jobs", "2", "--max-memory", "512"]
+        # Inter-procedural taint within a file, unless disabled (older executables lack it)
+        intrafile = ["--taint-intrafile"] if settings.opengrep_taint_intrafile else []
+        assert command[9:] == [*intrafile, str(workspace)]
         payload = {
             "results": [
                 {
@@ -113,6 +117,8 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
     result = opengrep.scan_files([("app.py", "print('ok')\nrun(command)\n")])
     assert result["app.py"][0]["rule_id"] == "OPENGREP:python.security.demo"
     assert result["app.py"][0]["severity"] == "medium"
+    settings.opengrep_taint_intrafile = False
+    assert opengrep.scan_files([("app.py", "run(command)\n")])["app.py"]
 
 
 def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
@@ -130,6 +136,7 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
         opengrep_max_concurrent_fragment_scans=1,
         opengrep_jobs=1,
         opengrep_max_memory_mb=0,
+        opengrep_taint_intrafile=False,
     )
     monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
     monkeypatch.setattr(opengrep.shutil, "which", lambda _: str(binary))
@@ -209,6 +216,7 @@ def test_scan_files_reports_the_rule_id_without_the_rules_directory(tmp_path, mo
         opengrep_max_concurrent_scans=1,
         opengrep_jobs=1,
         opengrep_max_memory_mb=0,
+        opengrep_taint_intrafile=True,
     )
     monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
     source = (

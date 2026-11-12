@@ -1,0 +1,82 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.taint-mass-assignment
+    message: >-
+      The whole request body is passed to a model (Model(**data), objects.create(**data),
+      __dict__.update, setattr with request keys): a client can set fields it should not control, such
+      as is_admin, role or owner_id (mass assignment). Copy only the allowed fields, or validate the
+      body with a schema that lists them (pydantic, a Django form or DRF serializer with fields).
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.json
+          - pattern: flask.request.get_json(...)
+          - pattern: flask.request.form
+          - pattern: flask.request.form.to_dict(...)
+          - patterns:
+              - pattern-either:
+                  - pattern: $REQ.json
+                  - pattern: $REQ.get_json(...)
+                  - pattern: $REQ.POST
+                  - pattern: $REQ.POST.dict()
+                  - pattern: $REQ.data
+                  - pattern: await $REQ.json()
+                  - pattern: await $REQ.form()
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+          - pattern: json.loads(request.body)
+    pattern-propagators:
+      # A request value added to a list or a dict taints the container (argument lists, kwargs)
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      # A request value stored in a container (configparser, cache, set, dict) taints it
+      - pattern: $TO.set(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.update($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.setdefault($KEY, $FROM)
+        from: $FROM
+        to: $TO
+      # A value written to a text buffer (io.StringIO) taints what is read back
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern: $CLASS(**$DATA)
+                  - metavariable-regex:
+                      metavariable: $CLASS
+                      regex: ^([\w.]*\.)?[A-Z]\w*$
+              - pattern: $MODEL.objects.create(**$DATA)
+              - pattern: $MODEL.objects.update_or_create(..., defaults=$DATA, ...)
+              - pattern: $MODEL.objects.filter(...).update(**$DATA)
+              - pattern: $OBJ.__dict__.update($DATA)
+              - pattern: setattr($OBJ, $DATA, $VALUE)
+          - focus-metavariable: $DATA

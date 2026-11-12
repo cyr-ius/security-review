@@ -171,6 +171,13 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 | Scan a whole repository, the dependencies, add my company's rules | [Whole codebase analysis](review/analysis/code-scan.md), [Dependency analysis](review/analysis/dependencies.md), [Rules](review/rules.md) |
 | SARIF, trends, audit log, Prometheus | [SARIF export](advanced/reports/sarif.md), [Trend report](advanced/architecture/ci.md#trend-report), [Audit log](usage/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |
 
-!!! warning "This is not a SAST"
-    The pattern scan produces **leads** and false positives. It replaces neither a SAST, nor a
-    full SCA analysis, nor a human review. See [Security and limits](reference/security.md).
+!!! warning "What the static analysis covers"
+    With the [OpenGrep engine](review/analysis/opengrep.md) (`-opengrep` image), Security Review
+    runs a **static analysis (SAST)** that follows the data flow within a file, across its
+    functions: 147 rules, 60
+    of them taint rules, on Java, Python, JavaScript/TypeScript, C#, Go and Rust,
+    [measured on the OWASP Benchmark](advanced/detection-benchmark.md). Without it, the pattern
+    scan only produces **leads**, with false positives. Neither follows a flow from one file to
+    another, nor sees business logic or a missing check: that remains the work of the AI review
+    and of a human reviewer. It is not a full SCA analysis either. See
+    [Security and limits](reference/security.md).

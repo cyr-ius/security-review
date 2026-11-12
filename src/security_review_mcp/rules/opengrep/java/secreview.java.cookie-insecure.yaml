@@ -16,6 +16,10 @@ rules:
       license: Apache-2.0
     pattern-either:
       - pattern: (Cookie $COOKIE).setSecure(false)
+      - pattern: (javax.servlet.http.Cookie $COOKIE).setSecure(false)
+      - pattern: (jakarta.servlet.http.Cookie $COOKIE).setSecure(false)
       - pattern: (Cookie $COOKIE).setHttpOnly(false)
+      - pattern: (javax.servlet.http.Cookie $COOKIE).setHttpOnly(false)
+      - pattern: (jakarta.servlet.http.Cookie $COOKIE).setHttpOnly(false)
       - pattern: ResponseCookie.from(...). ... .secure(false)
       - pattern: ResponseCookie.from(...). ... .httpOnly(false)

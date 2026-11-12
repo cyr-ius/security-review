@@ -1,0 +1,125 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-nosql-injection
+    message: >-
+      Request data is used as a MongoDB filter or in a $where clause: an object such as
+      {"$ne": null} or {"$gt": ""} changes the query (NoSQL injection), and $where runs JavaScript.
+      Cast each value to the expected type (String(value)), validate the body with a schema, or
+      enable mongoose sanitizeFilter.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-943: Improper Neutralization of Special Elements in Data Query Logic"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - label: ANY
+        pattern-either:
+          - patterns:
+              - pattern: $REQ.$FIELD
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|params|headers|cookies|signedCookies|files|file|originalUrl|url|path|hostname)$
+          - patterns:
+              - pattern: $REQ.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(param|get|header)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      $METHOD(..., $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      async $METHOD(..., $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(Get|Post|Put|Patch|Delete|All|Head|Options)$
+              - pattern: $PARAM
+      - label: OBJECT
+        pattern-either:
+          - patterns:
+              - pattern: $REQ.$FIELD
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|cookies|signedCookies)$
+              - pattern-not-inside: $REQ.$FIELD.$SUB
+          - patterns:
+              - pattern: $REQ.$FIELD.$SUB
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|cookies|signedCookies)$
+    pattern-sinks:
+      - requires: OBJECT
+        patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern-either:
+                      - pattern: $MODEL.$FIND($FILTER, ...)
+                      - pattern: |
+                          $MODEL.$FIND({..., $KEY: $FILTER, ...}, ...)
+                  # Sequelize ({ where }) takes its operators from symbols (Op.ne), never from JSON
+                  - pattern-not: |
+                      $MODEL.$FIND({..., where: $WHERE, ...}, ...)
+                  - pattern-not: |
+                      $MODEL.$FIND({..., include: $INCLUDE, ...}, ...)
+                  - pattern-not: |
+                      $MODEL.$FIND({..., attributes: $ATTRIBUTES, ...}, ...)
+                  - metavariable-regex:
+                      metavariable: $FIND
+                      regex: ^(remove|find|findOne|findOneAndUpdate|findOneAndDelete|findOneAndReplace|updateOne|updateMany|deleteOne|deleteMany|countDocuments|exists)$
+              # MongoDB update(filter, update): a Sequelize instance update(values) has no filter,
+              # and a Sequelize Model.update(values, { where }) takes no JSON operators
+              - patterns:
+                  - pattern-either:
+                      - pattern: $MODEL.update($FILTER, $CHANGES, ...)
+                      - pattern: |
+                          $MODEL.update({..., $KEY: $FILTER, ...}, $CHANGES, ...)
+                  - pattern-not: |
+                      $MODEL.update($VALUES, {..., where: $WHERE, ...}, ...)
+          # A value checked to be a string cannot carry an operator object
+          - pattern-not-inside: |
+              if (<... typeof $VALUE !== "string" ...>) { ... }
+              ...
+              <... $VALUE ...>;
+          - pattern-not-inside: |
+              if (<... typeof $VALUE !== "string" ...>) return ...;
+              ...
+              <... $VALUE ...>;
+          - focus-metavariable: $FILTER
+      - requires: ANY
+        patterns:
+          - pattern-either:
+              - pattern: |
+                  $MODEL.$FIND({..., $where: $FILTER, ...}, ...)
+              - patterns:
+                  - pattern: $MODEL.$FIND(...).$WHERE($FILTER)
+                  - metavariable-regex:
+                      metavariable: $WHERE
+                      regex: ^\$where$
+          - focus-metavariable: $FILTER
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: String(...)
+          - pattern: Number(...)
+          - pattern: parseInt(...)
+          - pattern: $X.toString()
+          - pattern: mongoSanitize(...)
+          - pattern: sanitize(...)

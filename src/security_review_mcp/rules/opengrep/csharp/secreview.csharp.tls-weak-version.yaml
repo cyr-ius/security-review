@@ -1,0 +1,23 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.tls-weak-version
+    message: >-
+      The TLS configuration enables TLS 1.0, 1.1 or SSL 3.0, which are deprecated and vulnerable to
+      downgrade attacks. Leave SslProtocols.None (the operating system default) or set
+      SslProtocols.Tls12 | SslProtocols.Tls13.
+    languages: [csharp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: SslProtocols.$PROTOCOL
+          - pattern: SecurityProtocolType.$PROTOCOL
+      - metavariable-regex:
+          metavariable: $PROTOCOL
+          regex: ^(Ssl2|Ssl3|Tls|Tls11|Default)$

@@ -18,6 +18,17 @@ rules:
     pattern-sources:
       - pattern-either:
           - pattern: flask.request.$ATTR
+          # aiohttp, Azure Functions, Tornado
+          - patterns:
+              - pattern: $REQ.get_json(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+          - patterns:
+              - pattern: self.$GET(...)
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(get_argument|get_arguments|get_body_argument|get_body_arguments|get_query_argument|get_query_arguments|get_cookie)$
           - patterns:
               - pattern: $REQ.$ATTR
               - metavariable-regex:
@@ -25,7 +36,8 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $ATTR
-                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data)$
+                  # Redirecting to the current page (request.path, request.url) stays on the site
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string|query|forms|params|matchdict|match_info|json_body|route_params)$
           - patterns:
               - pattern: await $REQ.$METHOD()
               - metavariable-regex:
@@ -33,7 +45,7 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $METHOD
-                  regex: ^(json|form|body)$
+                  regex: ^(json|form|body|post|text|read)$
           - patterns:
               - pattern-either:
                   - pattern-inside: |
@@ -58,6 +70,37 @@ rules:
                   metavariable: $ROUTE
                   regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
               - pattern: $P
+    pattern-propagators:
+      # A request value added to a list or a dict taints the container (argument lists, kwargs)
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      # A request value stored in a container (configparser, cache, set, dict) taints it
+      - pattern: $TO.set(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.update($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.setdefault($KEY, $FROM)
+        from: $FROM
+        to: $TO
+      # A value written to a text buffer (io.StringIO) taints what is read back
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -69,4 +112,16 @@ rules:
           - pattern-not-inside: |
               if <... url_has_allowed_host_and_scheme(...) ...>:
                 ...
+          - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: django.urls.reverse(...)
+          - pattern: flask.url_for(...)
+          - pattern: $REQUEST.url_for(...)
+      # Django checks the URL in place: the value is safe after the call
+      - by-side-effect: true
+        patterns:
+          - pattern-either:
+              - pattern: django.utils.http.url_has_allowed_host_and_scheme($URL, ...)
+              - pattern: django.utils.http.url_has_allowed_host_and_scheme(url=$URL, ...)
           - focus-metavariable: $URL

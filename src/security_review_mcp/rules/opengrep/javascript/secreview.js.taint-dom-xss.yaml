@@ -49,5 +49,6 @@ rules:
     pattern-sanitizers:
       - pattern-either:
           - pattern: DOMPurify.sanitize(...)
+          - pattern: fetch(...)
           - pattern: encodeURIComponent(...)
           - pattern: $SANITIZER.sanitize(...)

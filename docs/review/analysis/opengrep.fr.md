@@ -58,6 +58,7 @@ règle, `scan-code` n'exécute que le scanner intégré. Variables d'environneme
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de [`scan_code`](#scans-de-fragments-scan_code) scannés par OpenGrep en même temps, dans leurs propres créneaux pour que les agents ne prennent jamais ceux des scans du dépôt (`503` au-delà : le serveur MCP scanne avec ses règles) ; `0` : les fragments ne sont scannés qu'avec les règles |
 | `SECREVIEW_OPENGREP_JOBS` | `2` | Cœurs utilisés par un scan OpenGrep (`--jobs`) |
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
+| `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Suit le flux de données à travers les fonctions d'un même fichier (`--taint-intrafile`, environ 10 à 30 % plus long) ; `false` pour un exécutable OpenGrep plus ancien qui ne connaît pas l'option |
 
 Les [règles par défaut](#regles-par-defaut) sont installées au démarrage par l'image
 `-opengrep`, ou par `security-review-controller opengrep install` ; ajoutez vos propres packs de
@@ -75,31 +76,37 @@ d'exclusion par défaut (répertoires de tests comme `tests/`, `node_modules/`..
 
 ## Règles par défaut
 
-Security Review fournit 90 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
+Security Review fournit 147 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
 reste du code) : les packs communautaires ne sont pas redistribués, car leurs licences
 (Semgrep Rules License, ou LGPL avec la Commons Clause pour le fork `opengrep-rules`) interdisent
 leur usage dans un produit comme celui-ci. Elles complètent les [règles intégrées](../rules.md)
 avec ce qu'un motif ligne par ligne ne voit pas :
 
 - **analyse de propagation (taint)** : une valeur lue dans la requête (Flask, Django, FastAPI,
-  Spring, servlets, Express, NestJS, ASP.NET Core, `net/http`, Gin, Echo) est suivie à travers
-  les variables et la construction de chaînes jusqu'à un appel dangereux (SQL, commande, chemin
-  de fichier, URL sortante, redirection, template, HTML, désérialisation). Un assainissement en
-  chemin (`int()`, `secure_filename`, `path.basename`, `html.EscapeString`...) l'arrête ;
+  aiohttp, Tornado, Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS,
+  ASP.NET Core, `net/http`, Gin, Echo), sur une socket, une websocket ou dans un événement AWS
+  Lambda est suivie à travers les variables et la construction de chaînes jusqu'à un appel
+  dangereux (SQL, commande, chemin de fichier, URL sortante, redirection, template, HTML,
+  désérialisation). Un assainissement en chemin (`int()`, `secure_filename`, `path.basename`,
+  `html.EscapeString`...) l'arrête. Les données locales (arguments de la ligne de commande,
+  entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
+  commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
+  confiance. La valeur est suivie dans un fichier, d'une fonction à l'autre
+  (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../advanced/detection-benchmark.md)) ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
   combinaison d'arguments (CORS avec toute origine *et* identifiants).
 
 | Langage (répertoire) | Règles | Principaux contrôles |
 | --- | --- | --- |
-| Python (`python`) | 18 | Taint : SQL, commande, `eval`, SSRF, chemin, redirection, template, HTML, désérialisation ; TLS, YAML, JWT, debug, CORS, archives, hachages, cookies |
-| Java, Spring (`java`) | 18 | Taint : SQL/JPQL, commande, chemin, SSRF, redirection, XSS, SpEL/OGNL, JNDI/LDAP ; désérialisation, XXE (DOM, SAX, StAX), CSRF, TLS sans vérification, nom d'hôte, chiffrements, hachages, cookies, Jackson |
-| JavaScript, TypeScript, Angular (`javascript`) | 16 | Taint : SQL, commande, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, XSS DOM depuis l'URL ou la route ; données `message` lues sans vérifier leur origine, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie |
-| Go (`go`) | 11 | Taint : SQL, commande, chemin, SSRF, redirection, XSS ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret |
-| C#, ASP.NET Core (`csharp`) | 12 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, chemin, SSRF, redirection ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS |
-| Rust (`rust`) | 9 | Taint : SQL (sqlx, diesel, pilotes) depuis les extracteurs axum et actix-web ; SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
+| Python (`python`) | 30 | Taint : SQL, NoSQL, commande, `eval`, SSRF, chemin, redirection, template, HTML (réponses Flask, Django et FastAPI), XPath, LDAP, session (trust boundary), désérialisation, mass assignment ; TLS, YAML, JWT, debug, CORS, archives, hachages, cookies, XXE, `random` pour un secret, TLS 1.0/1.1, `requests` sans timeout, `csrf_exempt`, secrets comparés avec `==` |
+| Java, Spring (`java`) | 31 | Taint : SQL/JPQL, commande, `ScriptEngine`/Groovy, chemin, SSRF, redirection, XSS, XPath, session (trust boundary), SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP ; désérialisation, XXE (DOM, SAX, StAX), CSRF, TLS sans vérification, nom d'hôte, chiffrements, hachages, cookies, Jackson, SnakeYAML, zip slip, `Random` pour un secret, JWT non vérifié, TLS 1.0/1.1, `XMLDecoder`, XStream, CORS avec toute origine et identifiants, secrets comparés avec `equals` |
+| JavaScript, TypeScript, Angular (`javascript`) | 24 | Taint : SQL, NoSQL, commande, désérialisation, mass assignment, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, templates, pollution de prototype, XSS DOM depuis l'URL ou la route ; données `message` lues sans vérifier leur origine, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie, XXE (`noent`), `Math.random` pour un secret, `postMessage` vers toute origine |
+| Go (`go`) | 17 | Taint : SQL, commande, chemin, SSRF, redirection, XSS, templates ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret, JWT non vérifié, cookies, TLS 1.0/1.1, client HTTP sans timeout, secrets comparés avec `==` |
+| C#, ASP.NET Core (`csharp`) | 20 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, chemin, SSRF, redirection, XSS, XPath ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS, zip slip, `System.Random` pour un secret, cookies, TLS 1.0/1.1, antiforgery désactivé, secrets comparés avec `==` |
+| Rust (`rust`) | 13 | Taint : SQL (sqlx, diesel, pilotes), commande, chemin, SSRF, redirection depuis les extracteurs axum et actix-web ; SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
 | Dockerfile (`dockerfile`) | 2 | Pas de `USER` avant `CMD`/`ENTRYPOINT`, dernier `USER` à root |
-| GitHub Actions (`github-actions`) | 4 | Injection de script avec `${{ }}`, `pull_request_target` qui récupère le code de la pull request, action non épinglée sur un SHA, `write-all` |
+| GitHub Actions (`github-actions`) | 10 | Injection de script avec `${{ }}`, `pull_request_target` qui récupère le code de la pull request, action non épinglée sur un SHA, `write-all`, artefacts de `workflow_run`, runner auto-hébergé sur les pull requests, `secrets: inherit` vers un autre dépôt, pas de `permissions`, `issue_comment` qui récupère une pull request, cache dans `pull_request_target` |
 
 Leurs identifiants suivent `secreview.<langage>.<contrôle>` (`secreview.go.zip-slip`) et leurs
 métadonnées donnent la CWE et la catégorie OWASP, reprises dans les findings.

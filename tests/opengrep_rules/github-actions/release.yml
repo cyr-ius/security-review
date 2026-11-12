@@ -1,0 +1,13 @@
+# Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
+name: Release
+on:
+  push:
+    tags: ["v*"]
+# ruleid: secreview.github-actions.permissions-missing
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: ./release.sh

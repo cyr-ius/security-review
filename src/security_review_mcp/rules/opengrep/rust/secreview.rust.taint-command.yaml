@@ -1,0 +1,50 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.taint-command
+    message: >-
+      Request data (an axum or actix-web extractor, the query string) chooses the program to run or
+      reaches a shell command line (sh -c, cmd /C): it can run any command. Run a fixed program
+      and pass the value as a separate argument (Command::new("convert").arg(value)).
+    languages: [rust]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  fn $F(..., $ARG: $EXTRACTOR<$T>, ...) { ... }
+              - pattern: $ARG
+              - metavariable-regex:
+                  metavariable: $EXTRACTOR
+                  regex: ^((axum::extract::|web::)?(Query|Path|Json|Form))$
+              # An integer, boolean or UUID extractor cannot carry a path or a command
+              - metavariable-regex:
+                  metavariable: $T
+                  regex: ^(?!(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|bool|Uuid|uuid::Uuid)$)
+          - pattern: "($REQ : HttpRequest).query_string()"
+          - pattern: "($REQ : HttpRequest).match_info()"
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Command::new($CMD)
+              - pattern: std::process::Command::new($CMD)
+              - pattern: tokio::process::Command::new($CMD)
+              - patterns:
+                  - pattern-either:
+                      - pattern: Command::new($SHELL).arg($FLAG).arg($CMD)
+                      - pattern: Command::new($SHELL).args([$FLAG, $CMD])
+                      - pattern: Command::new($SHELL).args(&[$FLAG, $CMD])
+                  - metavariable-regex:
+                      metavariable: $SHELL
+                      regex: ^"(sh|bash|zsh|/bin/sh|/bin/bash|cmd|cmd\.exe|powershell|pwsh)"$
+                  - metavariable-regex:
+                      metavariable: $FLAG
+                      regex: ^"(-c|/C|/c|-Command)"$
+          - focus-metavariable: $CMD

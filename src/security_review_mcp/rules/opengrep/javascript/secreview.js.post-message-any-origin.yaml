@@ -1,0 +1,20 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.post-message-any-origin
+    message: >-
+      postMessage sends data with the target origin "*": any page that holds the window (a popup, an
+      iframe navigated elsewhere) receives it, including tokens or personal data. Give the exact
+      origin of the recipient.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-345: Insufficient Verification of Data Authenticity"
+      owasp: "A04:2021 - Insecure Design"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $WINDOW.postMessage($DATA, "*", ...)
+      - pattern: |
+          $WINDOW.postMessage($DATA, {..., targetOrigin: "*", ...})

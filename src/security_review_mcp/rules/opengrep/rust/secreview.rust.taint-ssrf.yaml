@@ -1,0 +1,49 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.taint-ssrf
+    message: >-
+      Request data (an axum or actix-web extractor, the query string) chooses the URL of an outgoing
+      request: it can reach internal services or the cloud metadata endpoint (SSRF). Build the URL
+      from a fixed base and check the host against an allowlist.
+    languages: [rust]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery (SSRF)"
+      owasp: "A10:2021 - Server-Side Request Forgery (SSRF)"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  fn $F(..., $ARG: $EXTRACTOR<$T>, ...) { ... }
+              - pattern: $ARG
+              - metavariable-regex:
+                  metavariable: $EXTRACTOR
+                  regex: ^((axum::extract::|web::)?(Query|Path|Json|Form))$
+              # An integer, boolean or UUID extractor cannot carry a URL
+              - metavariable-regex:
+                  metavariable: $T
+                  regex: ^(?!(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|bool|Uuid|uuid::Uuid)$)
+          - pattern: "($REQ : HttpRequest).query_string()"
+          - pattern: "($REQ : HttpRequest).match_info()"
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: reqwest::get($URL)
+              - pattern: reqwest::blocking::get($URL)
+              - patterns:
+                  - pattern-either:
+                      - pattern: $CLIENT.$METHOD($URL). ... .send()
+                      - pattern: $CLIENT.$METHOD($URL).send()
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(get|post|put|patch|delete|head)$
+              - pattern: $CLIENT.request($VERB, $URL). ... .send()
+              - pattern: $CLIENT.request($VERB, $URL).send()
+              - pattern: ureq::get($URL)
+              - pattern: ureq::post($URL)
+          - focus-metavariable: $URL

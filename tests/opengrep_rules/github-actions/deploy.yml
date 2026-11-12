@@ -1,0 +1,38 @@
+# Test cases of the bundled OpenGrep rules: "ruleid" lines must match, "ok" lines must not.
+name: Deploy preview
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          name: site
+          # ruleid: secreview.github-actions.workflow-run-artifact
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # ruleid: secreview.github-actions.workflow-run-artifact
+      - uses: dawidd6/action-download-artifact@3d3c42e5aac5ba805825da76410c181273ba90b1 # v11
+  release:
+    uses: some-org/workflows/.github/workflows/release.yml@3d3c42e5aac5ba805825da76410c181273ba90b1
+    # ruleid: secreview.github-actions.secrets-inherit
+    secrets: inherit
+  local:
+    uses: ./.github/workflows/notify.yml
+    # ok: secreview.github-actions.secrets-inherit
+    secrets: inherit
+  scoped:
+    uses: some-org/workflows/.github/workflows/release.yml@3d3c42e5aac5ba805825da76410c181273ba90b1
+    secrets:
+      # ok: secreview.github-actions.secrets-inherit
+      token: ${{ secrets.RELEASE_TOKEN }}
+  notify:
+    # ok: secreview.github-actions.self-hosted-pull-request
+    runs-on: self-hosted
+    steps:
+      - run: ./notify.sh

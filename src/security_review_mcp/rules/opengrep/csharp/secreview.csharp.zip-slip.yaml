@@ -1,0 +1,94 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.zip-slip
+    message: >-
+      An archive entry name is combined with a directory without checking the result: an entry
+      named "../x" writes outside the target directory (zip slip). Take Path.GetFullPath of the
+      result and check that it starts with the destination directory, or use
+      ZipFile.ExtractToDirectory, which checks it.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: Path.Combine($DIR, $E.FullName)
+          - pattern: Path.Join($DIR, $E.FullName)
+          - pattern: Path.Combine($DIR, $E.Key)
+          - pattern: Path.Join($DIR, $E.Key)
+      - pattern-either:
+          - pattern-inside: |
+              foreach (var $E in $ARCHIVE.Entries) { ... }
+          - pattern-inside: |
+              foreach ($ENTRY $E in $ARCHIVE.Entries) { ... }
+          - pattern-inside: |
+              while (($E = $READER.GetNextEntry()) != null) { ... }
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Combine($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Combine($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Combine($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Combine($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Join($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Join($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Join($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Join($DIR, $E.FullName) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Combine($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Combine($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Combine($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Combine($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Join($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          var $TARGET = <... Path.Join($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Join($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.Join($DIR, $E.Key) ...>;
+          ...
+          if (<... $X.StartsWith(...) ...>) throw $EXC;

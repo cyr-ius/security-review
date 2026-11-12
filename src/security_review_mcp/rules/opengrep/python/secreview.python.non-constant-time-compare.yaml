@@ -1,0 +1,31 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.non-constant-time-compare
+    message: >-
+      A signature, token or secret is compared with == or !=: the comparison stops at the first
+      different byte, and its timing reveals the expected value byte by byte. Use
+      hmac.compare_digest or secrets.compare_digest.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-208: Observable Timing Discrepancy"
+      owasp: "A02:2021 - Cryptographic Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $LEFT == $RIGHT
+              - pattern: $LEFT != $RIGHT
+          - metavariable-regex:
+              metavariable: $LEFT
+              regex: ^(?![A-Z0-9_]+$)(?![A-Z]\w*\.)(?i:.*(signature|hmac|mac|token|secret|api_?key|otp|nonce))$
+          - metavariable-regex:
+              metavariable: $RIGHT
+              regex: ^(?![A-Z0-9_]+$)(?![A-Z]\w*\.)(?i:.*(signature|hmac|mac|token|secret|api_?key|otp|nonce))$
+      - pattern: $X == hmac.new(...).$DIGEST()
+      - pattern: hmac.new(...).$DIGEST() == $X
+      - pattern: $X != hmac.new(...).$DIGEST()
+      - pattern: hmac.new(...).$DIGEST() != $X

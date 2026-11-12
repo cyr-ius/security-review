@@ -1,0 +1,48 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-template-injection
+    message: >-
+      Request data is parsed as a Go template: a template can call any method of the data passed to
+      it, and text/template does not escape HTML. Keep templates in files or constants, use
+      html/template, and pass the request data as the template data.
+    languages: [go]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1336: Improper Neutralization of Special Elements Used in a Template Engine"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).FormValue(...)"
+          - pattern: "($REQ : *http.Request).PostFormValue(...)"
+          - pattern: "($REQ : *http.Request).PathValue(...)"
+          - pattern: "($REQ : *http.Request).URL.Query()"
+          - pattern: "($REQ : *http.Request).URL.RawQuery"
+          - pattern: "($REQ : *http.Request).URL.Path"
+          - pattern: "($REQ : *http.Request).Form"
+          - pattern: "($REQ : *http.Request).PostForm"
+          - pattern: "($REQ : *http.Request).Header"
+          - pattern: "($REQ : *http.Request).Body"
+          - pattern: "($REQ : *http.Request).Cookie(...)"
+          - pattern: mux.Vars(...)
+          - pattern: chi.URLParam(...)
+          - patterns:
+              - pattern: "($CTX : *gin.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|DefaultQuery|Param|PostForm|DefaultPostForm|GetHeader|GetQuery|GetPostForm|QueryArray|FormFile|Cookie)$
+          - patterns:
+              - pattern: "($CTX : echo.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $TMPL.Parse($TEMPLATE)
+              - pattern: template.Must($TMPL.Parse($TEMPLATE))
+          - focus-metavariable: $TEMPLATE

@@ -1,0 +1,53 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-code-eval
+    message: >-
+      Request data is evaluated as a script (ScriptEngine, GroovyShell, BeanShell): it can run any
+      code on the server. Never evaluate request data; offer a fixed set of operations instead, or
+      run user scripts in an isolated sandbox.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (ScriptEngine $E).eval($CODE, ...)
+              - pattern: $MANAGER.getEngineByName(...).eval($CODE, ...)
+              - pattern: $MANAGER.getEngineByExtension(...).eval($CODE, ...)
+              - pattern: (Compilable $E).compile($CODE)
+              - pattern: new GroovyShell(...).evaluate($CODE, ...)
+              - pattern: (GroovyShell $G).evaluate($CODE, ...)
+              - pattern: (GroovyShell $G).parse($CODE, ...)
+              - pattern: (Interpreter $I).eval($CODE)
+              - pattern: Eval.me($CODE)
+          - focus-metavariable: $CODE

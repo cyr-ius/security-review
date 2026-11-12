@@ -1,0 +1,44 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.pr-target-cache
+    message: >-
+      A pull_request_target workflow uses the Actions cache: it runs in the context of the base
+      branch, so a cache entry written from pull request code is restored later by trusted workflows
+      (cache poisoning). Do not use actions/cache, or the cache option of setup actions, in
+      pull_request_target workflows.
+    languages: [yaml]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-349: Acceptance of Extraneous Untrusted Data With Trusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              on: pull_request_target
+              ...
+          - pattern-inside: |
+              on: [..., pull_request_target, ...]
+              ...
+          - pattern-inside: |
+              on:
+                ...
+                pull_request_target: $EVENT
+                ...
+              ...
+      - pattern-either:
+          - patterns:
+              - pattern: |
+                  uses: $ACTION
+              - metavariable-regex:
+                  metavariable: $ACTION
+                  regex: ^actions/cache(/save)?@.*
+          - patterns:
+              - pattern: |
+                  cache: $MANAGER
+              - metavariable-regex:
+                  metavariable: $MANAGER
+                  regex: ^(npm|yarn|pnpm|pip|pipenv|poetry|gradle|maven|sbt|go|true)$

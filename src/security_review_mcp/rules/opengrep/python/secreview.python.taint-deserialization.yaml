@@ -18,6 +18,29 @@ rules:
     pattern-sources:
       - pattern-either:
           - pattern: flask.request.$ATTR
+          # aiohttp, Azure Functions, Tornado
+          - patterns:
+              - pattern: $REQ.get_json(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req)$
+          - patterns:
+              - pattern: self.$GET(...)
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(get_argument|get_arguments|get_body_argument|get_body_arguments|get_query_argument|get_query_arguments|get_cookie)$
+          # Remote data outside a web framework: sockets, websockets, serverless events.
+          # Local data (command line, standard input, environment) is left out on purpose: a
+          # command line tool acting on what its own user asks crosses no trust boundary.
+          - pattern: $SOCKET.recv(...)
+          - pattern: $SOCKET.recvfrom(...)
+          - pattern: await $WEBSOCKET.recv()
+          - pattern: await $WEBSOCKET.receive_text()
+          - pattern: await $WEBSOCKET.receive_json()
+          - patterns:
+              - pattern-inside: |
+                  def $HANDLER(event, context): ...
+              - pattern: event
           - patterns:
               - pattern: $REQ.$ATTR
               - metavariable-regex:
@@ -25,7 +48,8 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $ATTR
-                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data)$
+                  # url, path and full_path are left out: a client request object (requests) has them too
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string|environ|query|forms|params|matchdict|match_info|json_body|route_params|files)$
           - patterns:
               - pattern: await $REQ.$METHOD()
               - metavariable-regex:
@@ -33,7 +57,7 @@ rules:
                   regex: ^(request|req)$
               - metavariable-regex:
                   metavariable: $METHOD
-                  regex: ^(json|form|body)$
+                  regex: ^(json|form|body|post|text|read)$
           - patterns:
               - pattern-either:
                   - pattern-inside: |
@@ -58,6 +82,37 @@ rules:
                   metavariable: $ROUTE
                   regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
               - pattern: $P
+    pattern-propagators:
+      # A request value added to a list or a dict taints the container (argument lists, kwargs)
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      # A request value stored in a container (configparser, cache, set, dict) taints it
+      - pattern: $TO.set(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.update($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.setdefault($KEY, $FROM)
+        from: $FROM
+        to: $TO
+      # A value written to a text buffer (io.StringIO) taints what is read back
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

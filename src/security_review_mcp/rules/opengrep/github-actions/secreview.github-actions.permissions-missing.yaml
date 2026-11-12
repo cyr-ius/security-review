@@ -1,0 +1,25 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.permissions-missing
+    message: >-
+      The workflow does not set permissions: its GITHUB_TOKEN gets the repository default, which can
+      be write access to the code, packages and releases. Set permissions: contents: read (or
+      permissions: {}) at the top level and grant more only to the jobs that need it.
+    languages: [yaml]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-250: Execution with Unnecessary Privileges"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-inside: |
+          on: $TRIGGER
+          ...
+      - pattern: |
+          jobs: $JOBS
+      - pattern-not-inside: |
+          permissions: $PERMISSIONS
+          ...

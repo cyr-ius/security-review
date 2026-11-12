@@ -1,0 +1,44 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.github-actions.workflow-run-artifact
+    message: >-
+      A workflow_run workflow downloads the artifacts of the triggering run: when that run comes
+      from a pull request, its artifacts are controlled by the author, while this workflow has the
+      secrets and write permissions (artifact poisoning). Treat them as untrusted data: extract
+      them under $RUNNER_TEMP, validate their content and never run them.
+    languages: [yaml]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              on: workflow_run
+              ...
+          - pattern-inside: |
+              on: [..., workflow_run, ...]
+              ...
+          - pattern-inside: |
+              on:
+                ...
+                workflow_run: $EVENT
+                ...
+              ...
+      - pattern-either:
+          - patterns:
+              - pattern: |
+                  run-id: $RUN
+              - metavariable-regex:
+                  metavariable: $RUN
+                  regex: .*github\.event\.workflow_run\.id.*
+          - patterns:
+              - pattern: |
+                  uses: $ACTION
+              - metavariable-regex:
+                  metavariable: $ACTION
+                  regex: ^dawidd6/action-download-artifact@.*

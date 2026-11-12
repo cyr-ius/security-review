@@ -22,9 +22,22 @@ window.addEventListener('message', (e) => {
 });
 
 worker.onmessage = (event) => {
+  // ok: secreview.js.message-origin-unchecked
+  handle(event.data);
+};
+
+window.onmessage = (event) => {
   // ruleid: secreview.js.message-origin-unchecked
   handle(event.data);
 };
+
+async function preview(element: HTMLElement): Promise<void> {
+  const response = await fetch('/preview' + location.search);
+  // ok: secreview.js.taint-dom-xss
+  element.innerHTML = await response.text();
+  // ruleid: secreview.js.taint-dom-xss
+  element.innerHTML = decodeURIComponent(location.hash);
+}
 
 export class MessageListener {
   @HostListener('window:message', ['$event'])

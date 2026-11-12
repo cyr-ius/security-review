@@ -1,0 +1,56 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-xpath-injection
+    message: >-
+      Request data is built into an XPath expression: a value such as ' or '1'='1 changes the query
+      and can read the whole document (XPath injection). Use a constant expression with variables
+      (XPath.setXPathVariableResolver) or validate the value against a strict pattern.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-643: Improper Neutralization of Data within XPath Expressions ('XPath Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (XPath $XPATH).compile($EXPR)
+              - pattern: (XPath $XPATH).evaluate($EXPR, ...)
+              - pattern: (javax.xml.xpath.XPath $XPATH).compile($EXPR)
+              - pattern: (javax.xml.xpath.XPath $XPATH).evaluate($EXPR, ...)
+              - pattern: $FACTORY.newXPath().compile($EXPR)
+              - pattern: $FACTORY.newXPath().evaluate($EXPR, ...)
+          - focus-metavariable: $EXPR
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Integer.parseInt(...)
+          - pattern: Long.parseLong(...)
+          - pattern: Encode.forXml(...)
+          - pattern: ESAPI.encoder().encodeForXPath(...)

@@ -1,0 +1,60 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.zip-slip
+    message: >-
+      An archive entry name is joined to a directory without checking the result: an entry named
+      "../x" writes outside the target directory (zip slip). Normalize the path and check that it
+      starts with the destination directory before writing.
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: new File($DIR, $E.getName())
+          - pattern: new java.io.File($DIR, $E.getName())
+          - pattern: ($PATH $DIR).resolve($E.getName())
+          - pattern: Paths.get($DIR, $E.getName())
+          - pattern: java.nio.file.Paths.get($DIR, $E.getName())
+          - pattern: Path.of($DIR, $E.getName())
+          - pattern: java.nio.file.Path.of($DIR, $E.getName())
+      - metavariable-type:
+          metavariable: $E
+          types: [ZipEntry, JarEntry, ArchiveEntry, ZipArchiveEntry, TarArchiveEntry]
+      - pattern-not-inside: |
+          $T $TARGET = <... new File($DIR, $E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... new File($DIR, $E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          $T $TARGET = <... $DIR.resolve($E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... $DIR.resolve($E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          $T $TARGET = <... Paths.get($DIR, $E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... Paths.get($DIR, $E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC;
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.of($DIR, $E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          $T $TARGET = <... Path.of($DIR, $E.getName()) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC;

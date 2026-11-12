@@ -233,6 +233,7 @@ def scan_files(
                 str(settings.opengrep_jobs),
                 "--max-memory",
                 str(settings.opengrep_max_memory_mb),
+                *(["--taint-intrafile"] if settings.opengrep_taint_intrafile else []),
                 str(workspace),
             ]
             try:
