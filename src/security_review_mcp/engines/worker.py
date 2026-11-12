@@ -7,21 +7,23 @@ the controller keeps the authentication, the scan tickets, the reports and the v
 
 An engine serves ``POST /engine/v1/scan`` to the controller only (shared secret
 SECREVIEW_SCAN_ENGINE_TOKEN, compared by its SHA-256 digest in constant time, checked before the
-body is read) and ``/healthz``. It keeps no state, reads no database and loads none of the
-modules of the controller.
+body is read) and ``/healthz``. It keeps no state but its counters, reads no database and loads
+none of the modules of the controller.
 
 At its start it enrolls with the controller at SECREVIEW_CONTROLLER_URL with the URL where the
 controller reaches it (SECREVIEW_SCAN_ENGINE_ADVERTISE_URL, or its IP address and port), then
-gets an OAuth access token of its own and sends a heartbeat with its free OpenGrep slots
-(engines.controller_client); no address to configure on the controller. Before each scan it
-brings its copy of the internal rules and of the OpenGrep rules of the controller up to date
-(engines.rule_sync).
+gets an OAuth access token of its own and sends a heartbeat with its free OpenGrep slots and
+its counters (engines.controller_client); no address to configure on the controller. Before
+each scan it brings its copy of the internal rules and of the OpenGrep rules of the controller
+up to date (engines.rule_sync).
 That is its only outgoing connection, to the controller only.
 """
 
 import argparse
 import logging
 import socket
+import threading
+from collections import Counter
 from pathlib import Path
 
 import uvicorn
@@ -35,6 +37,7 @@ from ..rules import registry, scanner
 from . import controller_client, local, opengrep, rule_sync
 from .protocol import (
     ENGINE_SCAN_PATH,
+    MAX_ENGINE_COUNTER,
     EngineAuth,
     EngineHeartbeat,
     EngineRequest,
@@ -47,6 +50,10 @@ PROGRAM = "security-review-scan-engine"
 
 __all__ = ["EngineAuth", "build_app", "create_app", "main"]
 
+
+# What this engine did since it started, sent with each heartbeat (see EngineHeartbeat)
+_counters: Counter[str] = Counter()
+_counters_lock = threading.Lock()
 
 # Copy of the rules of the controller, set by main (None: the rules of this process, in tests)
 _rules: rule_sync.RuleCache | None = None
@@ -65,10 +72,26 @@ def _own_url(host: str, port: int, tls: object) -> str:
     return f"{'https' if tls else 'http'}://{address}:{port}"
 
 
+def _count(**increments: int) -> None:
+    """Add to the counters sent with the heartbeat."""
+    with _counters_lock:
+        _counters.update(increments)
+
+
 def _status() -> EngineHeartbeat:
-    """Free OpenGrep slots of this engine, sent with each heartbeat."""
+    """Free OpenGrep slots of this engine, its capacity and its counters, sent with each
+    heartbeat."""
+    settings = get_settings()
     codebase, fragment = opengrep.free_slots()
-    return EngineHeartbeat(free_codebase_slots=codebase, free_fragment_slots=fragment)
+    with _counters_lock:
+        counters = {name: min(value, MAX_ENGINE_COUNTER) for name, value in _counters.items()}
+    return EngineHeartbeat(
+        free_codebase_slots=codebase,
+        free_fragment_slots=fragment,
+        codebase_slots=settings.opengrep_max_concurrent_scans,
+        fragment_slots=settings.opengrep_max_concurrent_fragment_scans,
+        **counters,
+    )
 
 
 def _scan(sources: list[local.Source], fragment: bool) -> dict:
@@ -126,13 +149,17 @@ def create_app() -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
         except opengrep.OpenGrepBusyError as exc:
+            _count(busy_refusals=1)
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc)) from exc
         except opengrep.OpenGrepError as exc:
+            _count(failed_scans=1)
             # Generic message, never the output of OpenGrep
             logger.warning("OpenGrep failed on the scan engine: %s", exc)
             raise HTTPException(
                 status.HTTP_500_INTERNAL_SERVER_ERROR, "OpenGrep cannot run on the scan engine"
             ) from exc
+        pool = "fragment_scans" if request.fragment else "codebase_scans"
+        _count(**{pool: 1, "scanned_files": len(sources)})
         logger.debug("Scanned %d file(s) with %s", len(sources), ", ".join(result["engines"]))
         return EngineResponse.model_validate(result)
 

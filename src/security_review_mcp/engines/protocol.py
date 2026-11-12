@@ -15,7 +15,8 @@ web_api.engine_routes and engines.controller_client):
 - ``/api/v1/engine/opengrep-rules`` (access token): ``GET`` the SHA-256 of each OpenGrep rule
   (``ETag``, ``304``), ``POST`` the content of the rules the engine lacks;
 - ``POST /api/v1/engine/heartbeat`` (access token): the free OpenGrep slots of the engine, every
-  30 seconds; the controller sends the scans to the engines whose heartbeat is recent.
+  30 seconds, with its capacity and its counters; the controller sends the scans to the engines
+  whose heartbeat is recent.
 """
 
 import hashlib
@@ -45,6 +46,9 @@ ENGINE_HEARTBEAT_PATH = "/api/v1/engine/heartbeat"
 MAX_ENGINE_RULES = 5000
 RULE_FETCH_BATCH = 20
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+# Bounds of the slots and of the counters an engine reports in its heartbeat
+MAX_ENGINE_SLOTS = 1024
+MAX_ENGINE_COUNTER = 10**12
 # Bound of a path label (same as the scans of security-review-ci)
 MAX_ENGINE_PATH_CHARS = 500
 
@@ -106,10 +110,24 @@ class EnrollRequest(BaseModel):
 
 
 class EngineHeartbeat(BaseModel):
-    """Free OpenGrep slots of an engine (codebase scans, scan_code fragments)."""
+    """Free OpenGrep slots of an engine (codebase scans, scan_code fragments), its capacity and
+    what it did since it started (Scan engines page).
 
-    free_codebase_slots: int = Field(ge=0, le=1024)
-    free_fragment_slots: int = Field(ge=0, le=1024)
+    The capacity and the counters default to 0: an older engine sends only its free slots.
+    """
+
+    free_codebase_slots: int = Field(ge=0, le=MAX_ENGINE_SLOTS)
+    free_fragment_slots: int = Field(ge=0, le=MAX_ENGINE_SLOTS)
+    # Slots of each pool (SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS / _FRAGMENT_SCANS of the engine)
+    codebase_slots: int = Field(default=0, ge=0, le=MAX_ENGINE_SLOTS)
+    fragment_slots: int = Field(default=0, ge=0, le=MAX_ENGINE_SLOTS)
+    # Since the engine started (it enrolls again at each start): scans done, files scanned,
+    # scans failed (OpenGrep could not run) and scans refused because every slot was taken
+    codebase_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
+    fragment_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
+    scanned_files: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
+    failed_scans: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
+    busy_refusals: int = Field(default=0, ge=0, le=MAX_ENGINE_COUNTER)
 
 
 class EnrollResponse(BaseModel):

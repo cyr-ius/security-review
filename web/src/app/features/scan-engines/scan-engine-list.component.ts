@@ -9,14 +9,22 @@ import { ApiService } from '../../core/services/api.service';
 import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import { describeError } from '../settings/settings-page';
+import { ScanEngineFlowComponent } from './scan-engine-flow/scan-engine-flow.component';
 
 /**
- * Scan engines page (settings.manage): the engines enrolled with the shared secret, with their
- * version, address and last activity, each one revocable (its access token stops working).
+ * Scan engines page (settings.manage): the flow of the code scans to the engines, then the engines
+ * enrolled with the shared secret, with their version, address and last activity, each one
+ * revocable (its access token stops working).
  */
 @Component({
   selector: 'app-scan-engine-list',
-  imports: [DatePipe, HelpLinkComponent, RefreshButtonComponent, TranslatePipe],
+  imports: [
+    DatePipe,
+    HelpLinkComponent,
+    RefreshButtonComponent,
+    ScanEngineFlowComponent,
+    TranslatePipe,
+  ],
   templateUrl: './scan-engine-list.component.html',
 })
 export class ScanEngineListComponent {

@@ -563,6 +563,15 @@ class ScanEngine(SQLModel, table=True):
     # Free OpenGrep slots of the engine (codebase scans, scan_code fragments), from its heartbeat
     free_codebase_slots: int = Field(default=0)
     free_fragment_slots: int = Field(default=0)
+    # Capacity of the engine and what it did since it started, from its heartbeat (Scan engines
+    # page; 0 for an engine that does not report them)
+    codebase_slots: int = Field(default=0)
+    fragment_slots: int = Field(default=0)
+    codebase_scans: int = Field(default=0, sa_type=BigInteger)
+    fragment_scans: int = Field(default=0, sa_type=BigInteger)
+    scanned_files: int = Field(default=0, sa_type=BigInteger)
+    failed_scans: int = Field(default=0, sa_type=BigInteger)
+    busy_refusals: int = Field(default=0, sa_type=BigInteger)
     # Last heartbeat: the engine receives scans while it is recent
     heartbeat_at: datetime | None = Field(default=None, index=True)
     secret_hash: str = Field(unique=True, index=True, max_length=64)

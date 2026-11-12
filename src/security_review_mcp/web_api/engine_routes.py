@@ -5,7 +5,8 @@ token (``engine`` role, see auth.engine_clients), which reaches nothing else; no
 credential reaches these routes (see http_server.BearerAuthMiddleware.role_allowed). Each answer
 carries an ``ETag``: an engine that already has the rules gets ``304``.
 
-``engine_router`` also receives the heartbeat of each engine (its free OpenGrep slots).
+``engine_router`` also receives the heartbeat of each engine (its free OpenGrep slots, its
+capacity and its counters).
 
 ``router`` (``/api/v1/scan-engines``): the enrolled engines, listed and revoked by the holders of
 ``settings.manage`` (Scan engines page).
@@ -89,10 +90,10 @@ def engine_opengrep_contents(fetch: EngineOpenGrepFetch) -> EngineOpenGrepConten
 
 @engine_router.post("/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
 def engine_heartbeat(beat: EngineHeartbeat, request: Request) -> None:
-    """Record that the engine is alive, with its free OpenGrep slots."""
+    """Record that the engine is alive, with its free OpenGrep slots and its counters."""
     engine_id = (request.scope.get("state") or {}).get("auth_token_id") or ""
     try:
-        engine_clients.heartbeat(engine_id, beat.free_codebase_slots, beat.free_fragment_slots)
+        engine_clients.heartbeat(engine_id, beat)
     except ValueError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown or revoked scan engine") from exc
 
@@ -103,6 +104,7 @@ def list_scan_engines(_identity: EngineManager) -> ScanEngineList:
     settings = get_settings()
     return ScanEngineList(
         enabled=secret_value(settings.scan_engine_token) is not None,
+        fallback=settings.scan_engine_fallback,
         networks=settings.scan_engine_networks.split(","),
         access_token_minutes=settings.scan_engine_access_token_minutes,
         retention_days=settings.scan_engine_retention_days,

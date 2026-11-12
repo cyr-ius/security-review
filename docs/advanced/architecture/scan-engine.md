@@ -90,7 +90,8 @@ An engine reads no database. At its start, each replica:
    (`POST /engine/v1/token`, client authenticated by HTTP Basic), valid
    `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES`. It renews it before it expires, in the
    background, which also tells the Controller server it is alive;
-3. sends a **heartbeat** every 30 seconds with its free OpenGrep slots
+3. sends a **heartbeat** every 30 seconds with its free OpenGrep slots, its capacity and what it
+   did since it started (code scans, fragments, files, failures, scans refused when busy)
    (`POST /api/v1/engine/heartbeat`);
 4. reads the rules with this token through the REST API of the Controller server
    (`/api/v1/engine/*`, see [Rules](#rules)).
@@ -122,6 +123,15 @@ The enrolled engines are listed on the [**Scan engines**](../../usage/index.md#p
 (permission `settings.manage`) and by `security-review-controller engine list`: name, version,
 state (active while its heartbeat is recent), URL, free slots, enrollment date and last activity,
 never a secret.
+
+Above the list, the **Activity** diagram shows the flow of the code scans: the pipelines
+(`security-review-ci`, codebase reviews) and the agents (`scan_code` fragments) on the left, the
+Controller server in the middle, one circle per engine on the right. The ring of an engine shows
+its OpenGrep slots in use (code scans and fragments, each in its own color), the number in the
+middle its scans since it started, and a warning sign its failed scans; a link is as thick as the
+share of the scans, and a moving dot marks a scan running now. An engine without a recent
+heartbeat is dimmed. The counters restart from zero when an engine restarts (it enrolls again);
+hovering a circle shows its details, and the list below gives the same engines.
 
 - **Revoke** an engine (page, or `security-review-controller engine revoke <id>`): its client and
   its access token stop working at once, it receives no more scans, and its scans fail. It does not enroll again by itself:

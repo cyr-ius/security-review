@@ -1762,6 +1762,15 @@ class ScanEnginePublic(BaseModel):
     active: bool
     free_codebase_slots: int
     free_fragment_slots: int
+    # OpenGrep slots of each pool (0: the engine does not report them)
+    codebase_slots: int = 0
+    fragment_slots: int = 0
+    # Since the engine started: scans done, files scanned, scans failed, scans refused when busy
+    codebase_scans: int = 0
+    fragment_scans: int = 0
+    scanned_files: int = 0
+    failed_scans: int = 0
+    busy_refusals: int = 0
     enrolled_at: datetime
     last_seen_at: datetime
     heartbeat_at: datetime | None = None
@@ -1773,6 +1782,9 @@ class ScanEngineList(BaseModel):
     # True when the engines are on (SECREVIEW_SCAN_ENGINE_TOKEN set): they enroll, and the code
     # scans go to the active ones
     enabled: bool
+    # When no engine scanned the files: refuse the scan (503) or scan on the controller
+    # (SECREVIEW_SCAN_ENGINE_FALLBACK)
+    fallback: Literal["refuse", "local"]
     # Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS)
     networks: list[str]
     access_token_minutes: int

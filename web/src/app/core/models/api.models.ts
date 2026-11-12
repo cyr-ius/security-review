@@ -1298,6 +1298,15 @@ export interface ScanEngine {
   active: boolean;
   free_codebase_slots: number;
   free_fragment_slots: number;
+  /** OpenGrep slots of each pool (0: the engine does not report them). */
+  codebase_slots: number;
+  fragment_slots: number;
+  /** Since the engine started: scans done, files scanned, scans failed, refused when busy. */
+  codebase_scans: number;
+  fragment_scans: number;
+  scanned_files: number;
+  failed_scans: number;
+  busy_refusals: number;
   enrolled_at: string;
   last_seen_at: string;
   heartbeat_at: string | null;
@@ -1307,6 +1316,8 @@ export interface ScanEngine {
 export interface ScanEngineList {
   /** The engines are on (SECREVIEW_SCAN_ENGINE_TOKEN set): they enroll and scan the code. */
   enabled: boolean;
+  /** When no engine scanned the files: refuse the scan (503) or scan on the Controller server. */
+  fallback: 'refuse' | 'local';
   /** Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS). */
   networks: string[];
   access_token_minutes: number;

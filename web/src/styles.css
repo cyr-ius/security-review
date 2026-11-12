@@ -58,6 +58,7 @@
   --bs-box-shadow-sm: var(--app-shadow);
 
   --series-1: #2a78d6;
+  --series-2: #eb6834;
 }
 
 [data-bs-theme='dark'] {
@@ -83,6 +84,7 @@
   --bs-link-hover-color-rgb: 165, 180, 252;
 
   --series-1: #3987e5;
+  --series-2: #d95926;
 }
 
 /*

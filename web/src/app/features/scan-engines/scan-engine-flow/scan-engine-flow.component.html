@@ -1,0 +1,250 @@
+@let total = totals();
+<div class="flow">
+  <svg
+    [attr.viewBox]="'0 0 ' + width() + ' ' + height"
+    [style.min-width.px]="width() * 0.75"
+    role="img"
+    [attr.aria-label]="
+      'scanEngines.flowLabel'
+        | t
+          : {
+              active: total.active,
+              total: data().engines.length,
+              codebase: total.codebase,
+              fragments: total.fragment,
+            }
+    "
+  >
+    <!-- Links first, under the nodes -->
+    @for (source of sources(); track source.kind) {
+      <path
+        class="link"
+        [class]="'link-' + source.kind"
+        [attr.d]="source.path"
+        [attr.stroke-width]="source.width"
+      />
+      @if (source.busy) {
+        <circle class="dot" [class]="'dot-' + source.kind" r="5">
+          <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="source.path" />
+        </circle>
+      }
+    }
+    @for (node of nodes(); track node.engine.id) {
+      <path
+        class="link link-engine"
+        [class.inactive]="!node.engine.active"
+        [attr.d]="node.path"
+        [attr.stroke-width]="node.width"
+      />
+      @if (node.busyCodebase) {
+        <circle class="dot dot-codebase" r="5">
+          <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="node.path" />
+        </circle>
+      }
+      @if (node.busyFragment) {
+        <circle class="dot dot-fragment" r="5">
+          <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite" [attr.path]="node.path" />
+        </circle>
+      }
+    }
+
+    <!-- Sources: the code scans of the pipelines, the fragments of the agents -->
+    @for (source of sources(); track source.kind) {
+      <g class="node">
+        <title>
+          {{
+            (source.kind === 'codebase'
+              ? 'scanEngines.flowPipelinesTitle'
+              : 'scanEngines.flowAgentsTitle'
+            ) | t: { count: source.scans }
+          }}
+        </title>
+        <circle class="surface" [attr.cx]="source.x" [attr.cy]="source.y" [attr.r]="source.r" />
+        <circle
+          class="ring"
+          [class]="'ring-' + source.kind"
+          [attr.cx]="source.x"
+          [attr.cy]="source.y"
+          [attr.r]="sourceRing"
+          [attr.stroke-width]="ring"
+        />
+        <foreignObject
+          [attr.x]="source.x - source.r"
+          [attr.y]="source.y - source.r"
+          [attr.width]="source.r * 2"
+          [attr.height]="source.r * 2"
+        >
+          <div class="content">
+            <i
+              class="bi"
+              [class]="source.kind === 'codebase' ? 'bi-diagram-3' : 'bi-robot'"
+              aria-hidden="true"
+            ></i>
+            <span class="value">{{ source.scans }}</span>
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="source.x" [attr.y]="source.y + source.r + 20">
+          {{
+            (source.kind === 'codebase' ? 'scanEngines.flowPipelines' : 'scanEngines.flowAgents')
+              | t
+          }}
+        </text>
+      </g>
+    }
+
+    <!-- The Controller server: active engines, and the slots in use over all of them -->
+    <g class="node">
+      <title>
+        {{
+          'scanEngines.flowControllerTitle'
+            | t
+              : {
+                  active: total.active,
+                  total: data().engines.length,
+                  used: total.used,
+                  capacity: total.capacity,
+                  files: total.files,
+                }
+        }}
+      </title>
+      <circle
+        class="surface"
+        [attr.cx]="controller.x"
+        [attr.cy]="controller.y"
+        [attr.r]="controller.r"
+      />
+      <circle
+        class="ring ring-track"
+        [attr.cx]="controller.x"
+        [attr.cy]="controller.y"
+        [attr.r]="controllerRing"
+        [attr.stroke-width]="ring"
+      />
+      @for (arc of total.arcs; track arc.kind) {
+        <circle
+          class="ring"
+          [class]="'ring-' + arc.kind"
+          [attr.cx]="controller.x"
+          [attr.cy]="controller.y"
+          [attr.r]="controllerRing"
+          [attr.stroke-width]="ring"
+          [attr.stroke-dasharray]="arc.dash"
+          [attr.stroke-dashoffset]="arc.offset"
+          [attr.transform]="'rotate(-90 ' + controller.x + ' ' + controller.y + ')'"
+        />
+      }
+      <foreignObject
+        [attr.x]="controller.x - controller.r"
+        [attr.y]="controller.y - controller.r"
+        [attr.width]="controller.r * 2"
+        [attr.height]="controller.r * 2"
+      >
+        <div class="content">
+          <i class="bi bi-hdd-network" aria-hidden="true"></i>
+          <span class="value">{{ total.active }}/{{ data().engines.length }}</span>
+          <span class="detail">{{ 'scanEngines.flowActive' | t }}</span>
+          <span class="detail">{{ 'scanEngines.flowFiles' | t: { count: total.files } }}</span>
+        </div>
+      </foreignObject>
+      <text class="label" [attr.x]="controller.x" [attr.y]="controller.y + controller.r + 20">
+        {{ 'scanEngines.flowController' | t }}
+      </text>
+      <text
+        class="label detail"
+        [attr.x]="controller.x"
+        [attr.y]="controller.y + controller.r + 38"
+      >
+        {{
+          (data().fallback === 'local'
+            ? 'scanEngines.flowFallbackLocal'
+            : 'scanEngines.flowFallbackRefuse'
+          ) | t
+        }}
+      </text>
+    </g>
+
+    <!-- One node per engine: its slots in use, its scans, its failures -->
+    @for (node of nodes(); track node.engine.id) {
+      <g class="node" [class.inactive]="!node.engine.active">
+        <title>
+          {{
+            'scanEngines.flowEngineTitle'
+              | t
+                : {
+                    name: node.engine.name,
+                    version: node.engine.version,
+                    codebase: node.engine.codebase_scans,
+                    fragments: node.engine.fragment_scans,
+                    files: node.engine.scanned_files,
+                    failed: node.engine.failed_scans,
+                    busy: node.engine.busy_refusals,
+                    used: node.used,
+                    capacity: node.capacity,
+                  }
+          }}
+        </title>
+        <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="engineRadius" />
+        <circle
+          class="ring ring-track"
+          [attr.cx]="node.x"
+          [attr.cy]="node.y"
+          [attr.r]="engineRing"
+          [attr.stroke-width]="ring"
+        />
+        @for (arc of node.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="engineRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + node.x + ' ' + node.y + ')'"
+          />
+        }
+        <foreignObject
+          [attr.x]="node.x - engineRadius"
+          [attr.y]="node.y - engineRadius"
+          [attr.width]="engineRadius * 2"
+          [attr.height]="engineRadius * 2"
+        >
+          <div class="content">
+            <i class="bi bi-cpu" aria-hidden="true"></i>
+            <span class="value">{{ node.scans }}</span>
+            @if (node.capacity) {
+              <span class="detail">
+                {{ 'scanEngines.flowSlots' | t: { used: node.used, total: node.capacity } }}
+              </span>
+            }
+            @if (node.engine.failed_scans) {
+              <span class="detail failed">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                {{ node.engine.failed_scans }}
+              </span>
+            }
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">{{ node.label }}</text>
+        @if (!node.engine.active) {
+          <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 16">
+            {{ 'scanEngines.inactive' | t }}
+          </text>
+        }
+      </g>
+    }
+  </svg>
+</div>
+
+<ul class="legend list-inline small text-body-secondary mb-0">
+  <li class="list-inline-item">
+    <span class="swatch swatch-codebase" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendCodebase' | t }}
+  </li>
+  <li class="list-inline-item">
+    <span class="swatch swatch-fragment" aria-hidden="true"></span>
+    {{ 'scanEngines.flowLegendFragment' | t }}
+  </li>
+  <li class="list-inline-item">{{ 'scanEngines.flowLegendLive' | t }}</li>
+</ul>

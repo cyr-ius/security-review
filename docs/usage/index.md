@@ -96,7 +96,7 @@ together. The changes go to the form, which still saves or cancels them.
 | **Sign-in** | The company login ([OIDC login](sso.md)) |
 | **OSV database** | State and update of the vulnerability database, choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
-| **Scan engines** | The [scan engines](../advanced/architecture/scan-engine.md#administration) enrolled with the Controller server (version, address, last activity) and their revocation (`settings.manage`) |
+| **Scan engines** | The [scan engines](../advanced/architecture/scan-engine.md#administration) enrolled with the Controller server (activity diagram, version, address, last activity) and their revocation (`settings.manage`) |
 | **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
 
 ## Points to watch

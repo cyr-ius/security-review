@@ -91,8 +91,9 @@ Un moteur ne lit aucune base de données. À son démarrage, chaque réplica :
    (`POST /engine/v1/token`, client authentifié en HTTP Basic), valable
    `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES`. Il le renouvelle avant son expiration, en tâche de
    fond, ce qui indique aussi au serveur Controller qu'il est actif ;
-3. envoie un **battement de cœur** toutes les 30 secondes avec ses créneaux OpenGrep libres
-   (`POST /api/v1/engine/heartbeat`) ;
+3. envoie un **battement de cœur** toutes les 30 secondes avec ses créneaux OpenGrep libres, sa
+   capacité et ce qu'il a fait depuis son démarrage (scans de code, fragments, fichiers, échecs,
+   scans refusés car occupé) (`POST /api/v1/engine/heartbeat`) ;
 4. lit les règles avec ce jeton par l'API REST du serveur Controller (`/api/v1/engine/*`, voir
    [Règles](#regles)).
 
@@ -124,6 +125,16 @@ Les moteurs enrôlés sont listés dans la page [**Moteurs de scan**](../../usag
 (permission `settings.manage`) et par `security-review-controller engine list` : nom, version,
 état (actif tant que son battement de cœur est récent), URL, créneaux libres, date d'enrôlement et
 dernière activité, jamais un secret.
+
+Au-dessus de la liste, le graphe **Activité** montre le flux des scans de code : les pipelines
+(`security-review-ci`, revues du dépôt) et les agents (fragments de `scan_code`) à gauche, le
+serveur Controller au centre, un cercle par moteur à droite. L'anneau d'un moteur montre ses
+créneaux OpenGrep occupés (scans de code et fragments, chacun de sa couleur), le nombre au centre
+ses scans depuis son démarrage, et un panneau d'avertissement ses scans en échec ; un lien est
+d'autant plus épais que sa part des scans est grande, et un point en mouvement signale un scan en
+cours. Un moteur sans battement de cœur récent est grisé. Les compteurs repartent de zéro quand un
+moteur redémarre (il s'enrôle de nouveau) ; le survol d'un cercle affiche son détail, et la liste
+en dessous donne les mêmes moteurs.
 
 - **Révoquer** un moteur (page, ou `security-review-controller engine revoke <id>`) : son client et
   son jeton d'accès cessent aussitôt de fonctionner, il ne reçoit plus de scans, et ses scans

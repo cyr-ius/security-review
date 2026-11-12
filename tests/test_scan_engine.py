@@ -25,7 +25,11 @@ from security_review_mcp.engines import (
     rule_sync,
     worker,
 )
-from security_review_mcp.engines.protocol import ENGINE_ENROLL_PATH, ENGINE_TOKEN_PATH
+from security_review_mcp.engines.protocol import (
+    ENGINE_ENROLL_PATH,
+    ENGINE_TOKEN_PATH,
+    EngineHeartbeat,
+)
 from security_review_mcp.http_server import Role
 from security_review_mcp.rules import codescan, registry
 from security_review_mcp.rules.codescan import SourceFile
@@ -80,7 +84,9 @@ class _EngineOpener:
 def _enroll(url: str = URL, free: int = 1) -> str:
     """Enroll an engine reached at ``url`` and record its heartbeat; return its id."""
     engine_id = engine_clients.enroll("engine", "1.0.0", url)["client_id"]
-    engine_clients.heartbeat(engine_id, free, free)
+    engine_clients.heartbeat(
+        engine_id, EngineHeartbeat(free_codebase_slots=free, free_fragment_slots=free)
+    )
     return engine_id
 
 
@@ -89,6 +95,7 @@ def engines(monkeypatch):
     """Return a function that sends the scans of the controller to an engine enrolled at URL,
     reached through ``opener``."""
     backend.ENGINE_REQUESTS.clear()
+    monkeypatch.setattr(worker, "_counters", type(worker._counters)())
 
     def use(opener, enroll: bool = True):
         monkeypatch.setattr(get_settings(), "scan_engine_token", SecretStr(TOKEN))
@@ -114,6 +121,13 @@ def test_the_controller_gets_the_same_scan_from_the_engines(engines):
     # The secret goes to the engine only, as a bearer token, with no redirect followed
     assert [r.get_header("Authorization") for r in opener.requests] == [f"Bearer {TOKEN}"] * 2
     assert backend.ENGINE_REQUESTS["scanned"] == 2
+    # The engine counts what it did, and its heartbeat shows it on the Scan engines page
+    beat = worker._status()
+    assert (beat.codebase_scans, beat.fragment_scans, beat.scanned_files) == (1, 1, 3)
+    engine_clients.heartbeat(engine_clients.active_engines(False)[0][0], beat)
+    [listed] = engine_clients.list_engines()
+    assert listed["codebase_scans"] == 1 and listed["scanned_files"] == 3
+    assert listed["codebase_slots"] == get_settings().opengrep_max_concurrent_scans
 
 
 def test_the_engine_refuses_a_request_without_its_secret_before_reading_it():

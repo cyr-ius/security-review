@@ -14,6 +14,12 @@
 }
 
 @if (engines.value(); as data) {
+  @if (data.enabled && data.engines.length) {
+    <section class="card card-body mb-3" aria-labelledby="scan-engines-flow-title">
+      <h2 id="scan-engines-flow-title" class="h6">{{ 'scanEngines.flowTitle' | t }}</h2>
+      <app-scan-engine-flow [data]="data" />
+    </section>
+  }
   <section class="card card-body" aria-labelledby="scan-engines-list-title">
     <h2 id="scan-engines-list-title" class="visually-hidden">{{ 'scanEngines.title' | t }}</h2>
     <p class="text-body-secondary small">{{ 'scanEngines.help' | t }}</p>

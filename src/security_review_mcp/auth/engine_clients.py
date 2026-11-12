@@ -34,6 +34,7 @@ from urllib.parse import urlsplit
 from sqlmodel import Session, col, select
 
 from ..config import check_scan_engine_url, get_settings, scan_engine_networks
+from ..engines.protocol import MAX_ENGINE_SLOTS, EngineHeartbeat
 from ..http_server import Role, TokenInfo
 from ..observability import audit
 from ..observability.audit import AuditAction
@@ -54,7 +55,17 @@ SYSTEM_ACTOR = "system"
 # An engine receives scans while its last heartbeat is younger than this (it beats every 30 s)
 ACTIVE_SECONDS = 90
 # Bound of the free slots an engine reports
-MAX_SLOTS = 1024
+MAX_SLOTS = MAX_ENGINE_SLOTS
+# Capacity and counters of an engine, copied from its heartbeat (Scan engines page)
+STAT_FIELDS = (
+    "codebase_slots",
+    "fragment_slots",
+    "codebase_scans",
+    "fragment_scans",
+    "scanned_files",
+    "failed_scans",
+    "busy_refusals",
+)
 
 
 class InvalidClientError(ValueError):
@@ -83,6 +94,7 @@ def _public(row: ScanEngine) -> dict[str, Any]:
         "active": _active(row),
         "free_codebase_slots": row.free_codebase_slots,
         "free_fragment_slots": row.free_fragment_slots,
+        **{name: getattr(row, name) for name in STAT_FIELDS},
         "enrolled_at": as_utc(row.enrolled_at).isoformat(),
         "last_seen_at": as_utc(row.last_seen_at).isoformat(),
         "heartbeat_at": as_utc(row.heartbeat_at).isoformat() if row.heartbeat_at else None,
@@ -256,8 +268,9 @@ def revoke_engine(engine_id: str, actor: str | None = None) -> dict[str, Any]:
     return public
 
 
-def heartbeat(engine_id: str, free_codebase_slots: int, free_fragment_slots: int) -> None:
-    """Record the heartbeat of an engine and its free OpenGrep slots.
+def heartbeat(engine_id: str, beat: EngineHeartbeat) -> None:
+    """Record the heartbeat of an engine: its free OpenGrep slots, its capacity and its
+    counters.
 
     Raises:
         ValueError: If the engine was revoked meanwhile.
@@ -267,8 +280,10 @@ def heartbeat(engine_id: str, free_codebase_slots: int, free_fragment_slots: int
         row = session.get(ScanEngine, engine_id[:64])
         if row is None:
             raise ValueError(f"Scan engine '{engine_id[:64]}' was not found")
-        row.free_codebase_slots = max(0, min(free_codebase_slots, MAX_SLOTS))
-        row.free_fragment_slots = max(0, min(free_fragment_slots, MAX_SLOTS))
+        row.free_codebase_slots = max(0, min(beat.free_codebase_slots, MAX_SLOTS))
+        row.free_fragment_slots = max(0, min(beat.free_fragment_slots, MAX_SLOTS))
+        for name in STAT_FIELDS:
+            setattr(row, name, getattr(beat, name))
         row.heartbeat_at = now
         row.last_seen_at = now
         session.add(row)
