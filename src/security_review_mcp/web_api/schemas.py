@@ -1779,6 +1779,19 @@ class ScanEnginePublic(BaseModel):
     heartbeat_at: datetime | None = None
 
 
+class AgentActivityPublic(BaseModel):
+    """An agent seen lately by an MCP server: an opaque key and its MCP client, never a person."""
+
+    # Opaque key, only stable within one MCP server process
+    id: str
+    # Name and version given by its MCP client (clientInfo), e.g. claude-code
+    client: str
+    client_version: str
+    last_seen: str
+    # The most scan_code calls it ran at once since the previous heartbeat
+    processing_fragments: int
+
+
 class ServerInstancePublic(BaseModel):
     """A Controller or MCP server process whose heartbeat is recent."""
 
@@ -1792,6 +1805,8 @@ class ServerInstancePublic(BaseModel):
     # once since its previous heartbeat
     delegated: bool
     processing_fragments: int
+    # MCP server: the agents that sent it a request lately, the most recent first
+    agents: list[AgentActivityPublic] = []
 
 
 class ScanEngineList(BaseModel):

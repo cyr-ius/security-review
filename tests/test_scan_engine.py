@@ -546,6 +546,25 @@ def test_an_mcp_server_reports_its_scan_code_calls_even_shorter_than_its_heartbe
     assert server_instances.active_instances(ServerKind.MCP) == []
 
 
+def test_the_agents_of_an_mcp_server_are_opaque_and_bounded(monkeypatch):
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP)
+    # The same token and client give the same key here, another one in another process
+    key = heartbeat.seen(42, "claude-code\x1b[31m", "2.1")
+    assert heartbeat.seen(42, "claude-code\x1b[31m", None) == key
+    assert server_instances.ServerHeartbeat(ServerKind.MCP).agent_key(42, "claude-code[31m") != key
+    for token in range(server_instances.MAX_AGENTS + 10):
+        heartbeat.seen(token, "cursor", "1.0")
+    heartbeat.beat()
+    [instance] = server_instances.active_instances(ServerKind.MCP)
+    agents = instance["agents"]
+    assert len(agents) == server_instances.MAX_AGENTS
+    assert {agent["client"] for agent in agents} == {"cursor"}
+    # A malformed row shows no agent rather than failing the page
+    assert server_instances._decode_agents("{not json") == []
+    assert server_instances._decode_agents('[{"id": 1}, "x"]') == []
+    heartbeat.stop()
+
+
 def test_only_the_holders_of_the_shared_secret_enroll_and_get_tokens(monkeypatch, capsys):
     assert backend.engine_routes(get_settings()) == {}
     controller = _controller(monkeypatch)

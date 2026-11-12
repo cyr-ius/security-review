@@ -1346,4 +1346,18 @@ export interface ServerInstance {
   delegated: boolean;
   /** MCP server: the most scan_code calls run at once since its previous heartbeat. */
   processing_fragments: number;
+  /** MCP server: the agents that sent it a request lately, the most recent first. */
+  agents?: AgentActivity[];
+}
+
+/** An agent seen lately by an MCP server: an opaque key and its MCP client, never a person. */
+export interface AgentActivity {
+  /** Opaque key, only stable within one MCP server process. */
+  id: string;
+  /** Name and version given by its MCP client (clientInfo), e.g. claude-code. */
+  client: string;
+  client_version: string;
+  last_seen: string;
+  /** The most scan_code calls it ran at once since the previous heartbeat. */
+  processing_fragments: number;
 }

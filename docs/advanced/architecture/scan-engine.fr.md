@@ -140,7 +140,14 @@ moteurs sont désactivés :
 
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
   `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;
-- à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), avec le plus grand
+- sous les pipelines, un cercle par agent qui a envoyé une requête à un serveur MCP dans les
+  5 dernières minutes, relié à ce serveur, avec ses appels `scan_code` depuis le battement de cœur
+  précédent. Un agent est affiché par le nom de son client MCP (par exemple `claude-code`),
+  jamais par le nom d'une personne ni d'un jeton ; au-delà de 6 agents, un cercle **+N** regroupe
+  les autres. Sans aucun agent connu (serveurs MCP d'une version précédente), un seul cercle
+  **Agents** les représente ;
+- à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), plus grand que
+  ceux des agents, avec le plus grand
   nombre d'appels `scan_code` simultanés depuis son battement de cœur précédent. Les agents
   passent par lui pour atteindre le serveur Controller ; son lien vers le serveur Controller est en
   pointillés, avec **Scan local**, tant que la délégation de `scan_code` est désactivée : il scanne

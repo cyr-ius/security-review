@@ -606,6 +606,10 @@ class ServerInstance(SQLModel, table=True):
     # running now (a gauge)
     delegated: bool = Field(default=False)
     processing_fragments: int = Field(default=0)
+    # MCP server: the agents seen lately, as JSON (see server_instances.AgentActivity): an opaque
+    # key, the name and version of their MCP client, their last request and their scan_code
+    # calls; never the name of a person nor a token
+    agents: str = Field(default="[]", max_length=16000)
 
 
 # ── Requested projects (see access_control.request_project) ──────────────────
