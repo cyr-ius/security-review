@@ -58,6 +58,8 @@ The access tokens of the OAuth login of the MCP clients (``OAuthGrant``, see oau
 checked here too, after the stored tokens: one acts as a personal ``mcp`` token of the user who
 approved its client, on the MCP server only (not the pipeline routes). They are refused while the
 OAuth login is off, and accepted again once it is turned on (the grants are kept).
+
+The single-use tickets of the codebase scans (``ScanTicket``, see scan_tickets) are checked last.
 """
 
 import hmac
@@ -223,7 +225,7 @@ class DatabaseTokenStore:
                 )
             ).first()
             if row is None:
-                return _oauth_info(session, digest)
+                return _oauth_info(session, digest) or _ticket_info(session, digest)
             if row.role not in TOKEN_ROLES or not _matches(row, digest):
                 return None
             info = _info(row, _links(session, [row.id])[row.id])
@@ -368,6 +370,13 @@ def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
         expired=as_utc(grant.access_expires_at) <= now,
         owner=user.username,
     )
+
+
+def _ticket_info(session: Session, digest: bytes) -> TokenInfo | None:
+    """Identity of a single-use scan ticket (see scan_tickets), or None."""
+    from . import scan_tickets  # scan_tickets reads the tokens of this module
+
+    return scan_tickets.ticket_info(session, digest)
 
 
 def _matches(row: ApiToken, digest: bytes) -> bool:

@@ -505,6 +505,23 @@ class ContentScanRequest(BaseModel):
     language: str = Field(min_length=1, max_length=40)
 
 
+class ScanTicketRequest(BaseModel):
+    """Project of a codebase scan started by the MCP tool start_codebase_scan."""
+
+    project: str = Field(min_length=1, max_length=200)
+
+
+class ScanTicketResult(BaseModel):
+    """Single-use ticket of a codebase scan (shown once), and where security-review-ci sends it."""
+
+    ticket: str
+    project: str
+    expires_at: str
+    # Public URL of the controller (None when unknown) and whether it serves the client
+    controller_url: str | None
+    client_download: bool
+
+
 class ContentMatch(CodeMatch):
     """A match of a fragment; an OpenGrep match also gives its last line and its message."""
 

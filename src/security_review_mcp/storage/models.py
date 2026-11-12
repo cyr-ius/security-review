@@ -521,6 +521,28 @@ class OAuthGrant(SQLModel, table=True):
     last_used_at: datetime | None = Field(default=None)
 
 
+class ScanTicket(SQLModel, table=True):
+    """Single-use credential of a codebase scan, issued to the MCP agent (start_codebase_scan).
+
+    It lets ``security-review-ci`` send the files of the workstation to the code scan and the
+    dependency scan of one project, once each, until ``expires_at`` (SHA-256 digest only, see
+    auth.scan_tickets). It holds the rights of the token that asked for it: those of its web user
+    (``user_id``) or of the token itself (``token_id``), read again at each use.
+    """
+
+    id: str = Field(primary_key=True, max_length=64)
+    ticket_hash: str = Field(unique=True, index=True, max_length=64)
+    project: str = Field(max_length=200)
+    user_id: int | None = Field(default=None, foreign_key="webuser.id", index=True)
+    token_id: str | None = Field(default=None, max_length=64)
+    # Label of the token that asked for it, for the logs and the reports (submitted_by)
+    issued_to: str = Field(max_length=200)
+    created_at: datetime = Field(default_factory=utcnow)
+    expires_at: datetime = Field(index=True)
+    code_used_at: datetime | None = Field(default=None)
+    deps_used_at: datetime | None = Field(default=None)
+
+
 # ── Requested projects (see access_control.request_project) ──────────────────
 
 

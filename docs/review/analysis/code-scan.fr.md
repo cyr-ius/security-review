@@ -102,14 +102,47 @@ Dans l'hôte, lancez le prompt `codebase-review`, avec au choix :
 - **les résultats du scan automatique** dans `scan_results` (le JSON de
   `security-review-ci scan-code . --project portal --format json`, éventuellement filtré) :
   l'agent part de ces pistes ;
-- **sans `scan_results`** : le prompt demande à un agent qui peut lancer des commandes
-  d'exécuter lui-même `security-review-ci scan-code` (avec un jeton `ci` personnel), ou à
-  l'utilisateur de le lancer et de coller la sortie. Les fichiers arrivent ainsi au serveur
-  Controller tels quels, au lieu d'être recopiés par le modèle dans des appels à `scan_code`.
+- **sans `scan_results`** : un agent qui peut lancer des commandes appelle
+  [`start_codebase_scan`](#scan-lance-par-lagent-start_codebase_scan) et exécute les commandes
+  qu'il donne, sans jeton ni installation sur le poste. Sinon, il lance lui-même
+  `security-review-ci scan-code` (avec un jeton `ci` personnel), ou demande à l'utilisateur de le
+  lancer et de coller la sortie. Les fichiers arrivent ainsi au serveur Controller tels quels, au
+  lieu d'être recopiés par le modèle dans des appels à `scan_code`.
 
 `languages` choisit les checklists, `focus` et `context` orientent la revue (voir
 [prompts et outils](../prompts-tools.md#prompts)). Le prompt `dependency-review` fait de même
 pour les dépendances avec `security-review-ci scan-deps`.
+
+### Scan lancé par l'agent (`start_codebase_scan`)
+
+Avec le serveur MCP HTTP et la [délégation de `scan_code`](opengrep.md#scans-de-fragments-scan_code)
+activée, l'agent fait scanner tout le dépôt par le serveur Controller **sans lire les fichiers**,
+sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
+
+1. l'agent appelle `start_codebase_scan` avec le projet ; le serveur MCP relaie son jeton (accès
+   OAuth ou jeton `mcp` personnel) au serveur Controller, qui émet un **ticket à usage unique**
+   valable quelques minutes (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 600 secondes par défaut) ;
+2. l'outil renvoie deux commandes, que l'agent exécute à la racine du dépôt :
+
+    ```bash
+    echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
+        security-review-ci@latest scan-code . --url https://secreview.example.com \
+        --project portal --save --token-stdin --format summary
+    ```
+
+    `uvx` exécute le [client servi par le serveur Controller](../../advanced/architecture/ci.md#depuis-le-serveur-controller)
+    sans l'installer (seul `uv` est nécessaire) ; le ticket passe par l'entrée standard, jamais
+    par la ligne de commande ;
+3. le serveur Controller scanne les fichiers et enregistre un rapport `code-scan` (et un
+    rapport `dependency-scan` avec la commande `scan-deps`) ; `--format summary` n'affiche que
+    les compteurs et les fichiers et règles qui ont le plus de correspondances, pour que l'agent
+    sache quoi lire en premier sans charger chaque correspondance dans son contexte.
+
+Le ticket n'atteint que le scan du code et le scan des dépendances de son projet, **une fois
+chacun**, avec les droits du jeton qui l'a demandé, relus à chaque usage : seul un utilisateur
+qui peut enregistrer des rapports sur le projet (`reports.write`) en obtient un. Il passe par le
+contexte du modèle, qui le recopie dans la commande : il ne vaut plus rien une fois utilisé ou
+expiré ([sécurité](../../reference/security.md#securite-du-serveur-lui-meme)).
 
 ### Ce que fait `codebase-review`
 
@@ -120,8 +153,9 @@ qui lit le code dans son espace de travail.
    code généré, les dépendances embarquées ni les sorties de build. Il repère les langages, les
    points d'entrée (routes HTTP, CLI, consommateurs de messages, tâches planifiées) et les
    fichiers de configuration et de CI/CD.
-2. **Pistes.** Il part des résultats du scan (`scan_results`, ou `security-review-ci scan-code`
-   lancé par lui-même), sinon, en dernier recours, appelle `scan_code` sur chaque fichier lu.
+2. **Pistes.** Il part des résultats du scan (`scan_results`, `start_codebase_scan` ou
+   `security-review-ci scan-code` lancé par lui-même), sinon, en dernier recours, appelle
+   `scan_code` sur chaque fichier lu.
 3. **Priorisation.** Il lit d'abord ce qu'un attaquant peut atteindre : points d'entrée,
    authentification, validation des entrées, base de données, fichiers et processus,
    désérialisation, requêtes sortantes, cryptographie et secrets, puis configuration et
@@ -151,7 +185,8 @@ prétendre l'avoir couvert.
 l'agent lit une grande partie du dépôt, et chaque fichier lu compte dans son contexte. Pour la
 maîtriser :
 
-- fournissez `scan_results`, ou laissez l'agent lancer `security-review-ci scan-code` : les
+- fournissez `scan_results`, ou laissez l'agent lancer `start_codebase_scan` (ou
+  `security-review-ci scan-code`) : les
   fichiers arrivent au serveur Controller sans passer par le modèle, qui ne lit ensuite que les
   pistes et les zones sensibles. Sans cela, l'agent recopie chaque fichier dans un appel à
   `scan_code`, ce qui coûte le plus ;

@@ -401,6 +401,20 @@ def test_scan_code_blocks_and_prints_the_matches(
     assert len(services.list_reports(project="shop-api")) == 1
 
 
+def test_scan_code_summary_lists_files_and_rules_without_excerpts(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    make_tree(tmp_path / "repo")
+    argv = ["scan-code", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
+
+    assert run(controller, monkeypatch, [*argv, "--format", "summary"], ci_token) == 1
+    out = capsys.readouterr().out
+    assert "app/views.py: 1 match(es), worst high, lines 2" in out
+    assert "PY-004 [high]" in out and "BLOCKED" in out
+    # Short enough for the context of an agent: no excerpt, no per-match line
+    assert "app/views.py:2 [HIGH]" not in out and "Sup3rSecret99" not in out
+
+
 def test_scan_code_passes_below_the_threshold(controller, ci_token, monkeypatch, tmp_path):
     (tmp_path / "a.py").write_text("print('ok')\n", encoding="utf-8")
     argv = ["scan-code", str(tmp_path), "--no-git", "--project", "shop-api"]

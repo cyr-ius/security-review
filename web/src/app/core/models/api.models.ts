@@ -332,7 +332,8 @@ export type AuditAction =
   | 'mcp_oauth.changed'
   | 'opengrep_rule.proposed'
   | 'opengrep_rule.approved'
-  | 'opengrep_rule.rejected';
+  | 'opengrep_rule.rejected'
+  | 'scan_ticket.issued';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -381,6 +382,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'opengrep_rule.proposed',
   'opengrep_rule.approved',
   'opengrep_rule.rejected',
+  'scan_ticket.issued',
 ];
 
 /** One entry of the audit log (details never hold a secret). */

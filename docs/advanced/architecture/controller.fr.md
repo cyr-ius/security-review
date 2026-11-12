@@ -14,6 +14,7 @@ base (voir [Architecture](index.md)).
 | `/api/v1/` | l'interface web, les scripts, Swagger | session web, jeton `admin` ou `api` |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` (personnel ou non) |
 | `/api/v1/scan/content` | le serveur MCP : `scan_code` [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code) (ne lit ni n'enregistre rien) | jeton `mcp` ou `admin` de l'agent, relayé |
+| `/api/v1/scan/tickets` | le serveur MCP : ticket à usage unique de `start_codebase_scan` ([scan lancé par l'agent](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)), utilisé ensuite par `security-review-ci` sur `/api/v1/ci/scan/code` et `/scan/deps` | jeton `mcp` ou `admin` de l'agent, relayé |
 | `/metrics` | Prometheus ([métriques](../../reference/metrics.md)) | jeton `metrics` ou `admin` |
 | `/api/docs` | Swagger : documentation OpenAPI de l'API REST, sans données, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../../usage/tokens.md#jetons-api)) |
 | `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-serveur-controller), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |

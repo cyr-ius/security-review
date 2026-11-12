@@ -105,6 +105,8 @@ class AuditAction(StrEnum):
     OPENGREP_RULE_PROPOSED = "opengrep_rule.proposed"
     OPENGREP_RULE_APPROVED = "opengrep_rule.approved"
     OPENGREP_RULE_REJECTED = "opengrep_rule.rejected"
+    # Single-use ticket of a codebase scan issued to an MCP agent (see scan_tickets)
+    SCAN_TICKET_ISSUED = "scan_ticket.issued"
 
 
 def user_actor(username: str) -> str:

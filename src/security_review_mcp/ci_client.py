@@ -65,6 +65,8 @@ MAX_ERROR_CHARS = 500
 # Plain HTTP is only accepted to these hosts (the token travels in the request)
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 SEVERITIES = ["info", "low", "medium", "high", "critical"]
+# Files and rules listed by the summary of scan-code (--format summary)
+SUMMARY_TOP = 20
 
 URL_VARIABLE = "SECREVIEW_CONTROLLER_URL"
 TOKEN_VARIABLE = "SECREVIEW_CI_TOKEN"
@@ -492,6 +494,46 @@ def print_code_text(result: dict, fail_on: str) -> None:
             f"{result['suppressed_count']} suppressed"
         )
     )
+    blocked = result["blocking_findings"]
+    print(f"RESULT: {f'BLOCKED ({blocked} match(es) >= {fail_on})' if blocked else 'OK'}")
+
+
+def print_code_summary(result: dict, fail_on: str, top: int = SUMMARY_TOP) -> None:
+    """Print a compact summary of a code scan for an agent: the counts, then the files and the
+    rules with the most matches (no excerpt), so that it knows what to read first."""
+    files = sorted(
+        (entry for entry in result["files"] if entry["matches"]),
+        key=lambda entry: (-len(entry["matches"]), entry["file"]),
+    )
+    rules: dict[str, list] = {}
+    for entry in files:
+        for match in entry["matches"]:
+            rules.setdefault(match["rule_id"], [match, 0])[1] += 1
+    counts = ", ".join(f"{k}: {v}" for k, v in result["by_severity"].items() if v)
+    print(
+        _clean(
+            f"{result['files_scanned']} file(s) scanned, {result['files_skipped']} skipped, "
+            f"{result['matches_count']} match(es){f' ({counts})' if counts else ''}, "
+            f"{result['suppressed_count']} suppressed, in {len(files)} file(s)"
+        )
+    )
+    if files:
+        print(f"Files with matches (top {min(top, len(files))} of {len(files)}):")
+    for entry in files[:top]:
+        lines = ",".join(str(m["line"]) for m in entry["matches"][:10])
+        worst = max((m["severity"] for m in entry["matches"]), key=SEVERITIES.index)
+        more = "+" if entry["truncated"] or len(entry["matches"]) > 10 else ""
+        print(
+            _clean(
+                f"  {entry['file']}: {len(entry['matches'])} match(es), worst {worst}, "
+                f"lines {lines}{more}"
+            )
+        )
+    if rules:
+        print(f"Rules (top {min(top, len(rules))} of {len(rules)}):")
+    ranked = sorted(rules.items(), key=lambda item: (-item[1][1], item[0]))
+    for rule_id, (match, count) in ranked[:top]:
+        print(_clean(f"  {rule_id} [{match['severity']}] {match['title']}: {count}"))
     blocked = result["blocking_findings"]
     print(f"RESULT: {f'BLOCKED ({blocked} match(es) >= {fail_on})' if blocked else 'OK'}")
 
@@ -1187,7 +1229,13 @@ def _parser() -> argparse.ArgumentParser:
     code.add_argument(
         "--no-git", action="store_true", help="walk the tree instead of using git ls-files"
     )
-    code.add_argument("--format", choices=["text", "json", "sarif"], default="text")
+    code.add_argument(
+        "--format",
+        choices=["text", "json", "sarif", "summary"],
+        default="text",
+        help="text (every match), json, sarif, or summary (counts, top files and rules: for an "
+        "AI agent)",
+    )
     code.add_argument("--output", "-o", help="file to write (default: standard output)")
     _add_report_options(code)
 
@@ -1300,8 +1348,9 @@ def _scan_code(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
     if not isinstance(result.get("blocked"), bool):
         raise ValueError("Unexpected answer of scan/code: no 'blocked' field")
     code = EXIT_BLOCKED if result["blocked"] else EXIT_PASSED
-    if args.format == "text":
-        print_code_text(result, args.fail_on)
+    if args.format in ("text", "summary"):
+        printer = print_code_text if args.format == "text" else print_code_summary
+        printer(result, args.fail_on)
         print_saved_line(result, args.project)
         return code
     log = result.pop("sarif", None)

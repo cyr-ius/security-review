@@ -347,13 +347,14 @@ _CODEBASE_METHOD = f"""\
 vendored dependencies and build output). Identify the languages, frameworks, entry points \
 (HTTP routes, CLI, message consumers, scheduled jobs) and the configuration and CI/CD files.
 2. **Leads.** If scan results are given below, start from them. Otherwise, if you can run \
-commands and `security-review-ci` is installed, run \
-`security-review-ci scan-code . --project <name> --format json` yourself (it needs \
-`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_CI_TOKEN`; the \
-controller scans \
-every file as it is, without the size limit of a tool call), or ask the user to run it and \
-paste the output. As a last resort, call `scan_code` file by file on the files you read. A \
-match is a lead, not a finding: confirm each one by reading the surrounding code.
+shell commands, call `start_codebase_scan` with the project and run the commands it gives at \
+the root of the repository: the Controller server scans every file as it is, without you \
+reading them, and the summary lists the files and rules to verify first. If that tool is not \
+available or fails, and `security-review-ci` is set up (`SECREVIEW_CONTROLLER_URL` and a \
+personal ci token in `SECREVIEW_CI_TOKEN`), run \
+`security-review-ci scan-code . --project <name> --format summary` yourself, or ask the user \
+to run it and paste the output. As a last resort, call `scan_code` file by file on the files \
+you read. A match is a lead, not a finding: confirm each one by reading the surrounding code.
 3. **Prioritize.** Read first what an attacker can reach: entry points, authentication and \
 authorization, input parsing and validation, database access, file and process handling, \
 deserialization, outbound requests, cryptography and secrets, then configuration and pipelines.

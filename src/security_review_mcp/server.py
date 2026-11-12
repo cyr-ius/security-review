@@ -4,6 +4,7 @@ import argparse
 import functools
 import getpass
 import logging
+import re
 import sys
 import threading
 import time
@@ -63,6 +64,9 @@ Security code-review server.
 start a structured review, and `codebase-review` to review a whole repository (not only a diff).
 - Use `get_review_checklist` and `scan_code` while reviewing. When their results give a report \
 language, write your reply and the free-text fields of the report in that language.
+- To scan a whole repository when you can run shell commands, call `start_codebase_scan` and \
+run the commands it gives: the files reach the Controller server without you reading them, and \
+its summary tells you which files to read first.
 - At the end of a review, call `save_security_report` once to store the report in the \
 database: the server records the user of the token as its author. Use \
 `list_security_reports`, `get_security_report` and `get_project_security_posture` to read \
@@ -1165,6 +1169,89 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     )
     logger.info("Project %s %s by %s", requested["project"], requested["status"], label)
     return requested
+
+
+# Characters of a URL, a project name or a ticket that no shell interprets (no quote, space,
+# ; $ ` & | < > ( ) * ? ~ nor newline)
+_SHELL_SAFE = re.compile(r"[A-Za-z0-9._:/%@+=,-]+")
+
+
+def _ci_command(controller_url: str, download: bool, project: str, ticket: str, scan: str) -> str:
+    """Shell command that runs ``security-review-ci`` with uvx (nothing to install) and gives it
+    the ticket on stdin (never as an argument: it would show in the process list)."""
+    # The agent runs the command in a shell: only characters no shell interprets
+    for value in (controller_url, project, ticket):
+        if not _SHELL_SAFE.fullmatch(value):
+            raise ValueError(
+                "The URL of the Controller server or the ticket holds characters unsafe in a "
+                "shell command: review the files with scan_code instead"
+            )
+    source = f"--no-index --find-links {controller_url}/api/ci-client/ " if download else ""
+    return (
+        f"echo '{ticket}' | uvx {source}security-review-ci@latest {scan} "
+        f"--url {controller_url} --project {project} --save --token-stdin"
+    )
+
+
+@mcp.tool(annotations=WRITE)
+@_tool_errors
+def start_codebase_scan(ctx: Context, project: ProjectArg) -> dict:
+    """Get the commands that scan the whole repository on the Controller server, without reading
+    the files: run them in a shell at the root of the repository.
+
+    The files go from the workstation to the Controller server through `security-review-ci`
+    (run with uvx, nothing to install), with a single-use ticket valid a few minutes: one code
+    scan and one dependency scan. The scans are saved as reports of the project; the code scan
+    prints a short summary of its leads (files and rules), which tells you what to read first.
+    Needs the HTTP MCP server with the delegation of scan_code turned on.
+    """
+    settings = get_settings()
+    allowed = _caller_write_projects(ctx)
+    if allowed is not None and project not in allowed:
+        raise ValueError(
+            f"This token cannot save reports on project {project!r}: call request_project first"
+        )
+    authorization = _caller_authorization(ctx)
+    controller_url = (
+        settings.mcp_scan_controller_url or app_settings.mcp_scan_controller_url()
+        if authorization
+        else None
+    )
+    if not controller_url:
+        raise ValueError(
+            "The codebase scan needs the HTTP MCP server with the delegation of scan_code "
+            "turned on: review the files with scan_code instead"
+        )
+    try:
+        ticket = remote_scan.request_ticket(
+            controller_url, authorization, project, settings.mcp_scan_timeout_seconds
+        )
+    except remote_scan.RemoteScanError as exc:
+        raise ValueError(f"The Controller server gave no scan ticket: {exc}") from None
+    public_url = (ticket["controller_url"] or app_settings.controller_url() or "").rstrip("/")
+    if not public_url:
+        raise ValueError(
+            "The public URL of the Controller server is unknown (SECREVIEW_PUBLIC_URL): "
+            "review the files with scan_code instead"
+        )
+    logger.info(
+        "Scan ticket of %s given to %s", ticket["project"], _auth_state(ctx).get("auth_client")
+    )
+    args = (public_url, ticket["client_download"], ticket["project"], ticket["ticket"])
+    return {
+        "project": ticket["project"],
+        "expires_at": ticket["expires_at"],
+        "scan_code_command": _ci_command(*args, "scan-code . --format summary"),
+        "scan_deps_command": _ci_command(*args, "scan-deps MANIFEST_FILES"),
+        "note": (
+            "Run the commands at the root of the repository, unchanged except: replace "
+            "MANIFEST_FILES with the dependency files of the repository (or skip "
+            "that command), and you may add --branch, --commit and --exclude GLOB. The ticket "
+            "works once per command until expires_at; call start_codebase_scan again for a "
+            "new one. Do not read the files to scan them: the summary gives the leads to "
+            "verify by reading the code."
+        ),
+    }
 
 
 def _enrollment_prompt() -> str:

@@ -92,6 +92,13 @@ METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 # Scan of the scan_code tool, delegated by the MCP server with the token of its caller: the only
 # route of the controller an ``mcp`` token reaches (it reads and stores nothing)
 CONTENT_SCAN_PATH = "/api/v1/scan/content"
+# Ticket of a codebase scan, asked for by the MCP server (start_codebase_scan) with the token of
+# its caller: the other route of the controller an ``mcp`` token reaches
+SCAN_TICKET_PATH = "/api/v1/scan/tickets"
+# Routes of the controller an ``mcp`` token reaches
+MCP_CONTROLLER_PATHS = frozenset({CONTENT_SCAN_PATH, SCAN_TICKET_PATH})
+# The only routes a scan ticket reaches (see auth.scan_tickets): the scans of security-review-ci
+TICKET_PATHS = frozenset({"/api/v1/ci/scan/code", "/api/v1/ci/scan/deps"})
 # Pipeline routes of the controller, the only ones a ``ci`` token reaches
 CI_PREFIX = "/api/v1/ci/"
 UI_PREFIX = "/ui"
@@ -163,6 +170,8 @@ class TokenInfo:
     )
     # A web user whose password was set by someone else: it may only change it
     must_change_password: bool = False
+    # Id of a scan ticket (see auth.scan_tickets): it only reaches TICKET_PATHS, once each
+    ticket_id: str | None = None
 
 
 def write_scope(state: Mapping[str, Any]) -> frozenset[str] | None:
@@ -379,11 +388,12 @@ class BearerAuthMiddleware:
         """True when a token of this role may reach ``path`` on this process.
 
         A ``ci`` token only reaches the pipeline routes of the controller, a ``metrics`` token
-        only its Prometheus endpoint, an ``mcp`` token only the scan delegated by scan_code.
+        only its Prometheus endpoint, an ``mcp`` token only the scan delegated by scan_code and
+        the tickets of start_codebase_scan.
         """
         if not self.web:
             return role in MCP_ROLES
-        if path == CONTENT_SCAN_PATH:
+        if path in MCP_CONTROLLER_PATHS:
             return role in MCP_ROLES
         if path == METRICS_PATH:
             return role in METRICS_ROLES
@@ -450,7 +460,9 @@ class BearerAuthMiddleware:
             # RFC 6750: an expired token is an invalid_token
             await self.unauthorized(send, "The bearer token has expired")
             return
-        if not self.role_allowed(info.role, path):
+        if not self.role_allowed(info.role, path) or (
+            info.ticket_id is not None and (not self.web or path not in TICKET_PATHS)
+        ):
             AUTH_REJECTIONS["insufficient_scope"] += 1
             logger.warning(
                 "Rejected request from %s (%s, role %s) to %s", address, info.label, info.role, path
@@ -471,6 +483,7 @@ class BearerAuthMiddleware:
         state["auth_source"] = info.auth_source
         state["auth_grants"] = info.grants
         state["auth_must_change_password"] = info.must_change_password
+        state["auth_ticket_id"] = info.ticket_id
         await self.app(scope, receive, send)
 
     async def oauth_resource(self) -> OAuthResource | None:

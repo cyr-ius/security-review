@@ -535,6 +535,10 @@ class Settings(BaseSettings):
     mcp_scan_controller_url: str | None = None
     # Time limit of a delegated scan, OpenGrep included (seconds)
     mcp_scan_timeout_seconds: int = Field(default=120, ge=1, le=7200)
+    # Controller only: validity of the single-use ticket of a codebase scan (MCP tool
+    # start_codebase_scan, sent by the delegation of scan_code), with which security-review-ci
+    # sends the files of the workstation to the code and dependency scans of one project
+    scan_ticket_ttl_seconds: int = Field(default=600, ge=60, le=3600)
 
     @field_validator(
         "proxy",

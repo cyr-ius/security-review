@@ -431,6 +431,43 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     assert "PY-004" in {m["rule_id"] for m in failed["matches"]}
 
 
+async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):
+    sent = []
+
+    def controller(url, authorization, project, timeout):
+        sent.append((url, authorization, project))
+        return {
+            "ticket": "secreview_scan_abc",
+            "project": project,
+            "expires_at": "2026-11-12T10:10:00+00:00",
+            "controller_url": "https://sr.example" if len(sent) == 1 else "https://sr.example/;id",
+            "client_download": True,
+        }
+
+    monkeypatch.setattr(server.remote_scan, "request_ticket", controller)
+    async with Client(mcp) as client:
+        # stdio: no token to relay, no outgoing connection
+        local = await client.call_tool("start_codebase_scan", {"project": "shop-api"})
+        monkeypatch.setattr(server, "_caller_authorization", lambda ctx: "Bearer agent-token")
+        app_settings.set_controller_url("https://sr.example", "admin")
+        app_settings.set_mcp_scan_delegation(True, "admin")
+        result = json.loads(
+            text_of(await client.call_tool("start_codebase_scan", {"project": "Shop_API"}))
+        )
+        # A URL the shell would interpret never reaches a command
+        unsafe = await client.call_tool("start_codebase_scan", {"project": "shop-api"})
+
+    assert local.is_error and "delegation of scan_code" in text_of(local)
+    assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api")
+    assert unsafe.is_error and "unsafe in a shell" in text_of(unsafe)
+    command = result["scan_code_command"]
+    # The ticket goes on stdin, never as an argument
+    assert command.startswith("echo 'secreview_scan_abc' | uvx --no-index --find-links ")
+    assert "https://sr.example/api/ci-client/ security-review-ci@latest scan-code . " in command
+    assert "--project shop-api --save --token-stdin" in command and "--format summary" in command
+    assert "scan-deps MANIFEST_FILES" in result["scan_deps_command"]
+
+
 async def test_triage_prompt_sets_the_report_language():
     saved = services.save_report(project="demo", summary="Seeded", findings=[])
     async with Client(mcp) as client:

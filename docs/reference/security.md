@@ -111,8 +111,9 @@
   page), audited and stored in the database,
   `scan_code` sends its fragment to the Controller server with the token of the agent, to that URL
   only, without proxy nor redirect, answer bounded, token never logged (see
-  [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); an `mcp` token reaches
-  that route only. The Controller server only downloads the OSV advisories if an administrator enables it
+  [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); `start_codebase_scan`
+  asks the same way for a scan ticket (`POST /api/v1/scan/tickets`). An `mcp` token reaches
+  these two routes only. The Controller server only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
@@ -289,6 +290,17 @@
   (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
   number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
   excerpts and in the stored report.
+- **Scan tickets** (`start_codebase_scan`, needs the delegation of `scan_code`): the Controller
+  server issues a ticket only to an `mcp` or `admin` token that may save reports on the project
+  (`reports.write`), at most 20 valid ones per token. Only its SHA-256 digest is stored; it
+  reaches the code scan and the dependency scan of its project only, **once each** (a scan that
+  fails before storing anything gives it back), until it expires
+  (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes by default), with the rights of the token or
+  user that asked for it read again at each use (a revoked token, or a user who lost
+  `reports.write`, invalidates it). The ticket passes through the context of the model, which
+  copies it into the command, and gives it to `security-review-ci` on stdin, never as an
+  argument. Every issue is audited (`scan_ticket.issued`). See
+  [scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan).
 - **Request bodies of the Controller server**: every body is bounded before it is parsed, `413`
   beyond: 512 KiB for the JSON routes, public ones included (login, SSO), 8 MiB for the
   pack imports and `SECREVIEW_MAX_SCAN_REQUEST_MB` for the pipeline scans. The declared

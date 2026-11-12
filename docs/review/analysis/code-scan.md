@@ -97,14 +97,46 @@ In the host, start the `codebase-review` prompt, either:
 - **with the results of the automatic scan** in `scan_results` (the JSON of
   `security-review-ci scan-code . --project portal --format json`, possibly filtered): the
   agent starts from these leads;
-- **without `scan_results`**: the prompt asks an agent that can run commands to launch
-  `security-review-ci scan-code` itself (with a personal `ci` token), or the user to run it and
-  paste the output. The files thus reach the Controller server as they are, instead of being
+- **without `scan_results`**: an agent that can run commands calls
+  [`start_codebase_scan`](#scan-started-by-the-agent-start_codebase_scan) and runs the commands
+  it gives, without any token nor installation on the workstation. Otherwise, it launches
+  `security-review-ci scan-code` itself (with a personal `ci` token), or asks the user to run it
+  and paste the output. The files thus reach the Controller server as they are, instead of being
   copied by the model into `scan_code` calls.
 
 `languages` selects the checklists, `focus` and `context` steer the review (see
 [prompts and tools](../prompts-tools.md#prompts)). The `dependency-review` prompt does the same
 for the dependencies with `security-review-ci scan-deps`.
+
+### Scan started by the agent (`start_codebase_scan`)
+
+With the HTTP MCP server and the [delegation of `scan_code`](opengrep.md#fragment-scans-scan_code)
+turned on, the agent scans the whole repository on the Controller server **without reading the
+files** and without the developer installing anything or creating a `ci` token:
+
+1. the agent calls `start_codebase_scan` with the project; the MCP server relays its token (an
+   OAuth access or a personal `mcp` token) to the Controller server, which issues a
+   **single-use ticket** valid a few minutes (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 600 seconds
+   by default);
+2. the tool returns two commands, which the agent runs at the root of the repository:
+
+    ```bash
+    echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/         security-review-ci@latest scan-code . --url https://secreview.example.com         --project portal --save --token-stdin --format summary
+    ```
+
+    `uvx` runs the [client served by the Controller server](../../advanced/architecture/ci.md#from-the-controller-server)
+    without installing it (only `uv` is needed); the ticket goes on the standard input, never on
+    the command line;
+3. the Controller server scans the files and saves a `code-scan` report (and a
+    `dependency-scan` report with the `scan-deps` command); `--format summary` only prints the
+    counts and the files and rules with the most matches, so the agent knows what to read first
+    without loading every match in its context.
+
+The ticket only reaches the code scan and the dependency scan of its project, **once each**,
+with the rights of the token that asked for it, read again at each use: only a user who may
+save reports on the project (`reports.write`) gets one. It passes through the context of the
+model, which copies it into the command: it is worth nothing once used or expired
+([security](../../reference/security.md#security-of-the-server-itself)).
 
 ### What `codebase-review` does
 
@@ -115,8 +147,9 @@ in its workspace.
    generated code, vendored dependencies nor build output. It spots the languages, the entry
    points (HTTP routes, CLI, message consumers, scheduled jobs) and the configuration and CI/CD
    files.
-2. **Leads.** It starts from the scan results (`scan_results`, or `security-review-ci scan-code`
-   run by itself), else, as a last resort, calls `scan_code` on each file it reads.
+2. **Leads.** It starts from the scan results (`scan_results`, `start_codebase_scan` or
+   `security-review-ci scan-code` run by itself), else, as a last resort, calls `scan_code` on
+   each file it reads.
 3. **Prioritization.** It reads first what an attacker can reach: entry points,
    authentication, input validation, database, files and processes, deserialization, outgoing
    requests, cryptography and secrets, then configuration and pipelines.
@@ -144,7 +177,8 @@ instead of pretending it was covered.
 **Can it consume many tokens?** Yes, it is the most expensive prompt: the agent reads a large
 part of the repository, and every file read counts in its context. To keep it under control:
 
-- give `scan_results`, or let the agent run `security-review-ci scan-code`: the files reach the
+- give `scan_results`, or let the agent run `start_codebase_scan` (or
+  `security-review-ci scan-code`): the files reach the
   Controller server without going through the model, which then only reads the leads and the
   sensitive areas. Without it, the agent copies each file into a `scan_code` call, which
   costs the most;

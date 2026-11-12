@@ -14,6 +14,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/api/v1/` | the web interface, scripts, Swagger | web session, `admin` or `api` token |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token (personal or not) |
 | `/api/v1/scan/content` | the MCP server: `scan_code` [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code) (reads and stores nothing) | `mcp` or `admin` token of the agent, relayed |
+| `/api/v1/scan/tickets` | the MCP server: single-use ticket of `start_codebase_scan` ([scan started by the agent](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)), then used by `security-review-ci` on `/api/v1/ci/scan/code` and `/scan/deps` | `mcp` or `admin` token of the agent, relayed |
 | `/metrics` | Prometheus ([metrics](../../reference/metrics.md)) | `metrics` or `admin` token |
 | `/api/docs` | Swagger: OpenAPI documentation of the REST API, without data, only with `SECREVIEW_SWAGGER_ENABLED=true` | none (the calls need an [API token](../../usage/tokens.md#api-tokens)) |
 | `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller-server), unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | none |

@@ -98,6 +98,7 @@ error is hidden from it.
 | `list_checklists` | read-only | none | Domains (built-in and internal) with their number of items |
 | `get_review_checklist` | read-only | `domain` | The checklist in Markdown, followed by the report language when one is configured |
 | `scan_code` | read-only | `content` (at most `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (rule, line, masked excerpt), `suppressed` (lines marked `secreview:ignore`), counts, `engines` (`rules`, `opengrep` when [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)), `controller_error`, `report_language`; leads to check, not a full SAST |
+| `start_codebase_scan` | write | `project` | `scan_code_command` and `scan_deps_command` (`security-review-ci` run with `uvx`, single-use ticket on stdin), `expires_at`; needs the delegation of `scan_code` ([scan started by the agent](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `list_rules` | read-only | `language` (optional) | Active rules, `disabled_rules`, `load_errors` of the internal rules |
 | `reload_rules` | write | none | Reads the rules of the database again at once (otherwise within 5 seconds); refused to a token restricted to projects |
 
@@ -166,7 +167,8 @@ without argument, which explain how to get a token.
   no module of the Controller server. Only exception, disabled by default: `scan_code`
   [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)
   (`SECREVIEW_SCANCODE_DELEGATED` on the Controller server, or the switch of the **General**
-  page), with the token of the agent.
+  page), with the token of the agent, and `start_codebase_scan`, which asks the same way for a
+  [scan ticket](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan).
 - Its tools **never read the disk** from a path given by the client: they work on the content
   sent.
 - Every input is bounded (`SECREVIEW_MAX_CONTENT_CHARS`, `SECREVIEW_MAX_FINDINGS_PER_REPORT`,

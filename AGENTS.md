@@ -217,9 +217,13 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   CLI. Seule exception du serveur MCP : `scan_code` délégué au contrôleur (`rules/remote_scan.py`,
   **désactivé par défaut**, décidé par le serveur Controller : `SECREVIEW_SCANCODE_DELEGATED` ou la
   page **Général**, enregistré en base), qui relaie le jeton de l'appelant
-  à `POST /api/v1/scan/content` (seule route du contrôleur ouverte au rôle `mcp`, qui ne lit ni
-  n'enregistre rien), sans proxy ni redirection, réponse bornée, jeton jamais journalisé, et revient
-  aux règles locales en cas d'échec. Autres exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
+  à `POST /api/v1/scan/content` (qui ne lit ni n'enregistre rien), sans proxy ni redirection,
+  réponse bornée, jeton jamais journalisé, et revient aux règles locales en cas d'échec ; par le
+  même chemin, `start_codebase_scan` demande à `POST /api/v1/scan/tickets` un ticket de scan à
+  usage unique (`auth/scan_tickets.py` : empreinte seule, scans `ci/scan/code` et `ci/scan/deps`
+  du projet une fois chacun, droits du demandeur relus à chaque usage, durée courte) que l'agent
+  passe à `security-review-ci` sur l'entrée standard. Ce sont les deux seules routes du contrôleur
+  ouvertes au rôle `mcp`. Autres exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le OIDC) jamais journalisé
   avec ses identifiants, et la
   connexion OIDC du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
