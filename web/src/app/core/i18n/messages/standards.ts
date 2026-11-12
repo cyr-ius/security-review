@@ -4,8 +4,7 @@ import { defineMessages } from '../catalog';
 export const standards = defineMessages({
   en: {
     'standards.title': 'Development standards',
-    'standards.subtitle':
-      "Conventions by technology given to the developer's AI assistant through MCP (prompt",
+    'standards.subtitle': 'Conventions by technology',
     'standards.new': 'New standard',
     'standards.loadError': 'Could not load the standards.',
     'standards.loadOneError': 'Could not load the standard.',
@@ -42,8 +41,7 @@ export const standards = defineMessages({
   },
   fr: {
     'standards.title': 'Normes de développement',
-    'standards.subtitle':
-      "Conventions par technologie transmises à l'assistant IA du développeur via MCP (prompt",
+    'standards.subtitle': 'Conventions par technologie',
     'standards.new': 'Nouvelle norme',
     'standards.loadError': 'Impossible de charger les normes.',
     'standards.loadOneError': 'Impossible de charger la norme.',
@@ -80,8 +78,7 @@ export const standards = defineMessages({
   },
   es: {
     'standards.title': 'Normas de desarrollo',
-    'standards.subtitle':
-      'Convenciones por tecnología transmitidas al asistente de IA del desarrollador mediante MCP (prompt',
+    'standards.subtitle': 'Convenciones por tecnología',
     'standards.new': 'Nueva norma',
     'standards.loadError': 'No se pudieron cargar las normas.',
     'standards.loadOneError': 'No se pudo cargar la norma.',
