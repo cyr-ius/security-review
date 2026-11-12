@@ -87,7 +87,7 @@ export class LayoutComponent {
     },
   ];
 
-  /** What the reviews rely on: scan rules, checklists and development standards. */
+  /** What the reviews rely on: scan rules, checklists, development standards and the OSV database. */
   private readonly referenceItems: readonly NavItem[] = [
     { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.read' },
     {
@@ -109,6 +109,12 @@ export class LayoutComponent {
       icon: 'bi-journal-code',
       permission: 'standards.read',
     },
+    {
+      path: '/settings/advisories',
+      label: 'layout.advisories',
+      icon: 'bi-database',
+      permission: 'settings.manage',
+    },
   ];
 
   private readonly adminItems: readonly NavItem[] = [
@@ -128,12 +134,6 @@ export class LayoutComponent {
       permission: 'tokens.manage',
     },
     { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
-    {
-      path: '/settings/advisories',
-      label: 'layout.advisories',
-      icon: 'bi-database',
-      permission: 'settings.manage',
-    },
     {
       path: '/settings/connectors',
       label: 'connectors.title',
