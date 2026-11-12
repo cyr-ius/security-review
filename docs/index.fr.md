@@ -107,8 +107,8 @@ développeurs se connectent par le navigateur au lieu de copier un jeton :
 2. Sur la page **Général**, saisissez `http://127.0.0.1:8080` comme **URL publique du serveur
    Controller** (ou cliquez sur **Utiliser l'adresse actuelle**) et enregistrez : la connexion
    OAuth en a besoin.
-3. Sur la page **Jetons**, dans la section **Clients MCP (connexion OAuth)**, saisissez
-   `http://127.0.0.1:8000/mcp` comme **Point d’accès MCP** et activez **Connexion OAuth**.
+3. Sur la page **Clients MCP**, dans la section **Connexion OAuth**, saisissez
+   `http://127.0.0.1:8000/mcp` comme **Point d’accès MCP** et activez l'interrupteur **Activer la connexion OAuth**.
 
 Déclarez le serveur MCP dans le fichier `.mcp.json` à la racine du dépôt, lu par VS Code,
 GitHub Copilot et Claude Code. Il ne contient que l'URL, sans jeton :

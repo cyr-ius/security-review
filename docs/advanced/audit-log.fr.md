@@ -41,7 +41,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `mcp_scan_delegation.changed` | La [délégation de `scan_code`](../review/analysis/opengrep.md#scans-de-fragments-scan_code) à l'adresse du serveur Controller est activée ou désactivée dans la page **Général**, ou désactivée par un changement de cette adresse (`enabled`) |
 | `oauth.client_registered` | Un client MCP s'enregistre pour la [connexion OAuth](mcp-oauth.md) (acteur `anonymous`, nom du client) |
 | `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur la page **Connecter un client MCP** |
-| `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, sur la page **Jetons** (une ou toutes), par le client (`/revoke`), ou avec son utilisateur |
+| `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, sur la page **Clients MCP** (une ou toutes), par le client (`/revoke`), ou avec son utilisateur |
 | `oauth.refresh_reused` | Un jeton de rafraîchissement déjà remplacé est présenté à nouveau : l'autorisation est révoquée |
 | `mcp_oauth.changed` | La [connexion OAuth](mcp-oauth.md) est activée ou désactivée, ou son point d'accès MCP changé, dans l'interface web |
 | `opengrep_rule.proposed` | Un agent propose une règle OpenGrep avec `propose_opengrep_rule` (jamais installée par lui), ou remplace sa proposition en attente (`replaced`) |

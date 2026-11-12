@@ -99,7 +99,7 @@ sign in through the browser instead of copying a token:
 1. Log in to the web interface with the `admin` account and choose a new password.
 2. On the **General** page, enter `http://127.0.0.1:8080` as **Public URL of the Controller
    server** (or click **Use the current address**) and save: the OAuth login needs it.
-3. On the **Tokens** page, in the **MCP clients (OAuth login)** section, enter
+3. On the **MCP clients** page, in the **OAuth login** section, enter
    `http://127.0.0.1:8000/mcp` as **MCP endpoint** and turn on **Enable OAuth login**.
 
 Declare the MCP server in the `.mcp.json` file at the root of the repository, read by VS Code,

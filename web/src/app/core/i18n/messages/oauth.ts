@@ -34,7 +34,9 @@ export const oauth = defineMessages({
     'oauth.revoked': 'Access of {client} revoked.',
     'oauth.revokeFailed': 'The access could not be revoked.',
     'oauth.loadError': 'Could not load the connected MCP clients.',
-    'oauth.adminTitle': 'MCP clients (OAuth login)',
+    'oauth.loginTitle': 'OAuth login',
+    'oauth.pageSubtitle':
+      'The MCP clients of the workstations (Claude Code, VS Code…) that log in through the browser, and the accesses approved by each user.',
     'oauth.adminHelp':
       'Clients that log in through the browser instead of a personal token. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The other settings are variables of the Controller server.',
     'oauth.mcpUrl': 'MCP endpoint',
@@ -108,11 +110,13 @@ export const oauth = defineMessages({
     'oauth.revoked': 'Accès de {client} révoqué.',
     'oauth.revokeFailed': 'L’accès n’a pas pu être révoqué.',
     'oauth.loadError': 'Impossible de charger les clients MCP connectés.',
-    'oauth.adminTitle': 'Clients MCP (connexion OAuth)',
+    'oauth.loginTitle': 'Connexion OAuth',
+    'oauth.pageSubtitle':
+      'Les clients MCP des postes de travail (Claude Code, VS Code…) qui se connectent par le navigateur, et les accès approuvés par chaque utilisateur.',
     'oauth.adminHelp':
       'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les autres réglages sont des variables du serveur Controller.',
     'oauth.mcpUrl': 'Point d’accès MCP',
-    'oauth.enabled': 'Connexion OAuth',
+    'oauth.enabled': 'Activer la connexion OAuth',
     'oauth.mcpUrlHelp':
       'Saisissez l’adresse publique de votre serveur MCP (ex. https://mcp.example.com/mcp).',
     'oauth.off':
@@ -182,7 +186,9 @@ export const oauth = defineMessages({
     'oauth.revoked': 'Acceso de {client} revocado.',
     'oauth.revokeFailed': 'No se pudo revocar el acceso.',
     'oauth.loadError': 'No se pudieron cargar los clientes MCP conectados.',
-    'oauth.adminTitle': 'Clientes MCP (inicio de sesión OAuth)',
+    'oauth.loginTitle': 'Inicio de sesión OAuth',
+    'oauth.pageSubtitle':
+      'Los clientes MCP de los puestos de trabajo (Claude Code, VS Code…) que inician sesión con el navegador, y los accesos aprobados por cada usuario.',
     'oauth.adminHelp':
       'Los clientes que inician sesión con el navegador en lugar de un token personal. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los demás ajustes son variables del servidor Controller.',
     'oauth.mcpUrl': 'Punto de acceso MCP',

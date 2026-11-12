@@ -19,8 +19,8 @@ n'est autorisé, et les clients déjà connectés sont refusés.
 ## Activation
 
 Dans l'interface web, un administrateur qui a la permission `settings.manage` doit saisir l'URL
-publique du serveur MCP dans la section **Clients MCP (connexion OAuth)** de la page
-**Jetons** et activer l'interrupteur **Connexion OAuth**.
+publique du serveur MCP dans la section **Connexion OAuth** de la page **Clients MCP** et
+activer l'interrupteur **Activer la connexion OAuth**.
 
 L'URL publique du serveur Controller est aussi nécessaire via le réglage sur la page **Général**.
 
@@ -38,7 +38,7 @@ SECREVIEW_PUBLIC_URL=https://secreview.example.com # issuer (https, http sur loc
 ```
 
 Quelle que soit la méthode employée, le serveur MCP prend en compte les modifications (sous 30 secondes).
-Activée sans l'URL du point d'accès MCP, la connexion est suspendue : le serveur Controller démarre, journalise un avertissement, et la page **Jetons** demande l'URL, dont l'enregistrement met la connexion en service.
+Activée sans l'URL du point d'accès MCP, la connexion est suspendue : le serveur Controller démarre, journalise un avertissement, et la page **Clients MCP** demande l'URL, dont l'enregistrement met la connexion en service.
 Si vous désactivez la connexion OAuth des clients MCP, les autorisations sont suspendues : le serveur MCP refuse aussitôt les jetons déjà émis, et les accepte de nouveau à la réactivation (un client dont le jeton de rafraîchissement a expiré entre-temps doit se reconnecter). Pour couper définitivement tous les clients, utilisez **Tout révoquer** (voir [Administration](#administration)).
 Une autorisation est liée à l'URL du point d'accès MCP pour laquelle elle a été émise : si vous changez cette URL, les jetons déjà émis sont refusés et chaque client doit se reconnecter.
 
@@ -136,7 +136,7 @@ Supprimer un utilisateur supprime ses clients. Un utilisateur garde au plus 20 c
 
 ## Administration
 
-Avec la permission `tokens.manage`, la page **Jetons** affiche une section **Clients MCP (connexion OAuth)**.
+Avec la permission `tokens.manage`, la page **Clients MCP** du menu Administration affiche la section **Connexion OAuth**. La page **Jetons** y renvoie.
 
  - **Révoquer** coupe un utilisateur d'un client.
 
@@ -178,7 +178,7 @@ avec un jeton.
 | Symptôme | Cause |
 |---|---|
 | L'hôte affiche toujours le serveur d'enrôlement | OAuth désactivé sur le serveur Controller, ou le serveur MCP n'a pas encore relu le réglage (30 secondes) |
-| **Jetons** indique que la connexion OAuth est suspendue (avertissement `OAuth login of the MCP clients suspended` dans les journaux) | `SECREVIEW_MCP_URL` manquant : définissez-le, ou saisissez l'URL sur la page **Jetons** |
+| **Clients MCP** indique que la connexion OAuth est suspendue (avertissement `OAuth login of the MCP clients suspended` dans les journaux) | `SECREVIEW_MCP_URL` manquant : définissez-le, ou saisissez l'URL sur la page **Clients MCP** |
 | Le serveur Controller ne démarre pas : `needs the public URL of the controller` | `SECREVIEW_PUBLIC_URL` manquant |
 | Le serveur Controller ne démarre pas : `Issuer URL must be HTTPS` | URL du serveur Controller en `http://` hors localhost |
 | `invalid_redirect_uri` à l'enregistrement, ou VS Code demande un ID client (« Enregistrement client dynamique non pris en charge ») | aucune URI de redirection sur l'interface loopback : ajoutez son hôte à `SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS` (https) ou son schéma à `SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES` |
