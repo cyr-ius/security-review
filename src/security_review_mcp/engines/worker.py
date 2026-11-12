@@ -13,7 +13,9 @@ none of the modules of the controller.
 At its start it enrolls with the controller at SECREVIEW_CONTROLLER_URL with the URL where the
 controller reaches it (SECREVIEW_SCAN_ENGINE_ADVERTISE_URL, or its IP address and port), then
 gets an OAuth access token of its own and sends a heartbeat with its free OpenGrep slots and
-its counters (engines.controller_client); no address to configure on the controller. Before
+its counters (engines.controller_client); no address to configure on the controller. When it
+stops (SIGTERM: rolling update, node drained, scale down), it tells the controller, which
+forgets it at once: it enrolls as a new client at its next start, on any node. Before
 each scan it brings its copy of the internal rules and of the OpenGrep rules of the controller
 up to date (engines.rule_sync).
 That is its only outgoing connection, to the controller only.
@@ -271,13 +273,17 @@ def main(argv: list[str] | None = None) -> None:
             "SECREVIEW_TLS_CERTFILE and SECREVIEW_TLS_KEYFILE",
             args.host,
         )
-    uvicorn.run(
-        build_app(token, settings),
-        host=args.host,
-        port=args.port,
-        log_level=settings.log_level.lower(),
-        **(tls.uvicorn_kwargs() if tls else {}),
-    )
+    try:
+        uvicorn.run(
+            build_app(token, settings),
+            host=args.host,
+            port=args.port,
+            log_level=settings.log_level.lower(),
+            **(tls.uvicorn_kwargs() if tls else {}),
+        )
+    finally:
+        # The scans in progress are over: the controller forgets this engine at once
+        client.leave()
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ credential reaches these routes (see http_server.BearerAuthMiddleware.role_allow
 carries an ``ETag``: an engine that already has the rules gets ``304``.
 
 ``engine_router`` also receives the heartbeat of each engine (its free OpenGrep slots, its
-capacity and its counters).
+capacity and its counters), and the departure of an engine that stops (``DELETE /self``).
 
 ``router`` (``/api/v1/scan-engines``): the enrolled engines, listed and revoked by the holders of
 ``settings.manage`` (Scan engines page).
@@ -96,6 +96,16 @@ def engine_heartbeat(beat: EngineHeartbeat, request: Request) -> None:
     engine_id = (request.scope.get("state") or {}).get("auth_token_id") or ""
     try:
         engine_clients.heartbeat(engine_id, beat)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown or revoked scan engine") from exc
+
+
+@engine_router.delete("/self", status_code=status.HTTP_204_NO_CONTENT)
+def engine_leave(request: Request) -> None:
+    """Forget the calling engine, which stops: it enrolls again at its next start (audited)."""
+    engine_id = (request.scope.get("state") or {}).get("auth_token_id") or ""
+    try:
+        engine_clients.leave(engine_id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown or revoked scan engine") from exc
 

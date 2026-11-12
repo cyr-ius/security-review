@@ -95,7 +95,11 @@ An engine reads no database. At its start, each replica:
    scans refused when busy) (`POST /api/v1/engine/heartbeat`): every 30 seconds when idle, every
    5 seconds while it scans, and at once (at most once a second) when a scan starts or ends;
 4. reads the rules with this token through the REST API of the Controller server
-   (`/api/v1/engine/*`, see [Rules](#rules)).
+   (`/api/v1/engine/*`, see [Rules](#rules));
+5. when it stops (`SIGTERM`: rolling update, node drained, scale down), once its scans in
+   progress are over, **leaves** the Controller server (`DELETE /api/v1/engine/self` with its
+   access token), which forgets it at once. At its next start, on the same node or another one,
+   it enrolls as a new engine: the stopped engines do not pile up on the **Scan engines** page.
 
 ## How the scans reach the engines
 
@@ -145,12 +149,14 @@ gives the same engines.
 - **Revoke** an engine (page, or `security-review-controller engine revoke <id>`): its client and
   its access token stop working at once, it receives no more scans, and its scans fail. It does not enroll again by itself:
   it enrolls again only when it restarts. To shut every engine out, change the shared secret.
-- An engine not seen for `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` (a replica gone without leaving)
-  is deleted at the next enrollment or listing.
+- An engine that stops normally leaves by itself: there is nothing to revoke.
+- An engine not seen for `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` (a replica gone without leaving:
+  crash, killed process, lost node, Controller server out of reach when it stopped) is deleted
+  at the next enrollment or listing. Until then it stays listed, inactive, and receives no scans.
 
-The enrollments, revocations and deletions are recorded in the
+The enrollments, revocations, departures and deletions are recorded in the
 [audit log](../audit-log.md) (`scan_engine.enrolled`, `scan_engine.revoked`,
-`scan_engine.expired`).
+`scan_engine.left`, `scan_engine.expired`).
 
 ## Rules
 

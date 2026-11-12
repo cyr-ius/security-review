@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from pydantic import SecretStr
+from sqlmodel import select
 from starlette.testclient import TestClient
 
 from security_review_mcp import cli, http_server, web_api
@@ -32,10 +33,12 @@ from security_review_mcp.engines.protocol import (
     EngineHeartbeat,
 )
 from security_review_mcp.http_server import Role
+from security_review_mcp.observability.audit import AuditAction
 from security_review_mcp.rules import codescan, registry
 from security_review_mcp.rules.codescan import SourceFile
 from security_review_mcp.storage import controller_instances
-from security_review_mcp.storage.models import utcnow
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import AuditEvent, utcnow
 
 TOKEN = "engine-secret-for-tests-0123456789abcdef"
 URL = "http://10.0.0.5:8000"
@@ -464,6 +467,38 @@ def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_datab
     with pytest.raises(opengrep.OpenGrepError, match="revoked"), cache.use():
         pass
     assert engine.revoked
+
+
+def test_a_stopping_engine_leaves_the_controller(monkeypatch):
+    controller = _controller(monkeypatch)
+    token_store.create_token("admin", Role.ADMIN)  # authentication configured
+    opener = _ControllerOpener(controller)
+    monkeypatch.setattr(controller_client, "_OPENER", opener)
+    # Never enrolled: nothing to tell the controller
+    controller_client.ControllerClient(CONTROLLER, TOKEN, "http://10.0.0.7:8000").leave()
+    assert opener.requests == []
+
+    engine = controller_client.ControllerClient(
+        CONTROLLER, TOKEN, "http://10.0.0.7:8000", name="engine-1"
+    )
+    engine.beat()
+    client_id = engine.client_id
+    assert engine_clients.active_engines(False) == [(client_id, "http://10.0.0.7:8000")]
+
+    # Restarted on another node, it enrolls as a new engine: the old one is already gone
+    engine.leave()
+    assert engine_clients.list_engines() == []
+    assert engine.revoked and opener.requests[-1].get_method() == "DELETE"
+    with session_scope() as session:
+        left = session.exec(
+            select(AuditEvent).where(AuditEvent.action == AuditAction.SCAN_ENGINE_LEFT)
+        ).one()
+        assert (left.actor, left.target_id) == ("engine:engine-1", client_id)
+    # The client is spent: no new enrollment behind the back of the orchestrator
+    sent = len(opener.requests)
+    with pytest.raises(controller_client.RevokedError):
+        engine.beat()
+    assert len(opener.requests) == sent
 
 
 def test_controller_heartbeat_registers_and_unregisters():

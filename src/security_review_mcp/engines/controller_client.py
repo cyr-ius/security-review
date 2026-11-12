@@ -9,6 +9,9 @@ with which it reads the rules through the REST API of the controller (``/api/v1/
 background thread sends a heartbeat every HEARTBEAT_SECONDS with its free OpenGrep slots: the
 controller sends the scans to the engines whose heartbeat is recent.
 
+When the engine stops, it tells the controller (``DELETE /api/v1/engine/self``, see leave), which
+forgets it at once: the engine enrolls as a new client at its next start, on any node.
+
 When an administrator revokes the engine, the controller refuses its client (``invalid_client``):
 the engine does not enroll again by itself, its scans fail until it restarts. To shut every
 engine out, change the shared secret.
@@ -37,6 +40,7 @@ from .opengrep import OpenGrepError
 from .protocol import (
     ENGINE_ENROLL_PATH,
     ENGINE_HEARTBEAT_PATH,
+    ENGINE_SELF_PATH,
     ENGINE_TOKEN_PATH,
     EngineHeartbeat,
     EnrollRequest,
@@ -48,6 +52,8 @@ logger = logging.getLogger("security_review_mcp.engines")
 
 # Time limit of each request to the controller: the scans wait for the synchronization
 TIMEOUT_SECONDS = 30
+# Time limit of the departure of a stopping engine (the orchestrator does not wait long)
+LEAVE_TIMEOUT_SECONDS = 5
 # Bound of the answers of the enrollment and of the token endpoint
 MAX_AUTH_RESPONSE_BYTES = 64 * 1024
 # The token is renewed once this share of its validity has passed
@@ -194,6 +200,35 @@ class ControllerClient:
         with self._activity_condition:
             self._activity_condition.notify_all()
 
+    def leave(self) -> None:
+        """Stop the heartbeat and tell the controller that the engine stops, so that it forgets
+        it at once; the client is then unusable. Best effort: an engine never enrolled, or a
+        controller out of reach, leaves nothing to do (the controller deletes the engine after
+        SECREVIEW_SCAN_ENGINE_RETENTION_DAYS).
+        """
+        self.stop()
+        with self._lock:
+            token, self._revoked = self._token, True
+            self._client, self._token = None, None
+        if token is None:
+            return
+        try:
+            status, _ = self._send(
+                "DELETE",
+                ENGINE_SELF_PATH,
+                None,
+                {"Authorization": f"Bearer {token}"},
+                MAX_AUTH_RESPONSE_BYTES,
+                LEAVE_TIMEOUT_SECONDS,
+            )
+        except ControllerError as exc:
+            logger.warning("Could not tell the Controller server that the engine stops: %s", exc)
+            return
+        if 200 <= status < 300:
+            logger.info("Left the Controller server")
+        else:
+            logger.warning("The Controller server answered HTTP %d to the departure", status)
+
     def notify_activity_change(self, active: bool) -> None:
         """Wake the heartbeat thread after a scan starts or finishes."""
         with self._activity_condition:
@@ -272,7 +307,13 @@ class ControllerClient:
         return _parse(raw, TokenResponse)
 
     def _send(
-        self, method: str, path: str, body: bytes | None, headers: dict[str, str], limit: int
+        self,
+        method: str,
+        path: str,
+        body: bytes | None,
+        headers: dict[str, str],
+        limit: int,
+        timeout: float = TIMEOUT_SECONDS,
     ) -> tuple[int, bytes]:
         """Send one request; the status and the body of the answer (an error status included).
 
@@ -290,7 +331,7 @@ class ControllerClient:
             },
         )
         try:
-            with _OPENER.open(request, timeout=TIMEOUT_SECONDS) as response:
+            with _OPENER.open(request, timeout=timeout) as response:
                 status, raw = response.status, response.read(limit + 1)
         except urllib.error.HTTPError as exc:
             try:

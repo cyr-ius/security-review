@@ -97,7 +97,12 @@ Un moteur ne lit aucune base de données. À son démarrage, chaque réplica :
    toutes les 30 secondes au repos, toutes les 5 secondes pendant un scan, et aussitôt (au plus une
    fois par seconde) quand un scan commence ou se termine ;
 4. lit les règles avec ce jeton par l'API REST du serveur Controller (`/api/v1/engine/*`, voir
-   [Règles](#regles)).
+   [Règles](#regles)) ;
+5. quand il s'arrête (`SIGTERM` : mise à jour progressive, nœud drainé, réduction du nombre de
+   réplicas), une fois ses scans en cours terminés, **se retire** du serveur Controller
+   (`DELETE /api/v1/engine/self` avec son jeton d'accès), qui l'oublie aussitôt. À son prochain
+   démarrage, sur le même nœud ou sur un autre, il s'enrôle comme un nouveau moteur : les moteurs
+   arrêtés ne s'accumulent pas sur la page **Moteurs de scan**.
 
 ## Comment les scans parviennent aux moteurs
 
@@ -152,12 +157,15 @@ donne les mêmes moteurs.
   échouent. Il ne se réenrôle pas
   de lui-même : il ne s'enrôle de nouveau qu'à son redémarrage. Pour écarter tous les moteurs,
   changez le secret partagé.
+- Un moteur qui s'arrête normalement se retire de lui-même : il n'y a rien à révoquer.
 - Un moteur absent depuis `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` (un réplica disparu sans se
-  retirer) est supprimé au prochain enrôlement ou à la prochaine consultation de la liste.
+  retirer : plantage, processus tué, nœud perdu, serveur Controller injoignable à son arrêt) est
+  supprimé au prochain enrôlement ou à la prochaine consultation de la liste. D'ici là, il reste
+  listé, inactif, et ne reçoit aucun scan.
 
-Les enrôlements, révocations et suppressions sont inscrits au
+Les enrôlements, révocations, retraits et suppressions sont inscrits au
 [journal d'audit](../audit-log.md) (`scan_engine.enrolled`, `scan_engine.revoked`,
-`scan_engine.expired`).
+`scan_engine.left`, `scan_engine.expired`).
 
 ## Règles
 

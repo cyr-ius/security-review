@@ -336,6 +336,7 @@ export type AuditAction =
   | 'scan_ticket.issued'
   | 'scan_engine.enrolled'
   | 'scan_engine.revoked'
+  | 'scan_engine.left'
   | 'scan_engine.expired';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
@@ -388,6 +389,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'scan_ticket.issued',
   'scan_engine.enrolled',
   'scan_engine.revoked',
+  'scan_engine.left',
   'scan_engine.expired',
 ];
 

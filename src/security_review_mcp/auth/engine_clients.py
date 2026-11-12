@@ -16,9 +16,11 @@ sends each scan to an engine whose heartbeat is recent (ACTIVE_SECONDS), the fre
 
 Only the SHA-256 digests of the client secret and of the current access token are stored,
 compared in constant time. An administrator lists and revokes the engines (web interface, CLI);
-a revoked engine is refused at once, and enrolls again only when it restarts. An engine not seen
-for SECREVIEW_SCAN_ENGINE_RETENTION_DAYS (a replica gone without leaving) is deleted. The
-enrollments, revocations and deletions are recorded in the audit log.
+a revoked engine is refused at once, and enrolls again only when it restarts. An engine that
+stops leaves by itself (``DELETE /api/v1/engine/self``): it enrolls as a new client at its next
+start, on any node. An engine not seen for SECREVIEW_SCAN_ENGINE_RETENTION_DAYS (a replica gone
+without leaving: crash, lost node) is deleted. The enrollments, revocations, departures and
+deletions are recorded in the audit log.
 """
 
 import hashlib
@@ -269,6 +271,28 @@ def revoke_engine(engine_id: str, actor: str | None = None) -> dict[str, Any]:
         )
         session.delete(row)
     return public
+
+
+def leave(engine_id: str) -> None:
+    """Delete the engine ``engine_id`` that stops (asked with its own access token, audited).
+
+    Raises:
+        ValueError: If no engine has this id (revoked or deleted meanwhile).
+    """
+    with session_scope() as session:
+        row = session.get(ScanEngine, engine_id[:64])
+        if row is None:
+            raise ValueError(f"Scan engine '{engine_id[:64]}' was not found")
+        audit.record(
+            session,
+            AuditAction.SCAN_ENGINE_LEFT,
+            f"engine:{row.name}",
+            "scan_engine",
+            row.id,
+            details={"name": row.name, "address": row.address},
+        )
+        session.delete(row)
+    logger.info("Scan engine %s left", engine_id[:64])
 
 
 def heartbeat(engine_id: str, beat: EngineHeartbeat) -> None:

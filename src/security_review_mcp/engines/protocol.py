@@ -42,6 +42,8 @@ ENGINE_RULES_PATH = "/api/v1/engine/rules"
 ENGINE_OPENGREP_RULES_PATH = "/api/v1/engine/opengrep-rules"
 # Heartbeat of an engine (access token): its free OpenGrep slots
 ENGINE_HEARTBEAT_PATH = "/api/v1/engine/heartbeat"
+# An engine that stops (access token, DELETE): the controller forgets it at once
+ENGINE_SELF_PATH = "/api/v1/engine/self"
 # Rules of one manifest or rule set, and OpenGrep rules asked for in one POST
 MAX_ENGINE_RULES = 5000
 RULE_FETCH_BATCH = 20
