@@ -26,7 +26,6 @@ repos:
         entry: uv run --frozen ruff format
         language: system
         types_or: [python, pyi]
-      # Prettier of web/ (version locked by web/package-lock.json, as in CI): run `npm ci` in web/ first
       - id: prettier
         name: prettier
         entry: npm --prefix web exec --no -- prettier --write --ignore-unknown
