@@ -115,7 +115,8 @@ La page **Activité** (`settings.manage`) montre ce qui tourne en ce moment et s
 les 2 secondes tant qu'elle est visible :
 
 - le **Diagramme d'activité** : les agents, les pipelines, les serveurs MCP, les serveurs
-  Controller et les moteurs de scan, avec les scans en cours ;
+  Controller et les moteurs de scan, avec les scans en cours (ses couleurs sont expliquées dans
+  [Moteurs de scan](../advanced/architecture/scan-engine.md#administration)) ;
 - la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
   enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
 

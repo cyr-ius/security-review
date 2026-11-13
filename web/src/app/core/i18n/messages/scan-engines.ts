@@ -54,14 +54,6 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFallbackRefuse': 'No fallback (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version}: {codebase} code scans, {fragments} fragments, {files} files, {failed} failed, {busy} refused when busy; {used} of {capacity} slots in use',
-    'scanEngines.flowLegendCodebase': 'Code scans (pipelines)',
-    'scanEngines.flowLegendFragment': 'Fragments (scan_code)',
-    'scanEngines.flowLegendEngineIdle': 'Connected, idle engine',
-    'scanEngines.flowLegendHeartbeat':
-      'Heartbeat of an engine (every 5 s while it scans, 30 s when idle)',
-    'scanEngines.flowLegendControllerHeartbeat': 'Heartbeat of the Controller server (every 5 s)',
-    'scanEngines.flowLegendMcp':
-      'MCP server and its heartbeat (every 5 s, at once when scan_code runs)',
     'scanEngines.flowMcpInstance': 'MCP server {number}',
     'scanEngines.flowAgentTitle':
       '{client} {version}, through MCP server {number}: {count} scan_code calls since the last heartbeat, last request at {time}',
@@ -73,8 +65,6 @@ export const scanEngines = defineMessages({
       '{name} {version}: {count} scan_code calls since the last heartbeat, sent to the Controller server',
     'scanEngines.flowMcpTitleLocal':
       '{name} {version}: {count} scan_code calls since the last heartbeat, scanned by the MCP server itself (delegation off)',
-    'scanEngines.flowLegendLive':
-      'Moving dots: scans running now. Rings: occupied slots; engine details include lifetime counters.',
   },
   fr: {
     'scanEngines.pageSubtitle':
@@ -129,15 +119,6 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFallbackRefuse': 'Sans repli (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version} : {codebase} scans de code, {fragments} fragments, {files} fichiers, {failed} en échec, {busy} refusés car occupé ; {used} créneaux occupés sur {capacity}',
-    'scanEngines.flowLegendCodebase': 'Scans de code (pipelines)',
-    'scanEngines.flowLegendFragment': 'Fragments (scan_code)',
-    'scanEngines.flowLegendEngineIdle': 'Moteur connecté, inactif',
-    'scanEngines.flowLegendHeartbeat':
-      'Battement de cœur d’un moteur (toutes les 5 s pendant un scan, 30 s au repos)',
-    'scanEngines.flowLegendControllerHeartbeat':
-      'Battement de cœur du serveur Controller (toutes les 5 s)',
-    'scanEngines.flowLegendMcp':
-      'Serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand scan_code s’exécute)',
     'scanEngines.flowMcpInstance': 'Serveur MCP {number}',
     'scanEngines.flowAgentTitle':
       '{client} {version}, par le serveur MCP {number} : {count} appels scan_code depuis le dernier battement de cœur, dernière requête à {time}',
@@ -149,8 +130,6 @@ export const scanEngines = defineMessages({
       '{name} {version} : {count} appels scan_code depuis le dernier battement de cœur, envoyés au serveur Controller',
     'scanEngines.flowMcpTitleLocal':
       '{name} {version} : {count} appels scan_code depuis le dernier battement de cœur, scannés par le serveur MCP lui-même (délégation désactivée)',
-    'scanEngines.flowLegendLive':
-      'Points en mouvement : scans en cours. Anneaux : créneaux occupés ; les détails des moteurs donnent les compteurs cumulés.',
   },
   es: {
     'scanEngines.pageSubtitle':
@@ -205,14 +184,6 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFallbackRefuse': 'Sin respaldo (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version}: {codebase} escaneos de código, {fragments} fragmentos, {files} archivos, {failed} fallidos, {busy} rechazados por estar ocupado; {used} de {capacity} huecos ocupados',
-    'scanEngines.flowLegendCodebase': 'Escaneos de código (pipelines)',
-    'scanEngines.flowLegendFragment': 'Fragmentos (scan_code)',
-    'scanEngines.flowLegendEngineIdle': 'Motor conectado, inactivo',
-    'scanEngines.flowLegendHeartbeat':
-      'Latido de un motor (cada 5 s durante un escaneo, 30 s en reposo)',
-    'scanEngines.flowLegendControllerHeartbeat': 'Latido del servidor Controller (cada 5 s)',
-    'scanEngines.flowLegendMcp':
-      'Servidor MCP y su latido (cada 5 s, de inmediato cuando se ejecuta scan_code)',
     'scanEngines.flowMcpInstance': 'Servidor MCP {number}',
     'scanEngines.flowAgentTitle':
       '{client} {version}, a través del servidor MCP {number}: {count} llamadas a scan_code desde el último latido, última petición a las {time}',
@@ -224,7 +195,5 @@ export const scanEngines = defineMessages({
       '{name} {version}: {count} llamadas a scan_code desde el último latido, enviadas al servidor Controller',
     'scanEngines.flowMcpTitleLocal':
       '{name} {version}: {count} llamadas a scan_code desde el último latido, escaneadas por el propio servidor MCP (delegación desactivada)',
-    'scanEngines.flowLegendLive':
-      'Puntos en movimiento: escaneos en curso. Anillos: huecos ocupados; los detalles del motor incluyen los contadores acumulados.',
   },
 });

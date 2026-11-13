@@ -110,7 +110,8 @@ The **Activity** page (`settings.manage`) shows what runs now and reloads itself
 2 seconds while it is visible:
 
 - the **Activity diagram**: the agents, the pipelines, the MCP servers, the Controller servers and
-  the scan engines, with the scans in progress;
+  the scan engines, with the scans in progress (its colors are explained in
+  [Scan engines](../advanced/architecture/scan-engine.md#administration));
 - the **Scan engines** section: the [scan engines](../advanced/architecture/scan-engine.md#administration)
   enrolled with the Controller server (version, address, last activity) and their revocation.
 

@@ -136,7 +136,7 @@ The enrolled engines are listed in the **Scan engines** section of the
 state (active while its heartbeat is recent), URL, free slots, enrollment date and last activity,
 never a secret.
 
-Above the list, the **Activity** diagram shows the code scans running now. It shows even
+Above the list, the **Activity diagram** shows the code scans running now. It shows even
 without any engine (engines off, or none enrolled): then the agents, the MCP servers and the
 Controller server only, which says **Scans itself (engines off)** when the engines are off:
 
@@ -167,6 +167,20 @@ every 2 seconds while it is visible. The number of active fragments counts concu
 requests, not distinct agents. Hovering a circle shows its details, including the counters since
 the engine started (they restart from zero when it restarts and enrolls again); the list below
 gives the same engines.
+
+The diagram has no legend; its colors are:
+
+| Color | Means |
+|---|---|
+| Blue | Code scans of the pipelines (`security-review-ci`, codebase reviews) |
+| Orange | Fragments sent by `scan_code` |
+| Yellow | An MCP server and its heartbeat (every 5 s, at once when `scan_code` runs) |
+| Purple | Heartbeat of the Controller server (every 5 s) |
+| Green | Heartbeat of an engine (every 5 s while it scans, 30 s when idle) |
+| Light green | An engine connected and idle |
+| Grey (dimmed) | An engine without a recent heartbeat |
+
+Moving dots are scans running now; rings show the occupied slots.
 
 - **Revoke** an engine (page, or `security-review-controller engine revoke <id>`): its client and
   its access token stop working at once, it receives no more scans, and its scans fail. It does not enroll again by itself:

@@ -414,33 +414,3 @@
     }
   </svg>
 </div>
-
-<ul class="legend list-inline small text-body-secondary mb-0">
-  <li class="list-inline-item">
-    <span class="swatch swatch-codebase" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendCodebase' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-fragment" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendFragment' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-engine-idle" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendEngineIdle' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-heartbeat" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendHeartbeat' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-controller-heartbeat" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendControllerHeartbeat' | t }}
-  </li>
-  @if (mcpNodes().length) {
-    <li class="list-inline-item">
-      <span class="swatch swatch-mcp" aria-hidden="true"></span>
-      {{ 'scanEngines.flowLegendMcp' | t }}
-    </li>
-  }
-  <li class="list-inline-item">{{ 'scanEngines.flowLegendLive' | t }}</li>
-</ul>

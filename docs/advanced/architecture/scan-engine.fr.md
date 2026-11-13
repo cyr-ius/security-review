@@ -140,7 +140,7 @@ Les moteurs enrôlés sont listés dans la section **Moteurs de scan** de la pag
 état (actif tant que son battement de cœur est récent), URL, créneaux libres, date d'enrôlement et
 dernière activité, jamais un secret.
 
-Au-dessus de la liste, le graphe **Activité** montre les scans de code en cours. Il s'affiche
+Au-dessus de la liste, le **Diagramme d'activité** montre les scans de code en cours. Il s'affiche
 même sans aucun moteur (moteurs désactivés, ou aucun enrôlé) : seulement les agents, les serveurs
 MCP et le serveur Controller, qui indique **Scanne lui-même (moteurs désactivés)** quand les
 moteurs sont désactivés :
@@ -176,6 +176,20 @@ Le nombre de fragments actifs compte les requêtes `scan_code` simultanées, pas
 distincts. Le survol d'un cercle affiche son détail, dont les compteurs depuis le démarrage du
 moteur (ils repartent de zéro quand il redémarre et s'enrôle de nouveau) ; la liste en dessous
 donne les mêmes moteurs.
+
+Le diagramme n'a pas de légende ; ses couleurs sont :
+
+| Couleur | Signification |
+|---|---|
+| Bleu | Scans de code des pipelines (`security-review-ci`, revues du dépôt) |
+| Orange | Fragments envoyés par `scan_code` |
+| Jaune | Un serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand `scan_code` s'exécute) |
+| Violet | Battement de cœur du serveur Controller (toutes les 5 s) |
+| Vert | Battement de cœur d'un moteur (toutes les 5 s pendant un scan, 30 s au repos) |
+| Vert clair | Un moteur connecté et inactif |
+| Gris (atténué) | Un moteur sans battement de cœur récent |
+
+Les points en mouvement sont les scans en cours ; les anneaux montrent les créneaux occupés.
 
 - **Révoquer** un moteur (page, ou `security-review-controller engine revoke <id>`) : son client et
   son jeton d'accès cessent aussitôt de fonctionner, il ne reçoit plus de scans, et ses scans
