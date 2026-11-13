@@ -11,7 +11,9 @@ By default, the `scan_code` tool scans the fragment it receives with the rules o
 only, and starts no external process. With the delegation turned on, it sends the
 fragment to `POST /api/v1/scan/content` of the Controller server with the token of the agent: the
 Controller server applies its rules, then its OpenGrep rules when the engine is enabled, and stores
-nothing. The answer tells the engines that ran (`engines`: `rules`, `opengrep`).
+nothing. The answer tells the engines that ran (`engines`: `rules`, `opengrep`). While the
+delegation is off, the Controller server answers `404` on this route: an `mcp` token cannot
+make it run OpenGrep for a feature that is not in use.
 
 The Controller server decides, and stores its choice in the database where the MCP server reads
 it at each call. `SECREVIEW_SCANCODE_DELEGATED`, set on the Controller server, gives `true` (to its

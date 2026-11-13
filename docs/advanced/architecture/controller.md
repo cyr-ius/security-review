@@ -13,7 +13,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/api/v1/auth/` | the login page: password and [OIDC](../oidc.md) login | none |
 | `/api/v1/` | the web interface, scripts, Swagger | web session, `admin` or `api` token |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token (personal or not) |
-| `/api/v1/scan/content` | the MCP server: `scan_code` [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code) (reads and stores nothing) | `mcp` or `admin` token of the agent, relayed |
+| `/api/v1/scan/content` | the MCP server: `scan_code` [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code) (reads and stores nothing; `404` while the delegation is off) | `mcp` or `admin` token of the agent, relayed |
 | `/api/v1/scan/tickets` | the MCP server: single-use ticket of `start_codebase_scan` ([scan started by the agent](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)), then used by `security-review-ci` on `/api/v1/ci/scan/code` and `/scan/deps` | `mcp` or `admin` token of the agent, relayed |
 | `/engine/v1/enroll`, `/engine/v1/token` | the [scan engines](scan-engine.md#enrollment-and-access-tokens): enrollment, then OAuth access token (`client_credentials`); served only with `SECREVIEW_SCAN_ENGINE_TOKEN` | shared secret of the engines, then the client of each engine |
 | `/api/v1/engine/` | the scan engines: their rules and OpenGrep rules ([rules](scan-engine.md#rules)) | access token of an enrolled engine only |

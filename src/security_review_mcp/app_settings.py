@@ -226,6 +226,14 @@ def sync_controller_url(settings: Settings | None = None) -> None:
 # ── scan_code delegated to the controller ────────────────────────────────────
 
 
+def mcp_scan_delegated() -> bool:
+    """True while the delegation of scan_code is turned on (SECREVIEW_SCANCODE_DELEGATED or the
+    web interface): the controller only answers ``POST /api/v1/scan/content`` then."""
+    with session_scope() as session:
+        row = session.get(AppSetting, MCP_SCAN_DELEGATION)
+        return row is not None and row.value == "true"
+
+
 def mcp_scan_controller_url() -> str | None:
     """URL of the controller that scan_code delegates to: the address given by
     SECREVIEW_SCANCODE_DELEGATED, else the stored controller URL; None while the delegation is

@@ -113,7 +113,7 @@
   only, without proxy nor redirect, answer bounded, token never logged (see
   [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); `start_codebase_scan`
   asks the same way for a scan ticket (`POST /api/v1/scan/tickets`). An `mcp` token reaches
-  these two routes only. The Controller server only downloads the OSV advisories if an administrator enables it
+  these two routes only, and the scan route answers `404` while the delegation is off. The Controller server only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The

@@ -3,8 +3,9 @@
 When the delegation is turned on (SECREVIEW_SCANCODE_DELEGATED on the controller, or the web
 interface), the MCP server sends the fragment given to scan_code here, with the token of its
 caller, so that the agent gets the matches of the rules and of the OpenGrep rules of the
-controller. The route reads and stores nothing, and its body is bounded by
-SECREVIEW_MAX_CONTENT_CHARS (see body_limit).
+controller. While the delegation is off, the route answers 404: an ``mcp`` token cannot make the
+controller run OpenGrep for a feature that is not in use. The route reads and stores nothing,
+and its body is bounded by SECREVIEW_MAX_CONTENT_CHARS (see body_limit).
 
 The MCP tool start_codebase_scan asks here for a single-use ticket (``POST /api/v1/scan/tickets``,
 see auth.scan_tickets), with which ``security-review-ci`` sends the files of the workstation to
@@ -37,9 +38,11 @@ async def scan_content(
 ) -> ContentScanResult:
     """Scan a fragment for the scan_code tool with the rules, and OpenGrep when it is enabled.
 
-    The matches are leads to verify, their secrets masked. 503 when OpenGrep cannot run: the MCP
-    server then scans with its own rules.
+    The matches are leads to verify, their secrets masked. 404 while the delegation of scan_code
+    is off; 503 when OpenGrep cannot run: the MCP server then scans with its own rules.
     """
+    if not await run_in_threadpool(app_settings.mcp_scan_delegated):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "The delegation of scan_code is off")
     try:
         result = await run_in_threadpool(codescan.scan_content, request.content, request.language)
     except ValueError as exc:

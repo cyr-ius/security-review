@@ -1626,7 +1626,8 @@ def serve(argv: list[str]) -> None:
     if settings.mcp_scan_controller_url:
         logger.warning(
             "SECREVIEW_MCP_SCAN_CONTROLLER_URL is deprecated: set SECREVIEW_SCANCODE_DELEGATED "
-            "on the Controller server instead (this variable still wins while it is set)"
+            "on the Controller server instead (this variable still wins while it is set, but the "
+            "Controller server only scans while its own delegation is on)"
         )
     if settings.controller_url and not settings.legacy_controller_url:
         # Often shared with the controller (ConfigMap, .env): only the controller copies it.

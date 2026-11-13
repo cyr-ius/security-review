@@ -118,7 +118,8 @@
   jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
   journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
   `start_codebase_scan` demande de la même façon un ticket de scan (`POST /api/v1/scan/tickets`).
-  Un jeton `mcp` n'atteint que ces deux routes. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
+  Un jeton `mcp` n'atteint que ces deux routes, et celle du scan répond `404` tant que la délégation
+  est désactivée. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais

@@ -3186,6 +3186,11 @@ def test_the_delegated_content_scan_is_the_only_route_of_an_mcp_token(
     secured, web_sessions, ci_token
 ):
     body = {"content": "subprocess.run(cmd, shell=True)\n", "language": "py"}
+    # Off by default: an mcp token cannot make the controller scan (and run OpenGrep)
+    off = secured.post("/api/v1/scan/content", json=body, headers=auth("mcp"))
+    assert off.status_code == 404
+    app_settings.set_controller_url("https://sr.example", "admin")
+    app_settings.set_mcp_scan_delegation(True, "admin")
 
     scan = secured.post("/api/v1/scan/content", json=body, headers=auth("mcp"))
 

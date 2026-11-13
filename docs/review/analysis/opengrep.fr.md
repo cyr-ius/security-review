@@ -11,7 +11,9 @@ Par défaut, l'outil `scan_code` scanne le fragment reçu avec les seules règle
 lancer de processus externe. Quand la délégation est activée, il envoie le fragment
 à `POST /api/v1/scan/content` du serveur Controller avec le jeton de l'agent : le serveur Controller
 applique ses règles, puis ses règles OpenGrep quand le moteur est activé, et n'enregistre rien. La
-réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`).
+réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`). Tant que la délégation est
+désactivée, le serveur Controller répond `404` sur cette route : un jeton `mcp` ne peut pas lui
+faire lancer OpenGrep pour une fonction qui n'est pas utilisée.
 
 Le serveur Controller décide, et enregistre son choix en base, où le serveur MCP le lit à chaque
 appel. `SECREVIEW_SCANCODE_DELEGATED`, défini sur le serveur Controller, vaut `true` (vers son URL
