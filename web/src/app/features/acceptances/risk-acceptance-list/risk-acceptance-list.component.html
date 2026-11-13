@@ -95,7 +95,11 @@
           </thead>
           <tbody>
             @for (row of visible(); track row.id) {
-              <tr [class.table-active]="selectedId() === row.id">
+              <tr
+                class="summary-row"
+                [class.table-active]="selectedId() === row.id"
+                (click)="onRowClick($event, row.id)"
+              >
                 <td><app-severity-badge [severity]="row.severity" /></td>
                 <td>
                   <button
