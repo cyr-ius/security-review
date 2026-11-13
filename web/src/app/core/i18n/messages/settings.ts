@@ -90,8 +90,6 @@ export const settings = defineMessages({
     'settings.downloadOff': 'disabled',
     'settings.downloadTitle': 'Automatic download',
     'settings.downloadSwitch': 'Download the OSV advisories automatically',
-    'settings.downloadSwitchHelp':
-      'The Controller server downloads the exports of the chosen ecosystems from the source below (outgoing HTTPS connection, through the proxy), then at each interval. A change applies within 15 minutes.',
     'settings.downloadLocked': 'Set by {variable}: change the variable to change it.',
     'settings.downloadOnSaved': 'OSV download turned on',
     'settings.downloadOffSaved': 'OSV download turned off',
@@ -237,8 +235,6 @@ export const settings = defineMessages({
     'settings.downloadOff': 'désactivé',
     'settings.downloadTitle': 'Téléchargement automatique',
     'settings.downloadSwitch': 'Télécharger automatiquement les avis OSV',
-    'settings.downloadSwitchHelp':
-      'Le serveur Controller télécharge les exports des écosystèmes choisis depuis la source ci-dessous (connexion HTTPS sortante, par le proxy), puis à chaque intervalle. Un changement s’applique sous 15 minutes.',
     'settings.downloadLocked': 'Défini par {variable} : modifiez la variable pour le changer.',
     'settings.downloadOnSaved': 'Téléchargement OSV activé',
     'settings.downloadOffSaved': 'Téléchargement OSV désactivé',
@@ -392,8 +388,6 @@ export const settings = defineMessages({
     'settings.downloadOff': 'desactivada',
     'settings.downloadTitle': 'Descarga automática',
     'settings.downloadSwitch': 'Descargar automáticamente los avisos OSV',
-    'settings.downloadSwitchHelp':
-      'El servidor Controller descarga las exportaciones de los ecosistemas elegidos desde la fuente siguiente (conexión HTTPS saliente, a través del proxy) y luego en cada intervalo. Un cambio se aplica en menos de 15 minutos.',
     'settings.downloadLocked': 'Definido por {variable}: modifique la variable para cambiarlo.',
     'settings.downloadOnSaved': 'Descarga OSV activada',
     'settings.downloadOffSaved': 'Descarga OSV desactivada',
