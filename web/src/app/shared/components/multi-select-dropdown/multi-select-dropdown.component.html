@@ -35,6 +35,16 @@
               [value]="search()"
               (input)="onSearch($event)"
             />
+            <button
+              type="button"
+              class="btn search-clear"
+              [hidden]="!search()"
+              [attr.aria-label]="'common.clearSearch' | t"
+              [title]="'common.clearSearch' | t"
+              (click)="clearSearch()"
+            >
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
       }

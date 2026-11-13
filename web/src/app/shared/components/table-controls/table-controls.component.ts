@@ -49,6 +49,13 @@ export class TableControlsComponent {
   onSearch(event: Event): void {
     this.searchChange.emit((event.target as HTMLInputElement).value);
   }
+
+  /** Empty the search and give the focus back to its field. */
+  clearSearch(field: HTMLInputElement): void {
+    field.value = '';
+    this.searchChange.emit('');
+    field.focus();
+  }
 }
 
 /** The known values among those of a filter, in the order of ``known`` (others dropped). */

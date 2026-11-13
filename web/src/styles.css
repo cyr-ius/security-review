@@ -225,6 +225,46 @@ h1,
   border-color: var(--app-accent);
 }
 
+/*
+ * Search fields: a button of the input group clears them (Firefox has no native cross and the
+ * one of Chromium is faint in dark mode), so the native cross is hidden to avoid showing two.
+ */
+input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Same look in every state (no hover or click effect): only the keyboard focus ring shows */
+.search-clear {
+  --bs-btn-color: var(--bs-secondary-color);
+  --bs-btn-bg: var(--app-surface);
+  --bs-btn-border-color: var(--app-input-border);
+  --bs-btn-hover-color: var(--bs-btn-color);
+  --bs-btn-hover-bg: var(--bs-btn-bg);
+  --bs-btn-hover-border-color: var(--bs-btn-border-color);
+  --bs-btn-active-color: var(--bs-btn-color);
+  --bs-btn-active-bg: var(--bs-btn-bg);
+  --bs-btn-active-border-color: var(--bs-btn-border-color);
+  border-left: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Bootstrap Icons lower their glyph by 0.125em to sit on a text baseline: centered here */
+.search-clear > .bi {
+  display: block;
+  line-height: 1;
+}
+
+.search-clear > .bi::before {
+  display: block;
+}
+
+.search-clear:active {
+  transform: none;
+}
+
 .form-label {
   font-weight: 500;
   font-size: 0.875rem;

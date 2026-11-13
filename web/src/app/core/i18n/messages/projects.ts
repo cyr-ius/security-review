@@ -212,7 +212,7 @@ export const projects = defineMessages({
     'projectFindings.triaged': '{count} trié(s) sur cette page',
     'projectFindings.loadMore': 'Afficher plus',
     'projectFindings.search': 'Rechercher : titre, règle, CWE, fichier, #report:<n°>...',
-    'projectFindings.proposedOnly': 'Avec une proposition uniquement',
+    'projectFindings.proposedOnly': 'Possède une proposition',
     'projectFindings.loadError': 'Impossible de charger les findings.',
     'projectFindings.notFound': "Ce projet n'existe pas ou est hors de votre périmètre.",
     'projectFindings.none': 'Aucun finding ouvert : rien à revoir.',

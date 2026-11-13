@@ -109,6 +109,13 @@ export class ProjectMembersComponent {
     this.picked.set([]);
   }
 
+  /** Empty the search and give the focus back to its field. */
+  clearSearch(field: HTMLInputElement): void {
+    this.search.set('');
+    this.picked.set([]);
+    field.focus();
+  }
+
   togglePick(userId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
     this.picked.update((items) =>
