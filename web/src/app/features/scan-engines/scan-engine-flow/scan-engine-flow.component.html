@@ -36,8 +36,9 @@
         }
       }
     }
-    <!-- The agents call scan_code (or start_codebase_scan) on an MCP server, which delegates it
-         to the Controller server: one dot per request, from the agent through its MCP server -->
+    <!-- The agents call the tools and prompts of an MCP server; it delegates the code scans to
+         the Controller server: one dot per family of requests running, from the agent to its MCP
+         server, then on to the Controller server for a delegated code scan -->
     <!-- Each agent seen lately, linked to the MCP server it calls -->
     @for (agent of agentNodes(); track agent.id) {
       @for (path of agent.paths; track path) {
@@ -50,25 +51,33 @@
       }
       <path
         class="link link-fragment"
-        [class.idle]="!node.busy"
+        [class.idle]="!node.outBusy"
         [class.inactive]="!node.instance.delegated"
         [attr.d]="node.outPath"
       />
     }
     <!-- The dots after every link, so that the links drawn later never hide them -->
     @for (agent of agentNodes(); track agent.id) {
-      @if (agent.busy) {
-        @for (path of agent.dotPaths; track path) {
-          <circle class="dot dot-fragment" r="5">
-            <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="path" />
-          </circle>
-        }
+      @for (dot of agent.dots; track dot.kind + dot.path) {
+        <circle class="dot" [class]="'dot-' + dot.kind" r="5">
+          <animateMotion
+            dur="2.4s"
+            repeatCount="indefinite"
+            [attr.begin]="dot.begin"
+            [attr.path]="dot.path"
+          />
+        </circle>
       }
     }
     @for (node of mcpNodes(); track node.instance.id) {
-      @if (node.busy && node.dotPath) {
-        <circle class="dot dot-fragment" r="5">
-          <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="node.dotPath" />
+      @for (dot of node.dots; track dot.kind + dot.path) {
+        <circle class="dot" [class]="'dot-' + dot.kind" r="5">
+          <animateMotion
+            dur="2.4s"
+            repeatCount="indefinite"
+            [attr.begin]="dot.begin"
+            [attr.path]="dot.path"
+          />
         </circle>
       }
     }
@@ -143,6 +152,22 @@
             <!-- Slots of the engines: none to count without an engine -->
             @if (data().engines.length) {
               <span class="value">{{ source.active }}/{{ source.capacity }}</span>
+              <span class="detail">{{ 'scanEngines.flowSlotsShort' | t }}</span>
+            }
+            <!-- The scans security-review-ci sends to the Controller server, engines or not -->
+            @if (source.kind === 'codebase') {
+              @if (data().engines.length) {
+                <span class="detail">
+                  {{
+                    pipelineSent() === 1
+                      ? ('scanEngines.flowSentOne' | t)
+                      : ('scanEngines.flowSent' | t: { count: pipelineSent() })
+                  }}
+                </span>
+              } @else {
+                <span class="value">{{ pipelineSent() }}</span>
+                <span class="detail">{{ 'scanEngines.flowSentShort' | t }}</span>
+              }
             }
           </div>
         </foreignObject>
@@ -166,22 +191,36 @@
         <circle class="surface" [attr.cx]="agent.x" [attr.cy]="agent.y" [attr.r]="agentRadius" />
         <circle
           class="ring ring-track"
-          [class.ring-fragment]="agent.busy"
           [attr.cx]="agent.x"
           [attr.cy]="agent.y"
           [attr.r]="agentRing"
           [attr.stroke-width]="ring"
         />
+        <!-- Its requests running, in proportion by family -->
+        @for (arc of agent.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="agent.x"
+            [attr.cy]="agent.y"
+            [attr.r]="agentRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + agent.x + ' ' + agent.y + ')'"
+          />
+        }
         <foreignObject
           [attr.x]="agent.x - agentRadius"
           [attr.y]="agent.y - agentRadius"
           [attr.width]="agentRadius * 2"
           [attr.height]="agentRadius * 2"
         >
-          <div class="content">
+          <div class="content compact">
             @if (agent.agent) {
               <i class="bi bi-robot" aria-hidden="true"></i>
-              <span class="value">{{ agent.processing }}</span>
+              <span class="value">{{ agent.total }}</span>
+              <span class="detail">{{ 'scanEngines.flowRequestsShort' | t }}</span>
             } @else {
               <span class="value">+{{ agent.more }}</span>
             }
@@ -193,7 +232,7 @@
       </g>
     }
 
-    <!-- One node per active MCP server (HTTP transport): the scan_code calls it relays -->
+    <!-- One node per active MCP server (HTTP transport): the requests of the agents it runs -->
     @for (node of mcpNodes(); track node.instance.id) {
       <g
         class="node mcp"
@@ -212,12 +251,25 @@
         <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
         <circle
           class="ring ring-track"
-          [class.ring-mcp]="node.busy"
           [attr.cx]="node.x"
           [attr.cy]="node.y"
           [attr.r]="mcpRing"
           [attr.stroke-width]="ring"
         />
+        <!-- The requests it runs, in proportion by family -->
+        @for (arc of node.arcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="mcpRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + node.x + ' ' + node.y + ')'"
+          />
+        }
         <foreignObject
           [attr.x]="node.x - mcpRadius"
           [attr.y]="node.y - mcpRadius"
@@ -226,7 +278,18 @@
         >
           <div class="content">
             <i class="bi bi-plug" aria-hidden="true"></i>
-            <span class="value">{{ node.instance.processing_fragments }}</span>
+            <span class="value">{{ node.total }}</span>
+            <span class="detail">{{ 'scanEngines.flowRequestsShort' | t }}</span>
+            <!-- Earlier MCP servers name no agent: nothing to count -->
+            @if (agentNodes().length) {
+              <span class="detail">
+                {{
+                  node.agentCount === 1
+                    ? ('scanEngines.flowAgentCountOne' | t)
+                    : ('scanEngines.flowAgentCount' | t: { count: node.agentCount })
+                }}
+              </span>
+            }
           </div>
         </foreignObject>
         <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">
@@ -273,6 +336,20 @@
             [attr.cx]="node.x"
             [attr.cy]="node.y"
             [attr.r]="controllerRing"
+            [attr.stroke-width]="ring"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+            [attr.transform]="'rotate(-90 ' + node.x + ' ' + node.y + ')'"
+          />
+        }
+        <!-- Inner ring: the scans this process receives, in proportion by family -->
+        @for (arc of node.requestArcs; track arc.kind) {
+          <circle
+            class="ring"
+            [class]="'ring-' + arc.kind"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="controllerRequestRing"
             [attr.stroke-width]="ring"
             [attr.stroke-dasharray]="arc.dash"
             [attr.stroke-dashoffset]="arc.offset"
@@ -359,10 +436,26 @@
           <div class="content">
             <i class="bi bi-cpu" aria-hidden="true"></i>
             <span class="value">{{ node.used }}/{{ node.capacity }}</span>
-            @if (node.engine.failed_scans) {
-              <span class="detail failed">
-                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-                {{ node.engine.failed_scans }}
+            <span class="detail">{{ 'scanEngines.flowSlotsShort' | t }}</span>
+            <!-- Files being scanned, and the failures since it started: one line in the circle -->
+            @if (node.engine.processing_files || node.engine.failed_scans) {
+              <span class="detail">
+                @if (node.engine.processing_files) {
+                  {{
+                    node.engine.processing_files === 1
+                      ? ('scanEngines.flowEngineFilesOne' | t)
+                      : ('scanEngines.flowEngineFiles' | t: { count: node.engine.processing_files })
+                  }}
+                }
+                @if (node.engine.processing_files && node.engine.failed_scans) {
+                  ·
+                }
+                @if (node.engine.failed_scans) {
+                  <span class="failed">
+                    <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                    {{ node.engine.failed_scans }}
+                  </span>
+                }
               </span>
             }
           </div>

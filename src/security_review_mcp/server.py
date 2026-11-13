@@ -282,15 +282,36 @@ def _caller_write_projects(ctx: Context) -> frozenset[str] | None:
 _heartbeat: server_instances.ServerHeartbeat | None = None
 
 
-# Scans requested by an agent, counted while they run: shown on the Activity page as a request
-# going from the agent to its MCP server (then to the Controller server when it is delegated)
-_COUNTED_TOOLS = frozenset({"scan_code", "start_codebase_scan"})
+# Family of each tool in the activity of the agents (see server_instances.FAMILIES): the code scans
+# go on to the Controller server when scan_code is delegated; every other tool, prompt and
+# resource read counts as a read
+_TOOL_FAMILIES = {
+    "scan_code": "code",
+    "start_codebase_scan": "code",
+    "scan_dependencies": "deps",
+    "save_security_report": "reports",
+    "propose_finding_status": "reports",
+    "propose_opengrep_rule": "reports",
+    "request_project": "reports",
+    "decide_finding_status": "reports",
+}
+
+
+def _request_family(method: str, params: Mapping[str, Any]) -> str | None:
+    """Family of an inbound request counted in the activity of the agent (None: not counted)."""
+    if method == "tools/call":
+        tool = params.get("name")
+        # Raw params of the client: a name that is not a string is never counted
+        return _TOOL_FAMILIES.get(tool, "reads") if isinstance(tool, str) else None
+    if method in ("prompts/get", "resources/read"):
+        return "reads"
+    return None
 
 
 async def _track_agent(ctx: Any, call_next: Callable[[Any], Any]) -> Any:
     """Middleware of every inbound message: record the agent in the heartbeat of this MCP server
-    (by an opaque key and the name of its MCP client, never a person) and count its scan_code
-    and start_codebase_scan calls while they run. Nothing with stdio, where there is no
+    (by an opaque key and the name of its MCP client, never a person) and count its tool calls,
+    prompts and resource reads by family while they run. Nothing with stdio, where there is no
     heartbeat."""
     heartbeat = _heartbeat
     if heartbeat is None:
@@ -307,10 +328,9 @@ async def _track_agent(ctx: Any, call_next: Callable[[Any], Any]) -> Any:
         version = raw.get("version") if isinstance(raw, Mapping) else None
     state = (getattr(ctx.request, "scope", None) or {}).get("state") or {}
     agent = heartbeat.seen(state.get("auth_token_id"), name, version)
-    tool = params.get("name")
-    # Raw params of the client: a name that is not a string (unhashable) is never counted
-    if ctx.method == "tools/call" and isinstance(tool, str) and tool in _COUNTED_TOOLS:
-        with heartbeat.processing(agent):
+    family = _request_family(ctx.method, params)
+    if family is not None:
+        with heartbeat.processing(agent, family):
             return await call_next(ctx)
     return await call_next(ctx)
 

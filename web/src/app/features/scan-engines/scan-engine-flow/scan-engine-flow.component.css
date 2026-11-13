@@ -63,8 +63,23 @@ svg {
   fill: var(--series-1);
 }
 
-.dot-fragment {
+.dot-fragment,
+.dot-code {
   fill: var(--series-2);
+}
+
+/* Families of the requests of the agents: code scans orange (the fragments), dependency scans
+   aqua, reports and triage violet, reads neutral */
+.dot-deps {
+  fill: var(--series-3);
+}
+
+.dot-reports {
+  fill: var(--series-7);
+}
+
+.dot-reads {
+  fill: var(--bs-secondary-color);
 }
 
 /* A heartbeat: a short dash runs once along the link, from the engine (end of the path, whose
@@ -153,21 +168,31 @@ svg {
   stroke: var(--fragment-idle-color);
 }
 
-/* An MCP server: yellow ring, pale while no scan_code call runs */
+/* An MCP server: pale yellow ring, its parts in the colors of the requests it runs */
 .node.mcp .ring-track {
   stroke: var(--mcp-idle-color);
 }
 
-.node.mcp .ring-track.ring-mcp {
-  stroke: var(--mcp-color);
-}
-
-.ring-codebase {
+.ring-codebase,
+.ring-pipeline {
   stroke: var(--series-1);
 }
 
-.ring-fragment {
+.ring-fragment,
+.ring-code {
   stroke: var(--series-2);
+}
+
+.ring-deps {
+  stroke: var(--series-3);
+}
+
+.ring-reports {
+  stroke: var(--series-7);
+}
+
+.ring-reads {
+  stroke: var(--bs-secondary-color);
 }
 
 /* An engine without a recent heartbeat recedes, and says so in its label */
@@ -201,7 +226,8 @@ svg {
   color: var(--bs-secondary-color);
 }
 
-.detail.failed {
+.detail.failed,
+.detail .failed {
   color: var(--bs-danger-text-emphasis);
 }
 
@@ -239,4 +265,21 @@ svg {
 .flow-tooltip.flipped {
   margin-left: -14px;
   transform: translateX(-100%);
+}
+
+/* The small circles of the agents: icon, count and its word fit inside the ring */
+.content.compact {
+  line-height: 1;
+}
+
+.content.compact .bi {
+  font-size: 1rem;
+}
+
+.content.compact .value {
+  font-size: 0.85rem;
+}
+
+.content.compact .detail {
+  font-size: 0.6rem;
 }

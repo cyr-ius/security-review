@@ -606,6 +606,10 @@ class ServerInstance(SQLModel, table=True):
     # running now (a gauge)
     delegated: bool = Field(default=False)
     processing_fragments: int = Field(default=0)
+    # The most requests run at once since the previous heartbeat, by family, as JSON (see
+    # server_instances.FAMILIES): the tool calls of the agents (MCP server), the scans received
+    # (Controller server)
+    processing: str = Field(default="{}", max_length=200)
     # MCP server: the agents seen lately, as JSON (see server_instances.AgentActivity): an opaque
     # key, the name and version of their MCP client, their last request and their scan_code
     # calls; never the name of a person nor a token

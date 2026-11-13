@@ -46,6 +46,16 @@ export const scanEngines = defineMessages({
       '{active} active engines out of {total}, {pipelines} pipeline scans and {fragments} fragments in progress, {files} files in progress',
     'scanEngines.flowActive': 'active',
     'scanEngines.flowFiles': '{count} files in progress',
+    'scanEngines.flowSlotsShort': 'slots',
+    'scanEngines.flowSentOne': '1 upload',
+    'scanEngines.flowSent': '{count} uploads',
+    'scanEngines.flowSentShort': 'uploads',
+    'scanEngines.flowEngineFilesOne': '1 file',
+    'scanEngines.flowEngineFiles': '{count} files',
+    'scanEngines.flowEngineNow': 'In progress: {codebase} codebase scans, {fragments} fragments',
+    'scanEngines.flowRequestsShort': 'requests',
+    'scanEngines.flowAgentCountOne': '1 agent',
+    'scanEngines.flowAgentCount': '{count} agents',
     'scanEngines.flowSlots': '{used}/{total} slots',
     'scanEngines.flowFallbackLocal': 'Fallback: local scan',
     'scanEngines.flowControllerScans': 'Scans itself (engines off)',
@@ -54,15 +64,19 @@ export const scanEngines = defineMessages({
       '{name} {version}: {codebase} code scans, {fragments} fragments, {files} files, {failed} failed, {busy} refused when busy; {used} of {capacity} slots in use',
     'scanEngines.flowMcpInstance': 'MCP server {number}',
     'scanEngines.flowAgentTitle':
-      '{client} {version}, through MCP server {number}: {count} scan requests (scan_code, start_codebase_scan) since the last heartbeat, last request at {time}',
+      '{client} {version}, through MCP server {number}, last request at {time}\nSince the last heartbeat: {requests}',
     'scanEngines.flowMoreAgents': 'Other agents',
     'scanEngines.flowMoreAgentsTitle': '{count} other agents seen lately',
     'scanEngines.flowMcpDelegated': 'scan_code delegated',
     'scanEngines.flowMcpLocal': 'Local scan',
     'scanEngines.flowMcpTitleDelegated':
-      '{name} {version}: {count} scan requests (scan_code, start_codebase_scan) since the last heartbeat, sent to the Controller server',
+      '{name} {version}, code scans sent to the Controller server\nSince the last heartbeat: {requests}',
     'scanEngines.flowMcpTitleLocal':
-      '{name} {version}: {count} scan requests (scan_code, start_codebase_scan) since the last heartbeat, handled by the MCP server itself (delegation off)',
+      '{name} {version}, code scans run by the MCP server itself (delegation off)\nSince the last heartbeat: {requests}',
+    'scanEngines.flowRequests':
+      '{code} code scans, {deps} dependency scans, {reports} reports and triage, {reads} reads',
+    'scanEngines.flowControllerRequests':
+      'Received since the last heartbeat: {pipeline} pipeline scans (security-review-ci), {code} code scans and {deps} dependency scans of the agents',
   },
   fr: {
     'scanEngines.pageSubtitle':
@@ -109,6 +123,16 @@ export const scanEngines = defineMessages({
       '{active} moteurs actifs sur {total}, {pipelines} scans de pipeline et {fragments} fragments en cours, {files} fichiers en cours',
     'scanEngines.flowActive': 'actifs',
     'scanEngines.flowFiles': '{count} fichiers en cours',
+    'scanEngines.flowSlotsShort': 'créneaux',
+    'scanEngines.flowSentOne': '1 envoi',
+    'scanEngines.flowSent': '{count} envois',
+    'scanEngines.flowSentShort': 'envois',
+    'scanEngines.flowEngineFilesOne': '1 fichier',
+    'scanEngines.flowEngineFiles': '{count} fichiers',
+    'scanEngines.flowEngineNow': 'En cours : {codebase} scans de dépôt, {fragments} fragments',
+    'scanEngines.flowRequestsShort': 'requêtes',
+    'scanEngines.flowAgentCountOne': '1 agent',
+    'scanEngines.flowAgentCount': '{count} agents',
     'scanEngines.flowSlots': '{used}/{total} créneaux',
     'scanEngines.flowFallbackLocal': 'Repli : scan local',
     'scanEngines.flowControllerScans': 'Scanne lui-même (moteurs désactivés)',
@@ -117,15 +141,19 @@ export const scanEngines = defineMessages({
       '{name} {version} : {codebase} scans de code, {fragments} fragments, {files} fichiers, {failed} en échec, {busy} refusés car occupé ; {used} créneaux occupés sur {capacity}',
     'scanEngines.flowMcpInstance': 'Serveur MCP {number}',
     'scanEngines.flowAgentTitle':
-      '{client} {version}, par le serveur MCP {number} : {count} demandes de scan (scan_code, start_codebase_scan) depuis le dernier battement de cœur, dernière requête à {time}',
+      '{client} {version}, par le serveur MCP {number}, dernière requête à {time}\nDepuis le dernier battement de cœur : {requests}',
     'scanEngines.flowMoreAgents': 'Autres agents',
     'scanEngines.flowMoreAgentsTitle': '{count} autres agents vus récemment',
     'scanEngines.flowMcpDelegated': 'scan_code délégué',
     'scanEngines.flowMcpLocal': 'Scan local',
     'scanEngines.flowMcpTitleDelegated':
-      '{name} {version} : {count} demandes de scan (scan_code, start_codebase_scan) depuis le dernier battement de cœur, envoyées au serveur Controller',
+      '{name} {version}, scans de code envoyés au serveur Controller\nDepuis le dernier battement de cœur : {requests}',
     'scanEngines.flowMcpTitleLocal':
-      '{name} {version} : {count} demandes de scan (scan_code, start_codebase_scan) depuis le dernier battement de cœur, traitées par le serveur MCP lui-même (délégation désactivée)',
+      '{name} {version}, scans de code faits par le serveur MCP lui-même (délégation désactivée)\nDepuis le dernier battement de cœur : {requests}',
+    'scanEngines.flowRequests':
+      '{code} scans de code, {deps} scans de dépendances, {reports} rapports et triage, {reads} lectures',
+    'scanEngines.flowControllerRequests':
+      'Reçus depuis le dernier battement de cœur : {pipeline} scans de pipeline (security-review-ci), {code} scans de code et {deps} scans de dépendances des agents',
   },
   es: {
     'scanEngines.pageSubtitle':
@@ -172,6 +200,17 @@ export const scanEngines = defineMessages({
       '{active} motores activos de {total}, {pipelines} escaneos de pipelines y {fragments} fragmentos en curso, {files} archivos en curso',
     'scanEngines.flowActive': 'activos',
     'scanEngines.flowFiles': '{count} archivos en curso',
+    'scanEngines.flowSlotsShort': 'huecos',
+    'scanEngines.flowSentOne': '1 envío',
+    'scanEngines.flowSent': '{count} envíos',
+    'scanEngines.flowSentShort': 'envíos',
+    'scanEngines.flowEngineFilesOne': '1 archivo',
+    'scanEngines.flowEngineFiles': '{count} archivos',
+    'scanEngines.flowEngineNow':
+      'En curso: {codebase} escaneos de repositorio, {fragments} fragmentos',
+    'scanEngines.flowRequestsShort': 'solicitudes',
+    'scanEngines.flowAgentCountOne': '1 agente',
+    'scanEngines.flowAgentCount': '{count} agentes',
     'scanEngines.flowSlots': '{used}/{total} huecos',
     'scanEngines.flowFallbackLocal': 'Respaldo: escaneo local',
     'scanEngines.flowControllerScans': 'Escanea él mismo (motores desactivados)',
@@ -180,14 +219,18 @@ export const scanEngines = defineMessages({
       '{name} {version}: {codebase} escaneos de código, {fragments} fragmentos, {files} archivos, {failed} fallidos, {busy} rechazados por estar ocupado; {used} de {capacity} huecos ocupados',
     'scanEngines.flowMcpInstance': 'Servidor MCP {number}',
     'scanEngines.flowAgentTitle':
-      '{client} {version}, a través del servidor MCP {number}: {count} solicitudes de escaneo (scan_code, start_codebase_scan) desde el último latido, última petición a las {time}',
+      '{client} {version}, a través del servidor MCP {number}, última petición a las {time}\nDesde el último latido: {requests}',
     'scanEngines.flowMoreAgents': 'Otros agentes',
     'scanEngines.flowMoreAgentsTitle': '{count} otros agentes vistos recientemente',
     'scanEngines.flowMcpDelegated': 'scan_code delegado',
     'scanEngines.flowMcpLocal': 'Escaneo local',
     'scanEngines.flowMcpTitleDelegated':
-      '{name} {version}: {count} solicitudes de escaneo (scan_code, start_codebase_scan) desde el último latido, enviadas al servidor Controller',
+      '{name} {version}, escaneos de código enviados al servidor Controller\nDesde el último latido: {requests}',
     'scanEngines.flowMcpTitleLocal':
-      '{name} {version}: {count} solicitudes de escaneo (scan_code, start_codebase_scan) desde el último latido, atendidas por el propio servidor MCP (delegación desactivada)',
+      '{name} {version}, escaneos de código hechos por el propio servidor MCP (delegación desactivada)\nDesde el último latido: {requests}',
+    'scanEngines.flowRequests':
+      '{code} escaneos de código, {deps} escaneos de dependencias, {reports} informes y triaje, {reads} lecturas',
+    'scanEngines.flowControllerRequests':
+      'Recibidos desde el último latido: {pipeline} escaneos de pipelines (security-review-ci), {code} escaneos de código y {deps} escaneos de dependencias de los agentes',
   },
 });

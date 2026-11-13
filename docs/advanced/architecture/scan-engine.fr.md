@@ -146,17 +146,23 @@ MCP et le serveur Controller, qui indique **Scanne lui-même (moteurs désactiv�
 moteurs sont désactivés :
 
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
-  `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;
+  `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs (**créneaux**) ; les
+  pipelines donnent aussi les scans que `security-review-ci` envoie au serveur Controller depuis son
+  battement de cœur précédent (**envois**), avec ou sans moteurs ;
 - sous les pipelines, un cercle par agent qui a envoyé une requête à un serveur MCP dans les
-  5 dernières minutes, relié à ce serveur, avec ses demandes de scan (appels `scan_code` et
-  `start_codebase_scan`) depuis le battement de cœur précédent. Un agent est affiché par le nom de son client MCP (par exemple `claude-code`),
-  jamais par le nom d'une personne ni d'un jeton ; au-delà de 6 agents, un cercle **+N** regroupe
+  5 dernières minutes, relié à ce serveur, avec ses requêtes en cours (outils, prompts et
+  ressources) depuis le battement de cœur précédent : son anneau est partagé en proportion par
+  famille (voir les couleurs plus bas). Un agent est affiché par le nom de son client MCP (par exemple `claude-code`),
+  jamais par le nom d'une personne ni d'un jeton ; les 6 plus récents sont empilés dans l'ordre de
+  leurs serveurs MCP, pour que leurs liens ne se croisent pas, et un cercle **+N** regroupe
   les autres. Sans aucun agent connu (serveurs MCP d'une version précédente), un seul cercle
   **Agents** les représente ;
 - à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), plus grand que
   ceux des agents, avec le plus grand
-  nombre de demandes de scan (`scan_code`, `start_codebase_scan`) simultanées depuis son
-  battement de cœur précédent. Les agents
+  nombre de requêtes des agents simultanées depuis son battement de cœur précédent (**requêtes** :
+  une requête courte y reste jusqu'au battement suivant, environ 5 secondes) et le nombre d'agents
+  qui lui sont reliés ; son anneau est partagé en proportion des requêtes par famille. Le cercle
+  d'un agent donne ses propres requêtes de la même façon. Les agents
   passent par lui pour atteindre le serveur Controller ; son lien vers le serveur Controller est en
   pointillés, avec **Scan local**, tant que la délégation de `scan_code` est désactivée : il scanne
   alors les fragments lui-même et ils n'atteignent jamais les moteurs. Les pipelines vont
@@ -167,12 +173,20 @@ moteurs sont désactivés :
   un battement de cœur en base toutes les 5 secondes et disparaît après 30 secondes sans battement.
   Les réplicas partagent la base, leurs cercles montrent donc les mêmes nombres : moteurs actifs,
   fichiers en cours de traitement, et un anneau avec les scans de pipeline et les fragments en
-  cours ;
-- à droite, un cercle par moteur, avec ses créneaux OpenGrep occupés sur son total.
+  cours. Un anneau intérieur montre les scans que reçoit ce processus, en proportion par
+  famille : les fichiers envoyés par `security-review-ci` (pipelines, scans du dépôt des agents),
+  et les scans de code et de dépendances des agents relayés par les serveurs MCP ;
+- à droite, un cercle par moteur, en colonnes de 4 reliées par la gauche au serveur Controller
+  le plus proche, avec ses créneaux OpenGrep occupés sur son total
+  (**créneaux**), les fichiers qu'il scanne en ce moment et, avec un signe d'alerte, ses scans en
+  échec depuis son démarrage. Son anneau est partagé sur sa capacité : bleu pour les scans du
+  dépôt, orange pour les fragments de `scan_code`, gris pour les créneaux libres ; un anneau
+  plein signale un moteur occupé, qui refuse les scans suivants.
 
-Des traits fins portent un point en mouvement pendant les scans : le point d'une demande d'un
-agent va jusqu'à son serveur MCP, puis jusqu'au serveur Controller quand ce serveur délègue
-`scan_code`. Chaque battement de cœur d'un moteur envoie une impulsion verte vers le serveur
+Des traits fins portent un point en mouvement pendant les scans : chaque famille de requêtes en
+cours d'un agent a son point, qui va jusqu'à son serveur MCP ; un scan de code continue jusqu'au
+serveur Controller quand ce serveur délègue `scan_code`. Un point bleu va des pipelines au serveur
+Controller pendant que `security-review-ci` lui envoie des fichiers, avec ou sans moteurs. Chaque battement de cœur d'un moteur envoie une impulsion verte vers le serveur
 Controller. Un moteur sans battement de cœur
 récent est grisé. La page se recharge d'elle-même toutes les 2 secondes tant qu'elle est visible.
 Le nombre de fragments actifs compte les requêtes `scan_code` simultanées, pas les agents
@@ -180,13 +194,18 @@ distincts. Le survol d'un cercle affiche son détail, dont les compteurs depuis 
 moteur (ils repartent de zéro quand il redémarre et s'enrôle de nouveau) ; la liste en dessous
 donne les mêmes moteurs.
 
+![Infobulle d'un serveur MCP : ses requêtes par famille depuis son battement de cœur précédent](../../assets/screenshots/activity-tooltip.png)
+
 Le diagramme n'a pas de légende ; ses couleurs sont :
 
 | Couleur | Signification |
 |---|---|
-| Bleu | Scans de code des pipelines (`security-review-ci`, revues du dépôt) |
-| Orange | Fragments envoyés par `scan_code` |
-| Jaune | Un serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand `scan_code` ou `start_codebase_scan` s'exécute) |
+| Bleu | Scans envoyés par les pipelines (`security-review-ci`, revues du dépôt) |
+| Orange | Fragments envoyés par `scan_code`, et les scans de code des agents (`scan_code`, `start_codebase_scan`) |
+| Aqua | Scans de dépendances (`scan_dependencies`, scan des dépendances du dépôt) |
+| Violet | Rapports et triage (`save_security_report`, `propose_finding_status`, `propose_opengrep_rule`, `request_project`) |
+| Gris | Lectures (les autres outils, les prompts et les ressources) |
+| Jaune | Un serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand une requête d'un agent commence ou se termine) |
 | Violet | Battement de cœur du serveur Controller (toutes les 5 s) |
 | Vert | Battement de cœur d'un moteur (toutes les 5 s pendant un scan, 30 s au repos) |
 | Vert clair | Un moteur connecté et inactif |

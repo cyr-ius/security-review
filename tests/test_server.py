@@ -459,22 +459,33 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     assert "PY-004" in {m["rule_id"] for m in failed["matches"]}
 
 
-async def test_agent_tracking_ignores_a_tool_name_that_is_not_a_string(monkeypatch):
-    # Raw params of the client: an unhashable name must not break the request
+async def test_agent_tracking_counts_every_request_by_family(monkeypatch):
     heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP)
     monkeypatch.setattr(server, "_heartbeat", heartbeat)
-    ctx = SimpleNamespace(
-        method="tools/call",
-        params={"name": ["scan_code"]},
-        session=SimpleNamespace(client_params=None),
-        request=None,
-    )
+    running = []
 
     async def call_next(ctx):
+        running.append(heartbeat.activity()["processing"])
         return "answered"
 
-    assert await server._track_agent(ctx, call_next) == "answered"
-    assert heartbeat.activity()["processing_fragments"] == 0
+    def request(method, params):
+        session = SimpleNamespace(client_params=None)
+        return SimpleNamespace(method=method, params=params, session=session, request=None)
+
+    for method, params in [
+        ("tools/call", {"name": "save_security_report"}),
+        ("tools/call", {"name": "scan_dependencies"}),
+        ("prompts/get", {"name": "security-review"}),
+        ("tools/call", {"name": "list_rules"}),
+        # Raw params of the client: an unhashable name must not break the request
+        ("tools/call", {"name": ["scan_code"]}),
+        ("tools/list", {}),
+    ]:
+        heartbeat.activity()  # the next activity shows this request only
+        assert await server._track_agent(request(method, params), call_next) == "answered"
+
+    families = [next((f for f, n in counts.items() if n), None) for counts in running]
+    assert families == ["reports", "deps", "reads", "reads", None, None]
 
 
 async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):

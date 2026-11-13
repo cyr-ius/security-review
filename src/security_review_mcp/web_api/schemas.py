@@ -1814,6 +1814,18 @@ class ScanEnginePublic(BaseModel):
     heartbeat_at: datetime | None = None
 
 
+class ProcessingPublic(BaseModel):
+    """The most requests a process or an agent ran at once since the previous heartbeat, by
+    family: code scans, dependency scans, reports and triage, reads (tools, prompts, resources),
+    and the scans sent by security-review-ci (Controller server only)."""
+
+    code: int = 0
+    deps: int = 0
+    reports: int = 0
+    reads: int = 0
+    pipeline: int = 0
+
+
 class AgentActivityPublic(BaseModel):
     """An agent seen lately by an MCP server: an opaque key and its MCP client, never a person."""
 
@@ -1823,8 +1835,10 @@ class AgentActivityPublic(BaseModel):
     client: str
     client_version: str
     last_seen: str
-    # The most scan_code calls it ran at once since the previous heartbeat
+    # The most code scans (scan_code, start_codebase_scan) it ran at once since the previous
+    # heartbeat, and all its requests by family
     processing_fragments: int
+    processing: ProcessingPublic = ProcessingPublic()
 
 
 class ServerInstancePublic(BaseModel):
@@ -1840,6 +1854,9 @@ class ServerInstancePublic(BaseModel):
     # once since its previous heartbeat
     delegated: bool
     processing_fragments: int
+    # The most requests run at once since the previous heartbeat, by family: the tool calls of the
+    # agents (MCP server), the scans received (Controller server)
+    processing: ProcessingPublic = ProcessingPublic()
     # MCP server: the agents that sent it a request lately, the most recent first
     agents: list[AgentActivityPublic] = []
 
