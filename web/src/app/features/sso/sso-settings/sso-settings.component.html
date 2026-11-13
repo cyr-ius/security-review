@@ -46,9 +46,9 @@
         </div>
 
         <h3 class="h6">{{ 'sso.provider' | t }}</h3>
-        <div class="row g-3 mb-3">
+        <div class="row g-2 mb-3">
           @for (field of providerFields; track field.name) {
-            <div class="col-md-6">
+            <div class="col-md-6 col-lg-4">
               <ng-container
                 [ngTemplateOutlet]="input"
                 [ngTemplateOutletContext]="{ $implicit: field, current: current }"
@@ -66,9 +66,9 @@
         </div>
 
         <h3 class="h6">{{ 'sso.groups' | t }}</h3>
-        <div class="row g-3 mb-3">
+        <div class="row g-2 mb-3">
           @for (field of accessFields; track field.name) {
-            <div [class]="field.kind === 'bool' ? 'col-12' : 'col-md-6'">
+            <div [class]="field.kind === 'bool' ? 'col-12' : 'col-md-6 col-lg-4'">
               <ng-container
                 [ngTemplateOutlet]="input"
                 [ngTemplateOutletContext]="{ $implicit: field, current: current }"
@@ -102,13 +102,13 @@
         }
 
         <div class="d-flex flex-wrap gap-2">
-          <button type="submit" class="btn btn-primary" [disabled]="busy() || !dirty()">
+          <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy() || !dirty()">
             <i class="bi bi-check-lg" aria-hidden="true"></i>
             {{ 'common.save' | t }}
           </button>
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="btn btn-sm btn-outline-secondary"
             [disabled]="busy()"
             (click)="test()"
           >
@@ -116,7 +116,7 @@
             {{ 'sso.test' | t }}
           </button>
           @if (dirty()) {
-            <button type="button" class="btn btn-outline-secondary" (click)="reset()">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reset()">
               {{ 'sso.discard' | t }}
             </button>
           }
@@ -177,16 +177,16 @@
             </div>
           }
           @case ('secret') {
-            <label class="form-label" [for]="'sso-' + field.name">
+            <label class="form-label small mb-1" [for]="'sso-' + field.name">
               {{ field.label | t }}
               <ng-container
                 [ngTemplateOutlet]="source"
                 [ngTemplateOutletContext]="{ $implicit: field.name, current: current }"
               />
             </label>
-            <div class="input-group">
+            <div class="input-group input-group-sm">
               <input
-                class="form-control"
+                class="form-control form-control-sm"
                 type="password"
                 autocomplete="new-password"
                 [id]="'sso-' + field.name"
@@ -196,7 +196,7 @@
               @if (current.fields.client_secret.effective && !locked('client_secret')) {
                 <button
                   type="button"
-                  class="btn btn-outline-danger"
+                  class="btn btn-sm btn-outline-danger"
                   [disabled]="busy()"
                   (click)="clearSecret()"
                 >
@@ -214,7 +214,7 @@
             </div>
           }
           @default {
-            <label class="form-label" [for]="'sso-' + field.name">
+            <label class="form-label small mb-1" [for]="'sso-' + field.name">
               {{ field.label | t }}
               <ng-container
                 [ngTemplateOutlet]="source"
@@ -222,7 +222,7 @@
               />
             </label>
             <input
-              class="form-control"
+              class="form-control form-control-sm"
               autocomplete="off"
               spellcheck="false"
               [id]="'sso-' + field.name"

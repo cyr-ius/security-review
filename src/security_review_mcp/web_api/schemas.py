@@ -73,6 +73,8 @@ class Identity(BaseModel):
     personal_tokens_enabled: bool = True
     # The OAuth login of the MCP clients is on (variable or web interface)
     mcp_oauth: bool = False
+    # Default and longest validity in days of a new token (SECREVIEW_TOKEN_MAX_DAYS); 0: none
+    token_max_days: int = 0
     version: str
 
 
@@ -1397,6 +1399,36 @@ class OsvEcosystemsUpdate(BaseModel):
     ecosystems: list[Annotated[str, Field(max_length=20)]] | None = Field(max_length=20)
 
 
+class OsvDownloadUpdate(BaseModel):
+    """Body of PUT /settings/osv-download: turn on or off the OSV download of the controller and
+    set its interval in hours; a field left out is unchanged.
+
+    Refused (422) when the variable of a given field is set (SECREVIEW_OSV_AUTO_UPDATE,
+    SECREVIEW_OSV_UPDATE_INTERVAL_HOURS), or when the download settings are invalid.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    update_interval_hours: int | None = Field(default=None, ge=1, le=8760)
+
+
+class OsvBoolSetting(BaseModel):
+    """The OSV download turned on or off in the web interface (None: never set) and whether
+    SECREVIEW_OSV_AUTO_UPDATE is set (it then takes precedence)."""
+
+    value: bool | None
+    env_set: bool
+
+
+class OsvIntervalSetting(BaseModel):
+    """Interval of the OSV download set in the web interface (None: never set) and whether
+    SECREVIEW_OSV_UPDATE_INTERVAL_HOURS is set (it then takes precedence)."""
+
+    value: int | None
+    env_set: bool
+
+
 class OsvEcosystemsSetting(BaseModel):
     """Ecosystems of the OSV download: stored value, variable, whether the variable is set (it
     then takes precedence over the stored value), effective value (comma separated) and the
@@ -1410,11 +1442,14 @@ class OsvEcosystemsSetting(BaseModel):
 
 
 class OsvSettings(BaseModel):
-    """Download of the OSV advisories (variables; the ecosystems may be chosen in the web
-    interface while SECREVIEW_OSV_ECOSYSTEMS is not set)."""
+    """Download of the OSV advisories: effective state and interval (``download`` and
+    ``interval`` give the values of the web interface; those and the ecosystems may be changed
+    there while their variable is not set), source and limits (variables only)."""
 
     download_enabled: bool
     update_interval_hours: int
+    download: OsvBoolSetting
+    interval: OsvIntervalSetting
     url: str
     ecosystems: OsvEcosystemsSetting
     cafile: str | None
@@ -1779,6 +1814,19 @@ class ScanEnginePublic(BaseModel):
     heartbeat_at: datetime | None = None
 
 
+class AgentActivityPublic(BaseModel):
+    """An agent seen lately by an MCP server: an opaque key and its MCP client, never a person."""
+
+    # Opaque key, only stable within one MCP server process
+    id: str
+    # Name and version given by its MCP client (clientInfo), e.g. claude-code
+    client: str
+    client_version: str
+    last_seen: str
+    # The most scan_code calls it ran at once since the previous heartbeat
+    processing_fragments: int
+
+
 class ServerInstancePublic(BaseModel):
     """A Controller or MCP server process whose heartbeat is recent."""
 
@@ -1792,6 +1840,8 @@ class ServerInstancePublic(BaseModel):
     # once since its previous heartbeat
     delegated: bool
     processing_fragments: int
+    # MCP server: the agents that sent it a request lately, the most recent first
+    agents: list[AgentActivityPublic] = []
 
 
 class ScanEngineList(BaseModel):

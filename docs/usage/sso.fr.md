@@ -21,7 +21,7 @@ Le fournisseur doit être joignable en HTTPS par le serveur Controller, par le p
 
 ## Configurer le OIDC dans l'interface
 
-Un administrateur remplit la page **Connexions**, sans redémarrer le serveur Controller :
+Un administrateur remplit l'onglet **Connexion OIDC** de la page **Utilisateurs**, sans redémarrer le serveur Controller :
 
 1. **Émetteur (issuer)**, **Identifiant client**, **Secret client** (vide pour un client public)
    et **URL de retour** ;
@@ -51,7 +51,7 @@ changé chez le fournisseur garde le même compte.
 
 ## Correspondances OIDC
 
-En bas de la page **Connexions**, chaque **correspondance OIDC** d'une valeur donne des **rôles**,
+En bas de l'onglet **Connexion OIDC**, chaque **correspondance OIDC** d'une valeur donne des **rôles**,
 des droits par projet sur **Tous les projets** et des **projets** avec leurs droits aux
 utilisateurs OIDC dont le fournisseur d'identité envoie **exactement** cette valeur (casse
 comprise). Ils s'ajoutent aux rôles et projets donnés au compte dans **Utilisateurs**. À chaque

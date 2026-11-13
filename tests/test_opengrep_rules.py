@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import shutil
@@ -86,17 +87,17 @@ def test_install_bundled_rules_keeps_local_edits(configured_store, capsys):
     assert cli.run(["opengrep", "install", "--language", "python"]) == cli.EXIT_PASSED
     installed = json.loads(capsys.readouterr().out)["installed"]
     assert sorted(installed) == sorted(path.stem for path in python_rules)
-    # Installed flat, one rule per file: the web page and the scan read them as-is
+    # Stored in the database, one rule per id: the web page and the scans read them as-is
     assert {rule["id"] for rule in opengrep_rule_store.list_rules()} == set(installed)
 
-    edited = configured_store / f"{installed[0]}.yaml"
-    edited.write_text(edited.read_text(encoding="utf-8") + "# local edit\n", encoding="utf-8")
+    edited = installed[0]
+    _edit(edited)
     assert opengrep_rule_store.install_bundled(["python"])["skipped"] == sorted(installed)
-    assert edited.read_text(encoding="utf-8").endswith("# local edit\n")
+    assert opengrep_rule_store.get_rule(edited)["content"].endswith("# local edit\n")
     assert len(opengrep_rule_store.install_bundled(["python"], overwrite=True)["replaced"]) == len(
         installed
     )
-    assert not edited.read_text(encoding="utf-8").endswith("# local edit\n")
+    assert not opengrep_rule_store.get_rule(edited)["content"].endswith("# local edit\n")
 
     assert cli.run(["opengrep", "install", "--language", "cobol"]) == cli.EXIT_ERROR
     assert "cobol" in json.loads(capsys.readouterr().err)["error"]
@@ -167,36 +168,83 @@ def _bundle(directory, **rules):
         )
 
 
-def test_sync_bundled_rules_keeps_administrator_edits_and_deletions(
-    configured_store, tmp_path, monkeypatch
-):
-    bundle = tmp_path / "bundle"
+def _edit(rule_id):
+    content = opengrep_rule_store.get_rule(rule_id)["content"] + "# local edit\n"
+    opengrep_rule_store.save_rule(rule_id, content, create=False)
+
+
+def test_seed_defaults_keeps_administrator_edits_and_deletions(configured_store, monkeypatch):
+    bundle = configured_store / "bundle"
     monkeypatch.setattr(opengrep_rule_store, "BUNDLED_DIR", bundle)
-    _bundle(bundle, edited="v1", deleted="v1", untouched="v1")
-    assert sorted(opengrep_rule_store.sync_bundled()["installed"]) == [
+    _bundle(bundle, edited="v1", deleted="v1", untouched="v1", retired="v1")
+    assert sorted(opengrep_rule_store.seed_defaults()["installed"]) == [
         "python.test.deleted",
         "python.test.edited",
+        "python.test.retired",
         "python.test.untouched",
     ]
 
-    edited = configured_store / "python.test.edited.yaml"
-    edited.write_text(edited.read_text(encoding="utf-8") + "# local edit\n", encoding="utf-8")
+    _edit("python.test.edited")
     opengrep_rule_store.delete_rule("python.test.deleted")
-    # A new version of the package changes every rule and adds one
+    # A new version of the package changes every rule, adds one and retires one
+    shutil.rmtree(bundle)
     _bundle(bundle, edited="v2", deleted="v2", untouched="v2", added="v2")
-    changes = opengrep_rule_store.sync_bundled()
+    changes = opengrep_rule_store.seed_defaults()
 
     assert changes == {
+        "imported": [],
         "installed": ["python.test.added"],
         "updated": ["python.test.untouched"],
         "kept": ["python.test.edited"],
+        "removed": ["python.test.retired"],
     }
-    assert edited.read_text(encoding="utf-8").endswith("# local edit\n")
-    assert not (configured_store / "python.test.deleted.yaml").exists()
-    assert "v2" in opengrep_rule_store.get_rule("python.test.untouched")["content"]
+    rules = opengrep_rule_store.installed_rules()
+    assert rules["python.test.edited"].endswith("# local edit\n")
+    assert "v2" in rules["python.test.untouched"]
+    assert {"python.test.deleted", "python.test.retired"}.isdisjoint(rules)
     # Up to date: nothing changes at the next start
-    assert opengrep_rule_store.sync_bundled() == {
-        "installed": [],
-        "updated": [],
-        "kept": ["python.test.edited"],
-    }
+    assert not any(opengrep_rule_store.seed_defaults().values())
+
+
+def test_seed_defaults_imports_the_rule_files_of_a_previous_version_once(
+    configured_store, monkeypatch
+):
+    bundle = configured_store / "bundle"
+    monkeypatch.setattr(opengrep_rule_store, "BUNDLED_DIR", bundle)
+    _bundle(bundle, edited="v1", deleted="v1", untouched="v1")
+    defaults = {path.stem: path.read_text(encoding="utf-8") for path in bundle.rglob("*.yaml")}
+    # The rules directory of a previous version: two defaults installed (one edited since, the
+    # other deleted), one left as installed, and a rule of the administrator
+    (configured_store / "python.test.untouched.yaml").write_text(
+        defaults["python.test.untouched"], encoding="utf-8"
+    )
+    (configured_store / "python.test.edited.yaml").write_text(
+        defaults["python.test.edited"] + "# local edit\n", encoding="utf-8"
+    )
+    (configured_store / "python.test.safe-eval.yml").write_text(RULE, encoding="utf-8")
+    (configured_store / opengrep_rule_store.LEGACY_MANIFEST_NAME).write_text(
+        json.dumps({rule_id: _sha(content) for rule_id, content in defaults.items()}),
+        encoding="utf-8",
+    )
+
+    _bundle(bundle, edited="v2", deleted="v2", untouched="v2")
+    changes = opengrep_rule_store.seed_defaults()
+
+    assert changes["imported"] == [
+        "python.test.edited",
+        "python.test.safe-eval",
+        "python.test.untouched",
+    ]
+    assert changes["updated"] == ["python.test.untouched"]
+    rules = opengrep_rule_store.installed_rules()
+    assert rules["python.test.safe-eval"] == RULE
+    assert rules["python.test.edited"].endswith("# local edit\n")
+    assert "python.test.deleted" not in rules
+    # Imported once: a rule deleted afterwards does not come back from its file
+    opengrep_rule_store.delete_rule("python.test.safe-eval")
+    assert not any(opengrep_rule_store.seed_defaults().values())
+    assert "python.test.safe-eval" not in opengrep_rule_store.installed_rules()
+
+
+def _sha(content):
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()

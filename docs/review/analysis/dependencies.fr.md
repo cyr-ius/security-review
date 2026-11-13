@@ -69,8 +69,10 @@ security-review-controller advisories status
 
 ### Mise à jour automatique par le serveur Controller
 
-Avec `SECREVIEW_OSV_AUTO_UPDATE=true`, `security-review-controller serve` télécharge les
-exports `all.zip` de chaque écosystème et les importe, puis recommence toutes les 24 heures :
+Une fois activé, `security-review-controller serve` télécharge les exports `all.zip` de chaque
+écosystème et les importe, puis recommence toutes les 24 heures. Un administrateur l'active avec
+l'interrupteur **Télécharger automatiquement les avis OSV** de la page **Base OSV** (avec son
+**Intervalle (heures)**), ou avec la variable, qui l'emporte alors sur la page :
 
 ```bash
 SECREVIEW_OSV_AUTO_UPDATE=true
@@ -78,7 +80,11 @@ SECREVIEW_OSV_AUTO_UPDATE=true
 HTTPS_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 ```
 
-- **Désactivée par défaut**. Le serveur MCP, lui, ne se connecte jamais à l'extérieur.
+- **Désactivée par défaut**. Le serveur MCP, lui, ne se connecte jamais à l'extérieur. Un
+  changement fait sur la page s'applique sous 15 minutes, sans redémarrage, et est enregistré
+  dans le [journal d'audit](../../advanced/audit-log.md) (`osv_download.changed`) ; l'interrupteur
+  et l'intervalle sont verrouillés tant que `SECREVIEW_OSV_AUTO_UPDATE` ou
+  `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` est définie.
 - L'échéance dépend de l'âge de la base (dernier import, manuel ou automatique) : un
   redémarrage ou une seconde réplique du serveur Controller ne retélécharge pas avant la fin de
   l'intervalle (`SECREVIEW_OSV_UPDATE_INTERVAL_HOURS`, 24 par défaut). Une base vide ou trop
@@ -129,7 +135,7 @@ non définies : `HTTPS_PROXY` (sinon `HTTP_PROXY`) et `NO_PROXY`, quand elles so
 sont prioritaires sur les valeurs de la page. Elles s'appliquent au téléchargement suivant. La page **Base OSV** affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
 maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
-`SECREVIEW_OSV_AUTO_UPDATE=true`.
+le téléchargement est activé.
 
 Pour déclencher une mise à jour à la demande (ou depuis un `CronJob` plutôt que depuis le
 serveur Controller), avec les mêmes paramètres :

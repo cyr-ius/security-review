@@ -7,11 +7,11 @@ token, and by the connectors; SECREVIEW_PUBLIC_URL set on the controller is copi
 start, see sync_controller_url; the MCP server reads it there only), the delegation of the
 scan_code tool to that URL or to the address given by SECREVIEW_SCANCODE_DELEGATED (see
 set_mcp_scan_delegation and sync_mcp_scan_delegation), the OAuth login of the MCP
-clients (see set_mcp_oauth), the proxy of the outgoing connections, the ecosystems of the OSV
-download, the single sign-on settings and the syslog server of the audit log (read by the
-controller, see effective_settings). A
-variable that is set (environment or ``.env`` file) always wins: the web interface cannot change
-it, and a value stored before is ignored (see env_set).
+clients (see set_mcp_oauth), the proxy of the outgoing connections, the OSV download (turned
+on, interval and ecosystems), the single sign-on settings and the syslog server of the audit
+log (read by the controller, see effective_settings). A variable that is set (environment or
+``.env`` file) always wins: the web interface cannot change it, and a value stored before is
+ignored (see env_set).
 
 The proxy URL and the OIDC client secret are secrets: they are stored as given, but never
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
@@ -79,6 +79,14 @@ NO_PROXY = "no_proxy"
 # Key of the ecosystems of the OSV download (comma separated, canonical names), also the name of
 # its Settings field (see set_osv_ecosystems); SECREVIEW_OSV_ECOSYSTEMS wins
 OSV_ECOSYSTEMS = "osv_ecosystems"
+# Keys of the OSV download turned on in the web interface ("true" / "false") and of its interval
+# in hours, also the names of their Settings fields (see set_osv_download);
+# SECREVIEW_OSV_AUTO_UPDATE and SECREVIEW_OSV_UPDATE_INTERVAL_HOURS win
+OSV_AUTO_UPDATE = "osv_auto_update"
+OSV_UPDATE_INTERVAL = "osv_update_interval_hours"
+# Bounds of the interval set in the web interface: one hour to one year
+MIN_OSV_INTERVAL_HOURS = 1
+MAX_OSV_INTERVAL_HOURS = 8760
 # Keys of the syslog settings of the audit log, also the names of their Settings fields
 SYSLOG_ADDRESS = "audit_syslog_address"
 SYSLOG_FACILITY = "audit_syslog_facility"
@@ -224,6 +232,14 @@ def sync_controller_url(settings: Settings | None = None) -> None:
 
 
 # ── scan_code delegated to the controller ────────────────────────────────────
+
+
+def mcp_scan_delegated() -> bool:
+    """True while the delegation of scan_code is turned on (SECREVIEW_SCANCODE_DELEGATED or the
+    web interface): the controller only answers ``POST /api/v1/scan/content`` then."""
+    with session_scope() as session:
+        row = session.get(AppSetting, MCP_SCAN_DELEGATION)
+        return row is not None and row.value == "true"
 
 
 def mcp_scan_controller_url() -> str | None:
@@ -609,11 +625,65 @@ def set_osv_ecosystems(
     _write({OSV_ECOSYSTEMS: ",".join(dict.fromkeys(canonical))}, updated_by)
 
 
+def set_osv_download(
+    enabled: bool | None,
+    interval_hours: int | None,
+    actor: str,
+    settings: Settings | None = None,
+) -> None:
+    """Turn on or off the OSV download of the controller and set its interval (read by its
+    updater within OSV_CHECK_SECONDS, see advisory_sync.AdvisoryUpdater); None leaves a value
+    unchanged. The change is recorded in the audit log, in the same transaction: turning on an
+    outgoing connection leaves a trace.
+
+    Raises:
+        ValueError: If the interval is out of bounds, if the download settings would be invalid
+            once turned on, or if the variable of a given value is set
+            (SECREVIEW_OSV_AUTO_UPDATE, SECREVIEW_OSV_UPDATE_INTERVAL_HOURS); nothing is
+            stored then.
+    """
+    from .deps import advisory_sync  # controller only
+
+    settings = settings or get_settings()
+    changes: dict[str, str | None] = {}
+    if enabled is not None:
+        _check_not_env(settings, OSV_AUTO_UPDATE, "SECREVIEW_OSV_AUTO_UPDATE")
+        changes[OSV_AUTO_UPDATE] = "true" if enabled else "false"
+    if interval_hours is not None:
+        _check_not_env(settings, OSV_UPDATE_INTERVAL, "SECREVIEW_OSV_UPDATE_INTERVAL_HOURS")
+        if not MIN_OSV_INTERVAL_HOURS <= interval_hours <= MAX_OSV_INTERVAL_HOURS:
+            raise ValueError(
+                f"the interval must be between {MIN_OSV_INTERVAL_HOURS} and "
+                f"{MAX_OSV_INTERVAL_HOURS} hours"
+            )
+        changes[OSV_UPDATE_INTERVAL] = str(interval_hours)
+    if not changes:
+        return
+    stored = _stored() | {key: value for key, value in changes.items() if value is not None}
+    candidate = settings.model_copy(update=_overrides(stored, settings))
+    if candidate.osv_auto_update:
+        # The variables of the URL, CA file and size are checked before anything is stored
+        advisory_sync.validate_settings(candidate)
+    with session_scope() as session:
+        _apply(session, changes, actor)
+        audit.record(
+            session,
+            audit.AuditAction.OSV_DOWNLOAD_CHANGED,
+            actor,
+            "setting",
+            "osv_download",
+            details={
+                "enabled": candidate.osv_auto_update,
+                "interval_hours": candidate.osv_update_interval_hours,
+            },
+        )
+
+
 # ── Effective settings ───────────────────────────────────────────────────────
 
 
 def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
-    """Every stored value (controller URL, OAuth login, proxy, OSV ecosystems, OIDC and syslog)
+    """Every stored value (controller URL, OAuth login, proxy, OSV download, OIDC and syslog)
     whose variable is not set."""
     overrides = (
         _proxy_overrides(stored)
@@ -624,11 +694,15 @@ def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
     for key in (CONTROLLER_URL, OSV_ECOSYSTEMS):
         if key in stored:
             overrides[key] = stored[key]
+    if OSV_AUTO_UPDATE in stored:
+        overrides[OSV_AUTO_UPDATE] = stored[OSV_AUTO_UPDATE] == "true"
+    if stored.get(OSV_UPDATE_INTERVAL, "").isdigit():
+        overrides[OSV_UPDATE_INTERVAL] = int(stored[OSV_UPDATE_INTERVAL])
     return {key: value for key, value in overrides.items() if not env_set(settings, key)}
 
 
 def effective_settings(settings: Settings | None = None) -> Settings:
-    """Return ``settings`` with the controller URL, proxy, OSV ecosystems, OIDC and syslog values
+    """Return ``settings`` with the controller URL, proxy, OSV download, OIDC and syslog values
     stored in the web interface applied where their variable is not set (read by the controller
     at each OSV download, login, batch of audit events and export; the connections of the
     connectors are read by connectors.connections)."""
@@ -912,8 +986,20 @@ def describe(settings: Settings | None = None) -> dict:
         },
         "proxy": _describe_proxy(settings, stored, effective),
         "osv": {
-            "download_enabled": settings.osv_auto_update,
-            "update_interval_hours": settings.osv_update_interval_hours,
+            "download_enabled": effective.osv_auto_update,
+            "update_interval_hours": effective.osv_update_interval_hours,
+            "download": {
+                "value": (stored[OSV_AUTO_UPDATE] == "true" if OSV_AUTO_UPDATE in stored else None),
+                "env_set": env_set(settings, OSV_AUTO_UPDATE),
+            },
+            "interval": {
+                "value": (
+                    int(stored[OSV_UPDATE_INTERVAL])
+                    if stored.get(OSV_UPDATE_INTERVAL, "").isdigit()
+                    else None
+                ),
+                "env_set": env_set(settings, OSV_UPDATE_INTERVAL),
+            },
             "url": settings.osv_url,
             "ecosystems": {
                 "value": stored[OSV_ECOSYSTEMS].split(",") if OSV_ECOSYSTEMS in stored else None,

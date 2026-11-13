@@ -29,7 +29,9 @@ sont dans le même commit que lui.
   shell : un test qui a besoin d'un réglage le définit lui-même (`monkeypatch.setenv`,
   `Settings(...)`).
 - `tests/conftest.py` fournit à chaque test une base SQLite en mémoire et un registre de règles
-  vide : n'utilisez jamais la base réelle. La fixture `import_pack` importe des règles internes
+  vide : n'utilisez jamais la base réelle. Il place aussi `SECREVIEW_OPENGREP_RULES_DIR` (la copie
+  des règles OpenGrep écrite pour un scan) sous `tmp_path` (fixture `opengrep_rules_dir`). La
+  fixture `import_pack` importe des règles internes
   (pack TOML), `triage` enregistre une décision comme le ferait une personne, `tmp_path` accueille
   les fichiers. La base est marquée à la dernière révision : `outdated_schema` la marque une
   révision en arrière, et `legacy_database` la remplace par une base de la version 1.x (sans

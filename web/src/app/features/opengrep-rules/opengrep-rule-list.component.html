@@ -1,8 +1,5 @@
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
-  <div>
-    <h1 class="h3 mb-1">{{ 'opengrepRules.title' | t }} <app-help-link topic="opengrepRules" /></h1>
-    <p class="text-body-secondary mb-0">{{ 'opengrepRules.subtitle' | t }}</p>
-  </div>
+<!-- Title and subtitle are given by the Rules page, above the tabs -->
+<div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
   <div class="d-flex flex-wrap gap-2">
     <app-refresh-button [loading]="catalog.isLoading()" (refresh)="reload()" />
     @if (canManage()) {
@@ -207,7 +204,7 @@
           </dl>
           @if (current.test_code) {
             <div class="mb-3">
-              <div class="form-label">{{ 'opengrepRules.testCode' | t }}</div>
+              <div class="form-label small mb-1">{{ 'opengrepRules.testCode' | t }}</div>
               <pre class="border rounded p-2 small bg-body-tertiary opengrep-output">{{
                 current.test_code
               }}</pre>
@@ -215,12 +212,12 @@
           }
         }
         <div class="mb-3">
-          <label class="form-label" for="opengrep-rule-id">
+          <label class="form-label small mb-1" for="opengrep-rule-id">
             {{ 'opengrepRules.identifier' | t }}
           </label>
           <input
             id="opengrep-rule-id"
-            class="form-control font-monospace"
+            class="form-control form-control-sm font-monospace"
             aria-describedby="opengrep-rule-id-errors"
             [formField]="ruleForm.id"
             [class.is-invalid]="ruleForm.id().touched() && ruleForm.id().invalid()"
@@ -234,12 +231,12 @@
           </div>
         </div>
         <div class="mb-2">
-          <label class="form-label" for="opengrep-rule-yaml">
+          <label class="form-label small mb-1" for="opengrep-rule-yaml">
             {{ 'opengrepRules.yaml' | t }}
           </label>
           <textarea
             id="opengrep-rule-yaml"
-            class="form-control font-monospace opengrep-yaml"
+            class="form-control form-control-sm font-monospace opengrep-yaml"
             rows="22"
             spellcheck="false"
             aria-describedby="opengrep-rule-yaml-help opengrep-rule-yaml-errors"
@@ -259,7 +256,7 @@
         </div>
         @if (validationOutput(); as output) {
           <div class="mt-3">
-            <div class="form-label">{{ 'opengrepRules.validationOutput' | t }}</div>
+            <div class="form-label small mb-1">{{ 'opengrepRules.validationOutput' | t }}</div>
             <pre class="border rounded p-2 small bg-body-tertiary opengrep-output">
               {{ output }}
             </pre>
@@ -267,12 +264,12 @@
         }
         @if (canManage() && proposal()) {
           <div class="mt-3">
-            <label class="form-label" for="opengrep-reject-reason">
+            <label class="form-label small mb-1" for="opengrep-reject-reason">
               {{ 'opengrepRules.rejectReason' | t }}
             </label>
             <input
               id="opengrep-reject-reason"
-              class="form-control"
+              class="form-control form-control-sm"
               [formField]="ruleForm.rejectReason"
               [class.is-invalid]="ruleForm.rejectReason().invalid()"
             />
@@ -282,7 +279,7 @@
           <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
             <button
               type="button"
-              class="btn btn-outline-secondary"
+              class="btn btn-sm btn-outline-secondary"
               [disabled]="validating() || saving()"
               (click)="validate()"
             >
@@ -294,7 +291,7 @@
             @if (proposal()) {
               <button
                 type="button"
-                class="btn btn-outline-danger"
+                class="btn btn-sm btn-outline-danger"
                 [disabled]="deciding() || validating()"
                 (click)="reject()"
               >
@@ -302,7 +299,7 @@
               </button>
               <button
                 type="button"
-                class="btn btn-primary"
+                class="btn btn-sm btn-primary"
                 [disabled]="deciding() || validating()"
                 (click)="approve()"
               >
@@ -314,7 +311,7 @@
             } @else {
               <button
                 type="submit"
-                class="btn btn-primary"
+                class="btn btn-sm btn-primary"
                 [disabled]="saving() || validating() || deleting()"
               >
                 @if (saving()) {

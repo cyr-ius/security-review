@@ -41,6 +41,7 @@ import {
 } from '../../../shared/components/table-controls/table-controls.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { BulkTriageComponent } from './bulk-triage/bulk-triage.component';
+import { reloadOnReturn } from '../../../shared/utils/reload-on-return';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -221,6 +222,11 @@ export class ProjectFindingsComponent {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.searchTimer));
+    // Not after "load more" or a triage: the reload would drop those rows
+    reloadOnReturn(
+      () => this.firstPage.reload(),
+      () => this.findings().length <= PAGE_SIZE && !this.triagedCount(),
+    );
   }
 
   readonly forbidden = computed(() => {

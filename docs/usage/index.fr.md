@@ -52,6 +52,11 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 - En bas de la barre : **Mon compte** (mot de passe, jetons personnels) et la version, un lien
   vers **À propos**.
 - Cliquez sur l'en-tête d'une colonne pour trier un tableau ; le navigateur mémorise le tri.
+- **Projets**, **Findings**, **Rapports** et **Journal d'audit** relisent leurs données quand vous
+  revenez sur l'onglet du navigateur, pour afficher les revues enregistrées entre-temps (pas après
+  **Afficher plus**, ni sur **Findings** une fois un finding trié sur la page : **Actualiser** le
+  fait alors). Les pages de réglages et de référentiel, modifiées seulement sur la page elle-même,
+  n'ont pas de bouton **Actualiser**.
 - Le point d'interrogation cerclé à côté d'un titre ouvre la page de cette documentation qui
   explique la page (en français pour une interface en français, sinon en anglais).
 - Si le serveur Controller ne répond plus, la page **Backend indisponible** s'ouvre : elle vérifie
@@ -80,10 +85,10 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 
 | Page | À quoi elle sert |
 |---|---|
-| **Règles** | Les motifs du scan de code ([règles](../review/rules.md)) |
+| **Règles** | Les règles du scan de code, un onglet par moteur : **Règles par motifs** ([règles](../review/rules.md)) et **Règles OpenGrep**, avec les règles proposées par les agents ([OpenGrep](../review/analysis/opengrep.md#gestion-des-regles-depuis-linterface-web)) |
 | **Checklists** | Les points de contrôle suivis par les agents ([checklists](../review/checklists.md)) |
 | **Normes** | Les normes de développement données aux assistants IA ([normes](../review/standards.md)) |
-| **Base OSV** | État et mise à jour de la base de vulnérabilités, choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) (`settings.manage`) |
+| **Base OSV** | État et mise à jour de la base de vulnérabilités, téléchargement automatique (activation, intervalle), choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) (`settings.manage`) |
 
 Dans le formulaire d'édition, les champs de texte long (contenu d'une norme, conseil d'une
 règle, point de contrôle d'une checklist) ont un bouton plein écran : le texte s'ouvre dans un
@@ -96,13 +101,26 @@ qui les enregistre ou les annule.
 | Page | À quoi elle sert |
 |---|---|
 | **Général** | Langue des rapports, adresse du serveur Controller (et délégation de `scan_code` à celle-ci) et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
-| **Utilisateurs**, **Rôles** | Les comptes, leurs rôles et leurs projets ([rôles et permissions](access-control.md)) |
+| **Activité** | Ce qui tourne en ce moment, et les moteurs de scan avec leur révocation (`settings.manage`) : voir [Activité](#activite) |
+| **Utilisateurs** | Un onglet chacun : **Comptes**, avec leurs rôles et leurs projets ([comptes utilisateurs](user-accounts.md)), **Rôles** ([rôles et permissions](access-control.md)) et **Connexion OIDC**, la connexion d'entreprise ([connexion OIDC](sso.md)) (`users.manage`) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
 | **Clients MCP** | Les clients MCP qui se connectent par le navigateur ([connexion OAuth](../advanced/mcp-oauth.md#administration)) : activation de la connexion, clients enregistrés et accès approuvés, révocation (`tokens.manage`) |
-| **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
-| **Moteurs de scan** | Les [moteurs de scan](../advanced/architecture/scan-engine.md#administration) enrôlés auprès du serveur Controller (graphe d'activité, version, adresse, dernière activité) et leur révocation (`settings.manage`) |
-| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
+| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) ; ouvert par le bouton **Journal d'audit** d'**Activité**, dans le menu seulement pour les comptes qui ont `audit.read` sans `settings.manage` |
+
+### Activité
+
+La page **Activité** (`settings.manage`) montre ce qui tourne en ce moment et se recharge toutes
+les 2 secondes tant qu'elle est visible :
+
+- le **Diagramme d'activité** : les agents, les pipelines, les serveurs MCP, les serveurs
+  Controller et les moteurs de scan, avec les scans en cours (ses couleurs sont expliquées dans
+  [Moteurs de scan](../advanced/architecture/scan-engine.md#administration)) ;
+- la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
+  enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
+
+Le bouton **Journal d'audit**, à côté d'**Actualiser**, ouvre le [journal d'audit](audit-metrics.md)
+(`audit.read`). L'ancienne adresse `/ui/scan-engines` mène à cette page.
 
 ## Points d'attention
 

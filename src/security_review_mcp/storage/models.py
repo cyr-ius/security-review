@@ -606,6 +606,10 @@ class ServerInstance(SQLModel, table=True):
     # running now (a gauge)
     delegated: bool = Field(default=False)
     processing_fragments: int = Field(default=0)
+    # MCP server: the agents seen lately, as JSON (see server_instances.AgentActivity): an opaque
+    # key, the name and version of their MCP client, their last request and their scan_code
+    # calls; never the name of a person nor a token
+    agents: str = Field(default="[]", max_length=16000)
 
 
 # ── Requested projects (see access_control.request_project) ──────────────────
@@ -725,6 +729,22 @@ class OpenGrepRuleProposal(SQLModel, table=True):
     decision_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
 
 
+class OpenGrepRule(SQLModel, table=True):
+    """Installed OpenGrep YAML rule: a default rule (seeded, possibly edited) or one created by
+    an administrator, or approved from a proposal.
+
+    The database is the source of the rules: every Controller process writes the rules it runs
+    into its own cache directory, and the scan engines download them (see opengrep_rule_store).
+    ``digest`` is the SHA-256 of ``content``, the version compared by the caches.
+    """
+
+    id: str = Field(primary_key=True, max_length=80)
+    content: str
+    digest: str = Field(max_length=64)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class CustomCheckItem(SQLModel, table=True):
     """Stored checklist item; the ``company`` domain is added to every review prompt."""
 
@@ -770,14 +790,15 @@ class RuleSetRevision(SQLModel, table=True):
 
 
 class DefaultSeed(SQLModel, table=True):
-    """A default rule or checklist item already copied from default_rules.toml.
+    """A default rule or checklist item already copied from default_rules.toml, or a default
+    OpenGrep rule (kind "opengrep", see opengrep_rule_store).
 
     ``digest`` fingerprints the default content that was seeded: a newer default replaces the
     stored entry only while it still has this fingerprint (not modified by an administrator),
     and a deleted default entry is not seeded again.
     """
 
-    kind: str = Field(primary_key=True, max_length=10)  # "rule" or "checklist"
+    kind: str = Field(primary_key=True, max_length=10)  # "rule", "checklist" or "opengrep"
     key: str = Field(primary_key=True, max_length=90)  # rule id, or "domain/item id"
     digest: str = Field(max_length=64)  # hex SHA-256
     seeded_at: datetime = Field(default_factory=utcnow)

@@ -118,6 +118,15 @@ def isolate_controller_environment(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def opengrep_rules_dir(tmp_path, monkeypatch):
+    """Write the copies of the OpenGrep rules of the scans under tmp_path, never in
+    /var/lib/secreview (SECREVIEW_OPENGREP_RULES_DIR)."""
+    directory = tmp_path / "opengrep-rules"
+    monkeypatch.setattr(get_settings(), "opengrep_rules_dir", str(directory))
+    return directory
+
+
+@pytest.fixture(autouse=True)
 def fast_password_hashing(request, monkeypatch):
     """Hash passwords with a tiny scrypt cost: the production one takes ~150 ms per hash.
 

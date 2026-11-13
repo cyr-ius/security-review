@@ -196,8 +196,8 @@ def scan_files(
 ) -> dict[str, list[dict[str, Any]]]:
     """Run OpenGrep on bounded source files and return matches indexed by relative path.
 
-    The rules are those of ``rules_dir`` (a scan engine passes its copy of the rules of the
-    controller), SECREVIEW_OPENGREP_RULES_DIR by default.
+    The rules are the files of ``rules_dir``, a copy of the rules of the database (see
+    engines.opengrep_snapshots); without it, OpenGrep has no rule to run.
 
     A ``fragment`` of scan_code takes a slot of SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS,
     so that the agents never use the slots of the codebase scans of the pipelines.
@@ -211,7 +211,9 @@ def scan_files(
     settings = get_settings()
     if not settings.opengrep_enabled:
         return {}
-    rules_dir = (rules_dir or Path(settings.opengrep_rules_dir)).resolve()
+    if rules_dir is None:
+        return {}
+    rules_dir = rules_dir.resolve()
     if not rules_dir.is_dir() or not any(rules_dir.rglob("*.y*ml")):
         return {}
     binary = shutil.which(settings.opengrep_binary)

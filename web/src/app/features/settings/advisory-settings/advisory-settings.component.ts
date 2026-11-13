@@ -8,7 +8,7 @@ import {
   linkedSignal,
   signal,
 } from '@angular/core';
-import { FieldTree, FormField, form } from '@angular/forms/signals';
+import { FieldTree, FormField, disabled, form, max, min, required } from '@angular/forms/signals';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { msg } from '../../../core/i18n/i18n.service';
@@ -51,8 +51,8 @@ export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], MessageKey> = {
 
 /**
  * Administrator page: state of the OSV advisory database, its download configuration (the
- * downloaded ecosystems may be chosen here while SECREVIEW_OSV_ECOSYSTEMS is not set), history of
- * its updates and manual update.
+ * download may be turned on, given an interval and its ecosystems chosen here while their
+ * variable is not set), history of its updates and manual update.
  */
 @Component({
   selector: 'app-advisory-settings',
@@ -173,6 +173,39 @@ export class AdvisorySettingsComponent extends SettingsPage {
     );
   });
   readonly ecosystemsForm = form(this.ecosystemsModel);
+
+  /** Interval of the download, filled with the effective one each time it is loaded. */
+  readonly intervalModel = linkedSignal(() => ({
+    hours: this.settings.value()?.osv.update_interval_hours ?? 24,
+  }));
+  readonly intervalForm = form(this.intervalModel, (path) => {
+    required(path.hours);
+    min(path.hours, 1);
+    max(path.hours, 8760);
+    disabled(path.hours, () => this.settings.value()?.osv.interval.env_set ?? false);
+  });
+
+  /** Turn the automatic download on or off. */
+  async setDownload(event: Event): Promise<void> {
+    const enabled = (event.target as HTMLInputElement).checked;
+    await this.run(
+      () => firstValueFrom(this.api.setOsvDownload({ enabled })),
+      enabled ? msg('settings.downloadOnSaved') : msg('settings.downloadOffSaved'),
+    );
+  }
+
+  async saveInterval(event: Event): Promise<void> {
+    event.preventDefault();
+    const hours = Number(this.intervalModel().hours);
+    if (this.intervalForm().invalid() || !Number.isInteger(hours)) {
+      this.error.set(msg('settings.intervalInvalid'));
+      return;
+    }
+    await this.run(
+      () => firstValueFrom(this.api.setOsvDownload({ update_interval_hours: hours })),
+      msg('settings.intervalSaved'),
+    );
+  }
 
   /** Checkbox of an ecosystem. */
   ecosystemField(name: string): FieldTree<boolean> {

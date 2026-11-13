@@ -19,6 +19,7 @@ import {
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
 import { TableSort } from '../../../shared/utils/table-sort';
 import { AuditSyslogComponent } from '../audit-syslog/audit-syslog.component';
+import { reloadOnReturn } from '../../../shared/utils/reload-on-return';
 
 /** Events loaded per page (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -93,6 +94,14 @@ export class AuditLogComponent {
   readonly hasMore = computed(() => this.events().length < this.total());
   readonly loadingMore = signal(false);
   readonly loadMoreFailed = signal(false);
+
+  constructor() {
+    // Not after "load more": the reload would drop the added pages
+    reloadOnReturn(
+      () => this.firstPage.reload(),
+      () => this.events().length <= PAGE_SIZE,
+    );
+  }
 
   /** Message key of the label of an action. */
   actionLabel(action: AuditAction): MessageKey {

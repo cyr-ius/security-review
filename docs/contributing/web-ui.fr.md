@@ -35,6 +35,9 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
 - **Formulaires** : les formulaires de saisie utilisent les Signal Forms (`form()`,
   `[formField]`, validateurs avec un message traduit) ; les filtres de liste et les listes
   dynamiques de cases à cocher restent de simples gestionnaires d'événements.
+- **Taille** : les pages utilisent la petite taille de Bootstrap : `btn-sm`, `form-control-sm`,
+  `form-select-sm`, `input-group-sm`, libellés `form-label small mb-1`. Seules la page de connexion
+  et les fenêtres plein écran (consentement OAuth, session expirée) gardent la taille par défaut.
 - **Appels HTTP** : par `rxResource` pour les données d'une page, ou `await
   firstValueFrom(...)` pour une action ; pas de `.subscribe()` dans les composants.
 - **État** : `signal()` et `computed()` ; une valeur dérivée d'une autre mais modifiable (un
@@ -60,6 +63,12 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
   en-têtes de colonne (`<th [appSortHeader]="sort" sortKey="name">`), avec un `TableSort` nommé
   d'après le tableau (`shared/utils/table-sort.ts`) que le navigateur mémorise sous
   `secreview.sort.<nom>`.
+- **Actualisation** : une page qui suit une activité extérieure (revues, findings, événements
+  d'audit) appelle `reloadOnReturn` (`shared/utils/reload-on-return.ts`) pour relire ses données
+  quand l'onglet du navigateur redevient visible, avec une condition qui l'évite quand la
+  relecture ferait perdre des lignes ajoutées par l'utilisateur (**Afficher plus**) ; elle garde un
+  `app-refresh-button`. Une page dont les données ne changent que par elle-même (réglages,
+  règles, rôles) n'a pas de bouton d'actualisation.
 - **Couleurs** : variables Bootstrap (`var(--bs-…)`) ou jetons de `styles.css` (`--app-…`),
   jamais une couleur écrite dans un composant, pour que les thèmes clair et sombre fonctionnent.
 

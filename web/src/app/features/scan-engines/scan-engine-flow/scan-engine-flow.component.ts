@@ -1,22 +1,35 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ScanEngine, ScanEngineList, ServerInstance } from '../../../core/models/api.models';
+import {
+  AgentActivity,
+  ScanEngine,
+  ScanEngineList,
+  ServerInstance,
+} from '../../../core/models/api.models';
 
 /** Geometry of the diagram, in the units of its viewBox (it shrinks with the card, at most 1 unit = 1px). */
 const HEIGHT = 430;
 const SOURCE = { x: 72, r: 46, ys: [110, 320] };
+/** The agents: smaller than the MCP servers they call, stacked under the pipelines. */
+const AGENT = { r: 36, minY: 205 };
+const AGENT_ROW_GAP = AGENT.r * 2 + 36;
+/** Agents drawn one by one; the others share a "+N" circle. */
+const MAX_AGENT_NODES = 6;
 /** Column of the MCP servers, between the agents and the Controller server (when any is running). */
-const MCP = { x: 232, r: 40, minY: 205 };
+const MCP = { x: 232, r: 46, minY: 205 };
 const MCP_ROW_GAP = MCP.r * 2 + 40;
 /** Width taken by the column of the MCP servers: the next columns move right by this much. */
 const MCP_COLUMN = 160;
 const CONTROLLER = { x: 262, y: 215, r: 66 };
 const CONTROLLER_ROW_GAP = CONTROLLER.r * 2 + 52;
-const ENGINE = { r: 52, x0: 440, dx: 145, rows: SOURCE.ys };
+const ENGINE = { r: SOURCE.r, x0: 440, dx: 145, rows: SOURCE.ys };
 const MIN_WIDTH = 620;
 /** Gap between two arcs of a ring. */
 const ARC_GAP = 3;
-const RING = 6;
+/** Width of the rings, and from the edge of a circle to the middle of its ring (3 units inside). */
+const RING = 3;
+const RING_INSET = 3 + RING / 2;
 
 /** One arc of a ring: a dash of a circle, starting at 12 o'clock. */
 interface Arc {
@@ -48,6 +61,24 @@ interface McpNode extends Point {
   busy: boolean;
 }
 
+/** An agent seen by an MCP server (or the "+N" circle of the others), linked to its server(s). */
+interface AgentNode extends Point {
+  id: string;
+  /** null for the "+N" circle. */
+  agent: AgentActivity | null;
+  /** MCP server of the agent, by its number in the diagram. */
+  mcpNumber: number;
+  /** "+N" circle: how many agents it stands for. */
+  more: number;
+  label: string;
+  /** Tooltip: its MCP client, its server, its scan_code calls and its last request. */
+  titleKey: MessageKey;
+  titleParams: Record<string, string | number>;
+  processing: number;
+  paths: string[];
+  busy: boolean;
+}
+
 /** An engine as drawn: its place, its ring and the link from the Controller server. */
 interface EngineNode {
   engine: ScanEngine;
@@ -70,6 +101,8 @@ interface SourceNode {
   x: number;
   y: number;
   r: number;
+  /** Above the circle on the top row, like the engines there; below it otherwise. */
+  labelY: number;
   active: number;
   capacity: number;
   arcs: Arc[];
@@ -148,11 +181,13 @@ export class ScanEngineFlowComponent {
   readonly controllerRadius = CONTROLLER.r;
   readonly engineRadius = ENGINE.r;
   readonly ring = RING;
-  readonly controllerRing = CONTROLLER.r - RING;
-  readonly engineRing = ENGINE.r - RING;
-  readonly sourceRing = SOURCE.r - RING;
+  readonly ringInset = RING_INSET;
+  readonly controllerRing = CONTROLLER.r - RING_INSET;
+  readonly engineRing = ENGINE.r - RING_INSET;
   readonly mcpRadius = MCP.r;
-  readonly mcpRing = MCP.r - RING;
+  readonly mcpRing = MCP.r - RING_INSET;
+  readonly agentRadius = AGENT.r;
+  readonly agentRing = AGENT.r - RING_INSET;
 
   /** The active engines first, in the order of the API (the most recently seen first). */
   private readonly engines = computed(() => {
@@ -174,6 +209,23 @@ export class ScanEngineFlowComponent {
     return this.mcpServers().map((_, index) => firstY + index * MCP_ROW_GAP);
   });
 
+  /** Every agent of every MCP server, with the number of its server, the most recent first. */
+  private readonly agents = computed(() =>
+    this.mcpServers()
+      .flatMap((instance, index) =>
+        (instance.agents ?? []).map((agent) => ({ agent, mcpNumber: index + 1 })),
+      )
+      .sort((left, right) => right.agent.last_seen.localeCompare(left.agent.last_seen)),
+  );
+
+  /** Centre of the agent circles (at most MAX_AGENT_NODES, then a "+N" circle). */
+  private readonly agentYs = computed(() => {
+    const total = this.agents().length;
+    const count = total > MAX_AGENT_NODES ? MAX_AGENT_NODES + 1 : total;
+    const firstY = Math.max(AGENT.minY, SOURCE.ys[1] - ((count - 1) * AGENT_ROW_GAP) / 2);
+    return Array.from({ length: count }, (_, index) => firstY + index * AGENT_ROW_GAP);
+  });
+
   private readonly controllerLayout = computed(() => {
     const instances: ServerInstance[] = this.data().controllers?.length
       ? this.data().controllers
@@ -186,14 +238,17 @@ export class ScanEngineFlowComponent {
             heartbeat_at: '',
             delegated: false,
             processing_fragments: 0,
+            agents: [],
           },
         ];
     const span = (instances.length - 1) * CONTROLLER_ROW_GAP;
     const lastMcp = this.mcpYs().at(-1);
+    const lastAgent = this.agentYs().at(-1);
     const height = Math.max(
       HEIGHT,
       CONTROLLER.r * 2 + 84 + span,
       lastMcp === undefined ? 0 : lastMcp + MCP.r + 56,
+      lastAgent === undefined ? 0 : lastAgent + AGENT.r + 40,
     );
     const firstY = (height - span) / 2;
     return {
@@ -302,11 +357,64 @@ export class ScanEngineFlowComponent {
     });
   });
 
+  /** The agents seen lately, each linked to its MCP server; the others in a "+N" circle. */
+  readonly agentNodes = computed<AgentNode[]>(() => {
+    const agents = this.agents();
+    const ys = this.agentYs();
+    const link = (y: number, mcpNumber: number): string => {
+      const start: Point = { x: SOURCE.x + AGENT.r, y };
+      const endY = this.mcpYs()[mcpNumber - 1];
+      const end: Point = { x: MCP.x - MCP.r, y: endY };
+      return `M${f(start.x)},${f(y)} C${f(start.x + 40)},${f(y)} ${f(end.x - 40)},${f(endY)} ${f(end.x)},${f(endY)}`;
+    };
+    const shown = agents.length > MAX_AGENT_NODES ? agents.slice(0, MAX_AGENT_NODES) : agents;
+    const nodes: AgentNode[] = shown.map(({ agent, mcpNumber }, index) => ({
+      id: `${mcpNumber}:${agent.id}`,
+      agent,
+      mcpNumber,
+      more: 0,
+      label: shortName(agent.client),
+      titleKey: 'scanEngines.flowAgentTitle',
+      titleParams: {
+        client: agent.client,
+        version: agent.client_version,
+        number: mcpNumber,
+        count: agent.processing_fragments,
+        time: new Date(agent.last_seen).toLocaleTimeString(),
+      },
+      processing: agent.processing_fragments,
+      x: SOURCE.x,
+      y: ys[index],
+      paths: [link(ys[index], mcpNumber)],
+      busy: agent.processing_fragments > 0,
+    }));
+    const rest = agents.slice(shown.length);
+    if (rest.length) {
+      const y = ys[shown.length];
+      const processing = rest.reduce((sum, item) => sum + item.agent.processing_fragments, 0);
+      nodes.push({
+        id: 'more',
+        agent: null,
+        mcpNumber: 0,
+        more: rest.length,
+        label: '',
+        titleKey: 'scanEngines.flowMoreAgentsTitle',
+        titleParams: { count: rest.length },
+        processing,
+        x: SOURCE.x,
+        y,
+        paths: [...new Set(rest.map((item) => item.mcpNumber))].map((n) => link(y, n)),
+        busy: processing > 0,
+      });
+    }
+    return nodes;
+  });
+
   /** The MCP servers, the agents linked to each, each linked to the closest Controller server. */
   readonly mcpNodes = computed<McpNode[]>(() =>
     this.mcpServers().map((instance, index) => {
       const y = this.mcpYs()[index];
-      const agents: Point = { x: SOURCE.x + SOURCE.r, y: SOURCE.ys[1] };
+      const agents: Point = { x: SOURCE.x + AGENT.r, y: SOURCE.ys[1] };
       const inEnd: Point = { x: MCP.x - MCP.r, y };
       const outStart: Point = { x: MCP.x + MCP.r, y };
       const outEnd = controllerEdge(outStart, this.closestController(y));
@@ -317,7 +425,10 @@ export class ScanEngineFlowComponent {
         y,
         r: MCP.r,
         labelY: y + MCP.r + 20,
-        inPath: `M${f(agents.x)},${f(agents.y)} C${f(agents.x + 40)},${f(agents.y)} ${f(inEnd.x - 40)},${f(y)} ${f(inEnd.x)},${f(y)}`,
+        // From the "Agents" circle, when the MCP servers name no agent (the agents link otherwise)
+        inPath: this.agentNodes().length
+          ? ''
+          : `M${f(agents.x)},${f(agents.y)} C${f(agents.x + 40)},${f(agents.y)} ${f(inEnd.x - 40)},${f(y)} ${f(inEnd.x)},${f(y)}`,
         outPath: `M${f(outStart.x)},${f(y)} C${f(outStart.x + 60)},${f(y)} ${f(outEnd.x - 50)},${f(outEnd.y)} ${f(outEnd.x)},${f(outEnd.y)}`,
         busy: instance.processing_fragments > 0,
       };
@@ -327,19 +438,25 @@ export class ScanEngineFlowComponent {
   readonly sources = computed<SourceNode[]>(() => {
     const totals = this.totals();
     const relayed = this.mcpServers().length > 0;
-    return (['codebase', 'fragment'] as const).map((kind, index) => {
+    // One circle per agent replaces the "Agents" circle when the MCP servers name them
+    const kinds = this.agentNodes().length
+      ? (['codebase'] as const)
+      : (['codebase', 'fragment'] as const);
+    return kinds.map((kind, index) => {
       const y = SOURCE.ys[index];
-      const start: Point = { x: SOURCE.x + SOURCE.r, y };
+      const r = kind === 'codebase' ? SOURCE.r : AGENT.r;
+      const start: Point = { x: SOURCE.x + r, y };
       const end = controllerEdge({ x: SOURCE.x, y }, this.closestController(y));
       return {
         kind,
         x: SOURCE.x,
         y,
-        r: SOURCE.r,
+        r,
+        labelY: index === 0 ? y - r - 12 : y + r + 20,
         active: kind === 'codebase' ? totals.activeCodebase : totals.activeFragment,
         capacity: kind === 'codebase' ? totals.capacityCodebase : totals.capacityFragment,
         arcs: ringArcs(
-          this.sourceRing,
+          r - RING_INSET,
           kind === 'codebase' ? totals.activeCodebase : 0,
           kind === 'fragment' ? totals.activeFragment : 0,
           Math.max(

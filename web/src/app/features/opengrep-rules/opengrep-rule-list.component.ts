@@ -16,7 +16,6 @@ import {
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
-import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import { SortHeaderComponent } from '../../shared/components/sort-header/sort-header.component';
 import {
@@ -74,7 +73,6 @@ const RULE_SEVERITIES: readonly Severity[] = SEVERITIES.filter((severity) =>
   imports: [
     DatePipe,
     FormField,
-    HelpLinkComponent,
     RefreshButtonComponent,
     SortHeaderComponent,
     TableControlsComponent,

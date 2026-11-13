@@ -23,7 +23,9 @@ Chaque événement donne sa date, son **auteur** (une personne `user:<nom>`, un 
 
 ## Consulter le journal
 
-Les administrateurs le consultent dans la page **Journal d'audit** : du plus récent au plus
+Les administrateurs le consultent dans la page **Journal d'audit**, ouverte par le bouton
+**Journal d'audit** de la page [**Activité**](index.md#activite) (dans le menu pour les comptes
+qui ont `audit.read` sans `settings.manage`) : du plus récent au plus
 ancien, avec des filtres par événement et par projet, une recherche dans les détails et
 **Afficher plus** pour les événements plus anciens.
 

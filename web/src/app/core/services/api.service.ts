@@ -343,10 +343,6 @@ export class ApiService {
     });
   }
 
-  reloadCustomRules(): Observable<RuleReloadResult> {
-    return this.http.post<RuleReloadResult>(`${API_URL}/rules/reload`, {});
-  }
-
   /** TOML pack of the rules and checklist items that differ from the defaults. */
   exportRulePack(sections: RulePackSection[]): Observable<Blob> {
     let params = new HttpParams();
@@ -695,6 +691,14 @@ export class ApiService {
   /** A field left out is unchanged; null restores the variable, url '' connects directly. */
   setProxy(values: ProxyUpdate): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);
+  }
+
+  /** Turn on or off the OSV download, or set its interval; a field left out is unchanged. */
+  setOsvDownload(values: {
+    enabled?: boolean;
+    update_interval_hours?: number;
+  }): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/osv-download`, values);
   }
 
   /** null removes the choice: SECREVIEW_OSV_ECOSYSTEMS (or its default) applies again. */

@@ -1,7 +1,6 @@
-<div class="input-group mb-2">
+<div class="input-group input-group-sm mb-2">
   <app-multi-select-dropdown
     [id]="idPrefix() + '-search'"
-    [small]="false"
     [label]="'access.searchProjects' | t"
     [allLabel]="'access.searchProjects' | t"
     [searchLabel]="'common.search' | t"
@@ -15,7 +14,7 @@
   />
   <button
     type="button"
-    class="btn btn-outline-primary"
+    class="btn btn-sm btn-outline-primary"
     [attr.aria-label]="'access.addProjects' | t: { count: picked().length }"
     [title]="'access.addProjects' | t: { count: picked().length }"
     [disabled]="!picked().length"

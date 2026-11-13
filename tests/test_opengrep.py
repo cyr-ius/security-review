@@ -24,13 +24,13 @@ def test_engine_disabled_by_default_runs_only_once_rules_are_installed(tmp_path,
         opengrep_rules_dir=str(rules),
     )
     monkeypatch.setattr(opengrep, "get_settings", lambda: settings)
-    assert opengrep.scan_files([("app.py", "print('hello')")]) == {}
+    assert opengrep.scan_files([("app.py", "print('hello')")], rules_dir=rules) == {}
 
     # Installed rules without the executable are a misconfiguration, never a silent skip
     rules.mkdir()
     (rules / "demo.yaml").write_text("rules: []\n", encoding="utf-8")
     with pytest.raises(opengrep.OpenGrepError, match="executable is unavailable"):
-        opengrep.scan_files([("app.py", "print('hello')")])
+        opengrep.scan_files([("app.py", "print('hello')")], rules_dir=rules)
 
 
 def test_safe_relative_path_rejects_traversal():
@@ -114,11 +114,11 @@ def test_scan_files_executes_with_private_workspace_and_parses_json(tmp_path, mo
         return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
 
     monkeypatch.setattr(opengrep, "_run", fake_run)
-    result = opengrep.scan_files([("app.py", "print('ok')\nrun(command)\n")])
+    result = opengrep.scan_files([("app.py", "print('ok')\nrun(command)\n")], rules_dir=rules)
     assert result["app.py"][0]["rule_id"] == "OPENGREP:python.security.demo"
     assert result["app.py"][0]["severity"] == "medium"
     settings.opengrep_taint_intrafile = False
-    assert opengrep.scan_files([("app.py", "run(command)\n")])["app.py"]
+    assert opengrep.scan_files([("app.py", "run(command)\n")], rules_dir=rules)["app.py"]
 
 
 def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
@@ -146,22 +146,22 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
         lambda *args, **kwargs: SimpleNamespace(returncode=2, stdout="", stderr="secret details"),
     )
     with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
-        opengrep.scan_files([("app.py", "print('ok')")])
+        opengrep.scan_files([("app.py", "print('ok')")], rules_dir=rules)
 
     # Every slot taken: the scan is refused before writing the sources, and the slot is free again
     # once the running scan ends
     with opengrep._scan_slot(1), pytest.raises(opengrep.OpenGrepBusyError, match="busy"):
-        opengrep.scan_files([("app.py", "print('ok')")])
+        opengrep.scan_files([("app.py", "print('ok')")], rules_dir=rules)
     with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
-        opengrep.scan_files([("app.py", "print('ok')")])
+        opengrep.scan_files([("app.py", "print('ok')")], rules_dir=rules)
     # The fragments of scan_code have their own slots: they never take those of the pipelines
     with opengrep._scan_slot(1), pytest.raises(opengrep.OpenGrepError, match="scan failed"):
-        opengrep.scan_files([("app.py", "print('ok')")], fragment=True)
+        opengrep.scan_files([("app.py", "print('ok')")], fragment=True, rules_dir=rules)
     with opengrep._scan_slot(1, "fragment"):
         with pytest.raises(opengrep.OpenGrepBusyError, match="busy"):
-            opengrep.scan_files([("app.py", "print('ok')")], fragment=True)
+            opengrep.scan_files([("app.py", "print('ok')")], fragment=True, rules_dir=rules)
         with pytest.raises(opengrep.OpenGrepError, match="scan failed"):
-            opengrep.scan_files([("app.py", "print('ok')")])
+            opengrep.scan_files([("app.py", "print('ok')")], rules_dir=rules)
 
 
 def test_codebase_scan_merges_opengrep_findings(monkeypatch):
@@ -219,8 +219,34 @@ def test_scan_files_reports_the_rule_id_without_the_rules_directory(tmp_path, mo
         "def users(cursor):\n"
         "    cursor.execute(\"SELECT * FROM users WHERE name = '\" + request.args['n'] + \"'\")\n"
     )
-    result = opengrep.scan_files([("app.py", source)])
+    result = opengrep.scan_files([("app.py", source)], rules_dir=rules)
     assert [finding["rule_id"] for finding in result["app.py"]] == [
         "OPENGREP:secreview.python.taint-sql"
     ]
     assert result["app.py"][0]["cwe"] == "CWE-89"
+
+
+def test_the_controller_scans_with_a_copy_of_the_rules_of_the_database(
+    opengrep_rules_dir, monkeypatch
+):
+    # The rules live in the database: any replica scans with the rules saved by another one,
+    # copied into its working directory (SECREVIEW_OPENGREP_RULES_DIR) only for OpenGrep
+    monkeypatch.setattr(get_settings(), "opengrep_enabled", True)
+    monkeypatch.setattr(opengrep_rule_store, "validate_rule", lambda rule_id, content: "ok")
+    seen: list[dict[str, str]] = []
+
+    def fake_scan_files(files, fragment=False, rules_dir=None):
+        seen.append({path.stem: path.read_text() for path in rules_dir.glob("*.yaml")})
+        assert rules_dir.is_relative_to(opengrep_rules_dir)
+        return {}
+
+    monkeypatch.setattr(opengrep, "scan_files", fake_scan_files)
+    rule = "rules:\n  - id: acme.demo\n    pattern: eval($X)\n"
+    opengrep_rule_store.save_rule("acme.demo", rule, create=True)
+    codescan.scan_files([SourceFile("app.py", "eval(x)\n")])
+    opengrep_rule_store.save_rule("acme.demo", rule.replace("eval", "exec"), create=False)
+    codescan.scan_files([SourceFile("app.py", "eval(x)\n")])
+    opengrep_rule_store.delete_rule("acme.demo")
+    codescan.scan_files([SourceFile("app.py", "eval(x)\n")])
+
+    assert seen == [{"acme.demo": rule}, {"acme.demo": rule.replace("eval", "exec")}, {}]

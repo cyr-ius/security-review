@@ -6,7 +6,7 @@
   <div class="d-flex gap-2">
     <button
       type="button"
-      class="btn btn-primary"
+      class="btn btn-sm btn-primary"
       [disabled]="busy() || !settings.value()?.osv?.download_enabled || advisories.value()?.running"
       [title]="
         (settings.value()?.osv?.download_enabled
@@ -95,20 +95,67 @@
         </div>
       }
 
+      <h3 class="h6">{{ 'settings.downloadTitle' | t }}</h3>
+      <div class="d-flex flex-wrap align-items-end gap-3 mb-4">
+        <div class="form-check form-switch mb-1">
+          <input
+            id="osv-download"
+            class="form-check-input"
+            type="checkbox"
+            role="switch"
+            [checked]="current.osv.download_enabled"
+            [disabled]="busy() || current.osv.download.env_set"
+            [title]="
+              current.osv.download.env_set
+                ? ('settings.downloadLocked' | t: { variable: 'SECREVIEW_OSV_AUTO_UPDATE' })
+                : ''
+            "
+            (change)="setDownload($event)"
+          />
+          <label class="form-check-label" for="osv-download">{{
+            'settings.downloadSwitch' | t
+          }}</label>
+        </div>
+        <form
+          class="d-flex flex-wrap align-items-end gap-2"
+          (submit)="saveInterval($event)"
+          novalidate
+        >
+          <div>
+            <label class="form-label small mb-1" for="osv-interval">{{
+              'settings.interval' | t
+            }}</label>
+            <input
+              id="osv-interval"
+              class="form-control form-control-sm"
+              type="number"
+              step="1"
+              aria-describedby="osv-interval-help"
+              [formField]="intervalForm.hours"
+            />
+          </div>
+          <button
+            type="submit"
+            class="btn btn-sm btn-primary"
+            [disabled]="busy() || current.osv.interval.env_set"
+          >
+            <i class="bi bi-check-lg" aria-hidden="true"></i>
+            {{ 'common.save' | t }}
+          </button>
+          @if (current.osv.interval.env_set) {
+            <div id="osv-interval-help" class="w-100 form-text mt-0">
+              {{
+                'settings.downloadLocked' | t: { variable: 'SECREVIEW_OSV_UPDATE_INTERVAL_HOURS' }
+              }}
+            </div>
+          }
+        </form>
+      </div>
+
       <h3 class="h6">{{ 'settings.osvConfig' | t }}</h3>
       <div class="table-responsive">
         <table class="table table-sm env-table">
           <tbody>
-            <tr>
-              <th scope="row">{{ 'settings.download' | t }}</th>
-              <td>
-                @if (current.osv.download_enabled) {
-                  {{ 'settings.downloadEvery' | t: { hours: current.osv.update_interval_hours } }}
-                } @else {
-                  {{ 'settings.downloadOff' | t }}
-                }
-              </td>
-            </tr>
             <tr>
               <th scope="row">{{ 'settings.source' | t }}</th>
               <td class="font-monospace">{{ current.osv.url }}</td>
@@ -171,14 +218,14 @@
             }
           </fieldset>
           <div class="d-flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="busy()">
+            <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy()">
               <i class="bi bi-check-lg" aria-hidden="true"></i>
               {{ 'common.save' | t }}
             </button>
             @if (current.osv.ecosystems.value !== null) {
               <button
                 type="button"
-                class="btn btn-outline-secondary"
+                class="btn btn-sm btn-outline-secondary"
                 [disabled]="busy()"
                 (click)="resetEcosystems()"
               >

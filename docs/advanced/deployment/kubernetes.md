@@ -162,12 +162,43 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ## OSV update
 
 For the [daily update of the OSV advisories](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server),
-uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
+turn it on on the **OSV database** page or uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
 and `NO_PROXY`, in the `secreview-controller` Secret if the proxy holds credentials) on the
 `controller` container, and allow its egress to `osv-vulnerabilities.storage.googleapis.com` (`SECREVIEW_OSV_URL`),
 your mirror or the proxy if an
 egress NetworkPolicy applies. The MCP server needs no egress. The Swagger documentation of the
 REST API (`/api/docs`) stays disabled unless you uncomment `SECREVIEW_SWAGGER_ENABLED`.
+
+## Scan engines
+
+[`examples/kubernetes/scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml)
+deploys two [scan engines](../architecture/scan-engine.md), without Service: each pod enrolls
+with its IP address, and a NetworkPolicy lets only the Controller server reach them. The
+Controller server of `security-review.yaml` reads their Secret when it exists. The engines get
+the OpenGrep rules from its database (the default rules are installed at its start, whatever its
+image); it moves to the `-opengrep` image of the same version to validate the OpenGrep rules
+created or edited in the web interface:
+
+```bash
+kubectl -n secreview create secret generic secreview-scan-engine \
+    --from-literal=SECREVIEW_SCAN_ENGINE_TOKEN="$(openssl rand -hex 32)"
+kubectl -n secreview set image deploy/secreview-controller \
+    controller=ghcr.io/cyr-ius/security-review:latest-opengrep
+kubectl -n secreview rollout status deploy/secreview-controller
+kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/scan-engine.yaml
+```
+
+The OpenGrep rules are stored in the database: the `opengrep-rules` volume of each pod is an
+`emptyDir` that only holds the copy written for OpenGrep, so the Controller server needs no
+persistent nor shared volume, whatever its number of replicas. Change the number of engines with
+`replicas`, or a HorizontalPodAutoscaler on the CPU; a pod that stops leaves the Controller server
+at once.
+
+??? example "scan-engine.yaml"
+
+    ```yaml
+    --8<-- "kubernetes/scan-engine.yaml"
+    ```
 
 ## Several replicas
 

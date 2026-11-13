@@ -68,8 +68,10 @@ security-review-controller advisories status
 
 ### Automatic update by the Controller server
 
-With `SECREVIEW_OSV_AUTO_UPDATE=true`, `security-review-controller serve` downloads the
-`all.zip` export of every ecosystem and imports it, then starts again every 24 hours:
+Once turned on, `security-review-controller serve` downloads the `all.zip` export of every
+ecosystem and imports it, then starts again every 24 hours. An administrator turns it on with
+the **Download the OSV advisories automatically** switch of the **OSV database** page (with its
+**Interval (hours)**), or with the variable, which then takes precedence over the page:
 
 ```bash
 SECREVIEW_OSV_AUTO_UPDATE=true
@@ -77,7 +79,10 @@ SECREVIEW_OSV_AUTO_UPDATE=true
 HTTPS_PROXY=http://user:password@proxy.example.com:3128
 ```
 
-- **Disabled by default**. The MCP server itself never connects outside.
+- **Disabled by default**. The MCP server itself never connects outside. A change made on the
+  page applies within 15 minutes, without a restart, and is recorded in the
+  [audit log](../../advanced/audit-log.md) (`osv_download.changed`); the switch and the interval
+  are locked while `SECREVIEW_OSV_AUTO_UPDATE` or `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` is set.
 - The due time depends on the age of the database (last import, manual or automatic): a restart
   or a second replica of the Controller server does not download again before the end of the interval
   (`SECREVIEW_OSV_UPDATE_INTERVAL_HOURS`, 24 by default). An empty or too old database is
@@ -127,7 +132,7 @@ section of the [**General**](../../usage/index.md#pages) page of the web interfa
 `HTTP_PROXY`) and `NO_PROXY`, when set, take precedence over the values of the page. They
 apply to the next download. The **OSV database** page shows the state of the database, the history of the updates
 (scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
-time), only available when `SECREVIEW_OSV_AUTO_UPDATE=true`.
+time), only available while the download is turned on.
 
 To trigger an update on demand (or from a `CronJob` rather than from the Controller server), with the
 same settings:

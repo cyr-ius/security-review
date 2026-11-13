@@ -50,7 +50,7 @@ le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou la page **G
 
 ## Configurer le OIDC dans l'interface
 
-Les mêmes réglages se modifient dans la page **Connexions** (permission `users.manage` : la
+Les mêmes réglages se modifient dans l'onglet **Connexion OIDC** de la page **Utilisateurs** (permission `users.manage` : la
 configuration OIDC décide qui reçoit quel rôle), sans redémarrer le serveur Controller. Comme pour
 le proxy de la page **Général**, **une variable `SECREVIEW_OIDC_*` définie est toujours
 prioritaire**, champ par champ ; une valeur enregistrée en base ne s'applique qu'aux champs dont
@@ -161,7 +161,7 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 ## Correspondances OIDC
 
 Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
-comparées aux **correspondances OIDC** de la page **Connexions**. Une correspondance, une par
+comparées aux **correspondances OIDC** de l'onglet **Connexion OIDC**. Une correspondance, une par
 valeur, donne des **rôles** (droits sur tout le serveur Controller), des droits par projet sur
 tous les projets et des **projets** avec leurs droits par projet aux utilisateurs dont le claim
 contient **exactement** sa valeur (casse comprise). À chaque connexion, les valeurs du claim

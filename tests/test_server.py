@@ -442,10 +442,14 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
 
     assert [url for url, *_ in sent] == ["https://sr.example", "http://controller:8080"]
     assert sent[0][1:] == ("Bearer agent-token", "python", 1)
-    # Shown on the Scan engines page: delegated, with the calls run since the last heartbeat
+    # Shown on the Scan engines page: delegated, with the calls run since the last heartbeat,
+    # and the agent by the name of its MCP client only (never a person nor a token)
     heartbeat.beat()
     [instance] = server_instances.active_instances(ServerKind.MCP)
     assert (instance["delegated"], instance["processing_fragments"]) == (True, 1)
+    [agent] = instance["agents"]
+    assert (agent["client"], agent["processing_fragments"]) == ("mcp", 1)
+    assert "agent-token" not in json.dumps(instance, default=str)
     assert (alone["engines"], alone["controller_error"]) == (["rules"], None)
     assert delegated["engines"] == ["rules", "opengrep"]
     assert delegated["matches"] == [opengrep_match]

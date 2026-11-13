@@ -52,11 +52,9 @@ export const sso = defineMessages({
     'sso.settingsRefused': 'Settings refused: {detail}',
     'sso.settingsRefusedCheck': 'Settings refused: check the values entered.',
     'sso.failed': 'The OIDC configuration failed.',
-    'sso.subtitle': 'OpenID Connect login settings',
-    'sso.adminGroupsHelp':
-      'Separated by commas: such a value of the claim is mapped to admin with reading, writing and triage on every project at the first login of a user who holds it (first administrator); a mapping changed afterwards is kept.',
+    'sso.adminGroupsHelp': 'Separated by commas',
     'sso.mappingsIntro':
-      'What an OIDC user may do comes from the OIDC mappings of the values of its roles claim (below), which give roles and projects with their permissions, with those given to it on the Users page. The other values of the claim are ignored.',
+      'What an OIDC user may do comes from the OIDC mappings of the values of its roles claim (below), which give roles and projects with their permissions, with those given to it on the Accounts tab. The other values of the claim are ignored.',
   },
   fr: {
     'sso.title': 'Configuration OIDC',
@@ -109,11 +107,9 @@ export const sso = defineMessages({
     'sso.settingsRefused': 'Paramètres refusés : {detail}',
     'sso.settingsRefusedCheck': 'Paramètres refusés : vérifiez les valeurs saisies.',
     'sso.failed': 'La configuration OIDC a échoué.',
-    'sso.subtitle': 'Configuration de la connexion OpenID Connect',
-    'sso.adminGroupsHelp':
-      "Séparées par des virgules : une telle valeur du claim est associée au rôle admin, avec la lecture, l'écriture et le triage de tous les projets, à la première connexion d'un utilisateur qui la porte (premier administrateur) ; une correspondance modifiée ensuite est conservée.",
+    'sso.adminGroupsHelp': 'Séparées par des virgules',
     'sso.mappingsIntro':
-      "Ce qu'un utilisateur OIDC peut faire vient des correspondances OIDC des valeurs de son claim des rôles (ci-dessous), qui donnent des rôles et des projets avec leurs droits, en plus de ceux donnés sur la page Utilisateurs. Les autres valeurs du claim sont ignorées.",
+      "Ce qu'un utilisateur OIDC peut faire vient des correspondances OIDC des valeurs de son claim des rôles (ci-dessous), qui donnent des rôles et des projets avec leurs droits, en plus de ceux donnés dans l'onglet Comptes. Les autres valeurs du claim sont ignorées.",
   },
   es: {
     'sso.title': 'Configuración OIDC',
@@ -166,10 +162,8 @@ export const sso = defineMessages({
     'sso.settingsRefused': 'Parámetros rechazados: {detail}',
     'sso.settingsRefusedCheck': 'Parámetros rechazados: compruebe los valores introducidos.',
     'sso.failed': 'La configuración OIDC ha fallado.',
-    'sso.subtitle': 'Configuración del inicio de sesión OpenID Connect',
-    'sso.adminGroupsHelp':
-      'Separados por comas: un valor así del claim se asocia al rol admin, con lectura, escritura y clasificación de todos los proyectos, en el primer inicio de sesión de un usuario que lo tiene (primer administrador); una correspondencia modificada después se conserva.',
+    'sso.adminGroupsHelp': 'Separados por comas',
     'sso.mappingsIntro':
-      'Lo que un usuario OIDC puede hacer viene de las correspondencias OIDC de los valores de su claim de roles (abajo), que dan roles y proyectos con sus permisos, además de los asignados en la página Usuarios. Los demás valores del claim se ignoran.',
+      'Lo que un usuario OIDC puede hacer viene de las correspondencias OIDC de los valores de su claim de roles (abajo), que dan roles y proyectos con sus permisos, además de los asignados en la pestaña Cuentas. Los demás valores del claim se ignoran.',
   },
 });

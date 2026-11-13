@@ -1,9 +1,16 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">{{ 'scanEngines.title' | t }} <app-help-link topic="scanEngines" /></h1>
-    <p class="text-body-secondary mb-0">{{ 'scanEngines.subtitle' | t }}</p>
+    <h1 class="h3 mb-0">{{ 'layout.activity' | t }} <app-help-link topic="activity" /></h1>
+    <p class="text-body-secondary mb-0">{{ 'scanEngines.pageSubtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="initialLoading() || manualRefreshing()" (refresh)="refresh()" />
+  <div class="d-flex flex-wrap gap-2">
+    @if (canReadAudit) {
+      <a class="btn btn-sm btn-outline-secondary" routerLink="/audit">
+        <i class="bi bi-journal-text" aria-hidden="true"></i> {{ 'layout.audit' | t }}
+      </a>
+    }
+    <app-refresh-button [loading]="initialLoading() || manualRefreshing()" (refresh)="refresh()" />
+  </div>
 </div>
 
 @if (error(); as text) {
@@ -20,8 +27,10 @@
     <app-scan-engine-flow [data]="data" />
   </section>
   <section class="card card-body" aria-labelledby="scan-engines-list-title">
-    <h2 id="scan-engines-list-title" class="visually-hidden">{{ 'scanEngines.title' | t }}</h2>
-    <p class="text-body-secondary small">{{ 'scanEngines.help' | t }}</p>
+    <h2 id="scan-engines-list-title" class="h6">
+      {{ 'scanEngines.title' | t }} <app-help-link topic="scanEngines" />
+    </h2>
+    <p class="text-body-secondary small">{{ 'scanEngines.subtitle' | t }}</p>
     @if (data.enabled) {
       <p class="small mb-1">
         <i class="bi bi-check-circle" aria-hidden="true"></i> {{ 'scanEngines.enabled' | t }}

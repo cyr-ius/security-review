@@ -29,7 +29,9 @@ the same commit as the change.
   of the shell: a test that needs a setting sets it itself (`monkeypatch.setenv`,
   `Settings(...)`).
 - `tests/conftest.py` gives each test an in-memory SQLite database and an empty rule registry:
-  never use the real database. The `import_pack` fixture imports internal rules (TOML pack),
+  never use the real database, and points `SECREVIEW_OPENGREP_RULES_DIR` (the copy of the
+  OpenGrep rules written for a scan) under `tmp_path` (`opengrep_rules_dir` fixture). The
+  `import_pack` fixture imports internal rules (TOML pack),
   `triage` records a decision as a person would, `tmp_path` holds the files. The database is
   marked at the latest revision: `outdated_schema` marks it one revision behind, and
   `legacy_database` replaces it by a database of version 1.x (no revision), for the migration

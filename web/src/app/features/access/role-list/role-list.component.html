@@ -1,11 +1,4 @@
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
-  <div>
-    <h1 class="h3 mb-0">{{ 'layout.roles' | t }} <app-help-link topic="roles" /></h1>
-    <p class="text-body-secondary mb-0">{{ 'roles.subtitle' | t }}</p>
-  </div>
-  <app-refresh-button [loading]="roles.isLoading()" (refresh)="roles.reload()" />
-</div>
-
+<!-- Title and subtitle are given by the Users page, above the tabs -->
 <p class="text-body-secondary small">{{ 'roles.help' | t }}</p>
 
 @if (error(); as text) {
@@ -26,26 +19,28 @@
   </h2>
   <form class="row g-2 align-items-start" (submit)="submit($event)" novalidate>
     <div class="col-md-4">
-      <label for="role-name" class="form-label">{{ 'access.name' | t }}</label>
+      <label for="role-name" class="form-label small mb-1">{{ 'access.name' | t }}</label>
       <input
         id="role-name"
-        class="form-control"
+        class="form-control form-control-sm"
         autocomplete="off"
         [placeholder]="'roles.namePlaceholder' | t"
         [formField]="roleForm.name"
       />
     </div>
     <div class="col-md-8">
-      <label for="role-description" class="form-label">{{ 'access.description' | t }}</label>
+      <label for="role-description" class="form-label small mb-1">{{
+        'access.description' | t
+      }}</label>
       <input
         id="role-description"
-        class="form-control"
+        class="form-control form-control-sm"
         autocomplete="off"
         [formField]="roleForm.description"
       />
     </div>
     <fieldset class="col-12">
-      <legend class="form-label">{{ 'roles.permissions' | t }}</legend>
+      <legend class="form-label small mb-1">{{ 'roles.permissions' | t }}</legend>
       <div class="row g-2">
         @for (permission of sitePermissions(); track permission.name) {
           <div class="col-md-6">
@@ -69,12 +64,12 @@
       <div class="form-text">{{ 'roles.siteOnlyHelp' | t }}</div>
     </fieldset>
     <div class="col-12 d-flex flex-wrap gap-2">
-      <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
+      <button type="submit" class="btn btn-sm btn-primary" [disabled]="!canSubmit()">
         <i class="bi" [class]="editing() ? 'bi-check-lg' : 'bi-plus-lg'" aria-hidden="true"></i>
         {{ (editing() ? 'common.save' : 'common.create') | t }}
       </button>
       @if (editing()) {
-        <button type="button" class="btn btn-outline-secondary" (click)="resetForm()">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resetForm()">
           {{ 'common.cancel' | t }}
         </button>
       }

@@ -603,12 +603,12 @@ def opengrep_command(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="security-review-controller opengrep",
         description="Install the default OpenGrep rules shipped with Security Review into "
-        "SECREVIEW_OPENGREP_RULES_DIR.",
+        "the database.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
     lister = actions.add_parser("list", help="list the bundled rules by language")
     lister.add_argument("--language", action="append", help="only this language (repeatable)")
-    installer = actions.add_parser("install", help="copy the bundled rules into the rules dir")
+    installer = actions.add_parser("install", help="copy the bundled rules into the database")
     installer.add_argument("--language", action="append", help="only this language (repeatable)")
     installer.add_argument(
         "--overwrite",
@@ -624,8 +624,9 @@ def opengrep_command(argv: list[str]) -> int:
                 name: [rule.stem for rule in rules] for name, rules in bundled.items()
             }
         else:
+            init_db()
             result = opengrep_rule_store.install_bundled(args.language, overwrite=args.overwrite)
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, SchemaError) as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
     return EXIT_PASSED

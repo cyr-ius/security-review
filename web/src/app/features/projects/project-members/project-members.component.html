@@ -100,7 +100,7 @@
             <input
               id="project-members-search"
               type="search"
-              class="form-control"
+              class="form-control form-control-sm"
               maxlength="64"
               autocomplete="off"
               [value]="search()"
@@ -144,7 +144,7 @@
 
     <button
       type="button"
-      class="btn btn-primary"
+      class="btn btn-sm btn-primary"
       [disabled]="busy() || !changed() || !complete()"
       (click)="save()"
     >

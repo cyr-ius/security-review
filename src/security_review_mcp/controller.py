@@ -10,8 +10,9 @@ commands (``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_c
 
 import argparse
 import logging
-import shutil
 import sys
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from . import __version__, app_settings, cli, connectors, http_server, web_api
 from .auth import oidc, token_store, web_users
@@ -63,26 +64,28 @@ def _log_bootstrap_admin(created: bool, settings: Settings) -> None:
     )
 
 
-def _sync_default_opengrep_rules(settings: Settings) -> None:
-    """Install or update the default OpenGrep rules while the engine is enabled.
+def _seed_default_opengrep_rules() -> None:
+    """Install or update the default OpenGrep rules in the database (see
+    opengrep_rule_store.seed_defaults).
 
-    Skipped without the executable: installed rules would then make scan-code fail. A failure
-    (read-only rules directory...) is logged: the server starts anyway, and scan-code runs with
-    the rules already installed.
+    Done whether OpenGrep runs here or not: the scan engines get these rules from the database.
+    A failure is logged: the server starts anyway, with the rules already installed.
     """
-    if not settings.opengrep_enabled or shutil.which(settings.opengrep_binary) is None:
-        return
     try:
-        changes = opengrep_rule_store.sync_bundled()
-    except (OSError, ValueError) as exc:
-        logger.error("Could not install the default OpenGrep rules: %s", exc)
+        changes = opengrep_rule_store.seed_defaults()
+    except (OSError, ValueError, SQLAlchemyError) as exc:
+        logger.error("Could not install the default OpenGrep rules: %s", type(exc).__name__)
         return
-    logger.info(
-        "Default OpenGrep rules: %d installed, %d updated, %d edited and kept",
-        len(changes["installed"]),
-        len(changes["updated"]),
-        len(changes["kept"]),
-    )
+    if any(changes.values()):
+        logger.info(
+            "Default OpenGrep rules: %d imported from files, %d installed, %d updated, "
+            "%d edited and kept, %d removed",
+            len(changes["imported"]),
+            len(changes["installed"]),
+            len(changes["updated"]),
+            len(changes["kept"]),
+            len(changes["removed"]),
+        )
 
 
 def serve(argv: list[str]) -> None:
@@ -118,7 +121,7 @@ def serve(argv: list[str]) -> None:
         if oauth["enabled"]["effective"] and not oauth_enabled:
             logger.warning(
                 "OAuth login of the MCP clients suspended: set the URL of the MCP endpoint "
-                "(SECREVIEW_MCP_URL or the Tokens page of the web interface)"
+                "(SECREVIEW_MCP_URL or the MCP clients page of the web interface)"
             )
         if not settings.personal_tokens_enabled:
             logger.warning(
@@ -148,7 +151,7 @@ def serve(argv: list[str]) -> None:
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
-    _sync_default_opengrep_rules(settings)
+    _seed_default_opengrep_rules()
     logger.info("Controller server %s listening on %s:%d", __version__, args.host, args.port)
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
@@ -159,9 +162,11 @@ def serve(argv: list[str]) -> None:
             settings.scan_engine_fallback,
         )
     oidc_login = web_app.state.oidc.current()
-    updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
-    if updater:
-        updater.start()
+    # Always running: the download may be turned on in the web interface at any time
+    updater = advisory_sync.AdvisoryUpdater(
+        settings, current=lambda: app_settings.effective_settings(settings)
+    )
+    updater.start()
     days, audit_days = settings.empty_report_retention_days, settings.audit_retention_days
     audit_max = settings.audit_max_events
     pruner = (
@@ -206,8 +211,7 @@ def serve(argv: list[str]) -> None:
         )
     finally:
         controller_heartbeat.stop()
-        if updater:
-            updater.stop()
+        updater.stop()
         if pruner:
             pruner.stop()
         forwarder.stop()

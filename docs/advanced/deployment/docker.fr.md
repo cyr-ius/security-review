@@ -127,8 +127,9 @@ Bon à savoir :
   la page **Général**.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
   dépendances répond qu'aucune base n'est chargée. Pour que le serveur Controller la télécharge au
-  démarrage puis toutes les 24 h, décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et
-  `SECREVIEW_OSV_ECOSYSTEMS`) dans le service `controller`, puis lancez `docker compose up -d`.
+  démarrage puis toutes les 24 h, activez **Télécharger automatiquement les avis OSV** sur la page
+  **Base OSV**, ou décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et `SECREVIEW_OSV_ECOSYSTEMS`) dans
+  le service `controller`, puis lancez `docker compose up -d`.
   Suivez l'import avec `docker compose logs -f controller`. Sans accès Internet, importez une
   archive avec `advisories import` (voir [Dépendances](../../review/analysis/dependencies.md#import-manuel)).
 - **Durcissement.** Les conteneurs de Security Review tournent en système de fichiers en
@@ -143,6 +144,48 @@ Les commandes d'administration s'exécutent dans le conteneur du serveur Control
 ```bash
 docker compose exec controller security-review-controller token list
 ```
+
+## Moteurs de scan
+
+Le fichier
+[`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml)
+est le déploiement complet, à lui seul : PostgreSQL, le serveur Controller, le serveur MCP et deux
+[moteurs de scan](../architecture/scan-engine.md). Les moteurs exécutent les règles et OpenGrep de
+tous les scans de code à la place du serveur Controller : ceux de `security-review-ci scan-code`
+et, comme `scan_code` est [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)
+par le réseau interne, ceux des agents. Ils utilisent les règles OpenGrep de sa base (les règles
+par défaut y sont installées à son démarrage). Le serveur Controller tourne sur l'image
+`-opengrep`, pour valider les règles OpenGrep créées ou modifiées dans l'interface web.
+Téléchargez-le dans un dossier vide, créez `.env` avec ses trois secrets, puis téléchargez les
+images ensemble (les services doivent avoir la même version) et démarrez :
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml
+(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\nSECREVIEW_SCAN_ENGINE_TOKEN=%s\n' \
+    "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env)
+docker compose -f docker-compose.scan-engines.yml pull
+docker compose -f docker-compose.scan-engines.yml up -d --wait
+docker compose -f docker-compose.scan-engines.yml exec controller \
+    security-review-controller user reset-password admin
+```
+
+L'interface web répond sur `http://127.0.0.1:8080/ui/` et le point d'accès MCP sur
+`http://127.0.0.1:8000/mcp` ; définissez `SECREVIEW_PUBLIC_URL` dans `.env` avec l'adresse
+qu'utilise l'équipe. Le fichier a le nom de projet Compose de `docker-compose.yml`
+(`security-review`) : pour y passer un déploiement existant, ajoutez `SECREVIEW_SCAN_ENGINE_TOKEN`
+à son `.env` et démarrez-le dans le même dossier, le volume de la base est conservé.
+
+Les moteurs apparaissent sur la page **Activité**. Aucune adresse des moteurs n'est donnée
+au serveur Controller, et aucun répartiteur de charge ne se trouve devant eux : chaque réplica
+s'enrôle avec l'adresse IP de son conteneur. Changez leur nombre avec
+`--scale scan-engine=N` ; un moteur arrêté par `docker compose stop` ou `down` se retire aussitôt
+du serveur Controller.
+
+??? example "docker-compose.scan-engines.yml"
+
+    ```yaml
+    --8<-- "docker/docker-compose.scan-engines.yml"
+    ```
 
 ## Sans Docker Compose
 

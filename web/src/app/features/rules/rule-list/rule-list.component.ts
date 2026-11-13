@@ -7,7 +7,6 @@ import { firstValueFrom } from 'rxjs';
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { MarkdownFieldComponent } from '../../../shared/components/markdown-field/markdown-field.component';
 import {
   CustomRule,
@@ -24,7 +23,6 @@ import {
   PackFileError,
   PackTransferComponent,
 } from '../../../shared/components/pack-transfer/pack-transfer.component';
-import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlMultiFilter,
   TableControlMultiFilterChange,
@@ -67,12 +65,10 @@ const RULE_ORIGINS: readonly RuleOrigin[] = ['builtin', 'custom'];
 @Component({
   selector: 'app-rule-list',
   imports: [
-    HelpLinkComponent,
     MarkdownFieldComponent,
     PackTransferComponent,
     DatePipe,
     FormField,
-    RefreshButtonComponent,
     SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,
@@ -163,7 +159,6 @@ export class RuleListComponent {
   readonly editingId = signal<string | null>(null);
   readonly creating = signal(false);
   readonly saving = signal(false);
-  readonly reloading = signal(false);
   readonly error = signal<Message | null>(null);
   /** Error raised while saving, shown inside the modal. */
   readonly formError = signal<Message | null>(null);
@@ -289,20 +284,6 @@ export class RuleListComponent {
       this.catalog.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));
-    }
-  }
-
-  async reload(): Promise<void> {
-    this.reloading.set(true);
-    this.clearMessages();
-    try {
-      const result = await firstValueFrom(this.api.reloadCustomRules());
-      this.notice.set(msg('rules.reloaded', { count: result.loaded_rules }));
-      this.catalog.reload();
-    } catch (error: unknown) {
-      this.error.set(describeError(error));
-    } finally {
-      this.reloading.set(false);
     }
   }
 

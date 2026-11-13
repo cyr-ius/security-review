@@ -103,6 +103,7 @@ async def me(identity: CurrentIdentity) -> Identity:
             "personal_mcp_tokens": settings.personal_mcp_tokens,
             "personal_tokens_enabled": settings.personal_tokens_enabled,
             "mcp_oauth": oauth,
+            "token_max_days": settings.token_max_days,
         }
     )
 

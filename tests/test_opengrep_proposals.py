@@ -62,18 +62,18 @@ def test_a_proposed_rule_is_installed_only_by_an_approval_and_never_over_a_rule(
     assert "shop" not in str(refused.value)
     assert opengrep_proposals.list_proposals()[0]["proposed_by"] == "agent-token"
     assert [item["id"] for item in opengrep_proposals.list_proposals()] == [first["id"]]
-    assert not (rules_dir / f"{RULE_ID}.yaml").exists()
+    assert RULE_ID not in opengrep_rule_store.installed_rules()
 
     approved = opengrep_proposals.approve_proposal(first["id"], "alice", "user:alice", RULE)
     assert (approved["status"], approved["decided_by"]) == ("approved", "alice")
-    assert (rules_dir / f"{RULE_ID}.yaml").read_text(encoding="utf-8") == RULE
+    assert opengrep_rule_store.installed_rules()[RULE_ID] == RULE
     assert opengrep_proposals.list_proposals() == []
     with pytest.raises(ValueError, match="already decided"):
         opengrep_proposals.reject_proposal(first["id"], "alice", "user:alice")
 
     # An approval never replaces a rule installed meanwhile: nothing is recorded
     other = propose(OTHER_ID, OTHER)
-    (rules_dir / f"{OTHER_ID}.yaml").write_text(OTHER, encoding="utf-8")
+    opengrep_rule_store.save_rule(OTHER_ID, OTHER, create=True)
     with pytest.raises(FileExistsError):
         opengrep_proposals.approve_proposal(other["id"], "alice", "user:alice")
     assert opengrep_proposals.list_proposals()[0]["status"] == "pending"

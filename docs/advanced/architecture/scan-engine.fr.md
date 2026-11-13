@@ -61,9 +61,16 @@ vulnérabilité.
     ```
 
     Avec l'image : `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine` ;
-    avec Compose : `docker compose --profile scan-engine up -d --scale scan-engine=3` ; sur
-    Kubernetes : `examples/kubernetes/scan-engine.yaml` (Deployment et NetworkPolicy, l'IP du pod
-    donnée dans `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`).
+    avec Compose : le fichier `examples/docker/docker-compose.scan-engines.yml`, le déploiement
+    complet avec deux moteurs (voir [Docker](../deployment/docker.md#moteurs-de-scan)) ;
+    sur Kubernetes : `examples/kubernetes/scan-engine.yaml` (deux réplicas, Deployment et
+    NetworkPolicy, l'IP du pod donnée dans `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, voir
+    [Kubernetes](../deployment/kubernetes.md#moteurs-de-scan)).
+
+4. Les moteurs prennent les règles OpenGrep dans la base du serveur Controller : les règles par
+   défaut y sont installées à son démarrage, quelle que soit son image. Lancez-le avec l'**image
+   `-opengrep`**, de la même version que les moteurs, pour créer ou modifier des règles OpenGrep
+   dans l'interface web (elles sont d'abord validées avec OpenGrep).
 
 Un moteur refuse de démarrer sans le secret ou sans `SECREVIEW_CONTROLLER_URL`. `SECREVIEW_PUBLIC_URL`, si elle est définie sur un moteur, l'emporte
 sur `SECREVIEW_CONTROLLER_URL`.
@@ -102,7 +109,7 @@ Un moteur ne lit aucune base de données. À son démarrage, chaque réplica :
    réplicas), une fois ses scans en cours terminés, **se retire** du serveur Controller
    (`DELETE /api/v1/engine/self` avec son jeton d'accès), qui l'oublie aussitôt. À son prochain
    démarrage, sur le même nœud ou sur un autre, il s'enrôle comme un nouveau moteur : les moteurs
-   arrêtés ne s'accumulent pas sur la page **Moteurs de scan**.
+   arrêtés ne s'accumulent pas sur la page **Activité**.
 
 ## Comment les scans parviennent aux moteurs
 
@@ -128,19 +135,26 @@ scan.
 
 ## Administration
 
-Les moteurs enrôlés sont listés dans la page [**Moteurs de scan**](../../usage/index.md#pages)
-(permission `settings.manage`) et par `security-review-controller engine list` : nom, version,
+Les moteurs enrôlés sont listés dans la section **Moteurs de scan** de la page
+[**Activité**](../../usage/index.md#activite) (permission `settings.manage`) et par `security-review-controller engine list` : nom, version,
 état (actif tant que son battement de cœur est récent), URL, créneaux libres, date d'enrôlement et
 dernière activité, jamais un secret.
 
-Au-dessus de la liste, le graphe **Activité** montre les scans de code en cours. Il s'affiche
+Au-dessus de la liste, le **Diagramme d'activité** montre les scans de code en cours. Il s'affiche
 même sans aucun moteur (moteurs désactivés, ou aucun enrôlé) : seulement les agents, les serveurs
 MCP et le serveur Controller, qui indique **Scanne lui-même (moteurs désactivés)** quand les
 moteurs sont désactivés :
 
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
   `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;
-- à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), avec le plus grand
+- sous les pipelines, un cercle par agent qui a envoyé une requête à un serveur MCP dans les
+  5 dernières minutes, relié à ce serveur, avec ses appels `scan_code` depuis le battement de cœur
+  précédent. Un agent est affiché par le nom de son client MCP (par exemple `claude-code`),
+  jamais par le nom d'une personne ni d'un jeton ; au-delà de 6 agents, un cercle **+N** regroupe
+  les autres. Sans aucun agent connu (serveurs MCP d'une version précédente), un seul cercle
+  **Agents** les représente ;
+- à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), plus grand que
+  ceux des agents, avec le plus grand
   nombre d'appels `scan_code` simultanés depuis son battement de cœur précédent. Les agents
   passent par lui pour atteindre le serveur Controller ; son lien vers le serveur Controller est en
   pointillés, avec **Scan local**, tant que la délégation de `scan_code` est désactivée : il scanne
@@ -162,6 +176,20 @@ Le nombre de fragments actifs compte les requêtes `scan_code` simultanées, pas
 distincts. Le survol d'un cercle affiche son détail, dont les compteurs depuis le démarrage du
 moteur (ils repartent de zéro quand il redémarre et s'enrôle de nouveau) ; la liste en dessous
 donne les mêmes moteurs.
+
+Le diagramme n'a pas de légende ; ses couleurs sont :
+
+| Couleur | Signification |
+|---|---|
+| Bleu | Scans de code des pipelines (`security-review-ci`, revues du dépôt) |
+| Orange | Fragments envoyés par `scan_code` |
+| Jaune | Un serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand `scan_code` s'exécute) |
+| Violet | Battement de cœur du serveur Controller (toutes les 5 s) |
+| Vert | Battement de cœur d'un moteur (toutes les 5 s pendant un scan, 30 s au repos) |
+| Vert clair | Un moteur connecté et inactif |
+| Gris (atténué) | Un moteur sans battement de cœur récent |
+
+Les points en mouvement sont les scans en cours ; les anneaux montrent les créneaux occupés.
 
 - **Révoquer** un moteur (page, ou `security-review-controller engine revoke <id>`) : son client et
   son jeton d'accès cessent aussitôt de fonctionner, il ne reçoit plus de scans, et ses scans
@@ -191,7 +219,7 @@ Avant chaque scan, un moteur met à jour sa copie des règles du serveur Control
   changé. Le moteur les compare à sa copie et ne télécharge **que les règles nouvelles ou
   modifiées** (`POST`, par lots de 20), vérifie chacune avec son empreinte et retire les règles
   supprimées. Il écrit cette nouvelle version des règles à côté de la précédente dans
-  `SECREVIEW_OPENGREP_RULES_DIR` (un répertoire local, accessible en écriture au moteur) : les
+  `SECREVIEW_OPENGREP_RULES_DIR` (un cache local, accessible en écriture au moteur) : les
   scans en cours gardent les règles avec lesquelles ils ont commencé, et la version précédente est
   supprimée à la fin du dernier d'entre eux.
 

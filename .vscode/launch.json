@@ -4,7 +4,7 @@
     {
       // Controller (port 8080) and a scan engine (port 8090) that takes its code scans; both
       // read the shared secret SECREVIEW_SCAN_ENGINE_TOKEN from .env (openssl rand -hex 32)
-      "name": "Controller + scan engine (debug)",
+      "name": "Controller + MCP + Scan Engine (debug)",
       "configurations": [
         "Controller: FastAPI (port 8080)",
         "Controller: Angular (port 4200)",
@@ -41,6 +41,7 @@
         "SECREVIEW_OSV_AUTO_UPDATE": "true"
       },
       "console": "integratedTerminal",
+      "consoleTitle": "Controller :8080",
       "justMyCode": false,
       "presentation": { "hidden": true }
     },
@@ -69,6 +70,7 @@
       },
       "preLaunchTask": "Database upgrade",
       "console": "integratedTerminal",
+      "consoleTitle": "MCP server :8000",
       "justMyCode": false
     },
     {
@@ -91,6 +93,7 @@
         "SECREVIEW_OPENGREP_RULES_DIR": "${workspaceFolder}/.venv/var/lib/secreview/scan-engine/rules/opengrep"
       },
       "console": "integratedTerminal",
+      "consoleTitle": "Scan engine :8090",
       "justMyCode": false
     },
     {
@@ -105,6 +108,7 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": { "PYTHONPATH": "${workspaceFolder}/src" },
       "console": "integratedTerminal",
+      "consoleTitle": "Controller CLI",
       "justMyCode": false
     },
     {
@@ -116,6 +120,7 @@
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
       "console": "integratedTerminal",
+      "consoleTitle": "MkDocs :8001",
       "serverReadyAction": {
         "pattern": "Serving on (https?://\\S+)",
         "uriFormat": "%s",

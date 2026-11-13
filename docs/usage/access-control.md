@@ -5,7 +5,7 @@ What a [user account](user-accounts.md) may do comes only from its **roles** and
 audit...). Each project of an account holds its own **per-project permissions** (reading,
 writing, triage), as does **All projects**. An OIDC account also holds the roles and projects of the
 [OIDC mappings](sso.md#oidc-mappings) of its identity provider groups. Administrators manage all
-this in the **Users**, **Roles** and **Sign-in** pages, and on the page of each project
+this in the **Accounts**, **Roles** and **OIDC sign-in** tabs of the **Users** page, and on the page of each project
 ([members](projects.md#members)).
 
 The REST API, the limits and the detailed rules are in

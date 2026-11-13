@@ -39,6 +39,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `audit_syslog.changed` | Le [serveur syslog](#envoi-vers-syslog) est modifié sur la page **Journal d'audit** (adresse et *facility* définies, `null` : valeur enregistrée supprimée) |
 | `controller_url.changed` | L'URL publique du serveur Controller, dont l'interface web est donnée aux agents sans jeton, est modifiée dans la page **Général**, ou recopiée depuis `SECREVIEW_PUBLIC_URL` par le serveur Controller au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
 | `mcp_scan_delegation.changed` | La [délégation de `scan_code`](../review/analysis/opengrep.md#scans-de-fragments-scan_code) à l'adresse du serveur Controller est activée ou désactivée dans la page **Général**, ou désactivée par un changement de cette adresse (`enabled`) |
+| `osv_download.changed` | Le [téléchargement OSV](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) est activé ou désactivé, ou son intervalle modifié, sur la page **Base OSV** (`enabled`, `interval_hours`) |
 | `oauth.client_registered` | Un client MCP s'enregistre pour la [connexion OAuth](mcp-oauth.md) (acteur `anonymous`, nom du client) |
 | `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur la page **Connecter un client MCP** |
 | `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, sur la page **Clients MCP** (une ou toutes), par le client (`/revoke`), ou avec son utilisateur |
@@ -47,7 +48,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `opengrep_rule.proposed` | Un agent propose une règle OpenGrep avec `propose_opengrep_rule` (jamais installée par lui), ou remplace sa proposition en attente (`replaced`) |
 | `scan_engine.enrolled` / `scan_engine.revoked` / `scan_engine.left` / `scan_engine.expired` | Un [moteur de scan](architecture/scan-engine.md#administration) s'enrôle avec le secret partagé (l'acteur est `engine:<nom>`), est révoqué par un administrateur, se retire du serveur Controller à son arrêt (acteur `engine:<nom>`), ou est supprimé après `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` sans activité (acteur `system`) |
 | `scan_ticket.issued` | Le serveur Controller émet le ticket à usage unique d'un [scan du dépôt lancé par un agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan) (`start_codebase_scan`) ; l'acteur est le jeton de l'agent |
-| `opengrep_rule.approved` / `opengrep_rule.rejected` | Une personne connectée avec `rules.manage` approuve une [règle proposée](../review/analysis/opengrep.md#regles-proposees-par-les-agents) (le fichier de la règle est créé ; `edited` quand le YAML a été corrigé) ou la rejette |
+| `opengrep_rule.approved` / `opengrep_rule.rejected` | Une personne connectée avec `rules.manage` approuve une [règle proposée](../review/analysis/opengrep.md#regles-proposees-par-les-agents) (la règle est installée ; `edited` quand le YAML a été corrigé) ou la rejette |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `project` et son nom), le projet quand il y en a un, et des détails en JSON.

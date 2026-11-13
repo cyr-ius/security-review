@@ -31,7 +31,8 @@ def scan(
 ) -> dict:
     """Scan ``sources`` with the active rules, then OpenGrep when it is enabled.
 
-    OpenGrep runs the rules of ``opengrep_rules_dir`` (default: SECREVIEW_OPENGREP_RULES_DIR).
+    OpenGrep runs the rules of ``opengrep_rules_dir``, a copy of the rules of the database
+    (see engines.opengrep_snapshots), and none without it.
     A ``fragment`` of scan_code runs OpenGrep in its own slots, and not at all when
     SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS is 0.
 

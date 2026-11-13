@@ -5,13 +5,23 @@ Le serveur Controller lance OpenGrep comme second moteur d'analyse statique lors
 (`scan_code`) du serveur MCP n'utilisent OpenGrep que lorsqu'ils sont
 [délégués au serveur Controller](#scans-de-fragments-scan_code).
 
+Les règles OpenGrep sont stockées en base, comme les règles internes : chaque réplica du
+serveur Controller voit les mêmes règles, et aucune n'est perdue au redémarrage d'un conteneur.
+OpenGrep ne lit que des fichiers : chaque processus qui le lance (le serveur Controller, un
+[moteur de scan](../../advanced/architecture/scan-engine.md#regles)) copie donc les règles dans son
+propre répertoire de travail, `SECREVIEW_OPENGREP_RULES_DIR`, et met cette copie à jour avant un
+scan quand une règle a changé. Ce répertoire est un cache : il n'a besoin d'aucun volume
+persistant ni partagé.
+
 ## Scans de fragments (`scan_code`)
 
 Par défaut, l'outil `scan_code` scanne le fragment reçu avec les seules règles du serveur MCP, sans
 lancer de processus externe. Quand la délégation est activée, il envoie le fragment
 à `POST /api/v1/scan/content` du serveur Controller avec le jeton de l'agent : le serveur Controller
 applique ses règles, puis ses règles OpenGrep quand le moteur est activé, et n'enregistre rien. La
-réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`).
+réponse indique les moteurs utilisés (`engines` : `rules`, `opengrep`). Tant que la délégation est
+désactivée, le serveur Controller répond `404` sur cette route : un jeton `mcp` ne peut pas lui
+faire lancer OpenGrep pour une fonction qui n'est pas utilisée.
 
 Le serveur Controller décide, et enregistre son choix en base, où le serveur MCP le lit à chaque
 appel. `SECREVIEW_SCANCODE_DELEGATED`, défini sur le serveur Controller, vaut `true` (vers son URL
@@ -60,7 +70,7 @@ règle, `scan-code` n'exécute que le scanner intégré. Variables d'environneme
 | --- | --- | --- |
 | `SECREVIEW_OPENGREP_ENABLED` | `false` | Active OpenGrep pour les scans de code complet |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Chemin de l'exécutable OpenGrep |
-| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des packs de règles YAML |
+| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire de travail où le serveur Controller et les moteurs de scan copient pour OpenGrep les règles OpenGrep de la base (un cache : un `emptyDir` suffit, jamais partagé entre réplicas) ; les fichiers de règles laissés là par une version précédente sont importés une fois en base |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan OpenGrep |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans OpenGrep simultanés dans un processus du serveur Controller ; un scan au-delà est refusé avec `503` et `Retry-After` |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de [`scan_code`](#scans-de-fragments-scan_code) scannés par OpenGrep en même temps, dans leurs propres créneaux pour que les agents ne prennent jamais ceux des scans du dépôt (`503` au-delà : le serveur MCP scanne avec ses règles) ; `0` : les fragments ne sont scannés qu'avec les règles |
@@ -68,12 +78,11 @@ règle, `scan-code` n'exécute que le scanner intégré. Variables d'environneme
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Mémoire en Mio d'un scan OpenGrep (`--max-memory`, `0` : sans limite) |
 | `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Suit le flux de données à travers les fonctions d'un même fichier (`--taint-intrafile`, environ 10 à 30 % plus long) ; `false` pour un exécutable OpenGrep plus ancien qui ne connaît pas l'option |
 
-Les [règles par défaut](#regles-par-defaut) sont installées au démarrage par l'image
-`-opengrep`, ou par `security-review-controller opengrep install` ; ajoutez vos propres packs de
-règles dans le répertoire configuré, par exemple en montant un répertoire administré sur
-`/var/lib/secreview/rules/opengrep` (gardez-le sur un volume, pour que les modifications et
-suppressions faites dans la page **Règles OpenGrep** survivent à un nouveau conteneur). Les règles
-ne sont jamais téléchargées. Le répertoire doit contenir au moins un fichier `.yml` ou `.yaml`.
+Les [règles par défaut](#regles-par-defaut) sont installées en base au démarrage, ou par
+`security-review-controller opengrep install` ; ajoutez vos propres règles dans la
+[onglet **Règles OpenGrep**](#gestion-des-regles-depuis-linterface-web). Les règles ne sont jamais
+téléchargées. `SECREVIEW_OPENGREP_RULES_DIR` ne contient que la copie écrite pour OpenGrep : un
+fichier déposé là à la main n'est pas lu.
 
 Lorsque le moteur est activé, le Controller écrit les sources déjà reçues du client CI dans un répertoire
 temporaire privé, exécute OpenGrep sans shell, analyse sa sortie JSON puis supprime l'espace de travail.
@@ -100,7 +109,7 @@ avec ce qu'un motif ligne par ligne ne voit pas :
   entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
   commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
   confiance. La valeur est suivie dans un fichier, d'une fonction à l'autre
-  (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../advanced/detection-benchmark.md)) ;
+  (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../reference/detection-benchmark.md)) ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
   combinaison d'arguments (CORS avec toute origine *et* identifiants).
@@ -119,13 +128,12 @@ avec ce qu'un motif ligne par ligne ne voit pas :
 Leurs identifiants suivent `secreview.<langage>.<contrôle>` (`secreview.go.zip-slip`) et leurs
 métadonnées donnent la CWE et la catégorie OWASP, reprises dans les findings.
 
-Tant que le moteur est activé (`SECREVIEW_OPENGREP_ENABLED`) et que l'exécutable OpenGrep est
-présent (image `-opengrep`), le serveur Controller les met à jour à chaque démarrage, comme les règles TOML par défaut : une nouvelle règle
-est installée, une règle restée telle qu'installée est remplacée par la nouvelle version, et une
-règle modifiée ou supprimée dans la page **Règles OpenGrep** est laissée telle quelle. Les
-empreintes des versions installées sont gardées dans `.secreview-default-rules.json` du
-répertoire de règles ; supprimez-le pour repartir de zéro. La commande les installe à la
-demande, sur le serveur Controller :
+À chaque démarrage, le serveur Controller copie les règles par défaut en base, comme les règles
+TOML par défaut, qu'OpenGrep tourne sur lui ou non (les moteurs de scan les y prennent) : une
+nouvelle règle est installée, une règle restée telle qu'installée est remplacée par la nouvelle
+version, une règle modifiée ou supprimée dans l'onglet **Règles OpenGrep** est laissée telle
+quelle, et une règle par défaut qui n'est plus fournie est retirée, sauf si elle a été modifiée.
+La commande installe les règles par défaut à la demande, sur le serveur Controller :
 
 ```bash
 security-review-controller opengrep list                          # bundled rules by language
@@ -134,12 +142,22 @@ security-review-controller opengrep install --language python --language javascr
 security-review-controller opengrep install --overwrite           # after an upgrade
 ```
 
-`install` copie un fichier par règle dans `SECREVIEW_OPENGREP_RULES_DIR` et affiche les
-identifiants installés, remplacés et ignorés (JSON). Une règle déjà présente est conservée, pour
-qu'une modification faite dans la page **Règles OpenGrep** survive ; `--overwrite` la remplace
+`install` écrit les règles en base et affiche les identifiants installés, remplacés et ignorés
+(JSON). Une règle déjà présente est conservée, pour
+qu'une modification faite dans l'onglet **Règles OpenGrep** survive ; `--overwrite` la remplace
 par la version du paquet (après une mise à niveau, par exemple). Pour retirer une règle,
 supprimez-la dans cette page. En conteneur, lancez la commande dans le conteneur du serveur
 Controller (`docker compose exec controller security-review-controller opengrep install`).
+
+!!! note "Mise à niveau depuis une version qui gardait les règles dans des fichiers"
+
+    Auparavant, les règles étaient des fichiers de `SECREVIEW_OPENGREP_RULES_DIR`. À son premier
+    démarrage après la mise à niveau (`db upgrade` crée la table), le serveur Controller importe
+    une fois en base les fichiers de règles de ce répertoire (`<id>.yaml` ou `<id>.yml`, une règle
+    chacun), avec les règles par défaut enregistrées dans son manifeste
+    `.secreview-default-rules.json` : une règle par défaut modifiée le reste, une règle supprimée
+    n'est pas réinstallée. Démarrez d'abord un seul réplica, avec le répertoire monté comme avant.
+    Les fichiers ne sont plus lus ensuite et peuvent être supprimés.
 
 ## Sécurité opérationnelle
 
@@ -159,12 +177,13 @@ Controller (`docker compose exec controller security-review-controller opengrep 
 
 ## Gestion des règles depuis l’interface web
 
-Le serveur Controller propose une page de gestion authentifiée à l’adresse
-`/ui/opengrep-rules` (**Règles OpenGrep**). Les utilisateurs disposant de `rules.read` peuvent
-consulter les fichiers YAML du répertoire `SECREVIEW_OPENGREP_RULES_DIR`. Ceux disposant de
-`rules.manage` peuvent créer, modifier, valider et supprimer ces fichiers. Chaque fichier géré
-contient exactement une règle et son identifiant YAML doit correspondre à celui du fichier. Toute
-écriture est validée avec `opengrep validate <fichier>` avant un remplacement atomique. Le
+Le serveur Controller gère ces règles dans l'onglet **Règles OpenGrep** de la page **Règles**
+(`/ui/rules/opengrep`, authentifiée). Les utilisateurs disposant de `rules.read` peuvent
+consulter les règles YAML stockées en base. Ceux disposant de `rules.manage` peuvent les créer,
+modifier, valider et supprimer. Chaque règle contient exactement une règle OpenGrep, dont
+l'identifiant YAML doit correspondre à celui de la règle. Toute écriture est d'abord validée avec
+`opengrep validate` : créer ou modifier une règle demande donc l'exécutable OpenGrep sur le
+serveur Controller (image `-opengrep`) ; les règles par défaut, non. Le
 serveur Controller ne télécharge aucun pack de règles et ne suit aucune source distante à la
 place de l’administrateur.
 
@@ -200,9 +219,9 @@ proposer une règle qu'après avoir enregistré le rapport.
   espaces ou les guillemets autour d'une valeur. Le refus nomme la règle existante, ou la
   proposition quand elle appartient au même projet ; pour corriger une proposition en attente,
   l'agent la propose de nouveau avec son identifiant.
-- Les propositions en attente sont listées en haut de la page **Règles OpenGrep** pour les
+- Les propositions en attente sont listées en haut de l'onglet **Règles OpenGrep** pour les
   utilisateurs disposant de `rules.manage` ; tant qu'il y en a, leur nombre s'affiche à côté de
-  **Règles OpenGrep** dans le menu. **Examiner** en ouvre une dans l'éditeur avec son
+  **Règles** dans le menu et sur l'onglet. **Examiner** en ouvre une dans l'éditeur avec son
   projet, son auteur, son motif et son code de test : l'approbateur peut corriger le YAML (pas
   son identifiant), le valider avec OpenGrep, puis l'**Approuver et installer** ou la
   **Rejeter** avec un motif facultatif.

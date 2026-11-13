@@ -122,10 +122,9 @@ svg {
   }
 }
 
+/* The heartbeats stay under reduced motion (see styles.css): they are the only sign of life */
 @media (prefers-reduced-motion: reduce) {
-  .dot,
-  .beat,
-  .beat-ring {
+  .dot {
     display: none;
   }
 }
@@ -215,41 +214,4 @@ svg {
 .label.detail {
   fill: var(--bs-secondary-color);
   font-size: 11px;
-}
-
-.swatch {
-  display: inline-block;
-  width: 0.75rem;
-  height: 0.75rem;
-  margin-right: 0.25rem;
-  vertical-align: -0.1em;
-  border-radius: 50%;
-}
-
-.swatch-codebase {
-  background: var(--series-1);
-}
-
-.swatch-fragment {
-  background: var(--series-2);
-}
-
-.swatch-engine-idle {
-  background: var(--engine-idle-color);
-}
-
-.swatch-heartbeat {
-  background: var(--bs-success);
-}
-
-.swatch-controller-heartbeat {
-  background: var(--bs-purple);
-}
-
-.swatch-mcp {
-  background: var(--mcp-color);
-}
-
-.legend {
-  margin-top: 0.5rem;
 }

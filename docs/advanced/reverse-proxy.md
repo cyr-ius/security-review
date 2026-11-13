@@ -48,136 +48,138 @@ runs on another machine than the processes, the tokens would cross the network i
 the [built-in TLS](tls.md) of both processes and proxy to `https://…` instead of
 `http://127.0.0.1`.
 
-## nginx
+## Configuration examples
 
-```nginx
-upstream secreview_controller { server 127.0.0.1:8080; }
-upstream secreview_mcp { server 127.0.0.1:8000; }
+=== "nginx"
 
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name secreview.example.com;
-    ssl_certificate     /etc/ssl/secreview/fullchain.pem;
-    ssl_certificate_key /etc/ssl/secreview/privkey.pem;
+    ```nginx
+    upstream secreview_controller { server 127.0.0.1:8080; }
+    upstream secreview_mcp { server 127.0.0.1:8000; }
 
-    client_max_body_size 64m;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name secreview.example.com;
+        ssl_certificate     /etc/ssl/secreview/fullchain.pem;
+        ssl_certificate_key /etc/ssl/secreview/privkey.pem;
 
-    # MCP server: the endpoint (streamed answers) and its OAuth metadata
-    location /mcp {
-        proxy_pass http://secreview_mcp;
-        proxy_buffering off;
-        proxy_read_timeout 1h;
+        client_max_body_size 64m;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # MCP server: the endpoint (streamed answers) and its OAuth metadata
+        location /mcp {
+            proxy_pass http://secreview_mcp;
+            proxy_buffering off;
+            proxy_read_timeout 1h;
+        }
+        location /.well-known/oauth-protected-resource {
+            proxy_pass http://secreview_mcp;
+        }
+
+        # Controller server: web interface, REST API, OAuth authorization server
+        location / {
+            proxy_pass http://secreview_controller;
+        }
     }
-    location /.well-known/oauth-protected-resource {
-        proxy_pass http://secreview_mcp;
-    }
+    ```
 
-    # Controller server: web interface, REST API, OAuth authorization server
-    location / {
-        proxy_pass http://secreview_controller;
-    }
-}
-```
+=== "Apache"
 
-## Apache
+    Modules `proxy`, `proxy_http`, `ssl` and `headers` (`a2enmod proxy proxy_http ssl headers`).
+    `mod_proxy` adds `X-Forwarded-For` itself.
 
-Modules `proxy`, `proxy_http`, `ssl` and `headers` (`a2enmod proxy proxy_http ssl headers`).
-`mod_proxy` adds `X-Forwarded-For` itself.
+    ```apache
+    <VirtualHost *:443>
+        ServerName secreview.example.com
+        SSLEngine on
+        SSLCertificateFile    /etc/ssl/secreview/fullchain.pem
+        SSLCertificateKeyFile /etc/ssl/secreview/privkey.pem
 
-```apache
-<VirtualHost *:443>
-    ServerName secreview.example.com
-    SSLEngine on
-    SSLCertificateFile    /etc/ssl/secreview/fullchain.pem
-    SSLCertificateKeyFile /etc/ssl/secreview/privkey.pem
+        ProxyPreserveHost On
+        ProxyTimeout 3600
+        LimitRequestBody 67108864
+        RequestHeader set X-Forwarded-Proto "https"
+        # No compression of the streamed MCP answers
+        SetEnvIf Request_URI "^/mcp" no-gzip
 
-    ProxyPreserveHost On
-    ProxyTimeout 3600
-    LimitRequestBody 67108864
-    RequestHeader set X-Forwarded-Proto "https"
-    # No compression of the streamed MCP answers
-    SetEnvIf Request_URI "^/mcp" no-gzip
+        # MCP server first (the most specific paths win only when declared first)
+        ProxyPass        /mcp http://127.0.0.1:8000/mcp flushpackets=on
+        ProxyPassReverse /mcp http://127.0.0.1:8000/mcp
+        ProxyPass        /.well-known/oauth-protected-resource http://127.0.0.1:8000/.well-known/oauth-protected-resource
 
-    # MCP server first (the most specific paths win only when declared first)
-    ProxyPass        /mcp http://127.0.0.1:8000/mcp flushpackets=on
-    ProxyPassReverse /mcp http://127.0.0.1:8000/mcp
-    ProxyPass        /.well-known/oauth-protected-resource http://127.0.0.1:8000/.well-known/oauth-protected-resource
+        # Controller server: everything else
+        ProxyPass        / http://127.0.0.1:8080/
+        ProxyPassReverse / http://127.0.0.1:8080/
+    </VirtualHost>
+    ```
 
-    # Controller server: everything else
-    ProxyPass        / http://127.0.0.1:8080/
-    ProxyPassReverse / http://127.0.0.1:8080/
-</VirtualHost>
-```
+=== "HAProxy"
 
-## HAProxy
+    ```haproxy
+    frontend secreview
+        mode http
+        bind :443 ssl crt /etc/haproxy/certs/secreview.pem alpn h2,http/1.1
+        option forwardfor
+        http-request set-header X-Forwarded-Proto https
+        timeout client 1h
 
-```haproxy
-frontend secreview
-    mode http
-    bind :443 ssl crt /etc/haproxy/certs/secreview.pem alpn h2,http/1.1
-    option forwardfor
-    http-request set-header X-Forwarded-Proto https
-    timeout client 1h
+        acl to_mcp path /mcp
+        acl to_mcp path_beg /mcp/ /.well-known/oauth-protected-resource
+        use_backend secreview_mcp if to_mcp
+        default_backend secreview_controller
 
-    acl to_mcp path /mcp
-    acl to_mcp path_beg /mcp/ /.well-known/oauth-protected-resource
-    use_backend secreview_mcp if to_mcp
-    default_backend secreview_controller
+    backend secreview_mcp
+        mode http
+        option httpchk GET /healthz
+        timeout server 1h
+        server mcp 127.0.0.1:8000 check
 
-backend secreview_mcp
-    mode http
-    option httpchk GET /healthz
-    timeout server 1h
-    server mcp 127.0.0.1:8000 check
+    backend secreview_controller
+        mode http
+        option httpchk GET /healthz
+        timeout server 5m
+        server controller 127.0.0.1:8080 check
+    ```
 
-backend secreview_controller
-    mode http
-    option httpchk GET /healthz
-    timeout server 5m
-    server controller 127.0.0.1:8080 check
-```
+    HAProxy does not buffer the answers and sets no body limit by default.
 
-HAProxy does not buffer the answers and sets no body limit by default.
+=== "Traefik"
 
-## Traefik
+    Dynamic configuration (file provider). Traefik sends `X-Forwarded-*`, streams the server-sent
+    events and gives the longer rule the higher priority: the MCP router wins on its paths.
 
-Dynamic configuration (file provider). Traefik sends `X-Forwarded-*`, streams the server-sent
-events and gives the longer rule the higher priority: the MCP router wins on its paths.
+    ```yaml
+    http:
+      routers:
+        secreview-mcp:
+          rule: Host(`secreview.example.com`) && (PathPrefix(`/mcp`) || PathPrefix(`/.well-known/oauth-protected-resource`))
+          entryPoints: [websecure]
+          service: secreview-mcp
+          tls:
+            certResolver: letsencrypt
+        secreview-controller:
+          rule: Host(`secreview.example.com`)
+          entryPoints: [websecure]
+          service: secreview-controller
+          tls:
+            certResolver: letsencrypt
+      services:
+        secreview-mcp:
+          loadBalancer:
+            servers:
+              - url: http://127.0.0.1:8000
+        secreview-controller:
+          loadBalancer:
+            servers:
+              - url: http://127.0.0.1:8080
+    ```
 
-```yaml
-http:
-  routers:
-    secreview-mcp:
-      rule: Host(`secreview.example.com`) && (PathPrefix(`/mcp`) || PathPrefix(`/.well-known/oauth-protected-resource`))
-      entryPoints: [websecure]
-      service: secreview-mcp
-      tls:
-        certResolver: letsencrypt
-    secreview-controller:
-      rule: Host(`secreview.example.com`)
-      entryPoints: [websecure]
-      service: secreview-controller
-      tls:
-        certResolver: letsencrypt
-  services:
-    secreview-mcp:
-      loadBalancer:
-        servers:
-          - url: http://127.0.0.1:8000
-    secreview-controller:
-      loadBalancer:
-        servers:
-          - url: http://127.0.0.1:8080
-```
-
-With the Docker provider, the same routers go in the labels of the `mcp` and `controller`
-services (`traefik.http.routers.secreview-mcp.rule=…`), each with
-`traefik.http.services.<name>.loadbalancer.server.port=8000`, the port inside the container.
+    With the Docker provider, the same routers go in the labels of the `mcp` and `controller`
+    services (`traefik.http.routers.secreview-mcp.rule=…`), each with
+    `traefik.http.services.<name>.loadbalancer.server.port=8000`, the port inside the container.
 
 ## Check
 

@@ -3,7 +3,6 @@
     <h1 class="h3 mb-0">{{ 'connectors.title' | t }} <app-help-link topic="connectors" /></h1>
     <p class="text-body-secondary mb-0">{{ 'connectors.subtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="loading()" (refresh)="reload()" />
 </div>
 
 @if (settings.error()) {

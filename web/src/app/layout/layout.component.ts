@@ -36,6 +36,8 @@ interface NavItem {
   icon: string;
   /** Shown only to the users that hold it (the route has the same permission guard). */
   permission?: Permission;
+  /** Hidden from the users that hold it: they reach the page from another one. */
+  hiddenWith?: Permission;
   /** Tooltip of the number shown next to the entry, if any. */
   badgeTitle?: MessageKey;
 }
@@ -89,11 +91,10 @@ export class LayoutComponent {
 
   /** What the reviews rely on: scan rules, checklists, development standards and the OSV database. */
   private readonly referenceItems: readonly NavItem[] = [
-    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.read' },
     {
-      path: '/opengrep-rules',
-      label: 'layout.opengrepRules',
-      icon: 'bi-filetype-yml',
+      path: '/rules',
+      label: 'layout.rules',
+      icon: 'bi-sliders',
       permission: 'rules.read',
       badgeTitle: 'layout.pendingProposals',
     },
@@ -124,29 +125,34 @@ export class LayoutComponent {
       icon: 'bi-sliders',
       permission: 'settings.manage',
     },
+    {
+      path: '/activity',
+      label: 'layout.activity',
+      icon: 'bi-activity',
+      permission: 'settings.manage',
+    },
     { path: '/users', label: 'layout.users', icon: 'bi-people', permission: 'users.manage' },
-    { path: '/roles', label: 'layout.roles', icon: 'bi-shield-check', permission: 'users.manage' },
     { path: '/tokens', label: 'layout.tokens', icon: 'bi-key', permission: 'tokens.manage' },
     {
       path: '/mcp-clients',
       label: 'layout.mcpClients',
-      icon: 'bi-laptop',
+      icon: 'bi-robot',
       permission: 'tokens.manage',
     },
-    { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
     {
       path: '/settings/connectors',
       label: 'connectors.title',
       icon: 'bi-plug',
       permission: 'settings.manage',
     },
+    // Opened from the Activity page; kept in the menu for those who cannot open that page
     {
-      path: '/scan-engines',
-      label: 'layout.scanEngines',
-      icon: 'bi-cpu',
-      permission: 'settings.manage',
+      path: '/audit',
+      label: 'layout.audit',
+      icon: 'bi-journal-text',
+      permission: 'audit.read',
+      hiddenWith: 'settings.manage',
     },
-    { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text', permission: 'audit.read' },
   ];
 
   /** Sidebar opened in full over the page (small screens, or after the expand button). */
@@ -191,7 +197,7 @@ export class LayoutComponent {
     if (item.path === '/findings') {
       return this.openFindings.hasValue() ? this.openFindings.value().total : null;
     }
-    if (item.path === '/opengrep-rules' && this.pendingProposals.hasValue()) {
+    if (item.path === '/rules' && this.pendingProposals.hasValue()) {
       // Shown only while proposals wait for a review
       return this.pendingProposals.value().total || null;
     }
@@ -251,7 +257,11 @@ export class LayoutComponent {
 
   /** Items whose permission the current user holds. */
   private allowed(items: readonly NavItem[]): NavItem[] {
-    return items.filter((item) => !item.permission || this.auth.can(item.permission));
+    return items.filter(
+      (item) =>
+        (!item.permission || this.auth.can(item.permission)) &&
+        !(item.hiddenWith && this.auth.can(item.hiddenWith)),
+    );
   }
 
   closeMenu(): void {

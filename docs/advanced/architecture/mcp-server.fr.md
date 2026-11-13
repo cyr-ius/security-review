@@ -36,9 +36,14 @@ En HTTP, `security-review-mcp serve` :
    `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (voir [Jetons Bearer](../bearer-tokens.md)) ;
 4. entretient un **battement de cœur** en base : toutes les 5 secondes, et aussitôt (au plus une
    fois par seconde) quand un appel `scan_code` commence ou se termine, avec son nom d'hôte, sa
-   version, l'état de la délégation de `scan_code` au serveur Controller, et le plus grand nombre
-   d'appels `scan_code` simultanés depuis le battement précédent. Le serveur Controller l'affiche
-   sur la page [**Moteurs de scan**](scan-engine.md#administration). Il le supprime à son arrêt ;
+   version, l'état de la délégation de `scan_code` au serveur Controller, le plus grand nombre
+   d'appels `scan_code` simultanés depuis le battement précédent, et les agents qui lui ont envoyé
+   une requête dans les 5 dernières minutes (50 au plus). Un agent est une clé opaque (un HMAC de
+   l'identifiant de son jeton et du nom de son client, avec un secret tiré au démarrage du
+   processus : ni réversible, ni comparable d'un serveur à l'autre) et le nom et la version que
+   son client MCP donne au début de la session (`clientInfo`) ; jamais le nom d'une personne ni
+   d'un jeton. Le serveur Controller l'affiche
+   sur la page [**Activité**](../../usage/index.md#activite). Il le supprime à son arrêt ;
    un serveur disparu sans s'arrêter quitte la page au bout de 30 secondes.
 
 En stdio, `security-review-mcp local` migre lui-même sa base locale.

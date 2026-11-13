@@ -13,7 +13,7 @@ base (voir [Architecture](index.md)).
 | `/api/v1/auth/` | la page de connexion : mot de passe et connexion [OIDC](../oidc.md) | aucun |
 | `/api/v1/` | l'interface web, les scripts, Swagger | session web, jeton `admin` ou `api` |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` (personnel ou non) |
-| `/api/v1/scan/content` | le serveur MCP : `scan_code` [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code) (ne lit ni n'enregistre rien) | jeton `mcp` ou `admin` de l'agent, relayé |
+| `/api/v1/scan/content` | le serveur MCP : `scan_code` [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code) (ne lit ni n'enregistre rien ; `404` tant que la délégation est désactivée) | jeton `mcp` ou `admin` de l'agent, relayé |
 | `/api/v1/scan/tickets` | le serveur MCP : ticket à usage unique de `start_codebase_scan` ([scan lancé par l'agent](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)), utilisé ensuite par `security-review-ci` sur `/api/v1/ci/scan/code` et `/scan/deps` | jeton `mcp` ou `admin` de l'agent, relayé |
 | `/engine/v1/enroll`, `/engine/v1/token` | les [moteurs de scan](scan-engine.md#enrolement-et-jetons-dacces) : enrôlement, puis jeton d'accès OAuth (`client_credentials`) ; servies seulement avec `SECREVIEW_SCAN_ENGINE_TOKEN` | secret partagé des moteurs, puis client de chaque moteur |
 | `/api/v1/engine/` | les moteurs de scan : leurs règles et règles OpenGrep ([règles](scan-engine.md#regles)) | jeton d'accès d'un moteur enrôlé uniquement |
@@ -36,8 +36,9 @@ dans [Jetons Bearer](../bearer-tokens.md).
 2. vérifie les réglages (TLS, OIDC, OSV, syslog, connecteurs) : une valeur invalide l'arrête
    avec le code `2` ;
 3. crée le [premier administrateur](#premier-administrateur) tant qu'aucun compte n'existe ;
-4. tant qu'OpenGrep est activé et que son exécutable est présent (image `-opengrep`), installe ou met à jour les
-   [règles OpenGrep par défaut](../../review/analysis/opengrep.md#regles-par-defaut) (un échec est
+4. installe ou met à jour en base les
+   [règles OpenGrep par défaut](../../review/analysis/opengrep.md#regles-par-defaut), avec ou sans
+   OpenGrep, après avoir importé une fois les fichiers de règles d'une version précédente (un échec est
    journalisé et ne l'arrête pas) ;
 5. démarre les tâches de fond, puis sert les routes.
 
@@ -51,7 +52,7 @@ verrou entre réplicas et tâche de migration dédiée : voir
 
 | Tâche | Activée par | Détails |
 |---|---|---|
-| Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` (désactivée par défaut) | [Mise à jour automatique par le serveur Controller](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) |
+| Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` ou la page **Base OSV** (désactivée par défaut) | [Mise à jour automatique par le serveur Controller](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) |
 | Purge des rapports sans finding et du journal d'audit | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Conservation](../database.md#conservation-des-rapports-sans-findings), [conservation de l'audit](../audit-log.md#conservation) |
 | Envoi du journal d'audit vers syslog | un serveur syslog défini dans l'environnement ou dans l'interface | [Envoi vers syslog](../audit-log.md#envoi-vers-syslog) |
 | Envoi automatique des findings par les connecteurs | un connecteur activé, un seuil de sévérité sur le projet ; `SECREVIEW_CONNECTORS_ENABLED=false` verrouille tout | [Connecteurs](../../usage/connectors/index.md) |
@@ -281,7 +282,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Réglages enregistrés en base
 
-Les pages **Général** (langue des rapports, adresse du serveur Controller, proxy sortant), **Base OSV** (écosystèmes téléchargés) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
+Les pages **Général** (langue des rapports, adresse du serveur Controller, proxy sortant), **Base OSV** (écosystèmes téléchargés) et l'onglet **Connexion OIDC** de la page **Utilisateurs** de l'[interface web](../../usage/index.md)
 enregistrent des réglages en base, partagés par le serveur MCP et le serveur Controller (permission
 `settings.manage` ; les anciennes adresses `/ui/settings`, `/ui/settings/language` et
 `/ui/settings/proxy` ouvrent **Général**). **Une variable d'environnement définie (environnement ou fichier `.env`, non vide)
@@ -298,6 +299,7 @@ OSV, le proxy aussi à la prochaine connexion OIDC. **Utiliser l'adresse actuell
 | `PUT /api/v1/settings/controller-url` | `value` (`null` la supprime) |
 | `PUT /api/v1/settings/mcp-scan-delegation` | `enabled` : délègue `scan_code` du serveur MCP à l'adresse du serveur Controller (`422` tant que l'adresse est inconnue ou que `SECREVIEW_SCANCODE_DELEGATED` est définie ; audité, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` et `no_proxy` : `null` supprime la valeur enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé. Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré |
+| `PUT /api/v1/settings/osv-download` | `enabled` (booléen) et `update_interval_hours` (`1` à `8760`), chacun facultatif : active ou désactive le téléchargement OSV et règle son intervalle, appliqués sous 15 minutes (`422` quand la variable d'un champ donné est définie ou que les paramètres du téléchargement sont invalides ; audité, `osv_download.changed`) |
 | `PUT /api/v1/settings/osv-ecosystems` | `ecosystems` : liste des écosystèmes à télécharger, parmi `supported` de `GET /api/v1/settings` (`422` pour une liste vide ou un écosystème inconnu) ; `null` la supprime (`SECREVIEW_OSV_ECOSYSTEMS` ou sa valeur par défaut s'applique de nouveau) |
 
 Une valeur dont la variable est définie est refusée avec `422`. Les réglages OIDC ont leurs

@@ -50,6 +50,10 @@ A page is missing? You do not hold its permission: ask an administrator (see
 - At the bottom of the sidebar: **My account** (password, personal tokens) and the version, a
   link to **About**.
 - Click a column header to sort a table; the browser remembers the sort.
+- **Projects**, **Findings**, **Reports** and **Audit log** read their data again when you come
+  back to the browser tab, so that the reviews saved meanwhile show up (not after **Load more**,
+  nor on **Findings** once a finding was triaged on the page: **Refresh** does it then). The
+  pages of settings and reference data, only changed on the page itself, have no **Refresh**.
 - The circled question mark next to a title opens the page of this documentation that explains
   the page (in French for a French interface, else in English).
 - If the Controller server stops answering, the **Backend unavailable** page opens: it checks again
@@ -77,10 +81,10 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Rules** | The patterns of the code scan ([rules](../review/rules.md)) |
+| **Rules** | The rules of the code scan, one tab per engine: **Pattern rules** ([rules](../review/rules.md)) and **OpenGrep rules**, with the rules proposed by the agents ([OpenGrep](../review/analysis/opengrep.md#managing-rules-from-the-web-interface)) |
 | **Checklists** | The check items followed by the agents ([checklists](../review/checklists.md)) |
 | **Standards** | The development standards given to the AI assistants ([standards](../review/standards.md)) |
-| **OSV database** | State and update of the vulnerability database, choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) (`settings.manage`) |
+| **OSV database** | State and update of the vulnerability database, automatic download (on/off, interval), choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) (`settings.manage`) |
 
 In the edit form, the long text fields (content of a standard, advice of a rule, checkpoint of a
 checklist item) have a full screen button: the text opens in a large editor, next to its
@@ -92,13 +96,26 @@ together. The changes go to the form, which still saves or cancels them.
 | Page | What for |
 |---|---|
 | **General** | Report language, Controller server address (and delegation of `scan_code` to it) and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
-| **Users**, **Roles** | The accounts, their roles and their projects ([roles and permissions](access-control.md)) |
+| **Activity** | What runs now, and the scan engines with their revocation (`settings.manage`): see [Activity](#activity) |
+| **Users** | One tab each: **Accounts**, with their roles and their projects ([user accounts](user-accounts.md)), **Roles** ([roles and permissions](access-control.md)) and **OIDC sign-in**, the company login ([OIDC login](sso.md)) (`users.manage`) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **MCP clients** | The MCP clients that log in through the browser ([OAuth login](../advanced/mcp-oauth.md#administration)): turning the login on or off, registered clients and approved accesses, revocation (`tokens.manage`) |
-| **Sign-in** | The company login ([OIDC login](sso.md)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
-| **Scan engines** | The [scan engines](../advanced/architecture/scan-engine.md#administration) enrolled with the Controller server (activity diagram, version, address, last activity) and their revocation (`settings.manage`) |
-| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
+| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)); opened by the **Audit log** button of **Activity**, in the menu only for the accounts that hold `audit.read` without `settings.manage` |
+
+### Activity
+
+The **Activity** page (`settings.manage`) shows what runs now and reloads itself every
+2 seconds while it is visible:
+
+- the **Activity diagram**: the agents, the pipelines, the MCP servers, the Controller servers and
+  the scan engines, with the scans in progress (its colors are explained in
+  [Scan engines](../advanced/architecture/scan-engine.md#administration));
+- the **Scan engines** section: the [scan engines](../advanced/architecture/scan-engine.md#administration)
+  enrolled with the Controller server (version, address, last activity) and their revocation.
+
+The **Audit log** button, next to **Refresh**, opens the [audit log](audit-metrics.md)
+(`audit.read`). The former address `/ui/scan-engines` leads to this page.
 
 ## Points to watch
 

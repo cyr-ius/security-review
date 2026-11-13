@@ -4,7 +4,6 @@ import { defineMessages } from '../catalog';
 export const opengrepRules = defineMessages({
   en: {
     'opengrepRules.title': 'OpenGrep rules',
-    'opengrepRules.subtitle': 'Manage YAML rules loaded by the optional OpenGrep scan engine.',
     'opengrepRules.new': 'New rule',
     'opengrepRules.search': 'Search an identifier, a message, a CWE',
     'opengrepRules.count': '{count} rules',
@@ -14,7 +13,7 @@ export const opengrepRules = defineMessages({
     'opengrepRules.view': 'View',
     'opengrepRules.editRule': 'Edit the rule {id}',
     'opengrepRules.viewRule': 'View the rule {id}',
-    'opengrepRules.empty': 'No OpenGrep rules found in the configured rules directory.',
+    'opengrepRules.empty': 'No OpenGrep rule installed.',
     'opengrepRules.identifier': 'Rule identifier',
     'opengrepRules.yaml': 'YAML definition',
     'opengrepRules.validate': 'Validate',
@@ -54,8 +53,6 @@ export const opengrepRules = defineMessages({
   },
   fr: {
     'opengrepRules.title': 'Règles OpenGrep',
-    'opengrepRules.subtitle':
-      'Gérer les règles YAML utilisées par le moteur d’analyse ' + 'OpenGrep facultatif.',
     'opengrepRules.new': 'Nouvelle règle',
     'opengrepRules.search': 'Rechercher un identifiant, un message, une CWE',
     'opengrepRules.count': '{count} règles',
@@ -65,7 +62,7 @@ export const opengrepRules = defineMessages({
     'opengrepRules.view': 'Consulter',
     'opengrepRules.editRule': 'Modifier la règle {id}',
     'opengrepRules.viewRule': 'Consulter la règle {id}',
-    'opengrepRules.empty': 'Aucune règle OpenGrep dans le répertoire configuré.',
+    'opengrepRules.empty': 'Aucune règle OpenGrep installée.',
     'opengrepRules.identifier': 'Identifiant de la règle',
     'opengrepRules.yaml': 'Définition YAML',
     'opengrepRules.validate': 'Valider',
@@ -106,7 +103,6 @@ export const opengrepRules = defineMessages({
   },
   es: {
     'opengrepRules.title': 'Reglas de OpenGrep',
-    'opengrepRules.subtitle': 'Administre las reglas YAML utilizadas por el motor OpenGrep.',
     'opengrepRules.new': 'Nueva regla',
     'opengrepRules.search': 'Buscar un identificador, un mensaje, una CWE',
     'opengrepRules.count': '{count} reglas',
@@ -116,7 +112,7 @@ export const opengrepRules = defineMessages({
     'opengrepRules.view': 'Ver',
     'opengrepRules.editRule': 'Editar la regla {id}',
     'opengrepRules.viewRule': 'Ver la regla {id}',
-    'opengrepRules.empty': 'No hay reglas OpenGrep en el directorio configurado.',
+    'opengrepRules.empty': 'No hay ninguna regla OpenGrep instalada.',
     'opengrepRules.identifier': 'Identificador de la regla',
     'opengrepRules.yaml': 'Definición YAML',
     'opengrepRules.validate': 'Validar',

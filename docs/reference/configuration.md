@@ -56,7 +56,7 @@ Read by `security-review-mcp` only.
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Report language](../review/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen on the [**Report language**](../usage/index.md#pages) page |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |
-| `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Deprecated: set [`SECREVIEW_SCANCODE_DELEGATED`](#web-interface-and-sessions) on the Controller server instead. Still read, with a warning: root URL of the Controller server to which `scan_code` delegates its scan; takes precedence over the delegation stored by the Controller server |
+| `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Deprecated: set [`SECREVIEW_SCANCODE_DELEGATED`](#web-interface-and-sessions) on the Controller server instead. Still read, with a warning: root URL of the Controller server to which `scan_code` delegates its scan; takes precedence over the delegation stored by the Controller server. The Controller server only answers while its own delegation is on (`SECREVIEW_SCANCODE_DELEGATED` or the web interface): without it, `scan_code` falls back to the rules of the MCP server |
 | `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` | `120` | Maximum duration of a delegated scan, OpenGrep included (1 to 7200); beyond, `scan_code` scans with the rules of the MCP server |
 
 ## Controller server
@@ -129,8 +129,8 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) of the OSV database by `serve` |
-| `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Age of the database beyond which `serve` updates it (minimum `1`) |
+| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) of the OSV database by `serve`; unset, it can be turned on on the **OSV database** page |
+| `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Age of the database beyond which `serve` updates it (minimum `1`); unset, it can be set on the **OSV database** page |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source of the `<URL>/<ecosystem>/all.zip` exports (HTTPS only, mirror possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Downloaded ecosystems, comma separated; while unset, they can be chosen on the **OSV database** page |
 | `SECREVIEW_OSV_CAFILE` | — | CA bundle used instead of the system one (internal mirror, proxy that inspects TLS) |
@@ -188,7 +188,7 @@ Engine of the Controller server for `scan-code`, disabled by default and skipped
 |---|---|---|
 | `SECREVIEW_OPENGREP_ENABLED` | `false` | Also run OpenGrep on the files of `scan-code` |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
-| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory of the OpenGrep YAML rules |
+| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Working directory where the Controller server and the scan engines copy the OpenGrep rules of the database for OpenGrep (a cache: an `emptyDir` is enough, never shared between replicas); the rule files left there by a previous version are imported once into the database |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one scan (1 to 7200) |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans running at the same time in one Controller server process (`503` beyond) |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments of `scan_code` [delegated by the MCP server](../review/analysis/opengrep.md#fragment-scans-scan_code) scanned at the same time, in their own slots (`503` beyond); `0`: rules only for the fragments |

@@ -96,6 +96,11 @@ spec:
             # SECREVIEW_SECRET_KEY (and the proxy variables when they hold credentials)
             - secretRef:
                 name: secreview-controller
+            # SECREVIEW_SCAN_ENGINE_TOKEN, when the optional scan engines are deployed
+            # (scan-engine.yaml): it turns them on
+            - secretRef:
+                name: secreview-scan-engine
+                optional: true
           env:
             # Swagger documentation of the REST API on /api/docs (disabled by default)
             # - name: SECREVIEW_SWAGGER_ENABLED
@@ -145,8 +150,14 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            # Copy of the OpenGrep rules of the database, written for OpenGrep (image -opengrep):
+            # a cache of this pod, never shared between replicas (the rules are in the database)
+            - name: opengrep-rules
+              mountPath: /var/lib/secreview/rules/opengrep
       volumes:
         - name: tmp
+          emptyDir: {}
+        - name: opengrep-rules
           emptyDir: {}
 ---
 apiVersion: v1

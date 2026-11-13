@@ -139,6 +139,8 @@ export interface Identity {
   risk_acceptance_min_severity?: Severity | null;
   /** False when the server offers no personal MCP token (OAuth login of the MCP clients). */
   personal_mcp_tokens?: boolean;
+  /** Default and longest validity in days of a new token (SECREVIEW_TOKEN_MAX_DAYS); 0: none. */
+  token_max_days?: number;
   /**
    * False when the server turned the personal MCP and CI tokens and the OAuth login off
    * (SECREVIEW_PERSONAL_TOKENS_ENABLED).
@@ -321,6 +323,7 @@ export type AuditAction =
   | 'audit_syslog.changed'
   | 'controller_url.changed'
   | 'mcp_scan_delegation.changed'
+  | 'osv_download.changed'
   | 'finding.exported'
   | 'connector.target_changed'
   | 'connector.changed'
@@ -374,6 +377,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'audit_syslog.changed',
   'controller_url.changed',
   'mcp_scan_delegation.changed',
+  'osv_download.changed',
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
@@ -1106,8 +1110,12 @@ export interface AppSettings {
     };
   };
   osv: {
+    /** Effective state and interval (variable, else web interface, else default). */
     download_enabled: boolean;
     update_interval_hours: number;
+    /** value: set in the web interface (null: never); env_set: the variable wins. */
+    download: { value: boolean | null; env_set: boolean };
+    interval: { value: number | null; env_set: boolean };
     url: string;
     /** value: chosen in the web interface; env: SECREVIEW_OSV_ECOSYSTEMS; env_set: the variable
      * is set and takes precedence; effective: comma separated; supported: those to choose from. */
@@ -1345,5 +1353,19 @@ export interface ServerInstance {
   /** MCP server: scan_code goes to the Controller server. */
   delegated: boolean;
   /** MCP server: the most scan_code calls run at once since its previous heartbeat. */
+  processing_fragments: number;
+  /** MCP server: the agents that sent it a request lately, the most recent first. */
+  agents?: AgentActivity[];
+}
+
+/** An agent seen lately by an MCP server: an opaque key and its MCP client, never a person. */
+export interface AgentActivity {
+  /** Opaque key, only stable within one MCP server process. */
+  id: string;
+  /** Name and version given by its MCP client (clientInfo), e.g. claude-code. */
+  client: string;
+  client_version: string;
+  last_seen: string;
+  /** The most scan_code calls it ran at once since the previous heartbeat. */
   processing_fragments: number;
 }

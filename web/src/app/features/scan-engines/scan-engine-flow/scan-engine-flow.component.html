@@ -35,8 +35,21 @@
       }
     }
     <!-- The agents call scan_code on an MCP server, which delegates it to the Controller server -->
+    <!-- Each agent seen lately, linked to the MCP server it calls -->
+    @for (agent of agentNodes(); track agent.id) {
+      @for (path of agent.paths; track path) {
+        <path class="link link-fragment" [class.idle]="!agent.busy" [attr.d]="path" />
+        @if (agent.busy) {
+          <circle class="dot dot-fragment" r="5">
+            <animateMotion dur="1.6s" repeatCount="indefinite" [attr.path]="path" />
+          </circle>
+        }
+      }
+    }
     @for (node of mcpNodes(); track node.instance.id) {
-      <path class="link link-fragment" [class.idle]="!node.busy" [attr.d]="node.inPath" />
+      @if (node.inPath) {
+        <path class="link link-fragment" [class.idle]="!node.busy" [attr.d]="node.inPath" />
+      }
       <path
         class="link link-fragment"
         [class.idle]="!node.busy"
@@ -44,9 +57,11 @@
         [attr.d]="node.outPath"
       />
       @if (node.busy) {
-        <circle class="dot dot-fragment" r="5">
-          <animateMotion dur="1.6s" repeatCount="indefinite" [attr.path]="node.inPath" />
-        </circle>
+        @if (node.inPath) {
+          <circle class="dot dot-fragment" r="5">
+            <animateMotion dur="1.6s" repeatCount="indefinite" [attr.path]="node.inPath" />
+          </circle>
+        }
         @if (node.instance.delegated) {
           <circle class="dot dot-fragment" r="5">
             <animateMotion
@@ -105,7 +120,7 @@
           class="ring ring-track"
           [attr.cx]="source.x"
           [attr.cy]="source.y"
-          [attr.r]="sourceRing"
+          [attr.r]="source.r - ringInset"
           [attr.stroke-width]="ring"
         />
         @for (arc of source.arcs; track arc.kind) {
@@ -114,7 +129,7 @@
             [class]="'ring-' + arc.kind"
             [attr.cx]="source.x"
             [attr.cy]="source.y"
-            [attr.r]="sourceRing"
+            [attr.r]="source.r - ringInset"
             [attr.stroke-width]="ring"
             [attr.stroke-dasharray]="arc.dash"
             [attr.stroke-dashoffset]="arc.offset"
@@ -139,11 +154,47 @@
             }
           </div>
         </foreignObject>
-        <text class="label" [attr.x]="source.x" [attr.y]="source.y + source.r + 20">
+        <text class="label" [attr.x]="source.x" [attr.y]="source.labelY">
           {{
             (source.kind === 'codebase' ? 'scanEngines.flowPipelines' : 'scanEngines.flowAgents')
               | t
           }}
+        </text>
+      </g>
+    }
+
+    <!-- One node per agent seen lately (its MCP client, never a person), or "+N" for the others -->
+    @for (agent of agentNodes(); track agent.id) {
+      <g class="node source-fragment" [class.idle]="!agent.busy">
+        <title>
+          {{ agent.titleKey | t: agent.titleParams }}
+        </title>
+        <circle class="surface" [attr.cx]="agent.x" [attr.cy]="agent.y" [attr.r]="agentRadius" />
+        <circle
+          class="ring ring-track"
+          [class.ring-fragment]="agent.busy"
+          [attr.cx]="agent.x"
+          [attr.cy]="agent.y"
+          [attr.r]="agentRing"
+          [attr.stroke-width]="ring"
+        />
+        <foreignObject
+          [attr.x]="agent.x - agentRadius"
+          [attr.y]="agent.y - agentRadius"
+          [attr.width]="agentRadius * 2"
+          [attr.height]="agentRadius * 2"
+        >
+          <div class="content">
+            @if (agent.agent) {
+              <i class="bi bi-robot" aria-hidden="true"></i>
+              <span class="value">{{ agent.processing }}</span>
+            } @else {
+              <span class="value">+{{ agent.more }}</span>
+            }
+          </div>
+        </foreignObject>
+        <text class="label" [attr.x]="agent.x" [attr.y]="agent.y + agentRadius + 18">
+          {{ agent.agent ? agent.label : ('scanEngines.flowMoreAgents' | t) }}
         </text>
       </g>
     }
@@ -363,33 +414,3 @@
     }
   </svg>
 </div>
-
-<ul class="legend list-inline small text-body-secondary mb-0">
-  <li class="list-inline-item">
-    <span class="swatch swatch-codebase" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendCodebase' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-fragment" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendFragment' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-engine-idle" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendEngineIdle' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-heartbeat" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendHeartbeat' | t }}
-  </li>
-  <li class="list-inline-item">
-    <span class="swatch swatch-controller-heartbeat" aria-hidden="true"></span>
-    {{ 'scanEngines.flowLegendControllerHeartbeat' | t }}
-  </li>
-  @if (mcpNodes().length) {
-    <li class="list-inline-item">
-      <span class="swatch swatch-mcp" aria-hidden="true"></span>
-      {{ 'scanEngines.flowLegendMcp' | t }}
-    </li>
-  }
-  <li class="list-inline-item">{{ 'scanEngines.flowLegendLive' | t }}</li>
-</ul>

@@ -30,7 +30,8 @@ On the **Tokens** page, an administrator chooses:
 - the **Usage**: **MCP**, **CI/CD pipeline** or **REST API** (with the **Role** it holds);
 - the **Allowed projects**, ticked in a drop-down list with a search: **All projects**
   (including the projects reviewed later, never for a CI/CD token) or some projects;
-- the **Validity**: from 30 days to 1 year.
+- the **Validity**: from 30 days to 1 year, or **Server default**, followed by its duration in
+  brackets: `SECREVIEW_TOKEN_MAX_DAYS`, or no expiry when it is `0`.
 
 A token never grants more than its creator holds: an **MCP** or **CI/CD pipeline** token saves
 reports on its projects, so its creator needs **Write the reports** (`reports.write`) there. The

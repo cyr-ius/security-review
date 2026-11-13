@@ -13,7 +13,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/api/v1/auth/` | the login page: password and [OIDC](../oidc.md) login | none |
 | `/api/v1/` | the web interface, scripts, Swagger | web session, `admin` or `api` token |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token (personal or not) |
-| `/api/v1/scan/content` | the MCP server: `scan_code` [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code) (reads and stores nothing) | `mcp` or `admin` token of the agent, relayed |
+| `/api/v1/scan/content` | the MCP server: `scan_code` [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code) (reads and stores nothing; `404` while the delegation is off) | `mcp` or `admin` token of the agent, relayed |
 | `/api/v1/scan/tickets` | the MCP server: single-use ticket of `start_codebase_scan` ([scan started by the agent](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)), then used by `security-review-ci` on `/api/v1/ci/scan/code` and `/scan/deps` | `mcp` or `admin` token of the agent, relayed |
 | `/engine/v1/enroll`, `/engine/v1/token` | the [scan engines](scan-engine.md#enrollment-and-access-tokens): enrollment, then OAuth access token (`client_credentials`); served only with `SECREVIEW_SCAN_ENGINE_TOKEN` | shared secret of the engines, then the client of each engine |
 | `/api/v1/engine/` | the scan engines: their rules and OpenGrep rules ([rules](scan-engine.md#rules)) | access token of an enrolled engine only |
@@ -36,8 +36,9 @@ management in [Bearer tokens](../bearer-tokens.md).
 2. checks the settings (TLS, OIDC, OSV, syslog, connectors): an invalid value stops it with
    code `2`;
 3. creates the [first administrator](#first-administrator) while no account exists;
-4. while OpenGrep is enabled and its executable is present (`-opengrep` image), installs or updates the
-   [default OpenGrep rules](../../review/analysis/opengrep.md#default-rules) (a failure is
+4. installs or updates the
+   [default OpenGrep rules](../../review/analysis/opengrep.md#default-rules) in the database, with
+   or without OpenGrep, after importing once the rule files of a previous version (a failure is
    logged and does not stop it);
 5. starts the background tasks, then serves the routes.
 
@@ -51,7 +52,7 @@ locks between replicas and dedicated migration job: see
 
 | Task | Enabled by | Details |
 |---|---|---|
-| Daily update of the OSV advisories | `SECREVIEW_OSV_AUTO_UPDATE=true` (off by default) | [Automatic update by the Controller server](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server) |
+| Daily update of the OSV advisories | `SECREVIEW_OSV_AUTO_UPDATE=true` or the **OSV database** page (off by default) | [Automatic update by the Controller server](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server) |
 | Purge of the reports without findings and of the audit log | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Retention](../database.md#retention-of-reports-without-findings), [audit retention](../audit-log.md#retention) |
 | Forwarding of the audit log to syslog | a syslog server set in the environment or in the interface | [Forwarding to syslog](../audit-log.md#forwarding-to-syslog) |
 | Automatic sending of the findings by the connectors | a connector switched on, a severity threshold on the project; `SECREVIEW_CONNECTORS_ENABLED=false` locks everything | [Connectors](../../usage/connectors/index.md) |
@@ -270,7 +271,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Settings stored in the database
 
-The **General** (report language, Controller server address, outgoing proxy), **OSV database** (downloaded ecosystems) and **Sign-in** (OIDC) pages of the
+The **General** (report language, Controller server address, outgoing proxy), **OSV database** (downloaded ecosystems) pages and the **OIDC sign-in** tab of the **Users** page of the
 [web interface](../../usage/index.md) store settings in the database, shared by the MCP
 server and the Controller server (`settings.manage` permission; the former `/ui/settings`,
 `/ui/settings/language` and `/ui/settings/proxy` addresses open **General**). **An environment variable that is set
@@ -287,6 +288,7 @@ address** fills in the address of this Controller server.
 | `PUT /api/v1/settings/controller-url` | `value` (`null` deletes it) |
 | `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown or while `SECREVIEW_SCANCODE_DELEGATED` is set; audited, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` and `no_proxy`: `null` deletes the stored value, `"url": ""` forces the direct connection, a missing field is unchanged. Passwords are never shown again (`***`): sending `***` back keeps the stored one |
+| `PUT /api/v1/settings/osv-download` | `enabled` (boolean) and `update_interval_hours` (`1` to `8760`), each optional: turns on or off the OSV download and sets its interval, applied within 15 minutes (`422` when the variable of a given field is set or the download settings are invalid; audited, `osv_download.changed`) |
 | `PUT /api/v1/settings/osv-ecosystems` | `ecosystems`: list of the ecosystems to download, among `supported` of `GET /api/v1/settings` (`422` for an empty list or an unknown ecosystem); `null` deletes it (`SECREVIEW_OSV_ECOSYSTEMS` or its default applies again) |
 
 A value whose variable is set is refused with `422`. The OIDC settings have their own routes

@@ -11,8 +11,6 @@ export const access = defineMessages({
     'access.stale':
       'Another administrator changed this list since it was loaded: it has been reloaded, check it and save again.',
     'access.failed': 'The management of the access failed.',
-    'roles.subtitle':
-      'Named sets of permissions on the whole Controller server, given to users and by the OIDC mappings',
     'roles.help':
       'A role holds permissions on the whole Controller server (rules, tokens, users, audit...). The per-project permissions (reading, triage) are not in the roles: they are given with each project of a user, or with every project. The built-in role admin can be neither changed nor deleted. A change applies at once to the open sessions.',
     'roles.editTitle': 'Edit the role “{role}”',
@@ -132,8 +130,6 @@ export const access = defineMessages({
     'access.stale':
       'Un autre administrateur a modifié cette liste depuis son chargement : elle a été rechargée, vérifiez-la puis enregistrez de nouveau.',
     'access.failed': 'La gestion des accès a échoué.',
-    'roles.subtitle':
-      'Ensembles nommés de droits sur tout le serveur Controller, donnés aux utilisateurs et par les correspondances OIDC',
     'roles.help':
       "Un rôle porte des droits sur tout le serveur Controller (règles, jetons, utilisateurs, audit...). Les droits par projet (lecture, triage) ne sont pas dans les rôles : ils se donnent avec chaque projet d'un utilisateur, ou avec tous les projets. Le rôle intégré admin ne peut être ni modifié ni supprimé. Une modification s'applique aussitôt aux sessions ouvertes.",
     'roles.editTitle': 'Modifier le rôle « {role} »',
@@ -254,8 +250,6 @@ export const access = defineMessages({
     'access.stale':
       'Otro administrador modificó esta lista desde que se cargó: se ha recargado, revísela y guarde de nuevo.',
     'access.failed': 'La gestión de los accesos falló.',
-    'roles.subtitle':
-      'Conjuntos nombrados de permisos sobre todo el servidor Controller, asignados a usuarios y por las correspondencias OIDC',
     'roles.help':
       'Un rol contiene permisos sobre todo el servidor Controller (reglas, tokens, usuarios, auditoría...). Los permisos por proyecto (lectura, clasificación) no están en los roles: se asignan con cada proyecto de un usuario, o con todos los proyectos. El rol integrado admin no puede modificarse ni eliminarse. Un cambio se aplica de inmediato a las sesiones abiertas.',
     'roles.editTitle': 'Editar el rol «{role}»',

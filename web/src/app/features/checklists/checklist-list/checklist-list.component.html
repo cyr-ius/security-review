@@ -160,55 +160,65 @@
         }
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label" for="checklist-domain">{{ 'checklists.domain' | t }}</label>
+            <label class="form-label small mb-1" for="checklist-domain">{{
+              'checklists.domain' | t
+            }}</label>
             @if (editingItem()) {
               <input
                 id="checklist-domain"
-                class="form-control font-monospace"
+                class="form-control form-control-sm font-monospace"
                 [value]="formModel().domain"
                 readonly
               />
             } @else {
               <input
                 id="checklist-domain"
-                class="form-control font-monospace"
+                class="form-control form-control-sm font-monospace"
                 placeholder="company"
                 [formField]="itemForm.domain"
               />
             }
           </div>
           <div class="col-md-4">
-            <label class="form-label" for="checklist-id">{{ 'rules.id' | t }}</label>
+            <label class="form-label small mb-1" for="checklist-id">{{ 'rules.id' | t }}</label>
             @if (editingItem()) {
               <input
                 id="checklist-id"
-                class="form-control font-monospace"
+                class="form-control form-control-sm font-monospace"
                 [value]="formModel().id"
                 readonly
               />
             } @else {
               <input
                 id="checklist-id"
-                class="form-control font-monospace"
+                class="form-control form-control-sm font-monospace"
                 [formField]="itemForm.id"
               />
             }
           </div>
           <div class="col-md-4">
-            <label class="form-label" for="checklist-cwe">CWE</label>
+            <label class="form-label small mb-1" for="checklist-cwe">CWE</label>
             <input
               id="checklist-cwe"
-              class="form-control"
+              class="form-control form-control-sm"
               placeholder="CWE-862"
               [formField]="itemForm.cwe"
             />
           </div>
           <div class="col-12">
-            <label class="form-label" for="checklist-title">{{ 'rules.titleField' | t }}</label>
-            <input id="checklist-title" class="form-control" [formField]="itemForm.title" />
+            <label class="form-label small mb-1" for="checklist-title">{{
+              'rules.titleField' | t
+            }}</label>
+            <input
+              id="checklist-title"
+              class="form-control form-control-sm"
+              [formField]="itemForm.title"
+            />
           </div>
           <div class="col-12">
-            <label class="form-label" for="checklist-what">{{ 'checklists.check' | t }}</label>
+            <label class="form-label small mb-1" for="checklist-what">{{
+              'checklists.check' | t
+            }}</label>
             <app-markdown-field
               inputId="checklist-what"
               [rows]="4"

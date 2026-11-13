@@ -265,7 +265,7 @@ def _write(tmp_path, record):
 
 
 def test_updater_runs_an_update_when_due_then_stops(monkeypatch):
-    updater = advisory_sync.AdvisoryUpdater(make_settings())
+    updater = advisory_sync.AdvisoryUpdater(make_settings(osv_auto_update=True))
     calls = []
 
     def fake_update(settings):
@@ -281,7 +281,7 @@ def test_updater_runs_an_update_when_due_then_stops(monkeypatch):
 
 
 def test_updater_survives_an_unexpected_error(monkeypatch, caplog):
-    updater = advisory_sync.AdvisoryUpdater(make_settings())
+    updater = advisory_sync.AdvisoryUpdater(make_settings(osv_auto_update=True))
 
     def broken_update(settings):
         updater.stop()
@@ -293,6 +293,26 @@ def test_updater_survives_an_unexpected_error(monkeypatch, caplog):
         updater.run()
 
     assert "next attempt in 1 hour" in caplog.text
+
+
+def test_updater_follows_the_download_turned_on_in_the_web_interface(monkeypatch):
+    settings = make_settings()
+    updater = advisory_sync.AdvisoryUpdater(
+        settings, current=lambda: app_settings.effective_settings(settings)
+    )
+    calls = []
+    monkeypatch.setattr(
+        advisory_sync,
+        "update_advisories",
+        lambda current: calls.append(current) or {"source": "", "ecosystems": {}},
+    )
+
+    # Off: it only waits, then reads the settings again
+    assert updater.step() == advisory_sync.OSV_CHECK_SECONDS and calls == []
+
+    app_settings.set_osv_download(True, None, "admin", settings)
+    assert updater.step() == advisory_sync.RETRY_SECONDS
+    assert len(calls) == 1 and calls[0].osv_auto_update
 
 
 def test_updater_does_nothing_once_stopped(monkeypatch):

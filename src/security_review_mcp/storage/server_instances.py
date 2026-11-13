@@ -4,15 +4,25 @@ Each Controller process, and each MCP server of the HTTP transport, keeps a row 
 ``serverinstance`` up to date every HEARTBEAT_SECONDS, and at once (at most every
 MIN_HEARTBEAT_SECONDS) when its activity changes; it deletes it when it stops cleanly. The
 Scan engines page shows the processes whose heartbeat is younger than ACTIVE_SECONDS: an MCP
-server with the scan_code calls it runs now, and whether it delegates them to the Controller
-server. The rows of the processes gone without stopping are deleted after STALE_RETENTION.
+server with the scan_code calls it runs now, whether it delegates them to the Controller
+server, and the agents that sent it a request in the last AGENT_ACTIVE_SECONDS. The rows of the
+processes gone without stopping are deleted after STALE_RETENTION.
+
+An agent is never named after a person: it is an opaque key (an HMAC of its token id and of the
+name of its MCP client, with a secret drawn at the start of the process, so neither reversible
+nor comparable between processes) and the name and version its MCP client gives at the
+initialization of the session (``clientInfo``, e.g. ``claude-code``), bounded and printable.
 
 Shared by the two processes: no network, no module of the controller. The MCP server never
 migrates the schema: while the table is missing (Controller server not upgraded yet), its
 heartbeat fails, is logged, and is tried again.
 """
 
+import hashlib
+import hmac
+import json
 import logging
+import secrets
 import socket
 import threading
 from collections.abc import Callable, Iterator
@@ -36,6 +46,57 @@ ACTIVE_SECONDS = 30
 STALE_RETENTION = timedelta(days=1)
 # Bound of the scan_code calls an MCP server reports (a gauge, never above its threads)
 MAX_PROCESSING = 100_000
+# An agent shows while its last request is younger than this, or while a scan_code call runs
+AGENT_ACTIVE_SECONDS = 300
+# Agents an MCP server reports, the most recent first (the column holds 16000 characters)
+MAX_AGENTS = 50
+MAX_AGENTS_CHARS = 16000
+MAX_CLIENT_CHARS = 64
+MAX_CLIENT_VERSION_CHARS = 40
+
+
+def _printable(value: object, limit: int) -> str:
+    """A name given by an MCP client, printable and bounded ('' when it is not a string)."""
+    if not isinstance(value, str):
+        return ""
+    return "".join(c for c in value if c.isprintable()).strip()[:limit]
+
+
+def _encode_agents(agents: list[dict[str, Any]]) -> str:
+    """The agents as JSON, dropping the oldest until the column holds them."""
+    agents = agents[:MAX_AGENTS]
+    while True:
+        encoded = json.dumps(agents, separators=(",", ":"))
+        if len(encoded) <= MAX_AGENTS_CHARS or not agents:
+            return encoded
+        agents = agents[:-1]
+
+
+def _decode_agents(raw: str) -> list[dict[str, Any]]:
+    """The agents of a row, checked (a malformed row gives none)."""
+    try:
+        agents = json.loads(raw or "[]")
+    except ValueError:
+        return []
+    if not isinstance(agents, list):
+        return []
+    decoded = []
+    for agent in agents[:MAX_AGENTS]:
+        if not isinstance(agent, dict) or not isinstance(agent.get("id"), str):
+            continue
+        processing = agent.get("processing_fragments")
+        decoded.append(
+            {
+                "id": agent["id"][:32],
+                "client": _printable(agent.get("client"), MAX_CLIENT_CHARS),
+                "client_version": _printable(agent.get("client_version"), MAX_CLIENT_VERSION_CHARS),
+                "last_seen": _printable(agent.get("last_seen"), 40),
+                "processing_fragments": max(0, min(processing, MAX_PROCESSING))
+                if isinstance(processing, int)
+                else 0,
+            }
+        )
+    return decoded
 
 
 def register_instance(
@@ -95,6 +156,8 @@ def heartbeat(
             instance.processing_fragments = max(
                 0, min(int(activity["processing_fragments"]), MAX_PROCESSING)
             )
+        if "agents" in activity:
+            instance.agents = _encode_agents(list(activity["agents"]))
         session.add(instance)
 
 
@@ -124,9 +187,21 @@ def active_instances(kind: ServerKind) -> list[dict[str, Any]]:
                 "heartbeat_at": as_utc(row.heartbeat_at),
                 "delegated": row.delegated,
                 "processing_fragments": row.processing_fragments,
+                "agents": _decode_agents(row.agents),
             }
             for row in rows
         ]
+
+
+class _Agent:
+    """An agent seen by this MCP server (see the module docstring)."""
+
+    def __init__(self, client: str, client_version: str) -> None:
+        self.client = client
+        self.client_version = client_version
+        self.last_seen = utcnow()
+        self.processing = 0
+        self.peak = 0
 
 
 class ServerHeartbeat:
@@ -134,7 +209,8 @@ class ServerHeartbeat:
 
     ``delegated`` (MCP server) tells at each heartbeat whether scan_code goes to the Controller
     server; ``processing`` counts the scan_code calls running now and wakes the heartbeat, which
-    reports the most calls run at once since the previous one.
+    reports the most calls run at once since the previous one; ``seen`` records a request of an
+    agent.
     """
 
     def __init__(self, kind: ServerKind, delegated: Callable[[], bool] | None = None) -> None:
@@ -147,6 +223,9 @@ class ServerHeartbeat:
         # Most calls running at once since the last heartbeat: a call shorter than the delay
         # of the heartbeat still shows
         self._peak = 0
+        # Agents by opaque key, and the secret of their keys (never stored)
+        self._agents: dict[str, _Agent] = {}
+        self._agent_secret = secrets.token_bytes(32)
         self._lock = threading.Lock()
         self._wake = threading.Event()
         self._stop = threading.Event()
@@ -174,32 +253,88 @@ class ServerHeartbeat:
         except Exception:
             logger.exception("Could not delete the %s instance", self.kind.value)
 
+    def agent_key(self, token_id: object, client: str) -> str:
+        """Opaque key of the agent using the token ``token_id`` with the MCP client ``client``."""
+        message = f"{token_id}\0{client}".encode()
+        return hmac.new(self._agent_secret, message, hashlib.sha256).hexdigest()[:16]
+
+    def seen(self, token_id: object, client: object, client_version: object) -> str:
+        """Record a request of an agent and return its key; a new agent wakes the heartbeat."""
+        name = _printable(client, MAX_CLIENT_CHARS) or "unknown"
+        version = _printable(client_version, MAX_CLIENT_VERSION_CHARS)
+        key = self.agent_key(token_id, name)
+        with self._lock:
+            agent = self._agents.get(key)
+            new = agent is None
+            if agent is None:
+                agent = self._agents[key] = _Agent(name, version)
+                if len(self._agents) > MAX_AGENTS:
+                    idle = [k for k, a in self._agents.items() if not a.processing]
+                    if idle:
+                        oldest = min(idle, key=lambda k: self._agents[k].last_seen)
+                        del self._agents[oldest]
+            agent.client_version = version or agent.client_version
+            agent.last_seen = utcnow()
+        if new:
+            self._wake.set()
+        return key
+
     @contextmanager
-    def processing(self) -> Iterator[None]:
-        """Count a scan_code call as running while the block runs, waking the heartbeat when it
-        starts and ends."""
+    def processing(self, agent: str | None = None) -> Iterator[None]:
+        """Count a scan_code call (of the agent ``agent``) as running while the block runs,
+        waking the heartbeat when it starts and ends."""
         with self._lock:
             self._processing += 1
             self._peak = max(self._peak, self._processing)
+            counted = self._agents.get(agent) if agent else None
+            if counted is not None:
+                counted.processing += 1
+                counted.peak = max(counted.peak, counted.processing)
         self._wake.set()
         try:
             yield
         finally:
             with self._lock:
                 self._processing -= 1
+                if counted is not None:
+                    counted.processing -= 1
+                    counted.last_seen = utcnow()
             self._wake.set()
+
+    def _active_agents(self) -> list[dict[str, Any]]:
+        """The agents seen lately or running a scan_code call, the most recent first; the others
+        are forgotten. Called with the lock held."""
+        limit = utcnow() - timedelta(seconds=AGENT_ACTIVE_SECONDS)
+        for key in [k for k, a in self._agents.items() if a.last_seen < limit and not a.processing]:
+            del self._agents[key]
+        agents = []
+        for key, agent in sorted(
+            self._agents.items(), key=lambda item: item[1].last_seen, reverse=True
+        ):
+            agents.append(
+                {
+                    "id": key,
+                    "client": agent.client,
+                    "client_version": agent.client_version,
+                    "last_seen": as_utc(agent.last_seen).isoformat(),
+                    "processing_fragments": agent.peak,
+                }
+            )
+            agent.peak = agent.processing
+        return agents[:MAX_AGENTS]
 
     def activity(self) -> dict[str, Any]:
         """What the heartbeat records besides its date."""
         with self._lock:
             processing, self._peak = self._peak, self._processing
+            agents = self._active_agents()
         delegated = False
         if self._delegated is not None:
             try:
                 delegated = self._delegated()
             except Exception:
                 logger.exception("Could not read whether scan_code is delegated")
-        return {"delegated": delegated, "processing_fragments": processing}
+        return {"delegated": delegated, "processing_fragments": processing, "agents": agents}
 
     def beat(self) -> None:
         """Write the heartbeat now."""

@@ -188,7 +188,7 @@
       <form class="dismissal border rounded p-3 mb-2" (submit)="submitSeverity($event)" novalidate>
         <p class="fw-semibold mb-2">{{ 'report.severityTitle' | t: { id: finding().id } }}</p>
         <div class="mb-2">
-          <label class="form-label" [for]="'severity-' + finding().id">{{
+          <label class="form-label small mb-1" [for]="'severity-' + finding().id">{{
             'report.severityNew' | t
           }}</label>
           <select
@@ -206,7 +206,7 @@
           </div>
         </div>
         <div class="mb-3">
-          <label class="form-label" [for]="'severity-reason-' + finding().id">{{
+          <label class="form-label small mb-1" [for]="'severity-reason-' + finding().id">{{
             'report.severityReason' | t
           }}</label>
           <textarea
@@ -281,7 +281,7 @@
           {{ 'report.dismissTitle' | t: { status: statusMeta[pending].label | t } }}
         </p>
         <div class="mb-2">
-          <label class="form-label" [for]="'reason-' + finding().id">{{
+          <label class="form-label small mb-1" [for]="'reason-' + finding().id">{{
             'report.dismissReason' | t
           }}</label>
           <textarea
@@ -300,7 +300,7 @@
         </div>
         @if (expiryAsked()) {
           <div class="mb-3">
-            <label class="form-label" [for]="'expiry-' + finding().id">{{
+            <label class="form-label small mb-1" [for]="'expiry-' + finding().id">{{
               'report.dismissExpiry' | t
             }}</label>
             @if (!withoutExpiry()) {

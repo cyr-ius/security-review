@@ -96,20 +96,31 @@ export const routes: Routes = [
       },
       {
         path: 'rules',
-        title: 'layout.rules',
         canActivate: [permissionGuard('rules.read')],
         loadComponent: () =>
-          import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
-      },
-      {
-        path: 'opengrep-rules',
-        title: 'opengrepRules.title',
-        canActivate: [permissionGuard('rules.read')],
-        loadComponent: () =>
-          import('./features/opengrep-rules/opengrep-rule-list.component').then(
-            (m) => m.OpenGrepRuleListComponent,
+          import('./features/rules/rules-page/rules-page.component').then(
+            (m) => m.RulesPageComponent,
           ),
+        children: [
+          {
+            path: '',
+            title: 'layout.rules',
+            loadComponent: () =>
+              import('./features/rules/rule-list/rule-list.component').then(
+                (m) => m.RuleListComponent,
+              ),
+          },
+          {
+            path: 'opengrep',
+            title: 'opengrepRules.title',
+            loadComponent: () =>
+              import('./features/opengrep-rules/opengrep-rule-list.component').then(
+                (m) => m.OpenGrepRuleListComponent,
+              ),
+          },
+        ],
       },
+      { path: 'opengrep-rules', pathMatch: 'full', redirectTo: 'rules/opengrep' },
       {
         path: 'checklists',
         title: 'layout.checklists',
@@ -144,10 +155,33 @@ export const routes: Routes = [
       },
       {
         path: 'users',
-        title: 'layout.users',
         canActivate: [permissionGuard('users.manage')],
         loadComponent: () =>
-          import('./features/users/user-list.component').then((m) => m.UserListComponent),
+          import('./features/users/users-page/users-page.component').then(
+            (m) => m.UsersPageComponent,
+          ),
+        children: [
+          {
+            path: '',
+            title: 'layout.users',
+            loadComponent: () =>
+              import('./features/users/user-list.component').then((m) => m.UserListComponent),
+          },
+          {
+            path: 'roles',
+            title: 'layout.roles',
+            loadComponent: () =>
+              import('./features/access/role-list/role-list.component').then(
+                (m) => m.RoleListComponent,
+              ),
+          },
+          {
+            path: 'sso',
+            title: 'layout.sso',
+            loadComponent: () =>
+              import('./features/sso/sso-page/sso-page.component').then((m) => m.SsoPageComponent),
+          },
+        ],
       },
       {
         path: 'tokens',
@@ -168,8 +202,8 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'scan-engines',
-        title: 'layout.scanEngines',
+        path: 'activity',
+        title: 'layout.activity',
         canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
           import('./features/scan-engines/scan-engine-list.component').then(
@@ -183,28 +217,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/audit/audit-log/audit-log.component').then((m) => m.AuditLogComponent),
       },
+      // Former address of the Activity page, named after the scan engines it lists
+      { path: 'scan-engines', pathMatch: 'full', redirectTo: 'activity' },
       // Former page of the groups, replaced by the roles of the users and the OIDC mappings
       { path: 'groups', pathMatch: 'full', redirectTo: 'users' },
       // Former single settings page, split into the three pages below
       { path: 'settings', pathMatch: 'full', redirectTo: 'settings/general' },
-      {
-        path: 'roles',
-        title: 'layout.roles',
-        canActivate: [permissionGuard('users.manage')],
-        loadComponent: () =>
-          import('./features/access/role-list/role-list.component').then(
-            (m) => m.RoleListComponent,
-          ),
-      },
-      {
-        path: 'sso',
-        title: 'layout.sso',
-        canActivate: [permissionGuard('users.manage')],
-        loadComponent: () =>
-          import('./features/sso/sso-page/sso-page.component').then((m) => m.SsoPageComponent),
-      },
-      // Former address of the OIDC page
-      { path: 'role-mappings', pathMatch: 'full', redirectTo: 'sso' },
+      // Former addresses of the Roles and OIDC pages, now tabs of the Users page
+      { path: 'roles', pathMatch: 'full', redirectTo: 'users/roles' },
+      { path: 'sso', pathMatch: 'full', redirectTo: 'users/sso' },
+      { path: 'role-mappings', pathMatch: 'full', redirectTo: 'users/sso' },
       {
         path: 'settings/general',
         title: 'settings.generalTitle',

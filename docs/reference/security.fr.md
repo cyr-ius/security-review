@@ -118,12 +118,13 @@
   jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
   journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
   `start_codebase_scan` demande de la même façon un ticket de scan (`POST /api/v1/scan/tickets`).
-  Un jeton `mcp` n'atteint que ces deux routes. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
-  (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
+  Un jeton `mcp` n'atteint que ces deux routes, et celle du scan répond `404` tant que la délégation
+  est désactivée. Le serveur Controller ne télécharge les avis OSV que si un administrateur l'active
+  (`SECREVIEW_OSV_AUTO_UPDATE`, la page **Base OSV**, auditée, ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
   journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
-  accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
+  accepté que si le téléchargement est activé. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
   la page **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
@@ -171,7 +172,7 @@
   OpenGrep. Un moteur ne lit aucune base de données : il s'enrôle auprès du serveur Controller à
   `SECREVIEW_CONTROLLER_URL` avec le même secret, obtient son propre client OAuth
   (`client_credentials`, seules les empreintes SHA-256 sont gardées, révocable dans la page
-  **Moteurs de scan**) et lit les règles avec un jeton d'accès de courte durée, de rôle `engine`,
+  **Activité**) et lit les règles avec un jeton d'accès de courte durée, de rôle `engine`,
   qui n'atteint que `/api/v1/engine/*` ; vers cette URL uniquement, sans proxy ni redirection,
   réponses bornées et validées : c'est sa seule connexion sortante.
 - **Administrateur initial** : créé par le serveur Controller à son premier démarrage avec un mot de
@@ -372,7 +373,7 @@
 - Le scan par motifs produit des pistes et des faux positifs. Avec le
   [moteur OpenGrep](../review/analysis/opengrep.md), le scan est une analyse statique (SAST) qui
   suit le flux de données dans un fichier, d'une fonction à l'autre, mais pas d'un fichier à
-  l'autre ([mesurée sur l'OWASP Benchmark](../advanced/detection-benchmark.md)). Aucun
+  l'autre ([mesurée sur l'OWASP Benchmark](detection-benchmark.md)). Aucun
   des deux ne remplace une analyse SCA complète (pas de résolution transitive des manifestes,
   base à tenir à jour) ni une relecture humaine.
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les

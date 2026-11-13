@@ -1,7 +1,7 @@
 <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'pack.group' | t">
   <button
     type="button"
-    class="btn btn-outline-secondary"
+    class="btn btn-sm btn-outline-secondary"
     [disabled]="busy()"
     [title]="'pack.exportHint' | t"
     (click)="exportRequested.emit()"
@@ -12,7 +12,7 @@
   @if (importable()) {
     <button
       type="button"
-      class="btn btn-outline-secondary"
+      class="btn btn-sm btn-outline-secondary"
       [disabled]="busy()"
       [title]="'pack.importHint' | t"
       (click)="chooseFile()"

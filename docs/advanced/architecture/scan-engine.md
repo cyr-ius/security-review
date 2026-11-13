@@ -61,9 +61,16 @@ database.
     ```
 
     With the image: `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine`;
-    with Compose: `docker compose --profile scan-engine up -d --scale scan-engine=3`; on
-    Kubernetes: `examples/kubernetes/scan-engine.yaml` (Deployment and NetworkPolicy, the pod IP
-    given in `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`).
+    with Compose: the file `examples/docker/docker-compose.scan-engines.yml`, the complete
+    deployment with two engines (see [Docker](../deployment/docker.md#scan-engines)); on
+    Kubernetes: `examples/kubernetes/scan-engine.yaml` (two replicas, Deployment and
+    NetworkPolicy, the pod IP given in `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, see
+    [Kubernetes](../deployment/kubernetes.md#scan-engines)).
+
+4. The engines get the OpenGrep rules from the database of the Controller server: the default
+   rules are installed there at its start, whatever its image. Run it with the **`-opengrep`
+   image**, of the same version as the engines, to create or edit OpenGrep rules in the web
+   interface (they are validated with OpenGrep first).
 
 An engine refuses to start without the secret or without `SECREVIEW_CONTROLLER_URL`. `SECREVIEW_PUBLIC_URL`, when set on an engine, takes precedence over
 `SECREVIEW_CONTROLLER_URL`.
@@ -99,7 +106,7 @@ An engine reads no database. At its start, each replica:
 5. when it stops (`SIGTERM`: rolling update, node drained, scale down), once its scans in
    progress are over, **leaves** the Controller server (`DELETE /api/v1/engine/self` with its
    access token), which forgets it at once. At its next start, on the same node or another one,
-   it enrolls as a new engine: the stopped engines do not pile up on the **Scan engines** page.
+   it enrolls as a new engine: the stopped engines do not pile up on the **Activity** page.
 
 ## How the scans reach the engines
 
@@ -124,18 +131,24 @@ scan.
 
 ## Administration
 
-The enrolled engines are listed on the [**Scan engines**](../../usage/index.md#pages) page
-(permission `settings.manage`) and by `security-review-controller engine list`: name, version,
+The enrolled engines are listed in the **Scan engines** section of the
+[**Activity**](../../usage/index.md#activity) page (permission `settings.manage`) and by `security-review-controller engine list`: name, version,
 state (active while its heartbeat is recent), URL, free slots, enrollment date and last activity,
 never a secret.
 
-Above the list, the **Activity** diagram shows the code scans running now. It shows even
+Above the list, the **Activity diagram** shows the code scans running now. It shows even
 without any engine (engines off, or none enrolled): then the agents, the MCP servers and the
 Controller server only, which says **Scans itself (engines off)** when the engines are off:
 
 - on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
   (`scan_code` fragments), with their occupied slots out of the slots of the active engines;
-- next to the agents, one yellow circle per running MCP server (HTTP transport), with the most
+- under the pipelines, one circle per agent that sent a request to an MCP server in the last
+  5 minutes, linked to that server, with its `scan_code` calls since the previous heartbeat.
+  An agent is shown by the name of its MCP client (for example `claude-code`), never by the name
+  of a person nor of a token; past 6 agents, a **+N** circle stands for the others. Without any
+  agent known (MCP servers of an earlier version), a single **Agents** circle stands for them;
+- next to the agents, one yellow circle per running MCP server (HTTP transport), larger than
+  the agents, with the most
   `scan_code` calls it ran at once since its previous heartbeat. The agents reach the Controller
   server through it; its link to the Controller server is dashed, with **Local scan**, while the
   delegation of `scan_code` is off: it then scans the fragments itself and they never reach the
@@ -154,6 +167,20 @@ every 2 seconds while it is visible. The number of active fragments counts concu
 requests, not distinct agents. Hovering a circle shows its details, including the counters since
 the engine started (they restart from zero when it restarts and enrolls again); the list below
 gives the same engines.
+
+The diagram has no legend; its colors are:
+
+| Color | Means |
+|---|---|
+| Blue | Code scans of the pipelines (`security-review-ci`, codebase reviews) |
+| Orange | Fragments sent by `scan_code` |
+| Yellow | An MCP server and its heartbeat (every 5 s, at once when `scan_code` runs) |
+| Purple | Heartbeat of the Controller server (every 5 s) |
+| Green | Heartbeat of an engine (every 5 s while it scans, 30 s when idle) |
+| Light green | An engine connected and idle |
+| Grey (dimmed) | An engine without a recent heartbeat |
+
+Moving dots are scans running now; rings show the occupied slots.
 
 - **Revoke** an engine (page, or `security-review-controller engine revoke <id>`): its client and
   its access token stop working at once, it receives no more scans, and its scans fail. It does not enroll again by itself:
@@ -179,7 +206,7 @@ Before each scan, an engine brings its copy of the rules of the Controller serve
   answers the SHA-256 of each rule, or `304` when unchanged. The engine compares them with its
   copy and downloads **only the new and changed rules** (`POST`, by batches of 20), checks each one
   against its digest, and drops the deleted ones. It writes this new version of the rules beside
-  the previous one in `SECREVIEW_OPENGREP_RULES_DIR` (a local directory, writable by the engine):
+  the previous one in `SECREVIEW_OPENGREP_RULES_DIR` (a local cache, writable by the engine):
   the scans already running keep the rules they started with, and the previous version is
   deleted when the last of them ends.
 

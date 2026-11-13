@@ -1,10 +1,12 @@
 import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ScanEngine, ScanEngineList } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import { describeError } from '../settings/settings-page';
@@ -14,9 +16,11 @@ import { ScanEngineFlowComponent } from './scan-engine-flow/scan-engine-flow.com
 const REFRESH_MS = 2_000;
 
 /**
- * Scan engines page (settings.manage): the flow of the code scans to the engines, then the engines
- * enrolled with the shared secret, with their version, address and last activity, each one
- * revocable (its access token stops working). The page reloads itself while it is visible.
+ * Activity page (settings.manage): the activity diagram of the agents, pipelines, MCP and
+ * Controller servers and scan engines, then the engines enrolled with the shared secret, with
+ * their version, address and last activity, each one revocable (its access token stops working).
+ * It links to the audit log, out of the menu for its users. The page reloads itself while it is
+ * visible.
  */
 @Component({
   selector: 'app-scan-engine-list',
@@ -24,6 +28,7 @@ const REFRESH_MS = 2_000;
     DatePipe,
     HelpLinkComponent,
     RefreshButtonComponent,
+    RouterLink,
     ScanEngineFlowComponent,
     TranslatePipe,
   ],
@@ -32,6 +37,9 @@ const REFRESH_MS = 2_000;
 export class ScanEngineListComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
+
+  /** The Audit log button: the page is out of the menu for those who can open this one. */
+  readonly canReadAudit = inject(AuthService).can('audit.read');
 
   readonly engineList = signal<ScanEngineList | null>(null);
   readonly initialLoading = signal(true);

@@ -70,10 +70,10 @@
   <h3 class="h6 mt-2">{{ 'mappings.addTitle' | t }}</h3>
   <form class="row g-2 align-items-start" (submit)="add($event)" novalidate>
     <div class="col-md-3">
-      <label for="mapping-claim" class="form-label">{{ 'mappings.claim' | t }}</label>
+      <label for="mapping-claim" class="form-label small mb-1">{{ 'mappings.claim' | t }}</label>
       <input
         id="mapping-claim"
-        class="form-control font-monospace"
+        class="form-control form-control-sm font-monospace"
         autocomplete="off"
         spellcheck="false"
         [placeholder]="'mappings.claimPlaceholder' | t"
@@ -82,10 +82,9 @@
       <div class="form-text">{{ 'mappings.claimHelp' | t }}</div>
     </div>
     <div class="col-md-4">
-      <label for="mapping-roles" class="form-label">{{ 'layout.roles' | t }}</label>
+      <label for="mapping-roles" class="form-label small mb-1">{{ 'layout.roles' | t }}</label>
       <app-multi-select-dropdown
         id="mapping-roles"
-        [small]="false"
         [label]="'layout.roles' | t"
         [allLabel]="'access.noRole' | t"
         [options]="roleOptions()"
@@ -94,16 +93,18 @@
       />
     </div>
     <div class="col-md-3">
-      <label for="mapping-all" class="form-label">{{ 'reports.allProjects' | t }}</label>
+      <label for="mapping-all" class="form-label small mb-1">{{ 'reports.allProjects' | t }}</label>
       <app-project-permissions
         id="mapping-all"
         [label]="'reports.allProjects' | t"
         [(permissions)]="allProjectsPermissions"
       />
-      <label for="mapping-projects" class="form-label mt-2">{{ 'mappings.projects' | t }}</label>
+      <label for="mapping-projects" class="form-label small mb-1 mt-2">{{
+        'mappings.projects' | t
+      }}</label>
       <input
         id="mapping-projects"
-        class="form-control font-monospace mb-1"
+        class="form-control form-control-sm font-monospace mb-1"
         autocomplete="off"
         spellcheck="false"
         placeholder="shop-api, billing"
@@ -116,8 +117,11 @@
       />
       <div class="form-text">{{ 'mappings.projectsHelp' | t }}</div>
     </div>
-    <div class="col-md-2 pt-md-4">
-      <button type="submit" class="btn btn-primary w-100" [disabled]="!canSubmit()">
+    <div class="col-md-2">
+      <div class="d-none d-md-block invisible" aria-hidden="true">
+        <span class="form-label small mb-1">.</span>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary w-100" [disabled]="!canSubmit()">
         <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'access.add' | t }}
       </button>
     </div>

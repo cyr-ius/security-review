@@ -39,6 +39,7 @@ exists exactly when the change was committed.
 | `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
 | `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** page, or copied from `SECREVIEW_PUBLIC_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
 | `mcp_scan_delegation.changed` | The [delegation of `scan_code`](../review/analysis/opengrep.md#fragment-scans-scan_code) to the Controller server address is turned on or off on the **General** page, or turned off by a change of that address (`enabled`) |
+| `osv_download.changed` | The [OSV download](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) is turned on or off, or its interval changed, on the **OSV database** page (`enabled`, `interval_hours`) |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** page |
 | `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, on the **MCP clients** page (one or all), by the client (`/revoke`), or with its user |
@@ -47,7 +48,7 @@ exists exactly when the change was committed.
 | `opengrep_rule.proposed` | An agent proposes an OpenGrep rule with `propose_opengrep_rule` (never installed by it), or replaces its pending proposal (`replaced`) |
 | `scan_engine.enrolled` / `scan_engine.revoked` / `scan_engine.left` / `scan_engine.expired` | A [scan engine](architecture/scan-engine.md#administration) enrolls with the shared secret (the actor is `engine:<name>`), is revoked by an administrator, leaves the Controller server when it stops (actor `engine:<name>`), or is deleted after `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` without being seen (actor `system`) |
 | `scan_ticket.issued` | The Controller server issues the single-use ticket of a [codebase scan started by an agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan) (`start_codebase_scan`); the actor is the token of the agent |
-| `opengrep_rule.approved` / `opengrep_rule.rejected` | A person logged in with `rules.manage` approves a [proposed rule](../review/analysis/opengrep.md#rules-proposed-by-agents) (the rule file is created; `edited` when the YAML was corrected) or rejects it |
+| `opengrep_rule.approved` / `opengrep_rule.rejected` | A person logged in with `rules.manage` approves a [proposed rule](../review/analysis/opengrep.md#rules-proposed-by-agents) (the rule is installed; `edited` when the YAML was corrected) or rejects it |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `project` and its name), the project when there is one, and details as JSON. The actor

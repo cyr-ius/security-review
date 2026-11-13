@@ -341,7 +341,7 @@ class Settings(BaseSettings):
     # controller URL (variable or web interface); without mcp_url the login is only suspended
     # (see app_settings.effective_settings). The controller stores mcp_url in the database
     # at start, where the MCP server reads it (it needs no variable). Disabled by default. Unset,
-    # an administrator may turn it on and set mcp_url in the web interface (Tokens screen).
+    # an administrator may turn it on and set mcp_url in the web interface (MCP clients page).
     mcp_oauth_enabled: bool = False
     # Public URL of the MCP endpoint, e.g. https://mcp.example.com/mcp: the resource the OAuth
     # tokens are issued for (RFC 8707), announced by the MCP server (RFC 9728)
@@ -561,6 +561,9 @@ class Settings(BaseSettings):
     # built-in TOML rules and are never downloaded implicitly.
     opengrep_enabled: bool = False
     opengrep_binary: str = "/usr/local/bin/opengrep"
+    # Working directory where the controller and the scan engines copy the OpenGrep rules of the
+    # database for OpenGrep (a cache, never shared); the rule files that the previous versions
+    # kept there are imported once into the database
     opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
     opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
     # Scans run at the same time (503 beyond), cores and memory (MiB, 0: no limit) of one scan

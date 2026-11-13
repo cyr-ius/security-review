@@ -23,6 +23,7 @@ from security_review_mcp.engines import (
     backend,
     controller_client,
     opengrep,
+    opengrep_snapshots,
     remote,
     rule_sync,
     worker,
@@ -34,7 +35,7 @@ from security_review_mcp.engines.protocol import (
 )
 from security_review_mcp.http_server import Role
 from security_review_mcp.observability.audit import AuditAction
-from security_review_mcp.rules import codescan, registry
+from security_review_mcp.rules import codescan, opengrep_rule_store, registry
 from security_review_mcp.rules.codescan import SourceFile
 from security_review_mcp.storage import server_instances
 from security_review_mcp.storage.database import session_scope
@@ -388,11 +389,11 @@ def _rule(rule_id: str, pattern: str) -> str:
 def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_database(
     tmp_path, monkeypatch
 ):
-    controller_dir, engine_dir = tmp_path / "controller", tmp_path / "engine"
-    controller_dir.mkdir()
+    engine_dir = tmp_path / "engine"
+    # The OpenGrep rules of the controller are in its database (OpenGrep validation skipped)
+    monkeypatch.setattr(opengrep_rule_store, "validate_rule", lambda rule_id, content: "ok")
     for rule_id in ("rule-one", "rule-two"):
-        (controller_dir / f"{rule_id}.yaml").write_text(_rule(rule_id, "eval(...)"))
-    monkeypatch.setattr(get_settings(), "opengrep_rules_dir", str(controller_dir))
+        opengrep_rule_store.save_rule(rule_id, _rule(rule_id, "eval(...)"), create=True)
     controller = _controller(monkeypatch)
     admin = {"Authorization": f"Bearer {token_store.create_token('admin', Role.ADMIN)['token']}"}
     opener = _ControllerOpener(controller)
@@ -431,9 +432,11 @@ def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_datab
     assert posted() == [] and len(published) == 1
 
     # One OpenGrep rule changed, one added, one deleted: only the first two are downloaded
-    (controller_dir / "rule-one.yaml").write_text(_rule("rule-one", "exec(...)"))
-    (controller_dir / "rule-three.yaml").write_text(_rule("rule-three", "pickle.loads(...)"))
-    (controller_dir / "rule-two.yaml").unlink()
+    opengrep_rule_store.save_rule("rule-one", _rule("rule-one", "exec(...)"), create=False)
+    opengrep_rule_store.save_rule(
+        "rule-three", _rule("rule-three", "pickle.loads(...)"), create=True
+    )
+    opengrep_rule_store.delete_rule("rule-two")
     with cache.use() as second:
         assert sorted(p.name for p in second.iterdir()) == ["rule-one.yaml", "rule-three.yaml"]
     assert posted() == ["rule-one", "rule-three"]
@@ -546,6 +549,25 @@ def test_an_mcp_server_reports_its_scan_code_calls_even_shorter_than_its_heartbe
     assert server_instances.active_instances(ServerKind.MCP) == []
 
 
+def test_the_agents_of_an_mcp_server_are_opaque_and_bounded(monkeypatch):
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP)
+    # The same token and client give the same key here, another one in another process
+    key = heartbeat.seen(42, "claude-code\x1b[31m", "2.1")
+    assert heartbeat.seen(42, "claude-code\x1b[31m", None) == key
+    assert server_instances.ServerHeartbeat(ServerKind.MCP).agent_key(42, "claude-code[31m") != key
+    for token in range(server_instances.MAX_AGENTS + 10):
+        heartbeat.seen(token, "cursor", "1.0")
+    heartbeat.beat()
+    [instance] = server_instances.active_instances(ServerKind.MCP)
+    agents = instance["agents"]
+    assert len(agents) == server_instances.MAX_AGENTS
+    assert {agent["client"] for agent in agents} == {"cursor"}
+    # A malformed row shows no agent rather than failing the page
+    assert server_instances._decode_agents("{not json") == []
+    assert server_instances._decode_agents('[{"id": 1}, "x"]') == []
+    heartbeat.stop()
+
+
 def test_only_the_holders_of_the_shared_secret_enroll_and_get_tokens(monkeypatch, capsys):
     assert backend.engine_routes(get_settings()) == {}
     controller = _controller(monkeypatch)
@@ -583,3 +605,10 @@ def test_only_the_holders_of_the_shared_secret_enroll_and_get_tokens(monkeypatch
     listed = json.loads(capsys.readouterr().out)
     assert [entry["id"] for entry in listed] == [credentials["client_id"]]
     assert credentials["client_secret"] not in json.dumps(listed)
+
+
+def test_a_snapshot_never_writes_a_rule_id_as_a_path(tmp_path):
+    snapshots = opengrep_snapshots.RuleSnapshots(tmp_path / "rules")
+    with pytest.raises(opengrep.OpenGrepError, match="identifier"):
+        snapshots.update({"../outside": "0" * 64}, lambda ids: {})
+    assert not (tmp_path / "outside.yaml").exists() and not snapshots.ready

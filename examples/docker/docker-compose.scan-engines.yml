@@ -1,0 +1,170 @@
+# The complete deployment of security-review, ready to use: PostgreSQL, the Controller server, the
+# MCP server and two scan engines (docs/advanced/architecture/scan-engine.md), which run the rules
+# and OpenGrep of every code scan (security-review-ci scan-code, the scan_code tool of the
+# agents), so that the Controller server keeps its CPU and memory for the people and the API.
+# Download this file in an empty folder, create the .env file next to it, then start everything:
+#
+#   (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\nSECREVIEW_SCAN_ENGINE_TOKEN=%s\n' \
+#       "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env)
+#   docker compose -f docker-compose.scan-engines.yml pull
+#   docker compose -f docker-compose.scan-engines.yml up -d --wait
+#   docker compose -f docker-compose.scan-engines.yml exec controller \
+#       security-review-controller user reset-password admin
+#
+# Web interface: http://127.0.0.1:8080/ui/   MCP endpoint: http://127.0.0.1:8000/mcp
+#
+# Five containers:
+#   db           PostgreSQL (official image), reachable by the other services only
+#   controller   web interface and REST API; creates or updates the tables at start, installs the
+#                default OpenGrep rules in the database and sends the code scans to the engines
+#   mcp          MCP server (for the AI agents), started once the controller is ready; its
+#                scan_code tool is delegated to the controller, over the internal network
+#   scan-engine  two replicas, no port and no database: each one enrolls with the controller
+#                (same secret) with the IP address of its container and reads the rules from it
+#
+# Same Compose project as docker-compose.yml (name: security-review): run it in the folder of an
+# existing deployment, with the same .env plus SECREVIEW_SCAN_ENGINE_TOKEN, and it keeps the
+# database (secreview-pg volume).
+#
+# Pull the images together: the controller and the engines use the -opengrep image, the MCP
+# server the other one, and all of them must be the same version (pin X.Y.Z and X.Y.Z-opengrep in
+# production).
+#
+# The OpenGrep rules are stored in the database: the engines download them from the controller
+# before each scan, and the controller validates with OpenGrep the rules created or edited on the
+# OpenGrep rules page. No volume is needed for them.
+#
+# The engines appear on the Scan engines page of the web interface (Administration). No address of
+# the engines is given to the controller, and there is no load balancer in front of them: the
+# controller sends each scan straight to the active engine with the most free OpenGrep slots. More
+# engines: change replicas below, or add --scale scan-engine=N. An engine stopped with docker
+# compose stop or down leaves the controller at once.
+#
+# The two ports are published on every interface of the server, for the team: set
+# SECREVIEW_PUBLIC_URL in .env to the address the team uses, and enable TLS (the commented TLS
+# lines of controller and mcp) or put a reverse proxy in front (see the documentation, page
+# Docker), plain HTTP exposes the tokens. To keep a port on this machine only, prefix it with
+# 127.0.0.1 ("127.0.0.1:8000:8000").
+
+name: security-review
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: secreview
+      POSTGRES_USER: secreview
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      # Since PostgreSQL 18, the data is kept under /var/lib/postgresql/18/docker
+      - secreview-pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secreview -d secreview"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+  controller:
+    # The -opengrep image validates the OpenGrep rules created or edited in the web interface
+    image: ghcr.io/cyr-ius/security-review:latest-opengrep
+    restart: unless-stopped
+    command: ["controller"]
+    environment:
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
+      # Signs the web sessions: keep the same value, or every session ends at restart
+      SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY:?set SECREVIEW_SECRET_KEY in .env}
+      # Public root URL of the controller, as the team reaches it: given to the agents without a
+      # token (web interface) and in the commands of start_codebase_scan (the workstation sends
+      # its files there)
+      SECREVIEW_PUBLIC_URL: ${SECREVIEW_PUBLIC_URL:-http://127.0.0.1:8080}
+      # Turns the engines on: they enroll with this secret, and the code scans go to them
+      SECREVIEW_SCAN_ENGINE_TOKEN: ${SECREVIEW_SCAN_ENGINE_TOKEN:?set SECREVIEW_SCAN_ENGINE_TOKEN in .env}
+      # Without an active engine: refuse the scan (503, the default) or scan on the controller
+      # SECREVIEW_SCAN_ENGINE_FALLBACK: local
+      # The scan_code tool of the MCP server sends its fragments to the controller, at this
+      # internal address (they never leave the Compose network), which sends them to the engines
+      SECREVIEW_SCANCODE_DELEGATED: http://controller:8000
+      # OAuth login of the MCP clients: the hosts sign in through the browser instead of a
+      # personal MCP token (needs SECREVIEW_PUBLIC_URL in https). Behind a reverse proxy,
+      # publish /.well-known/oauth-authorization-server, /authorize, /token, /register and
+      # /revoke to this service, /mcp and /.well-known/oauth-protected-resource to the mcp one.
+      # SECREVIEW_MCP_OAUTH_ENABLED: "true"
+      # SECREVIEW_MCP_URL: https://mcp.secreview.example.com/mcp
+      # Daily download of the OSV vulnerability advisories (needs Internet access)
+      # SECREVIEW_OSV_AUTO_UPDATE: "true"
+      # SECREVIEW_OSV_ECOSYSTEMS: PyPI,npm,Maven
+      # SECREVIEW_TLS_CERTFILE: /etc/secreview/tls/cert.pem
+      # SECREVIEW_TLS_KEYFILE: /etc/secreview/tls/key.pem
+    # volumes:
+    #   - ./tls:/etc/secreview/tls:ro
+    ports:
+      - "8080:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  mcp:
+    image: ghcr.io/cyr-ius/security-review:latest
+    restart: unless-stopped
+    # MCP server in streamable HTTP on /mcp
+    command: ["mcp"]
+    environment:
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
+      # SECREVIEW_TLS_CERTFILE: /etc/secreview/tls/cert.pem
+      # SECREVIEW_TLS_KEYFILE: /etc/secreview/tls/key.pem
+    # volumes:
+    #   - ./tls:/etc/secreview/tls:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      # The MCP server only checks the tables: it starts once the controller has migrated them
+      controller:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  scan-engine:
+    # The -opengrep image ships OpenGrep and enables it (SECREVIEW_OPENGREP_ENABLED)
+    image: ghcr.io/cyr-ius/security-review:latest-opengrep
+    command: ["scan-engine"]
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    environment:
+      SECREVIEW_SCAN_ENGINE_TOKEN: ${SECREVIEW_SCAN_ENGINE_TOKEN:?set SECREVIEW_SCAN_ENGINE_TOKEN in .env}
+      # Internal address of the controller, where the engine enrolls and reads the rules
+      SECREVIEW_CONTROLLER_URL: http://controller:8000
+      # One OpenGrep scan of a codebase and one scan_code fragment at a time, on 2 cores
+      # SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS: "1"
+      # SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS: "1"
+      # SECREVIEW_OPENGREP_JOBS: "2"
+    depends_on:
+      controller:
+        condition: service_healthy
+    # Time to finish the scans in progress and leave the controller
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  secreview-pg:

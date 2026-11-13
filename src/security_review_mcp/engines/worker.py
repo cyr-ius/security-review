@@ -2,8 +2,10 @@
 
 Optional (SECREVIEW_SCAN_ENGINE_TOKEN on the controller): with many developers, the code scans of
 ``security-review-ci`` and the fragments of scan_code take the CPU and the memory of the
-controller. The engines take this work over, as many replicas as needed behind one address;
-the controller keeps the authentication, the scan tickets, the reports and the verdicts.
+controller. The engines take this work over, as many replicas as needed: each one enrolls with
+its own IP address, and the controller sends each scan straight to the active engine with the
+most free OpenGrep slots (never through a load balancer, which would defeat that choice); the
+controller keeps the authentication, the scan tickets, the reports and the verdicts.
 
 An engine serves ``POST /engine/v1/scan`` to the controller only (shared secret
 SECREVIEW_SCAN_ENGINE_TOKEN, compared by its SHA-256 digest in constant time, checked before the
