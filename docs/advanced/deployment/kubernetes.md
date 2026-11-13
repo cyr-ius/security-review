@@ -169,6 +169,37 @@ your mirror or the proxy if an
 egress NetworkPolicy applies. The MCP server needs no egress. The Swagger documentation of the
 REST API (`/api/docs`) stays disabled unless you uncomment `SECREVIEW_SWAGGER_ENABLED`.
 
+## Scan engines
+
+[`examples/kubernetes/scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml)
+deploys two [scan engines](../architecture/scan-engine.md), without Service: each pod enrolls
+with its IP address, and a NetworkPolicy lets only the Controller server reach them. The
+Controller server of `security-review.yaml` reads their Secret when it exists, and must move to
+the `-opengrep` image of the same version, which installs the default OpenGrep rules in its
+`opengrep-rules` volume and gives them to the engines:
+
+```bash
+kubectl -n secreview create secret generic secreview-scan-engine \
+    --from-literal=SECREVIEW_SCAN_ENGINE_TOKEN="$(openssl rand -hex 32)"
+kubectl -n secreview set image deploy/secreview-controller \
+    controller=ghcr.io/cyr-ius/security-review:latest-opengrep
+kubectl -n secreview rollout status deploy/secreview-controller
+kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/scan-engine.yaml
+```
+
+The `opengrep-rules` volume is an `emptyDir`: the default rules come back at each start, but the
+rules created or edited in the web interface are lost at a restart. To keep them, use a
+PersistentVolumeClaim (commented in `security-review.yaml`); with several replicas of the
+Controller server, it must be shared by all of them (`ReadWriteMany`), since the OpenGrep rules are
+files of the Controller server. Change the number of engines with `replicas`, or a
+HorizontalPodAutoscaler on the CPU; a pod that stops leaves the Controller server at once.
+
+??? example "scan-engine.yaml"
+
+    ```yaml
+    --8<-- "kubernetes/scan-engine.yaml"
+    ```
+
 ## Several replicas
 
 !!! warning "Several replicas of the MCP server"

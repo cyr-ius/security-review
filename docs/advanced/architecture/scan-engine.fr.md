@@ -61,9 +61,16 @@ vulnérabilité.
     ```
 
     Avec l'image : `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine` ;
-    avec Compose : `docker compose --profile scan-engine up -d --scale scan-engine=3` ; sur
-    Kubernetes : `examples/kubernetes/scan-engine.yaml` (Deployment et NetworkPolicy, l'IP du pod
-    donnée dans `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`).
+    avec Compose : le fichier `examples/docker/docker-compose.scan-engines.yml`, ajouté à
+    `docker-compose.yml` (deux moteurs, voir [Docker](../deployment/docker.md#moteurs-de-scan)) ;
+    sur Kubernetes : `examples/kubernetes/scan-engine.yaml` (deux réplicas, Deployment et
+    NetworkPolicy, l'IP du pod donnée dans `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, voir
+    [Kubernetes](../deployment/kubernetes.md#moteurs-de-scan)).
+
+4. Lancez le serveur Controller avec l'**image `-opengrep`**, de la même version que les moteurs :
+   il installe les règles OpenGrep par défaut dans `SECREVIEW_OPENGREP_RULES_DIR` (un répertoire
+   accessible en écriture) et les donne aux moteurs. Avec l'image sans OpenGrep, les moteurs ne
+   reçoivent aucune règle OpenGrep et n'appliquent que les règles internes.
 
 Un moteur refuse de démarrer sans le secret ou sans `SECREVIEW_CONTROLLER_URL`. `SECREVIEW_PUBLIC_URL`, si elle est définie sur un moteur, l'emporte
 sur `SECREVIEW_CONTROLLER_URL`.

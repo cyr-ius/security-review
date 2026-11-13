@@ -1,13 +1,19 @@
-# Optional scan engines of the controller (docs/advanced/architecture/scan-engine.md): they run
-# the rules and OpenGrep of the code scans, so that many developers do not load the controller.
-# Apply after security-review.yaml:
+# Optional scan engines of the controller (docs/advanced/architecture/scan-engine.md): two
+# replicas that run the rules and OpenGrep of the code scans, so that many developers do not load
+# the controller. Apply after security-review.yaml:
 #
 #   kubectl -n secreview create secret generic secreview-scan-engine \
 #       --from-literal=SECREVIEW_SCAN_ENGINE_TOKEN="$(openssl rand -hex 32)"
+#   kubectl -n secreview set image deploy/secreview-controller \
+#       controller=ghcr.io/cyr-ius/security-review:latest-opengrep
+#   kubectl -n secreview rollout status deploy/secreview-controller
 #   kubectl -n secreview apply -f examples/kubernetes/scan-engine.yaml
 #
-# Then give the controller the same secret (Deployment secreview-controller: the secretRef
-# secreview-scan-engine in its envFrom): it turns the engines on. No address to give it: each
+# The controller of security-review.yaml reads the secreview-scan-engine Secret when it exists (an
+# optional secretRef): the restart of the second command turns the engines on. It moves to the
+# -opengrep image, the same version as the engines: it installs the default OpenGrep rules in its
+# opengrep-rules volume and gives them to the engines; with the image without OpenGrep, they would
+# get no OpenGrep rule. No address to give the controller: each
 # replica enrolls with the controller at its start (SECREVIEW_CONTROLLER_URL, with the same
 # secret) with the IP address of its pod, where the controller sends it the scans, then gets its
 # own OAuth access token, sends a heartbeat with its free OpenGrep slots, and reads the rules

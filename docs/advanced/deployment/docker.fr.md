@@ -144,6 +144,37 @@ Les commandes d'administration s'exécutent dans le conteneur du serveur Control
 docker compose exec controller security-review-controller token list
 ```
 
+## Moteurs de scan
+
+Le fichier
+[`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml),
+ajouté à `docker-compose.yml`, démarre deux [moteurs de scan](../architecture/scan-engine.md) :
+ils exécutent les règles et OpenGrep des scans de code à la place du serveur Controller. Il passe
+le serveur Controller sur l'image `-opengrep`, qui installe les règles OpenGrep par défaut
+(gardées dans le volume `secreview-controller-data`) et les donne aux moteurs. Téléchargez-le à
+côté de `docker-compose.yml`, ajoutez à `.env` le secret partagé par le serveur Controller et les
+moteurs, puis téléchargez les images ensemble (les trois services doivent avoir la même version)
+et démarrez :
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml
+(umask 077 && printf 'SECREVIEW_SCAN_ENGINE_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env)
+docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml pull
+docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml up -d --wait
+```
+
+Les moteurs apparaissent sur la page **Moteurs de scan**. Aucune adresse des moteurs n'est donnée
+au serveur Controller, et aucun répartiteur de charge ne se trouve devant eux : chaque réplica
+s'enrôle avec l'adresse IP de son conteneur. Changez leur nombre avec
+`--scale scan-engine=N` ; un moteur arrêté par `docker compose stop` ou `down` se retire aussitôt
+du serveur Controller.
+
+??? example "docker-compose.scan-engines.yml"
+
+    ```yaml
+    --8<-- "docker/docker-compose.scan-engines.yml"
+    ```
+
 ## Sans Docker Compose
 
 La même image lance chaque processus dans son propre conteneur, sur une base PostgreSQL

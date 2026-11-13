@@ -61,9 +61,16 @@ database.
     ```
 
     With the image: `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine`;
-    with Compose: `docker compose --profile scan-engine up -d --scale scan-engine=3`; on
-    Kubernetes: `examples/kubernetes/scan-engine.yaml` (Deployment and NetworkPolicy, the pod IP
-    given in `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`).
+    with Compose: the file `examples/docker/docker-compose.scan-engines.yml`, added to
+    `docker-compose.yml` (two engines, see [Docker](../deployment/docker.md#scan-engines)); on
+    Kubernetes: `examples/kubernetes/scan-engine.yaml` (two replicas, Deployment and
+    NetworkPolicy, the pod IP given in `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, see
+    [Kubernetes](../deployment/kubernetes.md#scan-engines)).
+
+4. Run the Controller server with the **`-opengrep` image**, of the same version as the engines:
+   it installs the default OpenGrep rules in `SECREVIEW_OPENGREP_RULES_DIR` (a writable
+   directory) and gives them to the engines. With the image without OpenGrep, the engines get no
+   OpenGrep rule and only apply the internal rules.
 
 An engine refuses to start without the secret or without `SECREVIEW_CONTROLLER_URL`. `SECREVIEW_PUBLIC_URL`, when set on an engine, takes precedence over
 `SECREVIEW_CONTROLLER_URL`.

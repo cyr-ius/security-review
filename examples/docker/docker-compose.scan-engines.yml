@@ -1,0 +1,68 @@
+# Two scan engines next to docker-compose.yml (docs/advanced/architecture/scan-engine.md): they run
+# the rules and OpenGrep of the code scans (security-review-ci, scan_code), so that the Controller
+# server keeps its CPU and memory for the people and the API. Download this file next to
+# docker-compose.yml, add the secret shared by the Controller server and the engines to .env, then
+# start the stack with both files:
+#
+#   (umask 077 && printf 'SECREVIEW_SCAN_ENGINE_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env)
+#   docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml up -d --wait
+#
+# Pull the images together: the Controller server and the engines use the -opengrep image, the MCP
+# server the other one, and all of them must be the same version (pin X.Y.Z and X.Y.Z-opengrep in
+# production).
+#
+# The engines appear on the Scan engines page of the web interface (Administration). No address of
+# the engines is given to the Controller server, and there is no load balancer in front of them:
+# each replica enrolls at its start with the IP address of its container, and the Controller server
+# sends each scan straight to the active engine with the most free OpenGrep slots. More engines:
+# change replicas below, or add --scale scan-engine=N. An engine stopped with docker compose stop
+# or down leaves the Controller server at once.
+#
+# The Controller server moves to the -opengrep image: it installs the default OpenGrep rules
+# (kept in the secreview-controller-data volume, with the edits made in the web interface) and gives
+# them to the engines, which run OpenGrep. With the image without OpenGrep, the engines would get
+# no OpenGrep rule. The engines read no database and publish no port.
+
+services:
+  controller:
+    image: ghcr.io/cyr-ius/security-review:latest-opengrep
+    environment:
+      # Turns the engines on: they enroll with this secret, and the code scans go to them
+      SECREVIEW_SCAN_ENGINE_TOKEN: ${SECREVIEW_SCAN_ENGINE_TOKEN:?set SECREVIEW_SCAN_ENGINE_TOKEN in .env}
+      # Without an active engine: refuse the scan (503, the default) or scan on the controller
+      # SECREVIEW_SCAN_ENGINE_FALLBACK: local
+    volumes:
+      # Its data directory (owned by the user of the image), where it keeps the OpenGrep rules
+      - secreview-controller-data:/var/lib/secreview
+
+  scan-engine:
+    # The -opengrep image ships OpenGrep and enables it (SECREVIEW_OPENGREP_ENABLED)
+    image: ghcr.io/cyr-ius/security-review:latest-opengrep
+    command: ["scan-engine"]
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    environment:
+      SECREVIEW_SCAN_ENGINE_TOKEN: ${SECREVIEW_SCAN_ENGINE_TOKEN:?set SECREVIEW_SCAN_ENGINE_TOKEN in .env}
+      # Internal address of the Controller server, where the engine enrolls and reads the rules
+      SECREVIEW_CONTROLLER_URL: http://controller:8000
+      # One OpenGrep scan of a codebase and one scan_code fragment at a time, on 2 cores
+      # SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS: "1"
+      # SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS: "1"
+      # SECREVIEW_OPENGREP_JOBS: "2"
+    depends_on:
+      controller:
+        condition: service_healthy
+    # Time to finish the scans in progress and leave the Controller server
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  secreview-controller-data:

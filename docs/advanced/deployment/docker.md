@@ -140,6 +140,35 @@ The administration commands run in the Controller container:
 docker compose exec controller security-review-controller token list
 ```
 
+## Scan engines
+
+The file
+[`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml),
+added to `docker-compose.yml`, starts two [scan engines](../architecture/scan-engine.md): they
+run the rules and OpenGrep of the code scans in place of the Controller server. It moves the
+Controller server to the `-opengrep` image, which installs the default OpenGrep rules (kept in the
+`secreview-controller-data` volume) and gives them to the engines. Download it next to
+`docker-compose.yml`, add the secret shared by the Controller server and the engines to `.env`,
+then pull the images together (the three services must run the same version) and start:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml
+(umask 077 && printf 'SECREVIEW_SCAN_ENGINE_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env)
+docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml pull
+docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml up -d --wait
+```
+
+The engines appear on the **Scan engines** page. No address of the engines is given to the
+Controller server, and no load balancer stands in front of them: each replica enrolls with the
+IP address of its container. Change their number with `--scale scan-engine=N`; an engine stopped
+by `docker compose stop` or `down` leaves the Controller server at once.
+
+??? example "docker-compose.scan-engines.yml"
+
+    ```yaml
+    --8<-- "docker/docker-compose.scan-engines.yml"
+    ```
+
 ## Without Docker Compose
 
 The same image runs each process in its own container, on an existing PostgreSQL database (see

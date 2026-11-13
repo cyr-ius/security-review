@@ -175,6 +175,38 @@ votre miroir ou le proxy si une NetworkPolicy d'egress s'applique. Le serveur MC
 n'a besoin d'aucune sortie. La documentation Swagger de l'API REST (`/api/docs`) reste
 désactivée tant que vous ne décommentez pas `SECREVIEW_SWAGGER_ENABLED`.
 
+## Moteurs de scan
+
+[`examples/kubernetes/scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml)
+déploie deux [moteurs de scan](../architecture/scan-engine.md), sans Service : chaque pod
+s'enrôle avec son adresse IP, et une NetworkPolicy ne laisse que le serveur Controller les
+joindre. Le serveur Controller de `security-review.yaml` lit leur Secret s'il existe, et doit
+passer sur l'image `-opengrep` de la même version, qui installe les règles OpenGrep par défaut
+dans son volume `opengrep-rules` et les donne aux moteurs :
+
+```bash
+kubectl -n secreview create secret generic secreview-scan-engine \
+    --from-literal=SECREVIEW_SCAN_ENGINE_TOKEN="$(openssl rand -hex 32)"
+kubectl -n secreview set image deploy/secreview-controller \
+    controller=ghcr.io/cyr-ius/security-review:latest-opengrep
+kubectl -n secreview rollout status deploy/secreview-controller
+kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/scan-engine.yaml
+```
+
+Le volume `opengrep-rules` est un `emptyDir` : les règles par défaut reviennent à chaque
+démarrage, mais les règles créées ou modifiées dans l'interface web sont perdues au redémarrage.
+Pour les garder, utilisez un PersistentVolumeClaim (en commentaire dans `security-review.yaml`) ;
+avec plusieurs réplicas du serveur Controller, il doit être partagé par tous (`ReadWriteMany`),
+car les règles OpenGrep sont des fichiers du serveur Controller. Changez le nombre de moteurs avec
+`replicas`, ou un HorizontalPodAutoscaler sur le CPU ; un pod qui s'arrête se retire aussitôt du
+serveur Controller.
+
+??? example "scan-engine.yaml"
+
+    ```yaml
+    --8<-- "kubernetes/scan-engine.yaml"
+    ```
+
 ## Plusieurs réplicas
 
 !!! warning "Plusieurs réplicas du serveur MCP"
