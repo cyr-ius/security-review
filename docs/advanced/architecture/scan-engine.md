@@ -135,7 +135,13 @@ Controller server only, which says **Scans itself (engines off)** when the engin
 
 - on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
   (`scan_code` fragments), with their occupied slots out of the slots of the active engines;
-- next to the agents, one yellow circle per running MCP server (HTTP transport), with the most
+- under the pipelines, one circle per agent that sent a request to an MCP server in the last
+  5 minutes, linked to that server, with its `scan_code` calls since the previous heartbeat.
+  An agent is shown by the name of its MCP client (for example `claude-code`), never by the name
+  of a person nor of a token; past 6 agents, a **+N** circle stands for the others. Without any
+  agent known (MCP servers of an earlier version), a single **Agents** circle stands for them;
+- next to the agents, one yellow circle per running MCP server (HTTP transport), larger than
+  the agents, with the most
   `scan_code` calls it ran at once since its previous heartbeat. The agents reach the Controller
   server through it; its link to the Controller server is dashed, with **Local scan**, while the
   delegation of `scan_code` is off: it then scans the fragments itself and they never reach the

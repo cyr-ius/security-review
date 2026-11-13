@@ -1,7 +1,6 @@
 """MCP server exposing security-review prompts, tools and stored reports."""
 
 import argparse
-import contextlib
 import functools
 import getpass
 import logging
@@ -9,7 +8,7 @@ import re
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 
@@ -283,10 +282,32 @@ def _caller_write_projects(ctx: Context) -> frozenset[str] | None:
 _heartbeat: server_instances.ServerHeartbeat | None = None
 
 
-def _fragment_activity() -> contextlib.AbstractContextManager[None]:
-    """Count a scan_code call in the heartbeat of this MCP server (nothing with stdio)."""
+async def _track_agent(ctx: Any, call_next: Callable[[Any], Any]) -> Any:
+    """Middleware of every inbound message: record the agent in the heartbeat of this MCP server
+    (by an opaque key and the name of its MCP client, never a person) and count its scan_code
+    calls while they run. Nothing with stdio, where there is no heartbeat."""
     heartbeat = _heartbeat
-    return heartbeat.processing() if heartbeat is not None else contextlib.nullcontext()
+    if heartbeat is None:
+        return await call_next(ctx)
+    params = ctx.params if isinstance(ctx.params, Mapping) else {}
+    client_params = ctx.session.client_params
+    info = client_params.client_info if client_params is not None else None
+    if info is not None:
+        name, version = info.name, info.version
+    else:
+        # Before the end of the handshake, the client gives its name in the initialize request
+        raw = params.get("clientInfo") if ctx.method == "initialize" else None
+        name = raw.get("name") if isinstance(raw, Mapping) else None
+        version = raw.get("version") if isinstance(raw, Mapping) else None
+    state = (getattr(ctx.request, "scope", None) or {}).get("state") or {}
+    agent = heartbeat.seen(state.get("auth_token_id"), name, version)
+    if ctx.method == "tools/call" and params.get("name") == "scan_code":
+        with heartbeat.processing(agent):
+            return await call_next(ctx)
+    return await call_next(ctx)
+
+
+mcp.middleware.append(_track_agent)
 
 
 def _scan_code_delegated() -> bool:
@@ -571,34 +592,33 @@ def scan_code(
     if len(content) > limit:
         raise ValueError(f"Content too large ({len(content)} chars); the limit is {limit}")
     language = scanner.normalize_language(language)
-    # Counted in the heartbeat of this MCP server (Scan engines page of the Controller server).
+    # Counted in the heartbeat of this MCP server by _track_agent (Scan engines page).
     # Delegated to the Controller server when configured (its rules and OpenGrep rules), with the
     # token of the caller: SECREVIEW_MCP_SCAN_CONTROLLER_URL, else the controller URL when the
     # delegation is turned on in the web interface; scanned here with stdio or when the Controller
     # server fails
-    with _fragment_activity():
-        result = controller_error = None
-        authorization = _caller_authorization(ctx)
-        controller_url = (
-            settings.mcp_scan_controller_url or app_settings.mcp_scan_controller_url()
-            if authorization
-            else None
-        )
-        if controller_url:
-            try:
-                result = remote_scan.scan(
-                    controller_url,
-                    authorization,
-                    content,
-                    language,
-                    settings.mcp_scan_timeout_seconds,
-                )
-            except remote_scan.RemoteScanError as exc:
-                logger.warning("Delegated scan failed, scanning locally: %s", exc)
-                controller_error = f"Scanned by the MCP server only: {exc}"
-        if result is None:
-            matches, suppressed = registry.scan(content, language)
-            result = {"matches": matches, "suppressed": suppressed, "engines": ["rules"]}
+    result = controller_error = None
+    authorization = _caller_authorization(ctx)
+    controller_url = (
+        settings.mcp_scan_controller_url or app_settings.mcp_scan_controller_url()
+        if authorization
+        else None
+    )
+    if controller_url:
+        try:
+            result = remote_scan.scan(
+                controller_url,
+                authorization,
+                content,
+                language,
+                settings.mcp_scan_timeout_seconds,
+            )
+        except remote_scan.RemoteScanError as exc:
+            logger.warning("Delegated scan failed, scanning locally: %s", exc)
+            controller_error = f"Scanned by the MCP server only: {exc}"
+    if result is None:
+        matches, suppressed = registry.scan(content, language)
+        result = {"matches": matches, "suppressed": suppressed, "engines": ["rules"]}
     return {
         "language": language,
         "lines_scanned": len(content.splitlines()),

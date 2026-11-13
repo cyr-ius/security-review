@@ -61,6 +61,10 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendMcp':
       'MCP server and its heartbeat (every 5 s, at once when scan_code runs)',
     'scanEngines.flowMcpInstance': 'MCP server {number}',
+    'scanEngines.flowAgentTitle':
+      '{client} {version}, through MCP server {number}: {count} scan_code calls since the last heartbeat, last request at {time}',
+    'scanEngines.flowMoreAgents': 'Other agents',
+    'scanEngines.flowMoreAgentsTitle': '{count} other agents seen lately',
     'scanEngines.flowMcpDelegated': 'scan_code delegated',
     'scanEngines.flowMcpLocal': 'Local scan',
     'scanEngines.flowMcpTitleDelegated':
@@ -131,6 +135,10 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendMcp':
       'Serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand scan_code s’exécute)',
     'scanEngines.flowMcpInstance': 'Serveur MCP {number}',
+    'scanEngines.flowAgentTitle':
+      '{client} {version}, par le serveur MCP {number} : {count} appels scan_code depuis le dernier battement de cœur, dernière requête à {time}',
+    'scanEngines.flowMoreAgents': 'Autres agents',
+    'scanEngines.flowMoreAgentsTitle': '{count} autres agents vus récemment',
     'scanEngines.flowMcpDelegated': 'scan_code délégué',
     'scanEngines.flowMcpLocal': 'Scan local',
     'scanEngines.flowMcpTitleDelegated':
@@ -200,6 +208,10 @@ export const scanEngines = defineMessages({
     'scanEngines.flowLegendMcp':
       'Servidor MCP y su latido (cada 5 s, de inmediato cuando se ejecuta scan_code)',
     'scanEngines.flowMcpInstance': 'Servidor MCP {number}',
+    'scanEngines.flowAgentTitle':
+      '{client} {version}, a través del servidor MCP {number}: {count} llamadas a scan_code desde el último latido, última petición a las {time}',
+    'scanEngines.flowMoreAgents': 'Otros agentes',
+    'scanEngines.flowMoreAgentsTitle': '{count} otros agentes vistos recientemente',
     'scanEngines.flowMcpDelegated': 'scan_code delegado',
     'scanEngines.flowMcpLocal': 'Escaneo local',
     'scanEngines.flowMcpTitleDelegated':

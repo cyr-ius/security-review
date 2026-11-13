@@ -36,8 +36,12 @@ In HTTP, `security-review-mcp serve`:
    `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (see [Bearer tokens](../bearer-tokens.md));
 4. keeps a **heartbeat** in the database: every 5 seconds, and at once (at most once a second)
    when a `scan_code` call starts or ends, with its host name, its version, whether `scan_code`
-   is delegated to the Controller server, and the most `scan_code` calls it ran at once since
-   the previous heartbeat. The Controller server shows it on the
+   is delegated to the Controller server, the most `scan_code` calls it ran at once since
+   the previous heartbeat, and the agents that sent it a request in the last 5 minutes (at most
+   50). An agent is an opaque key (an HMAC of its token id and client name, with a secret drawn
+   at the start of the process: neither reversible nor comparable between servers) and the name
+   and version its MCP client gives at the start of the session (`clientInfo`); never the name of
+   a person nor of a token. The Controller server shows it on the
    [**Scan engines**](scan-engine.md#administration) page. It deletes it when it stops; a
    server gone without stopping disappears from the page after 30 seconds.
 
