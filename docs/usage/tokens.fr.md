@@ -38,6 +38,8 @@ CI/CD** enregistre des rapports sur ses projets, son créateur doit donc y avoir
 rapports** (`reports.write`). La page ne liste que les jetons des projets que vous lisez. **Projets** change les projets d'un jeton sans changer son secret ;
 **Renouveler** remplace son secret.
 
+![Un jeton tout juste créé, affiché une seule fois](../assets/screenshots/tokens-created.png)
+
 ## Jetons API
 
 Un jeton `api` appelle l'API REST, depuis un script ou depuis la documentation Swagger (bouton

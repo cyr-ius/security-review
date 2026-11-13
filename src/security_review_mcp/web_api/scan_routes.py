@@ -24,6 +24,7 @@ from ..config import get_settings
 from ..engines.opengrep import OpenGrepBusyError, OpenGrepError
 from ..http_server import CONTENT_SCAN_PATH, SCAN_TICKET_PATH
 from ..rules import codescan
+from ..storage import server_instances
 from .deps import ContentScanIdentity, unprocessable
 from .schemas import ContentScanRequest, ContentScanResult, ScanTicketRequest, ScanTicketResult
 
@@ -44,7 +45,10 @@ async def scan_content(
     if not await run_in_threadpool(app_settings.mcp_scan_delegated):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "The delegation of scan_code is off")
     try:
-        result = await run_in_threadpool(codescan.scan_content, request.content, request.language)
+        with server_instances.track("code"):
+            result = await run_in_threadpool(
+                codescan.scan_content, request.content, request.language
+            )
     except ValueError as exc:
         raise unprocessable(exc) from exc
     except OpenGrepError as exc:
@@ -73,7 +77,8 @@ async def issue_scan_ticket(
     """
     state = dict(request.scope.get("state") or {})
     try:
-        ticket = await run_in_threadpool(scan_tickets.issue, body.project, state, body.scope)
+        with server_instances.track("deps" if body.scope == "deps" else "code"):
+            ticket = await run_in_threadpool(scan_tickets.issue, body.project, state, body.scope)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     controller_url = await run_in_threadpool(app_settings.controller_url)

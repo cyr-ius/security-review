@@ -59,11 +59,15 @@
   </div>
 } @else if (trend.value(); as data) {
   <section class="mb-4" [attr.aria-label]="'project.openFindings' | t">
-    <app-severity-counts [counts]="data.summary.open_now" />
+    <app-severity-counts
+      [counts]="data.summary.open_now"
+      [link]="['/projects', project(), 'findings']"
+    />
   </section>
 
+  @let hasCwes = data.summary.top_open_cwes.length > 0;
   <div class="row g-3 mb-4">
-    <div class="col-lg-8">
+    <div class="col-12" [class.col-xl-6]="hasCwes" [class.col-lg-8]="!hasCwes">
       <div class="card h-100">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
           <span class="fw-semibold">{{ 'project.trend' | t }}</span>
@@ -100,7 +104,12 @@
       </div>
     </div>
 
-    <div class="col-lg-4">
+    <div
+      class="col-12"
+      [class.col-md-6]="hasCwes"
+      [class.col-xl-3]="hasCwes"
+      [class.col-lg-4]="!hasCwes"
+    >
       <div class="card h-100">
         <div class="card-header fw-semibold">{{ 'project.overPeriod' | t }}</div>
         <ul class="list-group list-group-flush">
@@ -149,20 +158,23 @@
             }
           </div>
         }
-
-        @if (data.summary.top_open_cwes.length > 0) {
-          <div class="card-body border-top">
-            <h2 class="h6">{{ 'project.topCwes' | t }}</h2>
-            @for (row of data.summary.top_open_cwes; track row.cwe) {
-              <div class="d-flex justify-content-between small">
-                <span class="font-monospace">{{ row.cwe }}</span>
-                <span>{{ row.count }}</span>
-              </div>
-            }
-          </div>
-        }
       </div>
     </div>
+
+    @if (hasCwes) {
+      <div class="col-12 col-md-6 col-xl-3">
+        <div class="card h-100">
+          <div class="card-header fw-semibold">{{ 'project.topCwes' | t }}</div>
+          <div class="card-body d-flex flex-column">
+            <app-cwe-pie
+              class="flex-grow-1"
+              [cwes]="data.summary.top_open_cwes"
+              [total]="data.summary.open_now_total"
+            />
+          </div>
+        </div>
+      </div>
+    }
   </div>
 } @else {
   <div class="text-center my-5">
@@ -171,7 +183,7 @@
   </div>
 }
 
-<div class="card">
+<div class="card mb-4">
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
     <span class="fw-semibold">{{ 'project.openFindings' | t }}</span>
     @if (openFindings.value(); as page) {
@@ -204,55 +216,108 @@
             </tr>
           </thead>
           <tbody>
-            @for (finding of page.findings; track finding.id) {
-              <tr>
-                <td class="text-nowrap">
-                  <a
-                    [routerLink]="['/reports', finding.report_id]"
-                    [fragment]="'finding-' + finding.id"
-                    [attr.aria-label]="'project.openFinding' | t: { id: finding.id }"
-                    >#{{ finding.id }}</a
-                  >
-                </td>
-                <td class="text-nowrap"><app-severity-badge [severity]="finding.severity" /></td>
-                <td>
-                  <div class="text-break">{{ finding.title }}</div>
-                  <div class="small text-body-secondary">
-                    @if (finding.rule_id) {
-                      <code>{{ finding.rule_id }}</code>
-                    }
-                    @if (finding.cwe) {
-                      <span class="ms-1">{{ finding.cwe }}</span>
-                    }
-                  </div>
-                </td>
-                <td class="small text-break">
-                  @if (finding.file_path) {
-                    <code
-                      >{{ finding.file_path
-                      }}{{ finding.line_start ? ':' + finding.line_start : '' }}</code
+            @for (entry of openRows(); track entry.key) {
+              @if (entry.kind === 'package') {
+                @let group = entry.group;
+                @let expanded = entry.expanded;
+                <tr class="package-row">
+                  <td class="text-nowrap">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-link p-0 text-decoration-none"
+                      [attr.aria-expanded]="expanded"
+                      [attr.aria-label]="'packageGroup.toggle' | t: { component: group.component }"
+                      (click)="toggleGroup(group.key)"
                     >
-                  }
-                </td>
-                <td class="text-nowrap">
-                  <a [routerLink]="['/reports', finding.report_id]">#{{ finding.report_id }}</a>
-                </td>
-                <td class="text-nowrap">{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</td>
-                <td class="text-center">
-                  @if (finding.proposed_status; as proposed) {
-                    @let hint =
-                      'project.proposalPending' | t: { status: statusMeta[proposed].label | t };
+                      <i
+                        class="bi"
+                        [class.bi-chevron-down]="expanded"
+                        [class.bi-chevron-right]="!expanded"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </td>
+                  <td class="text-nowrap"><app-severity-badge [severity]="group.severity" /></td>
+                  <td>
+                    <div class="text-break fw-semibold">
+                      {{ 'packageGroup.title' | t: { component: group.component } }}
+                    </div>
+                    <div class="small text-body-secondary">
+                      {{ 'packageGroup.advisories' | t: { count: group.findings.length } }}
+                    </div>
+                  </td>
+                  <td class="small text-break">
+                    @if (group.filePath) {
+                      <code>{{ group.filePath }}</code>
+                    }
+                  </td>
+                  <td class="text-nowrap">
+                    @if (sameReport(group); as reportId) {
+                      <a [routerLink]="['/reports', reportId]">#{{ reportId }}</a>
+                    }
+                  </td>
+                  <td class="text-nowrap">
+                    {{ group.findings[0].report_created_at | date: 'dd/MM/yyyy' }}
+                  </td>
+                  <td class="text-center small text-body-secondary">
+                    @if (group.proposals) {
+                      <span [title]="'packageGroup.proposals' | t: { count: group.proposals }">
+                        <i class="bi bi-robot" aria-hidden="true"></i> {{ group.proposals }}
+                      </span>
+                    }
+                  </td>
+                </tr>
+              } @else {
+                @let finding = entry.finding;
+                <tr [class.package-member]="entry.member">
+                  <td class="text-nowrap">
                     <a
-                      class="proposal-pending"
                       [routerLink]="['/reports', finding.report_id]"
                       [fragment]="'finding-' + finding.id"
-                      [attr.aria-label]="hint"
-                      [title]="hint"
-                      ><i class="bi bi-robot" aria-hidden="true"></i
-                    ></a>
-                  }
-                </td>
-              </tr>
+                      [attr.aria-label]="'project.openFinding' | t: { id: finding.id }"
+                      >#{{ finding.id }}</a
+                    >
+                  </td>
+                  <td class="text-nowrap"><app-severity-badge [severity]="finding.severity" /></td>
+                  <td>
+                    <div class="text-break">{{ finding.title }}</div>
+                    <div class="small text-body-secondary">
+                      @if (finding.rule_id) {
+                        <code>{{ finding.rule_id }}</code>
+                      }
+                      @if (finding.cwe) {
+                        <span class="ms-1">{{ finding.cwe }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="small text-break">
+                    @if (finding.file_path) {
+                      <code
+                        >{{ finding.file_path
+                        }}{{ finding.line_start ? ':' + finding.line_start : '' }}</code
+                      >
+                    }
+                  </td>
+                  <td class="text-nowrap">
+                    <a [routerLink]="['/reports', finding.report_id]">#{{ finding.report_id }}</a>
+                  </td>
+                  <td class="text-nowrap">{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</td>
+                  <td class="text-center">
+                    @if (finding.proposed_status; as proposed) {
+                      @let hint =
+                        'project.proposalPending' | t: { status: statusMeta[proposed].label | t };
+                      <a
+                        class="proposal-pending"
+                        [routerLink]="['/reports', finding.report_id]"
+                        [fragment]="'finding-' + finding.id"
+                        [attr.aria-label]="hint"
+                        [title]="hint"
+                        ><i class="bi bi-robot" aria-hidden="true"></i
+                      ></a>
+                    }
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>

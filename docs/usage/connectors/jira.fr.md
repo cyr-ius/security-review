@@ -14,6 +14,8 @@ Center. Les variables sont dans [Connecteurs en détail](../../advanced/connecto
 
 Le compte n'a besoin que de parcourir les projets Jira utilisés et d'y créer des tickets.
 
+![La connexion de Jira](../../assets/screenshots/connectors-jira.png)
+
 ## Destination
 
 La destination d'un projet est sa **clé du projet Jira** (`SEC`).

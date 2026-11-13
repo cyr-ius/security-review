@@ -62,6 +62,19 @@
       }
     }
   </span>
+  <div class="form-check form-switch mb-0">
+    <input
+      type="checkbox"
+      role="switch"
+      class="form-check-input"
+      id="findings-proposed-only"
+      [checked]="proposedOnly()"
+      (change)="toggleProposed($event)"
+    />
+    <label class="form-check-label text-body" for="findings-proposed-only">{{
+      'projectFindings.proposedOnly' | t
+    }}</label>
+  </div>
 </app-table-controls>
 
 @if (triageError(); as message) {

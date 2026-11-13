@@ -965,6 +965,10 @@ export interface ProjectFindingQuery {
   reviewType: readonly ReviewType[];
   /** Text in the title, rule, CWE, file, description, project or branch (omitted: no search). */
   search?: string;
+  /** The findings of this report only (omitted: every report). */
+  reportId?: number;
+  /** The findings with a status proposed by an agent only. */
+  proposed?: boolean;
   limit: number;
   offset: number;
 }
@@ -1352,10 +1356,30 @@ export interface ServerInstance {
   heartbeat_at: string;
   /** MCP server: scan_code goes to the Controller server. */
   delegated: boolean;
-  /** MCP server: the most scan_code calls run at once since its previous heartbeat. */
+  /** MCP server: the most code scans run at once since its previous heartbeat. */
   processing_fragments: number;
+  /**
+   * The most requests run at once since the previous heartbeat, by family: the tool calls of
+   * the agents (MCP server), the scans received (Controller server). Absent from an earlier version.
+   */
+  processing?: Processing;
   /** MCP server: the agents that sent it a request lately, the most recent first. */
   agents?: AgentActivity[];
+}
+
+/**
+ * The most requests run at once since the previous heartbeat, by family: code scans
+ * (scan_code, start_codebase_scan), dependency scans, reports and triage, reads (the other
+ * tools, the prompts and the resources), and the scans sent by security-review-ci (Controller
+ * server only).
+ */
+export interface Processing {
+  code: number;
+  deps: number;
+  reports: number;
+  reads: number;
+  /** Absent from a server of an earlier version. */
+  pipeline?: number;
 }
 
 /** An agent seen lately by an MCP server: an opaque key and its MCP client, never a person. */
@@ -1366,6 +1390,8 @@ export interface AgentActivity {
   client: string;
   client_version: string;
   last_seen: string;
-  /** The most scan_code calls it ran at once since the previous heartbeat. */
+  /** The most code scans it ran at once since the previous heartbeat. */
   processing_fragments: number;
+  /** All its requests by family (absent from an MCP server of an earlier version). */
+  processing?: Processing;
 }

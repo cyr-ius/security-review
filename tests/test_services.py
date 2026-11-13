@@ -207,6 +207,14 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert services.list_project_findings(None, search="OTHER")["total"] == 1
     assert services.list_project_findings("shop", search="main")["total"] == 1
     assert services.list_project_findings("shop", search="%")["total"] == 0
+    assert services.list_project_findings("shop", search="APP/DB")["total"] == 2  # file path
+    # One report, and the findings with a proposal of an agent
+    by_report = services.list_project_findings(None, report_id=first["report_id"])
+    assert [f["id"] for f in by_report["findings"]] == [high["id"]]
+    assert services.list_project_findings("shop", proposed=True)["total"] == 0
+    services.propose_finding_status(high["id"], FindingStatus.FIXED, "Query now uses bindings", "t")
+    proposed = services.list_project_findings(None, proposed=True)
+    assert [f["id"] for f in proposed["findings"]] == [high["id"]]
     assert services.list_project_findings("unknown") == {
         "project": "unknown",
         "total": 0,

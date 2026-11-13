@@ -39,3 +39,11 @@
 .tile.zero .tile-value {
   color: var(--bs-secondary-color);
 }
+
+/* A tile that opens its findings reads as a plain tile: only the pointer tells it is a link */
+.tile-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}

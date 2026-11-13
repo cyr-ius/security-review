@@ -59,6 +59,11 @@
 
   --series-1: #2a78d6;
   --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-7: #6250d6;
+  /* Neutral slice of a pie (the rest), not a categorical hue */
+  --cwe-other: #c3c7cf;
   --app-engine-idle: #a8d7b1;
   --app-codebase-idle: #a7c7ec;
   --app-fragment-idle: #f5b69d;
@@ -91,6 +96,10 @@
 
   --series-1: #3987e5;
   --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-7: #9085e9;
+  --cwe-other: #4b5563;
   --app-engine-idle: var(--bs-success-border-subtle);
   --app-codebase-idle: #365d8d;
   --app-fragment-idle: #895c37;
@@ -219,6 +228,46 @@ h1,
 .form-check-input:checked {
   background-color: var(--app-accent);
   border-color: var(--app-accent);
+}
+
+/*
+ * Search fields: a button of the input group clears them (Firefox has no native cross and the
+ * one of Chromium is faint in dark mode), so the native cross is hidden to avoid showing two.
+ */
+input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Same look in every state (no hover or click effect): only the keyboard focus ring shows */
+.search-clear {
+  --bs-btn-color: var(--bs-secondary-color);
+  --bs-btn-bg: var(--app-surface);
+  --bs-btn-border-color: var(--app-input-border);
+  --bs-btn-hover-color: var(--bs-btn-color);
+  --bs-btn-hover-bg: var(--bs-btn-bg);
+  --bs-btn-hover-border-color: var(--bs-btn-border-color);
+  --bs-btn-active-color: var(--bs-btn-color);
+  --bs-btn-active-bg: var(--bs-btn-bg);
+  --bs-btn-active-border-color: var(--bs-btn-border-color);
+  border-left: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Bootstrap Icons lower their glyph by 0.125em to sit on a text baseline: centered here */
+.search-clear > .bi {
+  display: block;
+  line-height: 1;
+}
+
+.search-clear > .bi::before {
+  display: block;
+}
+
+.search-clear:active {
+  transform: none;
 }
 
 .form-label {

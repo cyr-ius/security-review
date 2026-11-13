@@ -182,6 +182,12 @@ export class MultiSelectDropdownComponent {
     this.search.set((event.target as HTMLInputElement).value);
   }
 
+  /** Empty the search and give the focus back to its field. */
+  clearSearch(): void {
+    this.search.set('');
+    this.searchInput()?.nativeElement.focus();
+  }
+
   toggleOpen(): void {
     if (this.open()) {
       this.close();

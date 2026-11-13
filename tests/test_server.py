@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 from mcp.client import Client
@@ -458,10 +459,44 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     assert "PY-004" in {m["rule_id"] for m in failed["matches"]}
 
 
+async def test_agent_tracking_counts_every_request_by_family(monkeypatch):
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP)
+    monkeypatch.setattr(server, "_heartbeat", heartbeat)
+    running = []
+
+    async def call_next(ctx):
+        running.append(heartbeat.activity()["processing"])
+        return "answered"
+
+    def request(method, params):
+        session = SimpleNamespace(client_params=None)
+        return SimpleNamespace(method=method, params=params, session=session, request=None)
+
+    for method, params in [
+        ("tools/call", {"name": "save_security_report"}),
+        ("tools/call", {"name": "scan_dependencies"}),
+        ("prompts/get", {"name": "security-review"}),
+        ("tools/call", {"name": "list_rules"}),
+        # Raw params of the client: an unhashable name must not break the request
+        ("tools/call", {"name": ["scan_code"]}),
+        ("tools/list", {}),
+    ]:
+        heartbeat.activity()  # the next activity shows this request only
+        assert await server._track_agent(request(method, params), call_next) == "answered"
+
+    families = [next((f for f, n in counts.items() if n), None) for counts in running]
+    assert families == ["reports", "deps", "reads", "reads", None, None]
+
+
 async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):
     sent = []
+    # Counted like scan_code by the heartbeat: the Activity page shows the request
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, server._scan_code_delegated)
+    monkeypatch.setattr(server, "_heartbeat", heartbeat)
+    running = []
 
     def controller(url, authorization, project, timeout, scope):
+        running.append(heartbeat.activity()["processing_fragments"])
         sent.append((url, authorization, project, scope))
         return {
             "ticket": "secreview_scan_abc",
@@ -492,6 +527,7 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
         )
 
     assert local.is_error and "delegation of scan_code" in text_of(local)
+    assert running[0] == 1
     assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api", "all")
     # The ticket of a dependency review opens the dependency scan only
     assert sent[2][3] == "deps"

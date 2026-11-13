@@ -163,6 +163,21 @@ export class RiskAcceptanceListComponent {
     this.selectedId.update((current) => (current === id ? null : id));
   }
 
+  /**
+   * A click anywhere on a row folds or unfolds it, except on its own links and buttons (the
+   * title button already toggles it) and when the click ends a text selection.
+   */
+  onRowClick(event: MouseEvent, id: number): void {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('a, button, input, select, textarea, label')) {
+      return;
+    }
+    if (window.getSelection()?.toString()) {
+      return;
+    }
+    this.toggle(id);
+  }
+
   /** Append the next page to the list. */
   async loadMore(): Promise<void> {
     this.loadingMore.set(true);

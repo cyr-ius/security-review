@@ -129,7 +129,7 @@
   </div>
 } @else {
   <section class="mb-4" [attr.aria-label]="'projects.totalsLabel' | t">
-    <app-severity-counts [counts]="totals()" />
+    <app-severity-counts [counts]="totals()" link="/findings" />
   </section>
 
   <app-table-controls
@@ -150,14 +150,14 @@
               <th scope="col" [appSortHeader]="sort" sortKey="name">
                 {{ 'reportTable.project' | t }}
               </th>
-              <th scope="col" [appSortHeader]="sort" sortKey="risk">
+              <th scope="col" class="header-wrap" [appSortHeader]="sort" sortKey="risk">
                 {{ 'projects.worst' | t }}
               </th>
               @for (severity of severities; track severity) {
                 <th scope="col" class="text-end">{{ severityMeta[severity].label | t }}</th>
               }
               <th scope="col" class="text-end">{{ 'trend.reports' | t }}</th>
-              <th scope="col" [appSortHeader]="sort" sortKey="activity">
+              <th scope="col" class="header-wrap" [appSortHeader]="sort" sortKey="activity">
                 {{ 'projects.lastReport' | t }}
               </th>
               @if (hasActions()) {
@@ -176,7 +176,7 @@
                   </a>
                   @if (project.autojoin_blocked) {
                     <span
-                      class="badge text-bg-secondary ms-1"
+                      class="badge text-bg-secondary text-wrap text-start ms-1"
                       [attr.title]="'projects.autojoinBlockedHelp' | t"
                     >
                       <i class="bi bi-lock" aria-hidden="true"></i>
@@ -199,11 +199,44 @@
                     class="text-end numeric"
                     [class.text-body-tertiary]="project.open_findings_by_severity[severity] === 0"
                   >
-                    {{ project.open_findings_by_severity[severity] }}
+                    @if (project.open_findings_by_severity[severity]; as count) {
+                      <a
+                        class="count-link"
+                        [routerLink]="['/projects', project.project, 'findings']"
+                        [queryParams]="{ severity }"
+                        [attr.aria-label]="
+                          'projects.openFindingsOf'
+                            | t
+                              : {
+                                  project: project.project,
+                                  severity: severityMeta[severity].label | t,
+                                  count,
+                                }
+                        "
+                        >{{ count }}</a
+                      >
+                    } @else {
+                      0
+                    }
                   </td>
                 }
-                <td class="text-end numeric">{{ project.reports_total }}</td>
-                <td class="text-nowrap">
+                <td class="text-end numeric">
+                  @if (project.reports_total) {
+                    <a
+                      class="count-link"
+                      routerLink="/reports"
+                      [queryParams]="{ project: project.project }"
+                      [attr.aria-label]="
+                        'projects.reportsOf'
+                          | t: { project: project.project, count: project.reports_total }
+                      "
+                      >{{ project.reports_total }}</a
+                    >
+                  } @else {
+                    0
+                  }
+                </td>
+                <td>
                   @if (project.last_report_at) {
                     {{ project.last_report_at | date: 'dd/MM/yyyy HH:mm' }}
                   } @else {

@@ -263,3 +263,9 @@ Le champ `vulnerability_check` dit si la vérification a eu lieu :
   d'exécution.
 - Règles d'hygiène `DEP-001` à `DEP-009` : versions non épinglées, URL / VCS, HTTP, index
   supplémentaire, `--trusted-host`, etc.
+- Chaque avis est un finding distinct (les avis qui partagent un alias, comme un GHSA et son
+  CVE, sont fusionnés), intitulé par le composant et le problème de l'avis
+  (`pillow 12.3.0: Heap buffer overflow in ImagingJpegDecode`). Une version corrige souvent
+  de nombreux avis d'un paquet : le résumé du rapport compte à part les composants vulnérables
+  et leurs avis, et l'interface web regroupe les avis d'un même composant (page **Rapport** et
+  findings ouverts d'un **Projet**).

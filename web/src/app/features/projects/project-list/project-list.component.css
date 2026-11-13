@@ -6,6 +6,11 @@
   width: auto;
 }
 
+/* Long headers (French) wrap so the action column stays visible at 1280 px */
+.table > thead th.header-wrap {
+  white-space: normal;
+}
+
 .numeric {
   font-variant-numeric: tabular-nums;
 }
@@ -37,4 +42,16 @@
   inline-size: 2rem;
   block-size: 2rem;
   padding: 0;
+}
+
+/*
+ * Counts open the findings of the severity or the reports of the project. They read as plain
+ * numbers: only the pointer (and the focus ring for the keyboard) tells they are links.
+ */
+.count-link {
+  display: inline-block;
+  min-inline-size: 1.5rem;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
 }

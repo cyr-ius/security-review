@@ -187,8 +187,8 @@
     </div>
   }
 
-  <!-- Each finding is its own card; an empty list gets one card, as on the other lists -->
-  @for (finding of visibleFindings(); track finding.id) {
+  <!-- Each finding is its own card; the advisories of one vulnerable package are grouped -->
+  <ng-template #card let-finding>
     <app-finding-card
       [finding]="finding"
       [canTriage]="auth.canTriage()"
@@ -203,6 +203,37 @@
       (proposalRejected)="decide(finding, null)"
       (exportRequested)="exportFinding(finding, $event)"
     />
+  </ng-template>
+  @for (entry of entries(); track entry.key) {
+    @if (entry.kind === 'package') {
+      @let group = entry.group;
+      <details class="card package-group mb-3" [open]="containsTarget(group)">
+        <summary class="card-header d-flex flex-wrap align-items-center gap-2">
+          <app-severity-badge [severity]="group.severity" />
+          <span class="fw-semibold me-auto">
+            {{ 'packageGroup.title' | t: { component: group.component } }}
+          </span>
+          @if (group.filePath) {
+            <code class="small">{{ group.filePath }}</code>
+          }
+          <span class="badge bg-body-secondary text-body border">
+            {{ 'packageGroup.advisories' | t: { count: group.findings.length } }}
+          </span>
+          @if (group.open) {
+            <span class="small text-body-secondary">
+              {{ 'packageGroup.open' | t: { count: group.open } }}
+            </span>
+          }
+        </summary>
+        <div class="card-body pb-0">
+          @for (finding of group.findings; track finding.id) {
+            <ng-container *ngTemplateOutlet="card; context: { $implicit: finding }" />
+          }
+        </div>
+      </details>
+    } @else {
+      <ng-container *ngTemplateOutlet="card; context: { $implicit: entry.finding }" />
+    }
   } @empty {
     <div class="card">
       <div class="card-body">

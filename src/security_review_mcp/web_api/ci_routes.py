@@ -24,6 +24,7 @@ from ..deps import depscan
 from ..engines.opengrep import OpenGrepBusyError, OpenGrepError
 from ..reports import services, trends
 from ..rules import codescan
+from ..storage import server_instances
 from ..storage.models import Severity
 from .deps import (
     PipelineIdentity,
@@ -202,7 +203,8 @@ async def ci_code_scan(
         ensure_write_scope(writable, project)
     try:
         async with _ticket_use(http_request, "code"):
-            result = await run_in_threadpool(_code_scan, request, identity.client, owner)
+            with server_instances.track("pipeline"):
+                result = await run_in_threadpool(_code_scan, request, identity.client, owner)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     except OpenGrepError as exc:
@@ -239,7 +241,8 @@ async def ci_dependency_scan(
         ensure_write_scope(writable, project)
     try:
         async with _ticket_use(http_request, "deps"):
-            result = await run_in_threadpool(_dependency_scan, request, identity.client, owner)
+            with server_instances.track("pipeline"):
+                result = await run_in_threadpool(_dependency_scan, request, identity.client, owner)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info(

@@ -56,6 +56,9 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
 - Un changement du code met à jour sa documentation dans le même commit. Le tableau « Si vous
   modifiez... » d'`AGENTS.md` donne les pages à mettre à jour pour chaque type de changement
   (outil MCP, règle de scan, option CLI, paramètre `SECREVIEW_*`, API REST…).
+- Une capture de l'interface web va dans `docs/assets/screenshots/`, prise dans chaque langue avec
+  le thème clair et des données fictives : `nom.png` (anglais) et `nom.fr.png` (français). Les deux
+  pages pointent vers `nom.png` ; le plugin i18n sert la version française sous `/fr/`.
 
 ## README
 

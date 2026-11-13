@@ -1007,6 +1007,8 @@ def list_project_findings(
     review_type: ReviewType | Collection[ReviewType] | None = None,
     projects: Collection[str] | None = None,
     search: str | None = None,
+    report_id: int | None = None,
+    proposed: bool = False,
 ) -> dict:
     """List the findings of a project (or of every project) across all reports, for a review.
 
@@ -1019,7 +1021,8 @@ def list_project_findings(
     None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
     ``search`` keeps the findings whose title, rule, CWE, file, description, project or branch
-    contains it (case-insensitive, first 200 characters).
+    contains it (case-insensitive, first 200 characters). ``report_id`` keeps the findings of
+    that report; ``proposed`` keeps the findings carrying a status proposed by an agent.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
@@ -1035,6 +1038,10 @@ def list_project_findings(
         filters.append(col(Finding.severity).in_(severities))
     if types := _values(review_type):
         filters.append(col(SecurityReport.review_type).in_(types))
+    if report_id is not None:
+        filters.append(Finding.report_id == report_id)
+    if proposed:
+        filters.append(col(Finding.proposed_status).is_not(None))
     if search and search.strip():
         pattern = _contains_pattern(search.strip())
         searched = [

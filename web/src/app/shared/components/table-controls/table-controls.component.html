@@ -14,6 +14,7 @@
   <div class="input-group input-group-sm search">
     <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
     <input
+      #field
       [id]="idPrefix() + '-search'"
       type="search"
       class="form-control"
@@ -23,6 +24,16 @@
       [value]="search()"
       (input)="onSearch($event)"
     />
+    <button
+      type="button"
+      class="btn search-clear"
+      [hidden]="!search()"
+      [attr.aria-label]="'common.clearSearch' | t"
+      [title]="'common.clearSearch' | t"
+      (click)="clearSearch(field)"
+    >
+      <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
   </div>
 
   <ng-content select="[control]" />

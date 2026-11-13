@@ -528,25 +528,44 @@ def test_controller_heartbeat_registers_and_unregisters():
     assert server_instances.active_instances(ServerKind.CONTROLLER) == []
 
 
-def test_an_mcp_server_reports_its_scan_code_calls_even_shorter_than_its_heartbeat():
+def test_an_mcp_server_reports_its_requests_by_family_even_shorter_than_its_heartbeat():
     delegated = [True]
     heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, lambda: delegated[0])
     heartbeat.start()
     try:
-        # Two calls ran at once and ended before the heartbeat: it still shows them
-        with heartbeat.processing(), heartbeat.processing():
-            pass
+        agent = heartbeat.seen(42, "claude-code", "2.1")
+        # Two scans and a read ran at once and ended before the heartbeat: it still shows them,
+        # for the server and for the agent that sent the read
+        with heartbeat.processing(), heartbeat.processing(), heartbeat.processing(agent, "reads"):
+            # The routes of the Controller server count through the heartbeat of their process
+            with server_instances.track("pipeline"):
+                pass
         heartbeat.beat()
         [mcp] = server_instances.active_instances(ServerKind.MCP)
         assert (mcp["delegated"], mcp["processing_fragments"]) == (True, 2)
+        assert mcp["processing"] == {"code": 2, "deps": 0, "reports": 0, "reads": 1, "pipeline": 1}
+        assert mcp["agents"][0]["processing"]["reads"] == 1
+        assert sum(mcp["agents"][0]["processing"].values()) == 1
         # The next heartbeat shows what runs now: nothing, and scan_code no longer delegated
         delegated[0] = False
         heartbeat.beat()
         [mcp] = server_instances.active_instances(ServerKind.MCP)
         assert (mcp["delegated"], mcp["processing_fragments"]) == (False, 0)
+        assert set(mcp["processing"].values()) == {0}
     finally:
         heartbeat.stop()
     assert server_instances.active_instances(ServerKind.MCP) == []
+    # Without a heartbeat (stopped, or stdio), counting is a no-op
+    with server_instances.track("code"):
+        pass
+    # A malformed row shows nothing running rather than failing the page
+    assert server_instances._decode_processing('{"code": "9", "reads": -3, "x": 1}') == {
+        "code": 0,
+        "deps": 0,
+        "reports": 0,
+        "reads": 0,
+        "pipeline": 0,
+    }
 
 
 def test_the_agents_of_an_mcp_server_are_opaque_and_bounded(monkeypatch):

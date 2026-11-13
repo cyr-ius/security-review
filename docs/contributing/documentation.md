@@ -55,6 +55,9 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - A change of the code updates its documentation in the same commit. The table "Si vous
   modifiez..." of `AGENTS.md` gives the pages to update for each kind of change (MCP tool, scan
   rule, CLI option, `SECREVIEW_*` setting, REST API…).
+- A screenshot of the web interface goes in `docs/assets/screenshots/`, taken in each language
+  with the light theme and fictitious data: `name.png` (English) and `name.fr.png` (French).
+  Both pages link to `name.png`; the i18n plugin serves the French one under `/fr/`.
 
 ## README
 

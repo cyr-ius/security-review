@@ -64,22 +64,24 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
   tant que l'onglet est masqué) ou quand vous cliquez sur **Réessayer**, et vous ramène à votre page
   dès qu'il répond de nouveau.
 
+![La page d'un projet : findings ouverts par criticité, tendance, findings ouverts](../assets/screenshots/project-overview.png)
+
 ## Pages
 
 **Supervision**
 
 | Page | À quoi elle sert |
 |---|---|
-| **Projets** | Tous les projets avec leurs findings ouverts par sévérité. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
-| **Projet** | Tendance, findings ouverts les plus graves et le plus ancien, export SARIF, **Tous les rapports** du projet |
+| **Projets** | Tous les projets avec leurs findings ouverts par sévérité : une case ouvre les findings ouverts de cette sévérité dans tous les projets, un chiffre du tableau ceux du projet, le nombre de rapports ses rapports. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
+| **Projet** | Findings ouverts par sévérité (une case ouvre ceux du projet), tendance, CWE les plus fréquentes en camembert étiqueté, findings ouverts les plus graves (les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) repliés sur une ligne) et le plus ancien, export SARIF, **Tous les rapports** du projet |
 
 **Revue** : **Findings** et **Acceptations de risque** pour les utilisateurs qui ont `reports.read` (sur les projets qu'ils lisent) ; **Rapports** pour tout utilisateur (sur les projets qu'il lit), ouvert depuis le champ de recherche (`#report:*`) ou **Tous les rapports** d'un projet
 
 | Page | À quoi elle sert |
 |---|---|
-| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, fichier, description, projet, branche) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs |
+| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, chemin du fichier, description, projet, branche, ou `#report:<n°>` pour les findings d'un rapport, comme dans la recherche générale) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs ; **Possède une proposition** garde les findings dont un agent propose un statut |
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
-| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings (recherche par texte, filtres de sévérité et de statut), téléchargement Markdown et SARIF |
+| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings (recherche par texte, filtres de sévérité et de statut, avis d'une même dépendance vulnérable regroupés), téléchargement Markdown et SARIF |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent les règles, checklists et normes en fichiers TOML)
 
@@ -118,6 +120,8 @@ les 2 secondes tant qu'elle est visible :
   [Moteurs de scan](../advanced/architecture/scan-engine.md#administration)) ;
 - la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
   enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
+
+![Diagramme d'activité : agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan](../assets/screenshots/activity-diagram.png)
 
 Le bouton **Journal d'audit**, à côté d'**Actualiser**, ouvre le [journal d'audit](audit-metrics.md)
 (`audit.read`). L'ancienne adresse `/ui/scan-engines` mène à cette page.

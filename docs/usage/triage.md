@@ -19,6 +19,8 @@ Worth knowing:
   applying it.
     - **Apply** takes the proposal over (the form opens for an acceptance or a false positive).
     - **Reject** removes the proposal.
+    - On the **Findings to review** page, **With a proposal only** lists the findings waiting
+      for such a check.
 - **Low-severity findings** (`low` and `info` by default) are accepted by a plain validation,
   with no reason and no date.
 - **An expired acceptance counts as open again** everywhere: lists, posture, [gate](../review/gate.md),
@@ -27,6 +29,10 @@ Worth knowing:
   [audit log](audit-metrics.md). Any decision removes the pending proposal.
 - A triager may also send a finding to Jira or ServiceNow when its project has a destination
   ([connectors](connectors/index.md#sending-a-finding)).
+
+![A finding with the proposal of an agent, to apply or reject](../assets/screenshots/triage-proposal.png)
+
+![Accepting a risk: reason and expiry date](../assets/screenshots/triage-acceptance.png)
 
 ## Several findings at once
 

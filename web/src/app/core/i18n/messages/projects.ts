@@ -45,6 +45,9 @@ export const projects = defineMessages({
     'projects.pendingLoadError': 'Could not load the pending projects.',
     'projects.delete': 'Delete project {project}',
     'projects.members': 'Members of project {project}',
+    'projects.openFindingsOf':
+      'Open findings of project {project} with severity {severity}: {count}',
+    'projects.reportsOf': 'Reports of project {project}: {count}',
     'projects.confirmDelete':
       'Delete project {project}? Its reports, findings and comments, the roles of the users on it and its place in the OIDC mappings and in the tokens are deleted (a token left without project is revoked). This cannot be undone.',
     'projects.deleted':
@@ -96,7 +99,8 @@ export const projects = defineMessages({
     'projectFindings.count': '{shown} of {total} finding(s)',
     'projectFindings.triaged': '{count} triaged on this page',
     'projectFindings.loadMore': 'Load more',
-    'projectFindings.search': 'Search: title, rule, CWE, file...',
+    'projectFindings.search': 'Search: title, rule, CWE, file, #report:<no.>...',
+    'projectFindings.proposedOnly': 'With a proposal only',
     'projectFindings.loadError': 'Could not load the findings.',
     'projectFindings.notFound': 'This project does not exist or is outside your scope.',
     'projectFindings.none': 'No open findings: nothing to review.',
@@ -159,6 +163,9 @@ export const projects = defineMessages({
     'projects.pendingLoadError': 'Impossible de charger les projets en attente.',
     'projects.delete': 'Supprimer le projet {project}',
     'projects.members': 'Membres du projet {project}',
+    'projects.openFindingsOf':
+      'Findings ouverts du projet {project} de sévérité {severity} : {count}',
+    'projects.reportsOf': 'Rapports du projet {project} : {count}',
     'projects.confirmDelete':
       'Supprimer le projet {project} ? Ses rapports, findings et commentaires, les rôles des utilisateurs sur ce projet et sa place dans les correspondances OIDC et dans les jetons sont supprimés (un jeton qui n’a plus de projet est révoqué). Cette action est irréversible.',
     'projects.deleted':
@@ -210,7 +217,8 @@ export const projects = defineMessages({
     'projectFindings.count': '{shown} sur {total} finding(s)',
     'projectFindings.triaged': '{count} trié(s) sur cette page',
     'projectFindings.loadMore': 'Afficher plus',
-    'projectFindings.search': 'Rechercher : titre, règle, CWE, fichier...',
+    'projectFindings.search': 'Rechercher : titre, règle, CWE, fichier, #report:<n°>...',
+    'projectFindings.proposedOnly': 'Possède une proposition',
     'projectFindings.loadError': 'Impossible de charger les findings.',
     'projectFindings.notFound': "Ce projet n'existe pas ou est hors de votre périmètre.",
     'projectFindings.none': 'Aucun finding ouvert : rien à revoir.',
@@ -274,6 +282,9 @@ export const projects = defineMessages({
     'projects.pendingLoadError': 'No se pudieron cargar los proyectos pendientes.',
     'projects.delete': 'Eliminar el proyecto {project}',
     'projects.members': 'Miembros del proyecto {project}',
+    'projects.openFindingsOf':
+      'Hallazgos abiertos del proyecto {project} con severidad {severity}: {count}',
+    'projects.reportsOf': 'Informes del proyecto {project}: {count}',
     'projects.confirmDelete':
       '¿Eliminar el proyecto {project}? Se eliminan sus informes, hallazgos y comentarios, los roles de los usuarios en él y su lugar en las correspondencias OIDC y en los tokens (un token que se queda sin proyecto se revoca). Esta acción no se puede deshacer.',
     'projects.deleted':
@@ -325,7 +336,8 @@ export const projects = defineMessages({
     'projectFindings.count': '{shown} de {total} hallazgo(s)',
     'projectFindings.triaged': '{count} clasificado(s) en esta página',
     'projectFindings.loadMore': 'Cargar más',
-    'projectFindings.search': 'Buscar: título, regla, CWE, archivo...',
+    'projectFindings.search': 'Buscar: título, regla, CWE, archivo, #report:<n.º>...',
+    'projectFindings.proposedOnly': 'Solo con una propuesta',
     'projectFindings.loadError': 'No se pudieron cargar los hallazgos.',
     'projectFindings.notFound': 'Este proyecto no existe o está fuera de su ámbito.',
     'projectFindings.none': 'No hay hallazgos abiertos: nada que revisar.',

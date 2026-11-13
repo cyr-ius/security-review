@@ -35,9 +35,12 @@ In HTTP, `security-review-mcp serve`:
    enrollment server, unless the server listens on localhost or
    `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (see [Bearer tokens](../bearer-tokens.md));
 4. keeps a **heartbeat** in the database: every 5 seconds, and at once (at most once a second)
-   when a `scan_code` call starts or ends, with its host name, its version, whether `scan_code`
-   is delegated to the Controller server, the most `scan_code` calls it ran at once since
-   the previous heartbeat, and the agents that sent it a request in the last 5 minutes (at most
+   when a request of an agent starts or ends, with its host name, its version, whether
+   `scan_code` is delegated to the Controller server, the most requests it ran at once since the
+   previous heartbeat by family (code scans: `scan_code`, `start_codebase_scan`; dependency
+   scans: `scan_dependencies`; reports and triage: `save_security_report`,
+   `propose_finding_status`, `propose_opengrep_rule`, `request_project`; reads: the other tools,
+   the prompts and the resources), and the agents that sent it a request in the last 5 minutes (at most
    50). An agent is an opaque key (an HMAC of its token id and client name, with a secret drawn
    at the start of the process: neither reversible nor comparable between servers) and the name
    and version its MCP client gives at the start of the session (`clientInfo`); never the name of

@@ -12,3 +12,8 @@
   background-color: var(--app-surface);
   box-shadow: inset 3px 0 0 var(--app-accent);
 }
+
+/* The whole row folds or unfolds its panel; the title button stays for the keyboard */
+.summary-row {
+  cursor: pointer;
+}

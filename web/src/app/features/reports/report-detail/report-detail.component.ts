@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
@@ -44,6 +44,7 @@ import {
   knownValues,
   matchesFilter,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { PackageGroup, groupByPackage } from '../../../shared/utils/package-groups';
 
 /** One report: metadata, summary and findings, with triage for triagers. */
 @Component({
@@ -52,6 +53,7 @@ import {
     RouterLink,
     DatePipe,
     FindingCardComponent,
+    NgTemplateOutlet,
     SeverityBadgeComponent,
     TableControlsComponent,
     TranslatePipe,
@@ -146,6 +148,15 @@ export class ReportDetailComponent {
       .filter((f) => matches(f, this.searchInput()))
       .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.id - b.id),
   );
+
+  /** Visible findings, the advisories of one vulnerable package gathered in a group. */
+  readonly entries = computed(() => groupByPackage(this.visibleFindings()));
+
+  /** A group opens by itself when a link points to one of its findings. */
+  containsTarget(group: PackageGroup<Finding>): boolean {
+    const id = this.targetId();
+    return id !== null && group.findings.some((f) => f.id === id);
+  }
 
   /** Declared coverage: checklist items by outcome (attention first) and the scan leads. */
   readonly coverage = computed(() => {

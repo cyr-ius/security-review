@@ -227,6 +227,17 @@ export class GlobalSearchComponent {
     this.previewTimer = setTimeout(() => this.settled.set(value), PREVIEW_DELAY_MS);
   }
 
+  /** Empty the field and give it the focus back, with the syntax reminder shown. */
+  clear(): void {
+    clearTimeout(this.previewTimer);
+    this.query.set('');
+    this.settled.set('');
+    this.activeIndex.set(0);
+    this.error.set(null);
+    this.field().nativeElement.focus();
+    this.open.set(true);
+  }
+
   select(index: number): void {
     this.activeIndex.set(index);
   }

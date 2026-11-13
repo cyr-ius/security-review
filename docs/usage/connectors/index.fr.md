@@ -13,6 +13,8 @@ interne... Ce que le connecteur crée dans cet outil est l'**enregistrement** du
 Les variables, les garanties et l'API REST sont dans
 [Connecteurs en détail](../../advanced/connectors.md).
 
+![La page Connecteurs : Jira activé, ServiceNow à configurer](../../assets/screenshots/connectors-list.png)
+
 ## Activation
 
 La page **Connecteurs** (Administration) affiche une carte par connecteur, avec son état

@@ -28,6 +28,16 @@
       (keydown)="onKeydown($event)"
       (focus)="onFocus()"
     />
+    <button
+      type="button"
+      class="btn search-clear"
+      [hidden]="!query()"
+      [attr.aria-label]="'common.clearSearch' | t"
+      [title]="'common.clearSearch' | t"
+      (click)="clear()"
+    >
+      <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
     <span class="input-group-text shortcut d-none d-xl-inline-flex" aria-hidden="true">
       {{ 'layout.searchShortcut' | t }}
     </span>

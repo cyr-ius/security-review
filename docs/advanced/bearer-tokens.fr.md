@@ -125,7 +125,7 @@ L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouvert
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, chacun répétable :
 l'une des valeurs suffit ; `search`, 200 caractères au plus, garde les findings dont le titre,
 la règle, la CWE, le fichier, la description, le projet ou la branche le contient, sans
-distinguer majuscules et minuscules ; `limit` plafonné par `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
+distinguer majuscules et minuscules ; `report_id` garde les findings d'un rapport et `proposed=true` ceux qui portent un statut proposé par un agent ; `limit` plafonné par `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
 Sans `project`, elle liste les findings de tous les projets que lit l'appelant
 (`"project": null`) :
 

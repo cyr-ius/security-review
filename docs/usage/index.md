@@ -60,22 +60,24 @@ A page is missing? You do not hold its permission: ask an administrator (see
   on its own (after 5 s, then with a delay doubled after each failure, up to 60 s, paused while the
   tab is hidden) or when you click **Retry**, and brings you back to your page once it answers again.
 
+![The page of a project: open findings by severity, trend, open findings](../assets/screenshots/project-overview.png)
+
 ## Pages
 
 **Supervision**
 
 | Page | What for |
 |---|---|
-| **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
-| **Project** | Trend, worst and oldest open findings, SARIF export, **All reports** of the project |
+| **Projects** | Every project with its open findings by severity: a tile opens the open findings of that severity in every project, a count of the table those of the project, the number of reports its reports. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
+| **Project** | Open findings by severity (a tile opens those of the project), trend, most frequent CWEs as a labeled pie, worst and oldest open findings (the [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) folded in one row), SARIF export, **All reports** of the project |
 
 **Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read); **Reports** for every user (on the projects they read), opened from the search field (`#report:*`) or **All reports** of a project
 
 | Page | What for |
 |---|---|
-| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file, description, project, branch) narrows the list; the status, severity and review type filters accept several values |
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
-| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status), Markdown and SARIF download |
+| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange the rules, checklists and standards as TOML files)
 
@@ -113,6 +115,8 @@ The **Activity** page (`settings.manage`) shows what runs now and reloads itself
   [Scan engines](../advanced/architecture/scan-engine.md#administration));
 - the **Scan engines** section: the [scan engines](../advanced/architecture/scan-engine.md#administration)
   enrolled with the Controller server (version, address, last activity) and their revocation.
+
+![Activity diagram: agents, pipelines, MCP servers, Controller servers and scan engines](../assets/screenshots/activity-diagram.png)
 
 The **Audit log** button, next to **Refresh**, opens the [audit log](audit-metrics.md)
 (`audit.read`). The former address `/ui/scan-engines` leads to this page.

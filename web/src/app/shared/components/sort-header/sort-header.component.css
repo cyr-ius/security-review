@@ -8,7 +8,8 @@
   color: inherit;
   font: inherit;
   text-align: inherit;
-  white-space: nowrap;
+  /* Follows its header: nowrap by default, wrapped where a table allows it */
+  white-space: inherit;
   cursor: pointer;
 }
 

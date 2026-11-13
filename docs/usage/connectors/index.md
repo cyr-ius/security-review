@@ -13,6 +13,8 @@ connector creates in that tool is the **record** of the finding.
 The variables, the guarantees and the REST API are in
 [Connectors in detail](../../advanced/connectors.md).
 
+![The Connectors page: Jira switched on, ServiceNow to configure](../../assets/screenshots/connectors-list.png)
+
 ## Enabling
 
 The **Connectors** page (Administration) shows one card per connector, with its state

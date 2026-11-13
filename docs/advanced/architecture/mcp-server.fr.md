@@ -35,9 +35,12 @@ En HTTP, `security-review-mcp serve` :
    le serveur d'enrôlement, sauf si le serveur écoute sur localhost ou avec
    `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (voir [Jetons Bearer](../bearer-tokens.md)) ;
 4. entretient un **battement de cœur** en base : toutes les 5 secondes, et aussitôt (au plus une
-   fois par seconde) quand un appel `scan_code` commence ou se termine, avec son nom d'hôte, sa
-   version, l'état de la délégation de `scan_code` au serveur Controller, le plus grand nombre
-   d'appels `scan_code` simultanés depuis le battement précédent, et les agents qui lui ont envoyé
+   fois par seconde) quand une requête d'un agent commence ou se termine, avec son nom d'hôte, sa
+   version, l'état de la délégation de `scan_code` au serveur Controller, le plus grand nombre de
+   requêtes simultanées depuis le battement précédent par famille (scans de code : `scan_code`,
+   `start_codebase_scan` ; scans de dépendances : `scan_dependencies` ; rapports et triage :
+   `save_security_report`, `propose_finding_status`, `propose_opengrep_rule`, `request_project` ;
+   lectures : les autres outils, les prompts et les ressources), et les agents qui lui ont envoyé
    une requête dans les 5 dernières minutes (50 au plus). Un agent est une clé opaque (un HMAC de
    l'identifiant de son jeton et du nom de son client, avec un secret tiré au démarrage du
    processus : ni réversible, ni comparable d'un serveur à l'autre) et le nom et la version que
