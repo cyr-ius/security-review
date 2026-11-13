@@ -13,6 +13,7 @@ import { ProjectMembersComponent } from '../project-members/project-members.comp
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
+import { CwePieComponent } from '../../../shared/components/cwe-pie/cwe-pie.component';
 import { TrendChartComponent } from '../../../shared/components/trend-chart/trend-chart.component';
 import { PackageGroup, groupByPackage } from '../../../shared/utils/package-groups';
 
@@ -49,6 +50,7 @@ const TOP_OPEN_FINDINGS = 20;
     DatePipe,
     DecimalPipe,
     ProjectMembersComponent,
+    CwePieComponent,
     RefreshButtonComponent,
     SeverityBadgeComponent,
     SeverityCountsComponent,

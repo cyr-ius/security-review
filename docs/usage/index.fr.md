@@ -73,7 +73,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 | Page | À quoi elle sert |
 |---|---|
 | **Projets** | Tous les projets avec leurs findings ouverts par sévérité : une case ouvre les findings ouverts de cette sévérité dans tous les projets, un chiffre du tableau ceux du projet, le nombre de rapports ses rapports. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
-| **Projet** | Findings ouverts par sévérité (une case ouvre ceux du projet), tendance, findings ouverts les plus graves (les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) repliés sur une ligne) et le plus ancien, export SARIF, **Tous les rapports** du projet |
+| **Projet** | Findings ouverts par sévérité (une case ouvre ceux du projet), tendance, CWE les plus fréquentes en camembert étiqueté, findings ouverts les plus graves (les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) repliés sur une ligne) et le plus ancien, export SARIF, **Tous les rapports** du projet |
 
 **Revue** : **Findings** et **Acceptations de risque** pour les utilisateurs qui ont `reports.read` (sur les projets qu'ils lisent) ; **Rapports** pour tout utilisateur (sur les projets qu'il lit), ouvert depuis le champ de recherche (`#report:*`) ou **Tous les rapports** d'un projet
 

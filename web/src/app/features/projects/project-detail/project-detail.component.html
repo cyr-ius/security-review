@@ -65,8 +65,9 @@
     />
   </section>
 
+  @let hasCwes = data.summary.top_open_cwes.length > 0;
   <div class="row g-3 mb-4">
-    <div class="col-lg-8">
+    <div class="col-12" [class.col-xl-6]="hasCwes" [class.col-lg-8]="!hasCwes">
       <div class="card h-100">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
           <span class="fw-semibold">{{ 'project.trend' | t }}</span>
@@ -103,7 +104,12 @@
       </div>
     </div>
 
-    <div class="col-lg-4">
+    <div
+      class="col-12"
+      [class.col-md-6]="hasCwes"
+      [class.col-xl-3]="hasCwes"
+      [class.col-lg-4]="!hasCwes"
+    >
       <div class="card h-100">
         <div class="card-header fw-semibold">{{ 'project.overPeriod' | t }}</div>
         <ul class="list-group list-group-flush">
@@ -152,20 +158,23 @@
             }
           </div>
         }
-
-        @if (data.summary.top_open_cwes.length > 0) {
-          <div class="card-body border-top">
-            <h2 class="h6">{{ 'project.topCwes' | t }}</h2>
-            @for (row of data.summary.top_open_cwes; track row.cwe) {
-              <div class="d-flex justify-content-between small">
-                <span class="font-monospace">{{ row.cwe }}</span>
-                <span>{{ row.count }}</span>
-              </div>
-            }
-          </div>
-        }
       </div>
     </div>
+
+    @if (hasCwes) {
+      <div class="col-12 col-md-6 col-xl-3">
+        <div class="card h-100">
+          <div class="card-header fw-semibold">{{ 'project.topCwes' | t }}</div>
+          <div class="card-body d-flex flex-column">
+            <app-cwe-pie
+              class="flex-grow-1"
+              [cwes]="data.summary.top_open_cwes"
+              [total]="data.summary.open_now_total"
+            />
+          </div>
+        </div>
+      </div>
+    }
   </div>
 } @else {
   <div class="text-center my-5">

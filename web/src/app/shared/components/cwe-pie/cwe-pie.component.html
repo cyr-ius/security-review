@@ -1,0 +1,64 @@
+@if (slices().length > 0) {
+  <svg
+    [attr.width]="width()"
+    [attr.height]="height()"
+    role="img"
+    [attr.aria-label]="'trend.cweLabel' | t"
+    (pointerleave)="active.set(null)"
+  >
+    @for (slice of slices(); track slice.key) {
+      <path
+        class="slice"
+        [attr.d]="slice.path"
+        [style.fill]="slice.color"
+        [class.dimmed]="active() !== null && active() !== slice.key"
+        (pointerenter)="active.set(slice.key)"
+      />
+    }
+    @for (slice of slices(); track slice.key) {
+      <g
+        class="label"
+        [class.dimmed]="active() !== null && active() !== slice.key"
+        (pointerenter)="active.set(slice.key)"
+      >
+        <path class="leader" [attr.d]="leader(slice)" />
+        @let name = slice.cwe ?? ('trend.cweOther' | t);
+        @let value = 'trend.cweValue' | t: { count: slice.count, percent: slice.percent };
+        <text
+          [attr.x]="slice.label.x"
+          [attr.y]="slice.label.y"
+          [attr.text-anchor]="slice.label.anchor"
+        >
+          <tspan class="name" [class.font-monospace]="slice.cwe !== null" dy="-0.15em">
+            {{ name }}
+          </tspan>
+          <tspan class="value" [attr.x]="slice.label.x" dy="1.2em">{{ value }}</tspan>
+        </text>
+      </g>
+    }
+  </svg>
+
+  <table class="visually-hidden">
+    <caption>
+      {{
+        'trend.cweLabel' | t
+      }}
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">CWE</th>
+        <th scope="col">{{ 'trend.cweCount' | t }}</th>
+        <th scope="col">%</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (slice of slices(); track slice.key) {
+        <tr>
+          <th scope="row">{{ slice.cwe ?? ('trend.cweOther' | t) }}</th>
+          <td>{{ slice.count }}</td>
+          <td>{{ slice.percent }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

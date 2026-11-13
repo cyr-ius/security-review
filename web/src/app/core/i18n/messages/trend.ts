@@ -15,6 +15,10 @@ export const trend = defineMessages({
     'trend.chartLabel': 'Open findings at the end of the period. Left and right arrows to browse.',
     'trend.tooltipOpen': 'open',
     'trend.tooltipDetail': '+{added} new · {fixed} fixed · {dismissed} dismissed',
+    'trend.cweLabel': 'Most frequent CWEs among the open findings, with their share',
+    'trend.cweOther': 'Other CWEs',
+    'trend.cweValue': '{count} · {percent}%',
+    'trend.cweCount': 'Open findings',
   },
   fr: {
     'trend.title': 'Findings ouverts en fin de période',
@@ -30,6 +34,10 @@ export const trend = defineMessages({
       'Findings ouverts en fin de période. Flèches gauche et droite pour parcourir.',
     'trend.tooltipOpen': 'ouverts',
     'trend.tooltipDetail': '+{added} nouveaux · {fixed} corrigés · {dismissed} écartés',
+    'trend.cweLabel': 'CWE les plus fréquentes parmi les findings ouverts, avec leur part',
+    'trend.cweOther': 'Autres CWE',
+    'trend.cweValue': '{count} · {percent} %',
+    'trend.cweCount': 'Findings ouverts',
   },
   es: {
     'trend.title': 'Hallazgos abiertos al final del periodo',
@@ -45,5 +53,9 @@ export const trend = defineMessages({
       'Hallazgos abiertos al final del periodo. Flechas izquierda y derecha para recorrerlos.',
     'trend.tooltipOpen': 'abiertos',
     'trend.tooltipDetail': '+{added} nuevos · {fixed} corregidos · {dismissed} descartados',
+    'trend.cweLabel': 'CWE más frecuentes entre los hallazgos abiertos, con su proporción',
+    'trend.cweOther': 'Otras CWE',
+    'trend.cweValue': '{count} · {percent} %',
+    'trend.cweCount': 'Hallazgos abiertos',
   },
 });
