@@ -172,7 +172,7 @@
   OpenGrep. Un moteur ne lit aucune base de données : il s'enrôle auprès du serveur Controller à
   `SECREVIEW_CONTROLLER_URL` avec le même secret, obtient son propre client OAuth
   (`client_credentials`, seules les empreintes SHA-256 sont gardées, révocable dans la page
-  **Moteurs de scan**) et lit les règles avec un jeton d'accès de courte durée, de rôle `engine`,
+  **Activité**) et lit les règles avec un jeton d'accès de courte durée, de rôle `engine`,
   qui n'atteint que `/api/v1/engine/*` ; vers cette URL uniquement, sans proxy ni redirection,
   réponses bornées et validées : c'est sa seule connexion sortante.
 - **Administrateur initial** : créé par le serveur Controller à son premier démarrage avec un mot de

@@ -15,8 +15,6 @@ export const tokens = defineMessages({
     'tokens.pipeline': 'CI/CD pipeline',
     'tokens.pipelineHelp':
       'A CI/CD token only runs the gate, the SARIF export and the trend of the selected projects (security-review-ci command), without database access.',
-    'tokens.machinesHelp':
-      'Tokens are for machines: an MCP agent, a CI/CD pipeline or a script on the REST API. A person reads and triages in this portal with a web user, whose rights come from its roles, and may create personal REST API and MCP tokens in My account.',
     'tokens.accessRole': 'Role',
     'tokens.chooseRole': 'Choose a role',
     'tokens.apiHelp':
@@ -58,7 +56,7 @@ export const tokens = defineMessages({
     'tokens.graceNone': 'None',
     'tokens.graceHours': '{hours} h',
     'tokens.rotateHelp':
-      'Rotating a token replaces its secret: its clients must use the new one. During the grace period, the previous secret keeps working. An expired token authenticates nothing until it is rotated.',
+      'Rotating a token replaces its secret. During the grace period, the previous secret keeps working.',
     'tokens.rotate': 'Rotate',
     'tokens.rotateToken': 'Rotate token {label}',
     'tokens.confirmRotate':
@@ -83,8 +81,6 @@ export const tokens = defineMessages({
     'tokens.pipeline': 'Pipeline CI/CD',
     'tokens.pipelineHelp':
       'Un jeton CI/CD ne fait que le gate, l’export SARIF et la tendance des projets sélectionnés (commande security-review-ci), sans accès à la base.',
-    'tokens.machinesHelp':
-      "Les jetons sont destinés aux machines : un agent MCP, un pipeline CI/CD ou un script sur l'API REST. Une personne lit et trie dans ce portail avec un utilisateur web, dont les droits viennent de ses rôles, et peut créer des jetons personnels API REST et MCP dans Mon compte.",
     'tokens.accessRole': 'Rôle',
     'tokens.chooseRole': 'Choisir un rôle',
     'tokens.apiHelp':
@@ -126,7 +122,7 @@ export const tokens = defineMessages({
     'tokens.graceNone': 'Aucun',
     'tokens.graceHours': '{hours} h',
     'tokens.rotateHelp':
-      'Renouveler un jeton remplace son secret : ses clients doivent utiliser le nouveau. Pendant le délai de grâce, l’ancien secret reste valable. Un jeton expiré n’authentifie plus rien tant qu’il n’est pas renouvelé.',
+      'Renouveler un jeton remplace son secret. Pendant le délai de grâce, l’ancien secret reste valable.',
     'tokens.rotate': 'Renouveler',
     'tokens.rotateToken': 'Renouveler le jeton {label}',
     'tokens.confirmRotate':
@@ -151,8 +147,6 @@ export const tokens = defineMessages({
     'tokens.pipeline': 'Pipeline CI/CD',
     'tokens.pipelineHelp':
       'Un token CI/CD solo ejecuta el gate, la exportación SARIF y la tendencia de los proyectos seleccionados (comando security-review-ci), sin acceso a la base de datos.',
-    'tokens.machinesHelp':
-      'Los tokens son para máquinas: un agente MCP, un pipeline CI/CD o un script sobre la API REST. Una persona lee y clasifica en este portal con un usuario web, cuyos permisos provienen de sus roles, y puede crear tokens personales API REST y MCP en Mi cuenta.',
     'tokens.accessRole': 'Rol',
     'tokens.chooseRole': 'Elegir un rol',
     'tokens.apiHelp':
@@ -194,7 +188,7 @@ export const tokens = defineMessages({
     'tokens.graceNone': 'Ninguno',
     'tokens.graceHours': '{hours} h',
     'tokens.rotateHelp':
-      'Renovar un token sustituye su secreto: sus clientes deben usar el nuevo. Durante el periodo de gracia, el secreto anterior sigue funcionando. Un token caducado no autentica nada hasta que se renueva.',
+      'Renovar un token sustituye su secreto. Durante el periodo de gracia, el secreto anterior sigue funcionando.',
     'tokens.rotate': 'Renovar',
     'tokens.rotateToken': 'Renovar el token {label}',
     'tokens.confirmRotate':

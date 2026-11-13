@@ -36,6 +36,8 @@ interface NavItem {
   icon: string;
   /** Shown only to the users that hold it (the route has the same permission guard). */
   permission?: Permission;
+  /** Hidden from the users that hold it: they reach the page from another one. */
+  hiddenWith?: Permission;
   /** Tooltip of the number shown next to the entry, if any. */
   badgeTitle?: MessageKey;
 }
@@ -140,12 +142,19 @@ export class LayoutComponent {
       permission: 'settings.manage',
     },
     {
-      path: '/scan-engines',
-      label: 'layout.scanEngines',
-      icon: 'bi-cpu',
+      path: '/activity',
+      label: 'layout.activity',
+      icon: 'bi-activity',
       permission: 'settings.manage',
     },
-    { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text', permission: 'audit.read' },
+    // Opened from the Activity page; kept in the menu for those who cannot open that page
+    {
+      path: '/audit',
+      label: 'layout.audit',
+      icon: 'bi-journal-text',
+      permission: 'audit.read',
+      hiddenWith: 'settings.manage',
+    },
   ];
 
   /** Sidebar opened in full over the page (small screens, or after the expand button). */
@@ -250,7 +259,11 @@ export class LayoutComponent {
 
   /** Items whose permission the current user holds. */
   private allowed(items: readonly NavItem[]): NavItem[] {
-    return items.filter((item) => !item.permission || this.auth.can(item.permission));
+    return items.filter(
+      (item) =>
+        (!item.permission || this.auth.can(item.permission)) &&
+        !(item.hiddenWith && this.auth.can(item.hiddenWith)),
+    );
   }
 
   closeMenu(): void {

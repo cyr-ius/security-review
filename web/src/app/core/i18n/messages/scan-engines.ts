@@ -1,8 +1,10 @@
 import { defineMessages } from '../catalog';
 
-/** Scan engines page: the engines enrolled with the Controller server. */
+/** Activity page: the activity diagram, then the engines enrolled with the Controller server. */
 export const scanEngines = defineMessages({
   en: {
+    'scanEngines.pageSubtitle':
+      'The agents, pipelines, MCP servers, Controller servers and scan engines at work.',
     'scanEngines.title': 'Scan engines',
     'scanEngines.subtitle':
       'Engines that run the rules and OpenGrep of the code scans in place of the Controller server.',
@@ -32,7 +34,7 @@ export const scanEngines = defineMessages({
     'scanEngines.revoked': 'Scan engine {name} revoked.',
     'scanEngines.none': 'No scan engine is enrolled.',
     'scanEngines.loadError': 'The scan engines could not be loaded.',
-    'scanEngines.flowTitle': 'Activity',
+    'scanEngines.flowTitle': 'Activity diagram',
     'scanEngines.flowLabel':
       'Current activity: {codebase} pipeline scans and {fragments} agent fragments in progress, through {mcp} active MCP servers and {controllers} active Controller server processes, to {active} active engines out of {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
@@ -75,6 +77,8 @@ export const scanEngines = defineMessages({
       'Moving dots: scans running now. Rings: occupied slots; engine details include lifetime counters.',
   },
   fr: {
+    'scanEngines.pageSubtitle':
+      'Les agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan à l’œuvre.',
     'scanEngines.title': 'Moteurs de scan',
     'scanEngines.subtitle':
       'Moteurs qui exécutent les règles et OpenGrep des scans de code à la place du serveur Controller.',
@@ -104,7 +108,7 @@ export const scanEngines = defineMessages({
     'scanEngines.revoked': 'Moteur de scan {name} révoqué.',
     'scanEngines.none': 'Aucun moteur de scan n’est enrôlé.',
     'scanEngines.loadError': 'Impossible de charger les moteurs de scan.',
-    'scanEngines.flowTitle': 'Activité',
+    'scanEngines.flowTitle': 'Diagramme d’activité',
     'scanEngines.flowLabel':
       'Activité en cours : {codebase} scans de pipeline et {fragments} fragments d’agents, par {mcp} serveurs MCP actifs et {controllers} instances actives du serveur Controller, vers {active} moteurs actifs sur {total}.',
     'scanEngines.flowPipelines': 'Pipelines',
@@ -149,6 +153,8 @@ export const scanEngines = defineMessages({
       'Points en mouvement : scans en cours. Anneaux : créneaux occupés ; les détails des moteurs donnent les compteurs cumulés.',
   },
   es: {
+    'scanEngines.pageSubtitle':
+      'Los agentes, pipelines, servidores MCP, servidores Controller y motores de escaneo en funcionamiento.',
     'scanEngines.title': 'Motores de escaneo',
     'scanEngines.subtitle':
       'Motores que ejecutan las reglas y OpenGrep de los escaneos de código en lugar del servidor Controller.',
@@ -178,7 +184,7 @@ export const scanEngines = defineMessages({
     'scanEngines.revoked': 'Motor de escaneo {name} revocado.',
     'scanEngines.none': 'No hay ningún motor de escaneo inscrito.',
     'scanEngines.loadError': 'No se pudieron cargar los motores de escaneo.',
-    'scanEngines.flowTitle': 'Actividad',
+    'scanEngines.flowTitle': 'Diagrama de actividad',
     'scanEngines.flowLabel':
       'Actividad actual: {codebase} escaneos de pipelines y {fragments} fragmentos de agentes en curso, por {mcp} servidores MCP activos y {controllers} instancias activas del servidor Controller, hacia {active} motores activos de {total}.',
     'scanEngines.flowPipelines': 'Pipelines',

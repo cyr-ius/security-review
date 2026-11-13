@@ -179,8 +179,8 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'scan-engines',
-        title: 'layout.scanEngines',
+        path: 'activity',
+        title: 'layout.activity',
         canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
           import('./features/scan-engines/scan-engine-list.component').then(
@@ -194,6 +194,8 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/audit/audit-log/audit-log.component').then((m) => m.AuditLogComponent),
       },
+      // Former address of the Activity page, named after the scan engines it lists
+      { path: 'scan-engines', pathMatch: 'full', redirectTo: 'activity' },
       // Former page of the groups, replaced by the roles of the users and the OIDC mappings
       { path: 'groups', pathMatch: 'full', redirectTo: 'users' },
       // Former single settings page, split into the three pages below

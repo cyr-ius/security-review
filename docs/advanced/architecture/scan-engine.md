@@ -106,7 +106,7 @@ An engine reads no database. At its start, each replica:
 5. when it stops (`SIGTERM`: rolling update, node drained, scale down), once its scans in
    progress are over, **leaves** the Controller server (`DELETE /api/v1/engine/self` with its
    access token), which forgets it at once. At its next start, on the same node or another one,
-   it enrolls as a new engine: the stopped engines do not pile up on the **Scan engines** page.
+   it enrolls as a new engine: the stopped engines do not pile up on the **Activity** page.
 
 ## How the scans reach the engines
 
@@ -131,8 +131,8 @@ scan.
 
 ## Administration
 
-The enrolled engines are listed on the [**Scan engines**](../../usage/index.md#pages) page
-(permission `settings.manage`) and by `security-review-controller engine list`: name, version,
+The enrolled engines are listed in the **Scan engines** section of the
+[**Activity**](../../usage/index.md#activity) page (permission `settings.manage`) and by `security-review-controller engine list`: name, version,
 state (active while its heartbeat is recent), URL, free slots, enrollment date and last activity,
 never a secret.
 

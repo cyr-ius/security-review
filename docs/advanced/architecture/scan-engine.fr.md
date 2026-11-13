@@ -109,7 +109,7 @@ Un moteur ne lit aucune base de données. À son démarrage, chaque réplica :
    réplicas), une fois ses scans en cours terminés, **se retire** du serveur Controller
    (`DELETE /api/v1/engine/self` avec son jeton d'accès), qui l'oublie aussitôt. À son prochain
    démarrage, sur le même nœud ou sur un autre, il s'enrôle comme un nouveau moteur : les moteurs
-   arrêtés ne s'accumulent pas sur la page **Moteurs de scan**.
+   arrêtés ne s'accumulent pas sur la page **Activité**.
 
 ## Comment les scans parviennent aux moteurs
 
@@ -135,8 +135,8 @@ scan.
 
 ## Administration
 
-Les moteurs enrôlés sont listés dans la page [**Moteurs de scan**](../../usage/index.md#pages)
-(permission `settings.manage`) et par `security-review-controller engine list` : nom, version,
+Les moteurs enrôlés sont listés dans la section **Moteurs de scan** de la page
+[**Activité**](../../usage/index.md#activite) (permission `settings.manage`) et par `security-review-controller engine list` : nom, version,
 état (actif tant que son battement de cœur est récent), URL, créneaux libres, date d'enrôlement et
 dernière activité, jamais un secret.
 

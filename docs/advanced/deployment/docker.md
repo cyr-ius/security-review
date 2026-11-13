@@ -171,7 +171,7 @@ The file has the Compose project name of `docker-compose.yml` (`security-review`
 existing deployment to it, add `SECREVIEW_SCAN_ENGINE_TOKEN` to its `.env` and start it in the
 same folder, the database volume is kept.
 
-The engines appear on the **Scan engines** page. No address of the engines is given to the
+The engines appear on the **Activity** page. No address of the engines is given to the
 Controller server, and no load balancer stands in front of them: each replica enrolls with the
 IP address of its container. Change their number with `--scale scan-engine=N`; an engine stopped
 by `docker compose stop` or `down` leaves the Controller server at once.

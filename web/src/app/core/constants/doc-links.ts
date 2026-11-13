@@ -40,6 +40,7 @@ export const DOC_LINKS = {
     path: 'usage/tokens/',
     anchor: { en: 'personal-tokens', fr: 'jetons-personnels' },
   },
+  activity: { path: 'usage/', anchor: { en: 'activity', fr: 'activite' } },
   scanEngines: {
     path: 'advanced/architecture/scan-engine/',
     anchor: { en: 'administration', fr: 'administration' },

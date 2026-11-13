@@ -175,7 +175,7 @@ qu'utilise l'équipe. Le fichier a le nom de projet Compose de `docker-compose.y
 (`security-review`) : pour y passer un déploiement existant, ajoutez `SECREVIEW_SCAN_ENGINE_TOKEN`
 à son `.env` et démarrez-le dans le même dossier, le volume de la base est conservé.
 
-Les moteurs apparaissent sur la page **Moteurs de scan**. Aucune adresse des moteurs n'est donnée
+Les moteurs apparaissent sur la page **Activité**. Aucune adresse des moteurs n'est donnée
 au serveur Controller, et aucun répartiteur de charge ne se trouve devant eux : chaque réplica
 s'enrôle avec l'adresse IP de son conteneur. Changez leur nombre avec
 `--scale scan-engine=N` ; un moteur arrêté par `docker compose stop` ou `down` se retire aussitôt

@@ -163,7 +163,7 @@
   request without the secret before reading it and writes nothing but its copy of the OpenGrep
   rules. An engine reads no database: it enrolls with the Controller server at
   `SECREVIEW_CONTROLLER_URL` with the same secret, gets its own OAuth client
-  (`client_credentials`, SHA-256 digests only kept, revocable on the **Scan engines** page) and
+  (`client_credentials`, SHA-256 digests only kept, revocable on the **Activity** page) and
   reads the rules with a short-lived access token of the `engine` role, which reaches
   `/api/v1/engine/*` only; to that URL only, without proxy nor redirect, answers bounded and
   validated: its only outgoing connection.

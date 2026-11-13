@@ -101,8 +101,21 @@ together. The changes go to the form, which still saves or cancels them.
 | **MCP clients** | The MCP clients that log in through the browser ([OAuth login](../advanced/mcp-oauth.md#administration)): turning the login on or off, registered clients and approved accesses, revocation (`tokens.manage`) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
-| **Scan engines** | The [scan engines](../advanced/architecture/scan-engine.md#administration) enrolled with the Controller server (activity diagram, version, address, last activity) and their revocation (`settings.manage`) |
-| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
+| **Activity** | What runs now, and the scan engines with their revocation (`settings.manage`): see [Activity](#activity) |
+| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)); opened by the **Audit log** button of **Activity**, in the menu only for the accounts that hold `audit.read` without `settings.manage` |
+
+### Activity
+
+The **Activity** page (`settings.manage`) shows what runs now and reloads itself every
+2 seconds while it is visible:
+
+- the **Activity diagram**: the agents, the pipelines, the MCP servers, the Controller servers and
+  the scan engines, with the scans in progress;
+- the **Scan engines** section: the [scan engines](../advanced/architecture/scan-engine.md#administration)
+  enrolled with the Controller server (version, address, last activity) and their revocation.
+
+The **Audit log** button, next to **Refresh**, opens the [audit log](audit-metrics.md)
+(`audit.read`). The former address `/ui/scan-engines` leads to this page.
 
 ## Points to watch
 

@@ -43,7 +43,7 @@ En HTTP, `security-review-mcp serve` :
    processus : ni réversible, ni comparable d'un serveur à l'autre) et le nom et la version que
    son client MCP donne au début de la session (`clientInfo`) ; jamais le nom d'une personne ni
    d'un jeton. Le serveur Controller l'affiche
-   sur la page [**Moteurs de scan**](scan-engine.md#administration). Il le supprime à son arrêt ;
+   sur la page [**Activité**](../../usage/index.md#activite). Il le supprime à son arrêt ;
    un serveur disparu sans s'arrêter quitte la page au bout de 30 secondes.
 
 En stdio, `security-review-mcp local` migre lui-même sa base locale.

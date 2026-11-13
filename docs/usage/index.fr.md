@@ -106,8 +106,21 @@ qui les enregistre ou les annule.
 | **Clients MCP** | Les clients MCP qui se connectent par le navigateur ([connexion OAuth](../advanced/mcp-oauth.md#administration)) : activation de la connexion, clients enregistrés et accès approuvés, révocation (`tokens.manage`) |
 | **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
-| **Moteurs de scan** | Les [moteurs de scan](../advanced/architecture/scan-engine.md#administration) enrôlés auprès du serveur Controller (graphe d'activité, version, adresse, dernière activité) et leur révocation (`settings.manage`) |
-| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
+| **Activité** | Ce qui tourne en ce moment, et les moteurs de scan avec leur révocation (`settings.manage`) : voir [Activité](#activite) |
+| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) ; ouvert par le bouton **Journal d'audit** d'**Activité**, dans le menu seulement pour les comptes qui ont `audit.read` sans `settings.manage` |
+
+### Activité
+
+La page **Activité** (`settings.manage`) montre ce qui tourne en ce moment et se recharge toutes
+les 2 secondes tant qu'elle est visible :
+
+- le **Diagramme d'activité** : les agents, les pipelines, les serveurs MCP, les serveurs
+  Controller et les moteurs de scan, avec les scans en cours ;
+- la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
+  enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
+
+Le bouton **Journal d'audit**, à côté d'**Actualiser**, ouvre le [journal d'audit](audit-metrics.md)
+(`audit.read`). L'ancienne adresse `/ui/scan-engines` mène à cette page.
 
 ## Points d'attention
 
