@@ -36,8 +36,9 @@ dans [Jetons Bearer](../bearer-tokens.md).
 2. vérifie les réglages (TLS, OIDC, OSV, syslog, connecteurs) : une valeur invalide l'arrête
    avec le code `2` ;
 3. crée le [premier administrateur](#premier-administrateur) tant qu'aucun compte n'existe ;
-4. tant qu'OpenGrep est activé et que son exécutable est présent (image `-opengrep`), installe ou met à jour les
-   [règles OpenGrep par défaut](../../review/analysis/opengrep.md#regles-par-defaut) (un échec est
+4. installe ou met à jour en base les
+   [règles OpenGrep par défaut](../../review/analysis/opengrep.md#regles-par-defaut), avec ou sans
+   OpenGrep, après avoir importé une fois les fichiers de règles d'une version précédente (un échec est
    journalisé et ne l'arrête pas) ;
 5. démarre les tâches de fond, puis sert les routes.
 

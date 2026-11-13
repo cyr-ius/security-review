@@ -188,7 +188,7 @@ Moteur du serveur Controller pour `scan-code`, désactivé par défaut et ignor�
 |---|---|---|
 | `SECREVIEW_OPENGREP_ENABLED` | `false` | Lance aussi OpenGrep sur les fichiers de `scan-code` |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | Exécutable OpenGrep |
-| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire des règles YAML d'OpenGrep |
+| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Répertoire de travail où le serveur Controller et les moteurs de scan copient pour OpenGrep les règles OpenGrep de la base (un cache : un `emptyDir` suffit, jamais partagé entre réplicas) ; les fichiers de règles laissés là par une version précédente sont importés une fois en base |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Durée maximale d'un scan (1 à 7200) |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | Scans simultanés dans un processus du serveur Controller (`503` au-delà) |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments de `scan_code` [délégués par le serveur MCP](../review/analysis/opengrep.md#scans-de-fragments-scan_code) scannés en même temps, dans leurs propres créneaux (`503` au-delà) ; `0` : règles seules pour les fragments |

@@ -32,6 +32,9 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from ..rules.opengrep_rule_store import MAX_RULE_CHARS, RULE_ID
 from ..storage.models import Severity
 from .local import MAX_MATCHES_PER_FILE
+from .opengrep_snapshots import manifest_digest, rule_digest
+
+__all__ = ["manifest_digest", "rule_digest"]
 
 ENGINE_SCAN_PATH = "/engine/v1/scan"
 # Enrollment of an engine (shared secret) and its access tokens (client_credentials)
@@ -212,17 +215,6 @@ class RuleContents(BaseModel):
             if not RULE_ID.fullmatch(rule_id) or len(content) > MAX_RULE_CHARS:
                 raise ValueError("Invalid OpenGrep rule")
         return value
-
-
-def rule_digest(content: str) -> str:
-    """SHA-256 of an OpenGrep rule file."""
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-
-def manifest_digest(manifest: dict[str, str] | list) -> str:
-    """Digest of a whole manifest or rule set: the ``ETag`` of the controller, the snapshot of
-    an engine."""
-    return hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
 
 
 class EngineAuth:

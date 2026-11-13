@@ -5,6 +5,13 @@ whole-codebase scan (`security-review-ci scan-code`). The built-in scanner remai
 unchanged. On the MCP server, fragment scans (`scan_code`) only use OpenGrep when they are
 [delegated to the Controller server](#fragment-scans-scan_code).
 
+The OpenGrep rules are stored in the database, like the internal rules: every replica of the
+Controller server sees the same rules, and none is lost when a container restarts. OpenGrep only
+reads files, so each process that runs it (the Controller server, a
+[scan engine](../../advanced/architecture/scan-engine.md#rules)) copies the rules into its own
+working directory, `SECREVIEW_OPENGREP_RULES_DIR`, and updates that copy before a scan when a
+rule changed. The directory is a cache: it needs no persistent or shared volume.
+
 ## Fragment scans (`scan_code`)
 
 By default, the `scan_code` tool scans the fragment it receives with the rules of the MCP server
@@ -62,7 +69,7 @@ without any rule, `scan-code` runs the built-in scanner only. Environment variab
 | --- | --- | --- |
 | `SECREVIEW_OPENGREP_ENABLED` | `false` | Enable OpenGrep for whole-codebase scans |
 | `SECREVIEW_OPENGREP_BINARY` | `/usr/local/bin/opengrep` | OpenGrep executable |
-| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Directory containing OpenGrep YAML rule packs |
+| `SECREVIEW_OPENGREP_RULES_DIR` | `/var/lib/secreview/rules/opengrep` | Working directory where the Controller server and the scan engines copy the OpenGrep rules of the database for OpenGrep (a cache: an `emptyDir` is enough, never shared between replicas); the rule files left there by a previous version are imported once into the database |
 | `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` | `600` | Maximum duration of one OpenGrep scan |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` | `1` | OpenGrep scans running at the same time in one Controller server process; a scan beyond is refused with `503` and `Retry-After` |
 | `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS` | `1` | Fragments of [`scan_code`](#fragment-scans-scan_code) scanned with OpenGrep at the same time, in their own slots so that the agents never take those of the codebase scans (`503` beyond: the MCP server scans with its rules); `0`: fragments are scanned with the rules only |
@@ -70,12 +77,11 @@ without any rule, `scan-code` runs the built-in scanner only. Environment variab
 | `SECREVIEW_OPENGREP_MAX_MEMORY_MB` | `2048` | Memory in MiB of one OpenGrep scan (`--max-memory`, `0`: no limit) |
 | `SECREVIEW_OPENGREP_TAINT_INTRAFILE` | `true` | Follow the data flow through the functions of a same file (`--taint-intrafile`, about 10 to 30 % longer); `false` for an older OpenGrep executable that lacks the option |
 
-The [default rules](#default-rules) are installed at start-up by the `-opengrep` image, or by
-`security-review-controller opengrep install`; add your own rule packs in the configured
-directory, for example by mounting an administrator-managed directory at
-`/var/lib/secreview/rules/opengrep` (keep it on a volume, so that the edits and deletions made
-on the **OpenGrep rules** page survive a new container). Rules are never downloaded. The
-directory must contain at least one `.yml` or `.yaml` file.
+The [default rules](#default-rules) are installed in the database at start-up, or by
+`security-review-controller opengrep install`; add your own rules on the
+[**OpenGrep rules** page](#managing-rules-from-the-web-interface). Rules are never downloaded.
+`SECREVIEW_OPENGREP_RULES_DIR` only holds the copy written for OpenGrep: a file put there by hand
+is not read.
 
 When enabled, the controller writes the source files already received from the CI client into a
 private temporary directory, invokes OpenGrep without a shell, parses its JSON output, and removes
@@ -121,12 +127,12 @@ what a line-by-line pattern cannot see:
 Their ids follow `secreview.<language>.<check>` (`secreview.go.zip-slip`) and their metadata
 give the CWE and the OWASP category, copied into the findings.
 
-While the engine is enabled (`SECREVIEW_OPENGREP_ENABLED`) and the OpenGrep executable is present
-(`-opengrep` image), the Controller server brings them up to date at each start, like the default TOML rules: a new rule is installed, a rule
-left as installed is updated with the new version, and a rule edited or deleted on the
-**OpenGrep rules** page is left alone. The digests of the installed versions are kept in
-`.secreview-default-rules.json` in the rules directory; delete it to start over. The command
-installs them on demand, on the Controller server:
+At each start, the Controller server copies the default rules into the database, like the
+default TOML rules, whether OpenGrep runs on it or not (the scan engines get them from it): a new
+rule is installed, a rule left as installed is updated with the new version, a rule edited or
+deleted on the **OpenGrep rules** page is left alone, and a default rule no longer shipped is
+removed unless it was edited. The command installs the bundled defaults on demand on the
+Controller server:
 
 ```bash
 security-review-controller opengrep list                          # bundled rules by language
@@ -135,12 +141,21 @@ security-review-controller opengrep install --language python --language javascr
 security-review-controller opengrep install --overwrite           # after an upgrade
 ```
 
-`install` copies one file per rule into `SECREVIEW_OPENGREP_RULES_DIR` and prints the installed,
-replaced and skipped ids (JSON). A rule that already exists is kept, so that an edit made on the
+`install` writes the rules into the database and prints the installed, replaced and skipped ids
+(JSON). A rule that already exists is kept, so that an edit made on the
 **OpenGrep rules** page survives; `--overwrite` replaces it with the version of the package
 (after an upgrade, for instance). To drop a rule, delete it on that page. In a container, run
 the command in the Controller server container
 (`docker compose exec controller security-review-controller opengrep install`).
+
+!!! note "Upgrading from a version that kept the rules in files"
+
+    Before, the rules were files of `SECREVIEW_OPENGREP_RULES_DIR`. At its first start after the
+    upgrade (`db upgrade` creates the table), the Controller server imports once the rule files
+    of that directory (`<id>.yaml` or `<id>.yml`, one rule each) into the database, with the
+    default rules recorded in its `.secreview-default-rules.json` manifest: an edited default rule
+    stays edited, a deleted one is not installed again. Start a single replica first, with the
+    directory mounted as before. The files are no longer read afterwards and may be deleted.
 
 ## Operational security
 
@@ -161,10 +176,11 @@ the command in the Controller server container
 ## Managing rules from the web interface
 
 The Controller server exposes an authenticated rule-management page at `/ui/opengrep-rules`
-(**OpenGrep rules**). Users with `rules.read` can inspect the YAML files in
-`SECREVIEW_OPENGREP_RULES_DIR`; users with `rules.manage` can create, edit, validate and delete
-them. Each managed YAML file contains exactly one rule, and its rule id must match the file
-identifier. Writes are validated with `opengrep validate <file>` before an atomic replacement.
+(**OpenGrep rules**). Users with `rules.read` can inspect the YAML rules stored in the
+database; users with `rules.manage` can create, edit, validate and delete them. Each rule holds
+exactly one OpenGrep rule, whose YAML id must match the rule identifier. Writes are validated
+with `opengrep validate` first, so creating or editing a rule needs the OpenGrep executable on
+the Controller server (`-opengrep` image); the default rules do not.
 The Controller server does not download rule packs or follow remote rule sources on behalf of
 the administrator.
 

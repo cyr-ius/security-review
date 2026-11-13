@@ -145,9 +145,10 @@ docker compose exec controller security-review-controller token list
 The file
 [`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml),
 added to `docker-compose.yml`, starts two [scan engines](../architecture/scan-engine.md): they
-run the rules and OpenGrep of the code scans in place of the Controller server. It moves the
-Controller server to the `-opengrep` image, which installs the default OpenGrep rules (kept in the
-`secreview-controller-data` volume) and gives them to the engines. Download it next to
+run the rules and OpenGrep of the code scans in place of the Controller server, with the OpenGrep
+rules of its database (the default rules are installed at its start). It moves the Controller
+server to the `-opengrep` image, to validate the OpenGrep rules created or edited in the web
+interface. Download it next to
 `docker-compose.yml`, add the secret shared by the Controller server and the engines to `.env`,
 then pull the images together (the three services must run the same version) and start:
 

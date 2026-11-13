@@ -564,8 +564,12 @@ def import_packs(packs: list[tuple[str, str]], replace: bool = False) -> dict:
     disabled = {rule_id for result in parsed for rule_id in result.disabled_rules}
     with session_scope() as session:
         if replace:
-            for model in (CustomRule, CustomCheckItem, DisabledRule, DefaultSeed):
+            for model in (CustomRule, CustomCheckItem, DisabledRule):
                 session.exec(sql_delete(model))
+            # The seeds of the default OpenGrep rules (kind "opengrep") are not part of a pack
+            session.exec(
+                sql_delete(DefaultSeed).where(col(DefaultSeed.kind).in_(["rule", "checklist"]))
+            )
             session.flush()
             _seed(session)
             session.flush()

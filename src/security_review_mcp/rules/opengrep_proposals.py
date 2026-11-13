@@ -240,7 +240,7 @@ def approve_proposal(
     with session_scope() as session:
         row = _pending(session, proposal_id)
         final = row.content if content is None else content
-        opengrep_rule_store.save_rule(row.rule_id, final, create=True)
+        opengrep_rule_store.save_rule(row.rule_id, final, create=True, session=session)
         edited = final != row.content
         row.content = final
         row.status = RuleProposalStatus.APPROVED

@@ -54,7 +54,7 @@ def scan(sources: Sequence[Source], fragment: bool = False) -> dict:
     settings = get_settings()
     token = secret_value(settings.scan_engine_token)
     if not token:
-        return local.scan(sources, fragment)
+        return _local_scan(sources, fragment)
     # Imported here: only the controller sends scans to the engines
     from ..auth import engine_clients
     from . import remote
@@ -89,4 +89,18 @@ def scan(sources: Sequence[Source], fragment: bool = False) -> dict:
         raise remote.ScanEngineUnavailableError(remote.UNAVAILABLE)
     ENGINE_REQUESTS["fallback"] += 1
     logger.warning("No scan engine scanned the files: scanning on the controller")
-    return local.scan(sources, fragment)
+    return _local_scan(sources, fragment)
+
+
+def _local_scan(sources: Sequence[Source], fragment: bool) -> dict:
+    """Scan ``sources`` in this process, OpenGrep with a copy of the rules of the database."""
+    settings = get_settings()
+    if not settings.opengrep_enabled or (
+        fragment and not settings.opengrep_max_concurrent_fragment_scans
+    ):
+        return local.scan(sources, fragment)
+    # Imported here: the copy of the OpenGrep rules is written by the controller only
+    from ..rules import opengrep_rule_store
+
+    with opengrep_rule_store.local_snapshot() as rules_dir:
+        return local.scan(sources, fragment, rules_dir)

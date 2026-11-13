@@ -10,8 +10,9 @@ commands (``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_c
 
 import argparse
 import logging
-import shutil
 import sys
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from . import __version__, app_settings, cli, connectors, http_server, web_api
 from .auth import oidc, token_store, web_users
@@ -63,26 +64,28 @@ def _log_bootstrap_admin(created: bool, settings: Settings) -> None:
     )
 
 
-def _sync_default_opengrep_rules(settings: Settings) -> None:
-    """Install or update the default OpenGrep rules while the engine is enabled.
+def _seed_default_opengrep_rules() -> None:
+    """Install or update the default OpenGrep rules in the database (see
+    opengrep_rule_store.seed_defaults).
 
-    Skipped without the executable: installed rules would then make scan-code fail. A failure
-    (read-only rules directory...) is logged: the server starts anyway, and scan-code runs with
-    the rules already installed.
+    Done whether OpenGrep runs here or not: the scan engines get these rules from the database.
+    A failure is logged: the server starts anyway, with the rules already installed.
     """
-    if not settings.opengrep_enabled or shutil.which(settings.opengrep_binary) is None:
-        return
     try:
-        changes = opengrep_rule_store.sync_bundled()
-    except (OSError, ValueError) as exc:
-        logger.error("Could not install the default OpenGrep rules: %s", exc)
+        changes = opengrep_rule_store.seed_defaults()
+    except (OSError, ValueError, SQLAlchemyError) as exc:
+        logger.error("Could not install the default OpenGrep rules: %s", type(exc).__name__)
         return
-    logger.info(
-        "Default OpenGrep rules: %d installed, %d updated, %d edited and kept",
-        len(changes["installed"]),
-        len(changes["updated"]),
-        len(changes["kept"]),
-    )
+    if any(changes.values()):
+        logger.info(
+            "Default OpenGrep rules: %d imported from files, %d installed, %d updated, "
+            "%d edited and kept, %d removed",
+            len(changes["imported"]),
+            len(changes["installed"]),
+            len(changes["updated"]),
+            len(changes["kept"]),
+            len(changes["removed"]),
+        )
 
 
 def serve(argv: list[str]) -> None:
@@ -148,7 +151,7 @@ def serve(argv: list[str]) -> None:
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
-    _sync_default_opengrep_rules(settings)
+    _seed_default_opengrep_rules()
     logger.info("Controller server %s listening on %s:%d", __version__, args.host, args.port)
     _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:

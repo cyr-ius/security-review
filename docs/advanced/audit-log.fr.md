@@ -47,7 +47,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `opengrep_rule.proposed` | Un agent propose une règle OpenGrep avec `propose_opengrep_rule` (jamais installée par lui), ou remplace sa proposition en attente (`replaced`) |
 | `scan_engine.enrolled` / `scan_engine.revoked` / `scan_engine.left` / `scan_engine.expired` | Un [moteur de scan](architecture/scan-engine.md#administration) s'enrôle avec le secret partagé (l'acteur est `engine:<nom>`), est révoqué par un administrateur, se retire du serveur Controller à son arrêt (acteur `engine:<nom>`), ou est supprimé après `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` sans activité (acteur `system`) |
 | `scan_ticket.issued` | Le serveur Controller émet le ticket à usage unique d'un [scan du dépôt lancé par un agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan) (`start_codebase_scan`) ; l'acteur est le jeton de l'agent |
-| `opengrep_rule.approved` / `opengrep_rule.rejected` | Une personne connectée avec `rules.manage` approuve une [règle proposée](../review/analysis/opengrep.md#regles-proposees-par-les-agents) (le fichier de la règle est créé ; `edited` quand le YAML a été corrigé) ou la rejette |
+| `opengrep_rule.approved` / `opengrep_rule.rejected` | Une personne connectée avec `rules.manage` approuve une [règle proposée](../review/analysis/opengrep.md#regles-proposees-par-les-agents) (la règle est installée ; `edited` quand le YAML a été corrigé) ou la rejette |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `project` et son nom), le projet quand il y en a un, et des détails en JSON.

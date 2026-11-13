@@ -19,10 +19,10 @@
 # change replicas below, or add --scale scan-engine=N. An engine stopped with docker compose stop
 # or down leaves the Controller server at once.
 #
-# The Controller server moves to the -opengrep image: it installs the default OpenGrep rules
-# (kept in the secreview-controller-data volume, with the edits made in the web interface) and gives
-# them to the engines, which run OpenGrep. With the image without OpenGrep, the engines would get
-# no OpenGrep rule. The engines read no database and publish no port.
+# The engines get the OpenGrep rules from the database of the Controller server: the default ones
+# are installed at its start, whatever its image, and the rules created or edited in the web
+# interface are stored there too. The Controller server moves to the -opengrep image to validate
+# those rules. The engines read no database and publish no port.
 
 services:
   controller:
@@ -33,7 +33,9 @@ services:
       # Without an active engine: refuse the scan (503, the default) or scan on the controller
       # SECREVIEW_SCAN_ENGINE_FALLBACK: local
     volumes:
-      # Its data directory (owned by the user of the image), where it keeps the OpenGrep rules
+      # Its data directory (owned by the user of the image): the copy of the OpenGrep rules of the
+      # database written for OpenGrep (a cache), and the rule files of the previous versions,
+      # imported into the database at the first start
       - secreview-controller-data:/var/lib/secreview
 
   scan-engine:

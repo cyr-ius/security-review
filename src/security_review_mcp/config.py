@@ -561,6 +561,9 @@ class Settings(BaseSettings):
     # built-in TOML rules and are never downloaded implicitly.
     opengrep_enabled: bool = False
     opengrep_binary: str = "/usr/local/bin/opengrep"
+    # Working directory where the controller and the scan engines copy the OpenGrep rules of the
+    # database for OpenGrep (a cache, never shared); the rule files that the previous versions
+    # kept there are imported once into the database
     opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
     opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
     # Scans run at the same time (503 beyond), cores and memory (MiB, 0: no limit) of one scan

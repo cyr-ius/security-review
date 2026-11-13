@@ -67,10 +67,10 @@ database.
     NetworkPolicy, the pod IP given in `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, see
     [Kubernetes](../deployment/kubernetes.md#scan-engines)).
 
-4. Run the Controller server with the **`-opengrep` image**, of the same version as the engines:
-   it installs the default OpenGrep rules in `SECREVIEW_OPENGREP_RULES_DIR` (a writable
-   directory) and gives them to the engines. With the image without OpenGrep, the engines get no
-   OpenGrep rule and only apply the internal rules.
+4. The engines get the OpenGrep rules from the database of the Controller server: the default
+   rules are installed there at its start, whatever its image. Run it with the **`-opengrep`
+   image**, of the same version as the engines, to create or edit OpenGrep rules in the web
+   interface (they are validated with OpenGrep first).
 
 An engine refuses to start without the secret or without `SECREVIEW_CONTROLLER_URL`. `SECREVIEW_PUBLIC_URL`, when set on an engine, takes precedence over
 `SECREVIEW_CONTROLLER_URL`.
@@ -192,7 +192,7 @@ Before each scan, an engine brings its copy of the rules of the Controller serve
   answers the SHA-256 of each rule, or `304` when unchanged. The engine compares them with its
   copy and downloads **only the new and changed rules** (`POST`, by batches of 20), checks each one
   against its digest, and drops the deleted ones. It writes this new version of the rules beside
-  the previous one in `SECREVIEW_OPENGREP_RULES_DIR` (a local directory, writable by the engine):
+  the previous one in `SECREVIEW_OPENGREP_RULES_DIR` (a local cache, writable by the engine):
   the scans already running keep the rules they started with, and the previous version is
   deleted when the last of them ends.
 

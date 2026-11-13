@@ -67,10 +67,10 @@ vulnérabilité.
     NetworkPolicy, l'IP du pod donnée dans `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, voir
     [Kubernetes](../deployment/kubernetes.md#moteurs-de-scan)).
 
-4. Lancez le serveur Controller avec l'**image `-opengrep`**, de la même version que les moteurs :
-   il installe les règles OpenGrep par défaut dans `SECREVIEW_OPENGREP_RULES_DIR` (un répertoire
-   accessible en écriture) et les donne aux moteurs. Avec l'image sans OpenGrep, les moteurs ne
-   reçoivent aucune règle OpenGrep et n'appliquent que les règles internes.
+4. Les moteurs prennent les règles OpenGrep dans la base du serveur Controller : les règles par
+   défaut y sont installées à son démarrage, quelle que soit son image. Lancez-le avec l'**image
+   `-opengrep`**, de la même version que les moteurs, pour créer ou modifier des règles OpenGrep
+   dans l'interface web (elles sont d'abord validées avec OpenGrep).
 
 Un moteur refuse de démarrer sans le secret ou sans `SECREVIEW_CONTROLLER_URL`. `SECREVIEW_PUBLIC_URL`, si elle est définie sur un moteur, l'emporte
 sur `SECREVIEW_CONTROLLER_URL`.
@@ -205,7 +205,7 @@ Avant chaque scan, un moteur met à jour sa copie des règles du serveur Control
   changé. Le moteur les compare à sa copie et ne télécharge **que les règles nouvelles ou
   modifiées** (`POST`, par lots de 20), vérifie chacune avec son empreinte et retire les règles
   supprimées. Il écrit cette nouvelle version des règles à côté de la précédente dans
-  `SECREVIEW_OPENGREP_RULES_DIR` (un répertoire local, accessible en écriture au moteur) : les
+  `SECREVIEW_OPENGREP_RULES_DIR` (un cache local, accessible en écriture au moteur) : les
   scans en cours gardent les règles avec lesquelles ils ont commencé, et la version précédente est
   supprimée à la fin du dernier d'entre eux.
 

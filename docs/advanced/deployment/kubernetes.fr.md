@@ -180,9 +180,10 @@ désactivée tant que vous ne décommentez pas `SECREVIEW_SWAGGER_ENABLED`.
 [`examples/kubernetes/scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml)
 déploie deux [moteurs de scan](../architecture/scan-engine.md), sans Service : chaque pod
 s'enrôle avec son adresse IP, et une NetworkPolicy ne laisse que le serveur Controller les
-joindre. Le serveur Controller de `security-review.yaml` lit leur Secret s'il existe, et doit
-passer sur l'image `-opengrep` de la même version, qui installe les règles OpenGrep par défaut
-dans son volume `opengrep-rules` et les donne aux moteurs :
+joindre. Le serveur Controller de `security-review.yaml` lit leur Secret s'il existe. Les
+moteurs prennent les règles OpenGrep dans sa base (les règles par défaut y sont installées à son
+démarrage, quelle que soit son image) ; il passe sur l'image `-opengrep` de la même version pour
+valider les règles OpenGrep créées ou modifiées dans l'interface web :
 
 ```bash
 kubectl -n secreview create secret generic secreview-scan-engine \
@@ -193,13 +194,11 @@ kubectl -n secreview rollout status deploy/secreview-controller
 kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/scan-engine.yaml
 ```
 
-Le volume `opengrep-rules` est un `emptyDir` : les règles par défaut reviennent à chaque
-démarrage, mais les règles créées ou modifiées dans l'interface web sont perdues au redémarrage.
-Pour les garder, utilisez un PersistentVolumeClaim (en commentaire dans `security-review.yaml`) ;
-avec plusieurs réplicas du serveur Controller, il doit être partagé par tous (`ReadWriteMany`),
-car les règles OpenGrep sont des fichiers du serveur Controller. Changez le nombre de moteurs avec
-`replicas`, ou un HorizontalPodAutoscaler sur le CPU ; un pod qui s'arrête se retire aussitôt du
-serveur Controller.
+Les règles OpenGrep sont stockées en base : le volume `opengrep-rules` de chaque pod est un
+`emptyDir` qui ne contient que la copie écrite pour OpenGrep. Le serveur Controller n'a donc besoin
+d'aucun volume persistant ni partagé, quel que soit son nombre de réplicas. Changez le nombre de
+moteurs avec `replicas`, ou un HorizontalPodAutoscaler sur le CPU ; un pod qui s'arrête se retire
+aussitôt du serveur Controller.
 
 ??? example "scan-engine.yaml"
 

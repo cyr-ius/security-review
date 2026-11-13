@@ -14,6 +14,7 @@ from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
 from security_review_mcp.observability import audit
 from security_review_mcp.reports import services
+from security_review_mcp.rules import opengrep_rule_store
 from security_review_mcp.storage import database
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import SecurityReport, utcnow
@@ -547,28 +548,22 @@ def test_serve_refuses_an_invalid_syslog_address(settings, captured_run, capsys)
     assert "SECREVIEW_AUDIT_SYSLOG_ADDRESS" in capsys.readouterr().err
 
 
-def test_serve_installs_the_default_opengrep_rules_only_when_enabled(
+def test_serve_installs_the_default_opengrep_rules_even_without_opengrep(
     settings, captured_run, ui_dir, monkeypatch, caplog, tmp_path
 ):
-    calls: list[str] = []
+    # Image without OpenGrep: the rules go to the database all the same, for the scan engines
+    settings(opengrep_enabled=False, opengrep_binary=str(tmp_path / "missing-opengrep"))
+    controller.main(["serve"])
+    bundled = opengrep_rule_store.bundled_rules()
+    assert set(opengrep_rule_store.installed_rules()) == {
+        path.stem for files in bundled.values() for path in files
+    }
 
-    def fake_sync() -> dict[str, list[str]]:
-        calls.append("sync")
-        if len(calls) == 2:
-            raise OSError("read-only file system")
-        return {"installed": ["secreview.go.zip-slip"], "updated": [], "kept": []}
+    # A failure does not stop the server: it starts with the rules already installed
+    def broken() -> dict[str, list[str]]:
+        raise OSError("database unavailable")
 
-    monkeypatch.setattr(controller.opengrep_rule_store, "sync_bundled", fake_sync)
-    # Without the executable (PyPI installation), installed rules would make scan-code fail
-    settings(opengrep_enabled=True, opengrep_binary=str(tmp_path / "missing-opengrep"))
+    monkeypatch.setattr(controller.opengrep_rule_store, "seed_defaults", broken)
     controller.main(["serve"])
-    settings(opengrep_enabled=False, opengrep_binary="/bin/sh")
-    controller.main(["serve"])
-    assert calls == []
-
-    # Enabled with the executable ("-opengrep" image): at each start; a failure does not stop it
-    settings(opengrep_enabled=True, opengrep_binary="/bin/sh")
-    controller.main(["serve"])
-    controller.main(["serve"])
-    assert calls == ["sync", "sync"]
+    assert len(captured_run) == 2
     assert "Could not install the default OpenGrep rules" in caplog.text

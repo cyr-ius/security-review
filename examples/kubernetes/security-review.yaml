@@ -150,9 +150,8 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            # OpenGrep rules (image -opengrep): the default rules are installed at start, the
-            # rules created or edited in the web interface are kept here. An emptyDir loses the
-            # edits at each restart: use a PersistentVolumeClaim to keep them
+            # Copy of the OpenGrep rules of the database, written for OpenGrep (image -opengrep):
+            # a cache of this pod, never shared between replicas (the rules are in the database)
             - name: opengrep-rules
               mountPath: /var/lib/secreview/rules/opengrep
       volumes:
@@ -160,8 +159,6 @@ spec:
           emptyDir: {}
         - name: opengrep-rules
           emptyDir: {}
-          # persistentVolumeClaim:
-          #   claimName: secreview-opengrep-rules
 ---
 apiVersion: v1
 kind: Service

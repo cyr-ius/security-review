@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse, Response
 
 from ..auth import engine_clients
 from ..config import get_settings, secret_value
-from ..engines.protocol import manifest_digest, rule_digest
+from ..engines.protocol import manifest_digest
 from ..rules import opengrep_rule_store, registry, rules_loader
 from ..storage import server_instances
 from ..storage.models import ServerKind
@@ -61,11 +61,7 @@ def _rule_set() -> dict:
 
 def _opengrep_manifest() -> dict:
     """The SHA-256 of each installed OpenGrep rule."""
-    rules = {
-        rule_id: rule_digest(content)
-        for rule_id, content in opengrep_rule_store.installed_rules().items()
-    }
-    return EngineOpenGrepManifest(rules=rules).model_dump()
+    return EngineOpenGrepManifest(rules=opengrep_rule_store.manifest()).model_dump()
 
 
 @engine_router.get("/rules", response_model=EngineRuleSet)
@@ -85,10 +81,7 @@ async def engine_opengrep_manifest(request: Request) -> Response:
 @engine_router.post("/opengrep-rules")
 def engine_opengrep_contents(fetch: EngineOpenGrepFetch) -> EngineOpenGrepContents:
     """Content of the OpenGrep rules asked for; a rule deleted meanwhile is left out."""
-    installed = opengrep_rule_store.installed_rules()
-    return EngineOpenGrepContents(
-        rules={rule_id: installed[rule_id] for rule_id in fetch.ids if rule_id in installed}
-    )
+    return EngineOpenGrepContents(rules=opengrep_rule_store.contents(fetch.ids))
 
 
 @engine_router.post("/heartbeat", status_code=status.HTTP_204_NO_CONTENT)

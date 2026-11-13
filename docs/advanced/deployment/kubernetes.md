@@ -174,9 +174,10 @@ REST API (`/api/docs`) stays disabled unless you uncomment `SECREVIEW_SWAGGER_EN
 [`examples/kubernetes/scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml)
 deploys two [scan engines](../architecture/scan-engine.md), without Service: each pod enrolls
 with its IP address, and a NetworkPolicy lets only the Controller server reach them. The
-Controller server of `security-review.yaml` reads their Secret when it exists, and must move to
-the `-opengrep` image of the same version, which installs the default OpenGrep rules in its
-`opengrep-rules` volume and gives them to the engines:
+Controller server of `security-review.yaml` reads their Secret when it exists. The engines get
+the OpenGrep rules from its database (the default rules are installed at its start, whatever its
+image); it moves to the `-opengrep` image of the same version to validate the OpenGrep rules
+created or edited in the web interface:
 
 ```bash
 kubectl -n secreview create secret generic secreview-scan-engine \
@@ -187,12 +188,11 @@ kubectl -n secreview rollout status deploy/secreview-controller
 kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/scan-engine.yaml
 ```
 
-The `opengrep-rules` volume is an `emptyDir`: the default rules come back at each start, but the
-rules created or edited in the web interface are lost at a restart. To keep them, use a
-PersistentVolumeClaim (commented in `security-review.yaml`); with several replicas of the
-Controller server, it must be shared by all of them (`ReadWriteMany`), since the OpenGrep rules are
-files of the Controller server. Change the number of engines with `replicas`, or a
-HorizontalPodAutoscaler on the CPU; a pod that stops leaves the Controller server at once.
+The OpenGrep rules are stored in the database: the `opengrep-rules` volume of each pod is an
+`emptyDir` that only holds the copy written for OpenGrep, so the Controller server needs no
+persistent nor shared volume, whatever its number of replicas. Change the number of engines with
+`replicas`, or a HorizontalPodAutoscaler on the CPU; a pod that stops leaves the Controller server
+at once.
 
 ??? example "scan-engine.yaml"
 
