@@ -1,7 +1,7 @@
 <div class="markdown-field">
   <textarea
     #compact
-    class="form-control"
+    class="form-control form-control-sm"
     [id]="inputId()"
     [class.font-monospace]="monospace()"
     [class.is-invalid]="touched() && invalid()"
@@ -41,7 +41,7 @@
         @for (item of modes; track item) {
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="btn btn-sm btn-outline-secondary"
             [class.active]="mode() === item"
             [attr.aria-pressed]="mode() === item"
             (click)="mode.set(item)"
@@ -65,7 +65,7 @@
       @if (mode() !== 'preview') {
         <textarea
           #textPane
-          class="form-control markdown-field-wide"
+          class="form-control form-control-sm markdown-field-wide"
           autofocus
           [class.font-monospace]="monospace()"
           [attr.aria-label]="label()"

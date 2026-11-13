@@ -194,25 +194,41 @@
         }
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label" for="rule-id">{{ 'rules.id' | t }}</label>
+            <label class="form-label small mb-1" for="rule-id">{{ 'rules.id' | t }}</label>
             @if (editingId()) {
               <input
                 id="rule-id"
-                class="form-control font-monospace"
+                class="form-control form-control-sm font-monospace"
                 [value]="formModel().id"
                 readonly
               />
             } @else {
-              <input id="rule-id" class="form-control font-monospace" [formField]="ruleForm.id" />
+              <input
+                id="rule-id"
+                class="form-control form-control-sm font-monospace"
+                [formField]="ruleForm.id"
+              />
             }
           </div>
           <div class="col-md-5">
-            <label class="form-label" for="rule-title">{{ 'rules.titleField' | t }}</label>
-            <input id="rule-title" class="form-control" [formField]="ruleForm.title" />
+            <label class="form-label small mb-1" for="rule-title">{{
+              'rules.titleField' | t
+            }}</label>
+            <input
+              id="rule-title"
+              class="form-control form-control-sm"
+              [formField]="ruleForm.title"
+            />
           </div>
           <div class="col-md-3">
-            <label class="form-label" for="rule-severity">{{ 'rules.severity' | t }}</label>
-            <select id="rule-severity" class="form-select" [formField]="ruleForm.severity">
+            <label class="form-label small mb-1" for="rule-severity">{{
+              'rules.severity' | t
+            }}</label>
+            <select
+              id="rule-severity"
+              class="form-select form-select-sm"
+              [formField]="ruleForm.severity"
+            >
               <option value="">{{ 'common.choose' | t }}</option>
               @for (severity of severities; track severity) {
                 <option [value]="severity">{{ severityMeta[severity].label | t }}</option>
@@ -220,35 +236,39 @@
             </select>
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="rule-languages">{{ 'rules.languages' | t }}</label>
+            <label class="form-label small mb-1" for="rule-languages">{{
+              'rules.languages' | t
+            }}</label>
             <input
               id="rule-languages"
-              class="form-control"
+              class="form-control form-control-sm"
               [placeholder]="'rules.languagesPlaceholder' | t"
               [formField]="ruleForm.languages"
             />
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="rule-cwe">CWE</label>
+            <label class="form-label small mb-1" for="rule-cwe">CWE</label>
             <input
               id="rule-cwe"
-              class="form-control"
+              class="form-control form-control-sm"
               placeholder="CWE-89"
               [formField]="ruleForm.cwe"
             />
           </div>
           <div class="col-12">
-            <label class="form-label" for="rule-pattern">{{ 'rules.pattern' | t }}</label>
+            <label class="form-label small mb-1" for="rule-pattern">{{
+              'rules.pattern' | t
+            }}</label>
             <textarea
               id="rule-pattern"
-              class="form-control font-monospace pattern"
+              class="form-control form-control-sm font-monospace pattern"
               rows="3"
               spellcheck="false"
               [formField]="ruleForm.pattern"
             ></textarea>
           </div>
           <div class="col-12">
-            <label class="form-label" for="rule-advice">{{ 'rules.advice' | t }}</label>
+            <label class="form-label small mb-1" for="rule-advice">{{ 'rules.advice' | t }}</label>
             <app-markdown-field
               inputId="rule-advice"
               [rows]="3"

@@ -306,11 +306,13 @@
         </button>
       </div>
       <div class="card-body">
-        <label for="new-project" class="form-label fw-semibold">{{ 'projects.newName' | t }}</label>
+        <label for="new-project" class="form-label small mb-1 fw-semibold">{{
+          'projects.newName' | t
+        }}</label>
         <input
           id="new-project"
           type="text"
-          class="form-control"
+          class="form-control form-control-sm"
           autocomplete="off"
           aria-describedby="new-project-help"
           [formField]="newProjectForm.project"
@@ -321,12 +323,12 @@
         }
       </div>
       <div class="card-footer d-flex justify-content-end gap-2">
-        <button type="button" class="btn btn-outline-secondary" (click)="closeCreate()">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="closeCreate()">
           {{ 'common.cancel' | t }}
         </button>
         <button
           type="submit"
-          class="btn btn-primary"
+          class="btn btn-sm btn-primary"
           [disabled]="creating() || newProjectForm().invalid()"
         >
           <i class="bi bi-plus-lg" aria-hidden="true"></i>

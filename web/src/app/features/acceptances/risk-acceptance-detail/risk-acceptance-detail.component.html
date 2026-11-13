@@ -33,7 +33,7 @@
 
       @if (canTriage()) {
         <form class="border rounded p-3 mb-3" (submit)="saveExpiry($event)" novalidate>
-          <label class="form-label fw-semibold" [for]="'acc-expiry-' + item.id">{{
+          <label class="form-label small mb-1 fw-semibold" [for]="'acc-expiry-' + item.id">{{
             'acceptances.expiryTitle' | t
           }}</label>
           <div class="d-flex flex-wrap align-items-center gap-2">
@@ -143,7 +143,7 @@
 
       @if (canTriage()) {
         <form (submit)="addComment($event)" novalidate>
-          <label class="form-label fw-semibold" [for]="'acc-comment-' + item.id">{{
+          <label class="form-label small mb-1 fw-semibold" [for]="'acc-comment-' + item.id">{{
             'acceptances.commentAdd' | t
           }}</label>
           <textarea

@@ -35,6 +35,9 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
 - **Formulaires** : les formulaires de saisie utilisent les Signal Forms (`form()`,
   `[formField]`, validateurs avec un message traduit) ; les filtres de liste et les listes
   dynamiques de cases à cocher restent de simples gestionnaires d'événements.
+- **Taille** : les pages utilisent la petite taille de Bootstrap : `btn-sm`, `form-control-sm`,
+  `form-select-sm`, `input-group-sm`, libellés `form-label small mb-1`. Seules la page de connexion
+  et les fenêtres plein écran (consentement OAuth, session expirée) gardent la taille par défaut.
 - **Appels HTTP** : par `rxResource` pour les données d'une page, ou `await
   firstValueFrom(...)` pour une action ; pas de `.subscribe()` dans les composants.
 - **État** : `signal()` et `computed()` ; une valeur dérivée d'une autre mais modifiable (un

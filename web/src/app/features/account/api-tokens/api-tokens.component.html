@@ -26,25 +26,31 @@
 
   <form class="row g-2 align-items-end mb-3" (submit)="create($event)">
     <div class="col-md-3">
-      <label for="api-token-role" class="form-label">{{ 'tokens.usage' | t }}</label>
-      <select id="api-token-role" class="form-select" [formField]="tokenForm.role">
+      <label for="api-token-role" class="form-label small mb-1">{{ 'tokens.usage' | t }}</label>
+      <select id="api-token-role" class="form-select form-select-sm" [formField]="tokenForm.role">
         @for (role of roles(); track role) {
           <option [value]="role">{{ roleLabel(role) | t }}</option>
         }
       </select>
     </div>
     <div class="col-md-3">
-      <label for="api-token-label" class="form-label">{{ 'tokens.label' | t }}</label>
+      <label for="api-token-label" class="form-label small mb-1">{{ 'tokens.label' | t }}</label>
       <input
         id="api-token-label"
-        class="form-control"
+        class="form-control form-control-sm"
         autocomplete="off"
         [formField]="tokenForm.label"
       />
     </div>
     <div class="col-md-2">
-      <label for="api-token-validity" class="form-label">{{ 'tokens.validity' | t }}</label>
-      <select id="api-token-validity" class="form-select" [formField]="tokenForm.validity">
+      <label for="api-token-validity" class="form-label small mb-1">{{
+        'tokens.validity' | t
+      }}</label>
+      <select
+        id="api-token-validity"
+        class="form-select form-select-sm"
+        [formField]="tokenForm.validity"
+      >
         <option value="">{{ 'tokens.validityDefault' | t }}</option>
         @for (days of validities; track days) {
           <option [value]="days">{{ 'tokens.validityDays' | t: { days } }}</option>
@@ -54,7 +60,7 @@
     <div class="col-md-3">
       <button
         type="submit"
-        class="btn btn-primary w-100"
+        class="btn btn-sm btn-primary w-100"
         [disabled]="busy() || tokenForm().invalid()"
       >
         <i class="bi bi-key" aria-hidden="true"></i>

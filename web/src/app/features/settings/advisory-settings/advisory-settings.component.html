@@ -214,14 +214,14 @@
             }
           </fieldset>
           <div class="d-flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="busy()">
+            <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy()">
               <i class="bi bi-check-lg" aria-hidden="true"></i>
               {{ 'common.save' | t }}
             </button>
             @if (current.osv.ecosystems.value !== null) {
               <button
                 type="button"
-                class="btn btn-outline-secondary"
+                class="btn btn-sm btn-outline-secondary"
                 [disabled]="busy()"
                 (click)="resetEcosystems()"
               >

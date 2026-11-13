@@ -36,6 +36,9 @@ local workstation and port 4200 is forwarded automatically.
 - **Forms**: the input forms use the Signal Forms (`form()`, `[formField]`, validators with a
   translated message); the list filters and the dynamic lists of checkboxes stay plain event
   handlers.
+- **Size**: the pages use the small Bootstrap size: `btn-sm`, `form-control-sm`,
+  `form-select-sm`, `input-group-sm`, labels `form-label small mb-1`. Only the login page and the
+  full-screen dialogs (OAuth consent, expired session) keep the default size.
 - **HTTP calls**: through `rxResource` for the data of a page, or `await
   firstValueFrom(...)` for an action; no `.subscribe()` in the components.
 - **State**: `signal()` and `computed()`; a value derived from another one but still editable (a

@@ -62,10 +62,14 @@
 
 <form class="row g-2 align-items-end" (submit)="save($event)" novalidate>
   <div class="col-12 col-md-4">
-    <label class="form-label" [for]="kind + '-target-project'">{{
+    <label class="form-label small mb-1" [for]="kind + '-target-project'">{{
       'connectors.project' | t
     }}</label>
-    <select [id]="kind + '-target-project'" class="form-select" [formField]="targetForm.project">
+    <select
+      [id]="kind + '-target-project'"
+      class="form-select form-select-sm"
+      [formField]="targetForm.project"
+    >
       <option value="">-</option>
       @for (name of projectNames(); track name) {
         <option [value]="name">{{ name }}</option>
@@ -73,10 +77,12 @@
     </select>
   </div>
   <div class="col-12 col-md-4">
-    <label class="form-label" [for]="kind + '-target-destination'">{{ destinationLabel() }}</label>
+    <label class="form-label small mb-1" [for]="kind + '-target-destination'">{{
+      destinationLabel()
+    }}</label>
     <input
       [id]="kind + '-target-destination'"
-      class="form-control font-monospace"
+      class="form-control form-control-sm font-monospace"
       type="text"
       autocomplete="off"
       spellcheck="false"
@@ -85,8 +91,14 @@
     />
   </div>
   <div class="col-12 col-md-4">
-    <label class="form-label" [for]="kind + '-target-auto'">{{ 'connectors.auto' | t }}</label>
-    <select [id]="kind + '-target-auto'" class="form-select" [formField]="targetForm.auto">
+    <label class="form-label small mb-1" [for]="kind + '-target-auto'">{{
+      'connectors.auto' | t
+    }}</label>
+    <select
+      [id]="kind + '-target-auto'"
+      class="form-select form-select-sm"
+      [formField]="targetForm.auto"
+    >
       <option value="">{{ 'connectors.autoNone' | t }}</option>
       @for (severity of severities; track severity) {
         <option [value]="severity">
@@ -96,7 +108,7 @@
     </select>
   </div>
   <div class="col-12">
-    <button type="submit" class="btn btn-primary" [disabled]="busy()">
+    <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy()">
       <i class="bi bi-check-lg" aria-hidden="true"></i>
       {{ 'common.save' | t }}
     </button>

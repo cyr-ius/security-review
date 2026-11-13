@@ -70,7 +70,7 @@
 
         <form (submit)="save($event)" novalidate>
           <fieldset class="mb-3">
-            <legend class="form-label fs-6">{{ 'audit.syslogAddress' | t }}</legend>
+            <legend class="form-label small mb-1 fs-6">{{ 'audit.syslogAddress' | t }}</legend>
             @if (current.address.env_set) {
               <ng-container
                 [ngTemplateOutlet]="locked"
@@ -108,10 +108,12 @@
               </div>
               @if (model().mode === 'custom') {
                 <div class="mt-2">
-                  <label for="syslog-address" class="form-label">{{ 'settings.url' | t }}</label>
+                  <label for="syslog-address" class="form-label small mb-1">{{
+                    'settings.url' | t
+                  }}</label>
                   <input
                     id="syslog-address"
-                    class="form-control font-monospace"
+                    class="form-control form-control-sm font-monospace"
                     type="text"
                     autocomplete="off"
                     spellcheck="false"
@@ -127,7 +129,7 @@
           @if (current.address.env_set || model().mode === 'custom') {
             <div class="mb-3">
               @if (current.facility.env_set) {
-                <div class="form-label">{{ 'audit.syslogFacility' | t }}</div>
+                <div class="form-label small mb-1">{{ 'audit.syslogFacility' | t }}</div>
                 <ng-container
                   [ngTemplateOutlet]="locked"
                   [ngTemplateOutletContext]="{
@@ -138,10 +140,14 @@
                   }"
                 />
               } @else {
-                <label for="syslog-facility" class="form-label">{{
+                <label for="syslog-facility" class="form-label small mb-1">{{
                   'audit.syslogFacility' | t
                 }}</label>
-                <select id="syslog-facility" class="form-select" [formField]="syslogForm.facility">
+                <select
+                  id="syslog-facility"
+                  class="form-select form-select-sm"
+                  [formField]="syslogForm.facility"
+                >
                   <option value="">
                     {{ 'audit.syslogFacilityDefault' | t: { value: current.facility.env ?? '' } }}
                   </option>
@@ -154,7 +160,7 @@
           }
 
           @if (!current.address.env_set || !current.facility.env_set) {
-            <button type="submit" class="btn btn-primary" [disabled]="busy()">
+            <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy()">
               <i class="bi bi-check-lg" aria-hidden="true"></i>
               {{ 'common.save' | t }}
             </button>
