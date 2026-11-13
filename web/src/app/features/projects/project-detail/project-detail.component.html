@@ -59,7 +59,10 @@
   </div>
 } @else if (trend.value(); as data) {
   <section class="mb-4" [attr.aria-label]="'project.openFindings' | t">
-    <app-severity-counts [counts]="data.summary.open_now" />
+    <app-severity-counts
+      [counts]="data.summary.open_now"
+      [link]="['/projects', project(), 'findings']"
+    />
   </section>
 
   <div class="row g-3 mb-4">
@@ -171,7 +174,7 @@
   </div>
 }
 
-<div class="card">
+<div class="card mb-4">
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
     <span class="fw-semibold">{{ 'project.openFindings' | t }}</span>
     @if (openFindings.value(); as page) {

@@ -68,8 +68,8 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
-| **Project** | Trend, worst and oldest open findings (the [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) folded in one row), SARIF export, **All reports** of the project |
+| **Projects** | Every project with its open findings by severity: a tile opens the open findings of that severity in every project, a count of the table those of the project, the number of reports its reports. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
+| **Project** | Open findings by severity (a tile opens those of the project), trend, worst and oldest open findings (the [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) folded in one row), SARIF export, **All reports** of the project |
 
 **Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read); **Reports** for every user (on the projects they read), opened from the search field (`#report:*`) or **All reports** of a project
 
