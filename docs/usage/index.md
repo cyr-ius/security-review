@@ -96,12 +96,12 @@ together. The changes go to the form, which still saves or cancels them.
 | Page | What for |
 |---|---|
 | **General** | Report language, Controller server address (and delegation of `scan_code` to it) and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
+| **Activity** | What runs now, and the scan engines with their revocation (`settings.manage`): see [Activity](#activity) |
 | **Users**, **Roles** | The accounts, their roles and their projects ([roles and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **MCP clients** | The MCP clients that log in through the browser ([OAuth login](../advanced/mcp-oauth.md#administration)): turning the login on or off, registered clients and approved accesses, revocation (`tokens.manage`) |
 | **Sign-in** | The company login ([OIDC login](sso.md)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
-| **Activity** | What runs now, and the scan engines with their revocation (`settings.manage`): see [Activity](#activity) |
 | **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)); opened by the **Audit log** button of **Activity**, in the menu only for the accounts that hold `audit.read` without `settings.manage` |
 
 ### Activity

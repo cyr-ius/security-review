@@ -125,6 +125,12 @@ export class LayoutComponent {
       icon: 'bi-sliders',
       permission: 'settings.manage',
     },
+    {
+      path: '/activity',
+      label: 'layout.activity',
+      icon: 'bi-activity',
+      permission: 'settings.manage',
+    },
     { path: '/users', label: 'layout.users', icon: 'bi-people', permission: 'users.manage' },
     { path: '/roles', label: 'layout.roles', icon: 'bi-shield-check', permission: 'users.manage' },
     { path: '/tokens', label: 'layout.tokens', icon: 'bi-key', permission: 'tokens.manage' },
@@ -139,12 +145,6 @@ export class LayoutComponent {
       path: '/settings/connectors',
       label: 'connectors.title',
       icon: 'bi-plug',
-      permission: 'settings.manage',
-    },
-    {
-      path: '/activity',
-      label: 'layout.activity',
-      icon: 'bi-activity',
       permission: 'settings.manage',
     },
     // Opened from the Activity page; kept in the menu for those who cannot open that page

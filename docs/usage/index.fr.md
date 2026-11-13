@@ -101,12 +101,12 @@ qui les enregistre ou les annule.
 | Page | À quoi elle sert |
 |---|---|
 | **Général** | Langue des rapports, adresse du serveur Controller (et délégation de `scan_code` à celle-ci) et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
+| **Activité** | Ce qui tourne en ce moment, et les moteurs de scan avec leur révocation (`settings.manage`) : voir [Activité](#activite) |
 | **Utilisateurs**, **Rôles** | Les comptes, leurs rôles et leurs projets ([rôles et permissions](access-control.md)) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
 | **Clients MCP** | Les clients MCP qui se connectent par le navigateur ([connexion OAuth](../advanced/mcp-oauth.md#administration)) : activation de la connexion, clients enregistrés et accès approuvés, révocation (`tokens.manage`) |
 | **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
-| **Activité** | Ce qui tourne en ce moment, et les moteurs de scan avec leur révocation (`settings.manage`) : voir [Activité](#activite) |
 | **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) ; ouvert par le bouton **Journal d'audit** d'**Activité**, dans le menu seulement pour les comptes qui ont `audit.read` sans `settings.manage` |
 
 ### Activité
