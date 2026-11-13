@@ -155,10 +155,33 @@ export const routes: Routes = [
       },
       {
         path: 'users',
-        title: 'layout.users',
         canActivate: [permissionGuard('users.manage')],
         loadComponent: () =>
-          import('./features/users/user-list.component').then((m) => m.UserListComponent),
+          import('./features/users/users-page/users-page.component').then(
+            (m) => m.UsersPageComponent,
+          ),
+        children: [
+          {
+            path: '',
+            title: 'layout.users',
+            loadComponent: () =>
+              import('./features/users/user-list.component').then((m) => m.UserListComponent),
+          },
+          {
+            path: 'roles',
+            title: 'layout.roles',
+            loadComponent: () =>
+              import('./features/access/role-list/role-list.component').then(
+                (m) => m.RoleListComponent,
+              ),
+          },
+          {
+            path: 'sso',
+            title: 'layout.sso',
+            loadComponent: () =>
+              import('./features/sso/sso-page/sso-page.component').then((m) => m.SsoPageComponent),
+          },
+        ],
       },
       {
         path: 'tokens',
@@ -200,24 +223,10 @@ export const routes: Routes = [
       { path: 'groups', pathMatch: 'full', redirectTo: 'users' },
       // Former single settings page, split into the three pages below
       { path: 'settings', pathMatch: 'full', redirectTo: 'settings/general' },
-      {
-        path: 'roles',
-        title: 'layout.roles',
-        canActivate: [permissionGuard('users.manage')],
-        loadComponent: () =>
-          import('./features/access/role-list/role-list.component').then(
-            (m) => m.RoleListComponent,
-          ),
-      },
-      {
-        path: 'sso',
-        title: 'layout.sso',
-        canActivate: [permissionGuard('users.manage')],
-        loadComponent: () =>
-          import('./features/sso/sso-page/sso-page.component').then((m) => m.SsoPageComponent),
-      },
-      // Former address of the OIDC page
-      { path: 'role-mappings', pathMatch: 'full', redirectTo: 'sso' },
+      // Former addresses of the Roles and OIDC pages, now tabs of the Users page
+      { path: 'roles', pathMatch: 'full', redirectTo: 'users/roles' },
+      { path: 'sso', pathMatch: 'full', redirectTo: 'users/sso' },
+      { path: 'role-mappings', pathMatch: 'full', redirectTo: 'users/sso' },
       {
         path: 'settings/general',
         title: 'settings.generalTitle',

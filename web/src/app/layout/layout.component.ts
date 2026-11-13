@@ -132,7 +132,6 @@ export class LayoutComponent {
       permission: 'settings.manage',
     },
     { path: '/users', label: 'layout.users', icon: 'bi-people', permission: 'users.manage' },
-    { path: '/roles', label: 'layout.roles', icon: 'bi-shield-check', permission: 'users.manage' },
     { path: '/tokens', label: 'layout.tokens', icon: 'bi-key', permission: 'tokens.manage' },
     {
       path: '/mcp-clients',
@@ -140,7 +139,6 @@ export class LayoutComponent {
       icon: 'bi-robot',
       permission: 'tokens.manage',
     },
-    { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
     {
       path: '/settings/connectors',
       label: 'connectors.title',

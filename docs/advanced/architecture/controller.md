@@ -271,7 +271,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Settings stored in the database
 
-The **General** (report language, Controller server address, outgoing proxy), **OSV database** (downloaded ecosystems) and **Sign-in** (OIDC) pages of the
+The **General** (report language, Controller server address, outgoing proxy), **OSV database** (downloaded ecosystems) pages and the **OIDC sign-in** tab of the **Users** page of the
 [web interface](../../usage/index.md) store settings in the database, shared by the MCP
 server and the Controller server (`settings.manage` permission; the former `/ui/settings`,
 `/ui/settings/language` and `/ui/settings/proxy` addresses open **General**). **An environment variable that is set

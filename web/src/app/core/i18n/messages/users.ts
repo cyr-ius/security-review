@@ -3,9 +3,11 @@ import { defineMessages } from '../catalog';
 /** Users screen. */
 export const users = defineMessages({
   en: {
+    'users.pageSubtitle': 'Accounts of the web interface, the roles they hold and the OIDC sign-in',
+    'users.tabs': 'User management',
+    'users.tabAccounts': 'Accounts',
+    'users.tabSso': 'OIDC sign-in',
     'users.mustChange': 'password to change',
-    'users.subtitle':
-      'Accounts of the web interface: local (username and password) or OIDC (identity provider)',
     'users.help':
       'Only accounts can access the interface. What a user may do comes only from its roles (permissions on the whole Controller server) and its projects with their per-project permissions (reading, triage), and for an OIDC user from those of the OIDC mappings of its claim at its last login. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
     'users.generatedPassword': 'Generated password',
@@ -73,9 +75,11 @@ export const users = defineMessages({
     'users.oidcAccess': 'Roles and projects of its OIDC mappings (last login):',
   },
   fr: {
+    'users.pageSubtitle': "Comptes de l'interface web, leurs rôles et la connexion OIDC",
+    'users.tabs': 'Gestion des utilisateurs',
+    'users.tabAccounts': 'Comptes',
+    'users.tabSso': 'Connexion OIDC',
     'users.mustChange': 'mot de passe à changer',
-    'users.subtitle':
-      "Comptes de l'interface web : locaux (identifiant et mot de passe) ou OIDC (fournisseur d'identité)",
     'users.help':
       "Seuls les comptes ouvrent l'interface. Ce qu'un utilisateur peut faire vient uniquement de ses rôles (droits sur tout le serveur Controller) et de ses projets avec leurs droits par projet (lecture, triage), et pour un utilisateur OIDC de ceux des correspondances OIDC de son claim à sa dernière connexion. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
     'users.generatedPassword': 'Mot de passe généré',
@@ -146,9 +150,11 @@ export const users = defineMessages({
     'users.oidcAccess': 'Rôles et projets de ses correspondances OIDC (dernière connexion) :',
   },
   es: {
+    'users.pageSubtitle': 'Cuentas de la interfaz web, sus roles y el inicio de sesión OIDC',
+    'users.tabs': 'Gestión de usuarios',
+    'users.tabAccounts': 'Cuentas',
+    'users.tabSso': 'Inicio de sesión OIDC',
     'users.mustChange': 'contraseña por cambiar',
-    'users.subtitle':
-      'Cuentas de la interfaz web: locales (usuario y contraseña) o OIDC (proveedor de identidad)',
     'users.help':
       'Solo estas cuentas abren la interfaz. Lo que un usuario puede hacer viene solo de sus roles (permisos sobre todo el servidor Controller) y de sus proyectos con sus permisos por proyecto (lectura, clasificación), y para un usuario OIDC de los de las correspondencias OIDC de su claim en su último inicio de sesión. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
     'users.generatedPassword': 'Contraseña generada',

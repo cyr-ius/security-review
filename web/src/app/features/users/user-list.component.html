@@ -1,8 +1,5 @@
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
-  <div>
-    <h1 class="h3 mb-0">{{ 'layout.users' | t }} <app-help-link topic="users" /></h1>
-    <p class="text-body-secondary mb-0">{{ 'users.subtitle' | t }}</p>
-  </div>
+<!-- Title and subtitle are given by the Users page, above the tabs -->
+<div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
   <app-refresh-button
     [loading]="users.isLoading() || revoked.isLoading()"
     (refresh)="users.reload()"

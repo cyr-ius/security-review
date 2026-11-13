@@ -5,8 +5,8 @@ ses **projets**. Un rôle porte des droits sur tout le serveur Controller (règl
 utilisateurs, audit...). Chaque projet d'un compte porte ses propres **droits par projet**
 (lecture, écriture, triage), de même que **Tous les projets**. Un compte OIDC porte aussi les rôles et
 projets des [correspondances OIDC](sso.md#correspondances-oidc) des groupes de son fournisseur
-d'identité. Les administrateurs gèrent tout cela dans les pages **Utilisateurs**, **Rôles** et
-**Connexions**, et sur la page de chaque projet ([membres](projects.md#membres)).
+d'identité. Les administrateurs gèrent tout cela dans les onglets **Comptes**, **Rôles** et
+**Connexion OIDC** de la page **Utilisateurs**, et sur la page de chaque projet ([membres](projects.md#membres)).
 
 L'API REST, les limites et les règles détaillées sont dans
 [Contrôle d'accès par l'API REST](../advanced/access-control-api.md). Les jetons des machines

@@ -20,7 +20,7 @@ The provider must be reachable in HTTPS by the Controller server, through the ou
 
 ## Configuring OIDC in the interface
 
-An administrator fills on the **Sign-in** page, without restarting the Controller server:
+An administrator fills on the **OIDC sign-in** tab of the **Users** page, without restarting the Controller server:
 
 1. **Issuer**, **Client ID**, **Client secret** (empty for a public client) and **Callback URL**;
 2. the **Roles claim**, and the **Administration groups** whose members become administrators;
@@ -48,7 +48,7 @@ keeps the same account.
 
 ## OIDC mappings
 
-At the bottom of the **Sign-in** page, each **OIDC mapping** of a value gives **roles**,
+At the bottom of the **OIDC sign-in** tab, each **OIDC mapping** of a value gives **roles**,
 per-project permissions on **All projects** and **projects** with their permissions to the OIDC
 users whose identity provider sends **exactly** this value (case included). They add up with
 the roles and projects given to the account in **Users**. At each login, the values of the claim

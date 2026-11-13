@@ -282,7 +282,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Réglages enregistrés en base
 
-Les pages **Général** (langue des rapports, adresse du serveur Controller, proxy sortant), **Base OSV** (écosystèmes téléchargés) et **Connexions** (OIDC) de l'[interface web](../../usage/index.md)
+Les pages **Général** (langue des rapports, adresse du serveur Controller, proxy sortant), **Base OSV** (écosystèmes téléchargés) et l'onglet **Connexion OIDC** de la page **Utilisateurs** de l'[interface web](../../usage/index.md)
 enregistrent des réglages en base, partagés par le serveur MCP et le serveur Controller (permission
 `settings.manage` ; les anciennes adresses `/ui/settings`, `/ui/settings/language` et
 `/ui/settings/proxy` ouvrent **Général**). **Une variable d'environnement définie (environnement ou fichier `.env`, non vide)

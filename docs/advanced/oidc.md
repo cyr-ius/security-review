@@ -50,7 +50,7 @@ through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General** page)
 
 ## Configuring OIDC in the interface
 
-The same settings can be changed on the **Sign-in** page (`users.manage` permission: the OIDC
+The same settings can be changed on the **OIDC sign-in** tab of the **Users** page (`users.manage` permission: the OIDC
 settings decide who gets which role), without restarting the Controller server. As for
 the proxy of the **General** page, **a `SECREVIEW_OIDC_*` variable that is set always takes
 precedence**, field by field; a value stored in the database applies only to the fields whose
@@ -155,7 +155,7 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 ## OIDC mappings
 
 The values of the `SECREVIEW_OIDC_ROLES_CLAIM` claim (list or string, dotted path accepted) are
-compared with the **OIDC mappings** of the **Sign-in** page. A mapping, one per value, gives
+compared with the **OIDC mappings** of the **OIDC sign-in** tab. A mapping, one per value, gives
 **roles** (permissions on the whole Controller server), per-project permissions on every project
 and **projects** with their per-project permissions to the users whose claim holds **exactly** its
 value (case included). At each login, the values of the claim named by a mapping are kept for the
