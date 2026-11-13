@@ -143,21 +143,32 @@ docker compose exec controller security-review-controller token list
 ## Scan engines
 
 The file
-[`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml),
-added to `docker-compose.yml`, starts two [scan engines](../architecture/scan-engine.md): they
-run the rules and OpenGrep of the code scans in place of the Controller server, with the OpenGrep
-rules of its database (the default rules are installed at its start). It moves the Controller
-server to the `-opengrep` image, to validate the OpenGrep rules created or edited in the web
-interface. Download it next to
-`docker-compose.yml`, add the secret shared by the Controller server and the engines to `.env`,
-then pull the images together (the three services must run the same version) and start:
+[`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml)
+is the complete deployment, on its own: PostgreSQL, the Controller server, the MCP server and two
+[scan engines](../architecture/scan-engine.md). The engines run the rules and OpenGrep of every
+code scan in place of the Controller server: those of `security-review-ci scan-code` and, since
+`scan_code` is [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)
+over the internal network, those of the agents. They use the OpenGrep rules of its database (the
+default rules are installed at its start). The Controller server runs the `-opengrep` image, to
+validate the OpenGrep rules created or edited in the web interface. Download it in an empty
+folder, create `.env` with its three secrets, then pull the images together (the services must
+run the same version) and start:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml
-(umask 077 && printf 'SECREVIEW_SCAN_ENGINE_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env)
-docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml pull
-docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml up -d --wait
+(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\nSECREVIEW_SCAN_ENGINE_TOKEN=%s\n' \
+    "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env)
+docker compose -f docker-compose.scan-engines.yml pull
+docker compose -f docker-compose.scan-engines.yml up -d --wait
+docker compose -f docker-compose.scan-engines.yml exec controller \
+    security-review-controller user reset-password admin
 ```
+
+The web interface answers on `http://127.0.0.1:8080/ui/` and the MCP endpoint on
+`http://127.0.0.1:8000/mcp`; set `SECREVIEW_PUBLIC_URL` in `.env` to the address the team uses.
+The file has the Compose project name of `docker-compose.yml` (`security-review`): to move an
+existing deployment to it, add `SECREVIEW_SCAN_ENGINE_TOKEN` to its `.env` and start it in the
+same folder, the database volume is kept.
 
 The engines appear on the **Scan engines** page. No address of the engines is given to the
 Controller server, and no load balancer stands in front of them: each replica enrolls with the

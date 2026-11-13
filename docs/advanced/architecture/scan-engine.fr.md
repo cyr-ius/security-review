@@ -61,8 +61,8 @@ vulnérabilité.
     ```
 
     Avec l'image : `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine` ;
-    avec Compose : le fichier `examples/docker/docker-compose.scan-engines.yml`, ajouté à
-    `docker-compose.yml` (deux moteurs, voir [Docker](../deployment/docker.md#moteurs-de-scan)) ;
+    avec Compose : le fichier `examples/docker/docker-compose.scan-engines.yml`, le déploiement
+    complet avec deux moteurs (voir [Docker](../deployment/docker.md#moteurs-de-scan)) ;
     sur Kubernetes : `examples/kubernetes/scan-engine.yaml` (deux réplicas, Deployment et
     NetworkPolicy, l'IP du pod donnée dans `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, voir
     [Kubernetes](../deployment/kubernetes.md#moteurs-de-scan)).

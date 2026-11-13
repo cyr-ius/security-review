@@ -147,22 +147,32 @@ docker compose exec controller security-review-controller token list
 ## Moteurs de scan
 
 Le fichier
-[`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml),
-ajouté à `docker-compose.yml`, démarre deux [moteurs de scan](../architecture/scan-engine.md) :
-ils exécutent les règles et OpenGrep des scans de code à la place du serveur Controller, avec
-les règles OpenGrep de sa base (les règles par défaut y sont installées à son démarrage). Il passe
-le serveur Controller sur l'image `-opengrep`, pour valider les règles OpenGrep créées ou
-modifiées dans l'interface web. Téléchargez-le à
-côté de `docker-compose.yml`, ajoutez à `.env` le secret partagé par le serveur Controller et les
-moteurs, puis téléchargez les images ensemble (les trois services doivent avoir la même version)
-et démarrez :
+[`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml)
+est le déploiement complet, à lui seul : PostgreSQL, le serveur Controller, le serveur MCP et deux
+[moteurs de scan](../architecture/scan-engine.md). Les moteurs exécutent les règles et OpenGrep de
+tous les scans de code à la place du serveur Controller : ceux de `security-review-ci scan-code`
+et, comme `scan_code` est [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)
+par le réseau interne, ceux des agents. Ils utilisent les règles OpenGrep de sa base (les règles
+par défaut y sont installées à son démarrage). Le serveur Controller tourne sur l'image
+`-opengrep`, pour valider les règles OpenGrep créées ou modifiées dans l'interface web.
+Téléchargez-le dans un dossier vide, créez `.env` avec ses trois secrets, puis téléchargez les
+images ensemble (les services doivent avoir la même version) et démarrez :
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml
-(umask 077 && printf 'SECREVIEW_SCAN_ENGINE_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env)
-docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml pull
-docker compose -f docker-compose.yml -f docker-compose.scan-engines.yml up -d --wait
+(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\nSECREVIEW_SCAN_ENGINE_TOKEN=%s\n' \
+    "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env)
+docker compose -f docker-compose.scan-engines.yml pull
+docker compose -f docker-compose.scan-engines.yml up -d --wait
+docker compose -f docker-compose.scan-engines.yml exec controller \
+    security-review-controller user reset-password admin
 ```
+
+L'interface web répond sur `http://127.0.0.1:8080/ui/` et le point d'accès MCP sur
+`http://127.0.0.1:8000/mcp` ; définissez `SECREVIEW_PUBLIC_URL` dans `.env` avec l'adresse
+qu'utilise l'équipe. Le fichier a le nom de projet Compose de `docker-compose.yml`
+(`security-review`) : pour y passer un déploiement existant, ajoutez `SECREVIEW_SCAN_ENGINE_TOKEN`
+à son `.env` et démarrez-le dans le même dossier, le volume de la base est conservé.
 
 Les moteurs apparaissent sur la page **Moteurs de scan**. Aucune adresse des moteurs n'est donnée
 au serveur Controller, et aucun répartiteur de charge ne se trouve devant eux : chaque réplica

@@ -61,8 +61,8 @@ database.
     ```
 
     With the image: `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine`;
-    with Compose: the file `examples/docker/docker-compose.scan-engines.yml`, added to
-    `docker-compose.yml` (two engines, see [Docker](../deployment/docker.md#scan-engines)); on
+    with Compose: the file `examples/docker/docker-compose.scan-engines.yml`, the complete
+    deployment with two engines (see [Docker](../deployment/docker.md#scan-engines)); on
     Kubernetes: `examples/kubernetes/scan-engine.yaml` (two replicas, Deployment and
     NetworkPolicy, the pod IP given in `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, see
     [Kubernetes](../deployment/kubernetes.md#scan-engines)).
