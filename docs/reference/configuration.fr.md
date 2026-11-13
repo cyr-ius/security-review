@@ -129,8 +129,8 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Mise à jour quotidienne](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) de la base OSV par `serve` |
-| `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
+| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Mise à jour quotidienne](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) de la base OSV par `serve` ; non définie, elle peut être activée sur la page **Base OSV** |
+| `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) ; non définie, il peut être réglé sur la page **Base OSV** |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Écosystèmes téléchargés, séparés par des virgules ; non définie, ils se choisissent sur la page **Base OSV** |
 | `SECREVIEW_OSV_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |

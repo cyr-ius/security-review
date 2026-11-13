@@ -114,11 +114,11 @@
   [fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)); `start_codebase_scan`
   asks the same way for a scan ticket (`POST /api/v1/scan/tickets`). An `mcp` token reaches
   these two routes only, and the scan route answers `404` while the delegation is off. The Controller server only downloads the OSV advisories if an administrator enables it
-  (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
+  (`SECREVIEW_OSV_AUTO_UPDATE`, the **OSV database** page, audited, or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
-  **Update now** button of the web interface (`settings.manage` permission) is only accepted if
-  `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General**
+  **Update now** button of the web interface (`settings.manage` permission) is only accepted while
+  the download is turned on. The outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General**
   page) serves the OSV download and the OIDC provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
@@ -352,7 +352,7 @@
 - The pattern scan produces leads and false positives. With the
   [OpenGrep engine](../review/analysis/opengrep.md), the scan is a static analysis (SAST) that
   follows the data flow within a file, across its functions, but not from one file to another
-  ([measured on the OWASP Benchmark](../advanced/detection-benchmark.md)). Neither replaces a
+  ([measured on the OWASP Benchmark](detection-benchmark.md)). Neither replaces a
   full SCA analysis (no transitive resolution of the manifests, database to keep up to date) nor
   a human review.
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks

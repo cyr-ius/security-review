@@ -22,6 +22,7 @@ from .schemas import (
     AuditSyslogUpdate,
     ControllerUrlUpdate,
     McpScanDelegationUpdate,
+    OsvDownloadUpdate,
     OsvEcosystemsUpdate,
     ProxyUpdate,
     ReportLanguageUpdate,
@@ -171,9 +172,31 @@ async def set_osv_ecosystems(body: OsvEcosystemsUpdate, identity: SettingsManage
     return described
 
 
+@router.put("/settings/osv-download")
+async def set_osv_download(body: OsvDownloadUpdate, identity: SettingsManager) -> AppSettings:
+    """Turn on or off the OSV download of the controller and set its interval (applied by its
+    updater within 15 minutes; recorded in the audit log)."""
+    try:
+        await run_in_threadpool(
+            app_settings.set_osv_download,
+            body.enabled,
+            body.update_interval_hours,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info(
+        "OSV download set to %s (interval %s h) by %s",
+        body.enabled,
+        body.update_interval_hours,
+        identity.client,
+    )
+    return await run_in_threadpool(app_settings.describe)
+
+
 def _advisory_overview(limit: int) -> dict:
     """State of the advisory database and history of its updates."""
-    settings = get_settings()
+    settings = app_settings.effective_settings()
     return {
         "database": advisories.advisory_status(),
         "download_enabled": settings.osv_auto_update,

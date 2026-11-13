@@ -123,7 +123,8 @@ Good to know:
   it on the **General** page.
 - **Vulnerability advisories.** The OSV database is **empty** at the first start: the dependency
   analysis answers that no database is loaded. To let the Controller server download it at start-up,
-  then every 24 hours, uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and `SECREVIEW_OSV_ECOSYSTEMS`) in
+  then every 24 hours, turn on **Download the OSV advisories automatically** on the **OSV
+  database** page, or uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and `SECREVIEW_OSV_ECOSYSTEMS`) in
   the `controller` service, then run `docker compose up -d`. Follow the import with
   `docker compose logs -f controller`. Without Internet access, import an archive with
   `advisories import` (see [Dependencies](../../review/analysis/dependencies.md#manual-import)).

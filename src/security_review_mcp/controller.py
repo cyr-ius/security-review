@@ -162,9 +162,11 @@ def serve(argv: list[str]) -> None:
             settings.scan_engine_fallback,
         )
     oidc_login = web_app.state.oidc.current()
-    updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
-    if updater:
-        updater.start()
+    # Always running: the download may be turned on in the web interface at any time
+    updater = advisory_sync.AdvisoryUpdater(
+        settings, current=lambda: app_settings.effective_settings(settings)
+    )
+    updater.start()
     days, audit_days = settings.empty_report_retention_days, settings.audit_retention_days
     audit_max = settings.audit_max_events
     pruner = (
@@ -209,8 +211,7 @@ def serve(argv: list[str]) -> None:
         )
     finally:
         controller_heartbeat.stop()
-        if updater:
-            updater.stop()
+        updater.stop()
         if pruner:
             pruner.stop()
         forwarder.stop()

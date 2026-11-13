@@ -52,7 +52,7 @@ verrou entre réplicas et tâche de migration dédiée : voir
 
 | Tâche | Activée par | Détails |
 |---|---|---|
-| Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` (désactivée par défaut) | [Mise à jour automatique par le serveur Controller](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) |
+| Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` ou la page **Base OSV** (désactivée par défaut) | [Mise à jour automatique par le serveur Controller](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) |
 | Purge des rapports sans finding et du journal d'audit | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Conservation](../database.md#conservation-des-rapports-sans-findings), [conservation de l'audit](../audit-log.md#conservation) |
 | Envoi du journal d'audit vers syslog | un serveur syslog défini dans l'environnement ou dans l'interface | [Envoi vers syslog](../audit-log.md#envoi-vers-syslog) |
 | Envoi automatique des findings par les connecteurs | un connecteur activé, un seuil de sévérité sur le projet ; `SECREVIEW_CONNECTORS_ENABLED=false` verrouille tout | [Connecteurs](../../usage/connectors/index.md) |
@@ -299,6 +299,7 @@ OSV, le proxy aussi à la prochaine connexion OIDC. **Utiliser l'adresse actuell
 | `PUT /api/v1/settings/controller-url` | `value` (`null` la supprime) |
 | `PUT /api/v1/settings/mcp-scan-delegation` | `enabled` : délègue `scan_code` du serveur MCP à l'adresse du serveur Controller (`422` tant que l'adresse est inconnue ou que `SECREVIEW_SCANCODE_DELEGATED` est définie ; audité, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` et `no_proxy` : `null` supprime la valeur enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé. Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré |
+| `PUT /api/v1/settings/osv-download` | `enabled` (booléen) et `update_interval_hours` (`1` à `8760`), chacun facultatif : active ou désactive le téléchargement OSV et règle son intervalle, appliqués sous 15 minutes (`422` quand la variable d'un champ donné est définie ou que les paramètres du téléchargement sont invalides ; audité, `osv_download.changed`) |
 | `PUT /api/v1/settings/osv-ecosystems` | `ecosystems` : liste des écosystèmes à télécharger, parmi `supported` de `GET /api/v1/settings` (`422` pour une liste vide ou un écosystème inconnu) ; `null` la supprime (`SECREVIEW_OSV_ECOSYSTEMS` ou sa valeur par défaut s'applique de nouveau) |
 
 Une valeur dont la variable est définie est refusée avec `422`. Les réglages OIDC ont leurs

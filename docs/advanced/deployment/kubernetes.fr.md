@@ -168,7 +168,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ## Mise à jour OSV
 
 Pour la [mise à jour quotidienne des avis OSV](../../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller),
-décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et au besoin `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
+activez-la sur la page **Base OSV** ou décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et au besoin `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
 et `NO_PROXY`, dans le Secret `secreview-controller` si le proxy contient des identifiants) sur
 le conteneur `controller`, et autorisez sa sortie vers `osv-vulnerabilities.storage.googleapis.com` (`SECREVIEW_OSV_URL`),
 votre miroir ou le proxy si une NetworkPolicy d'egress s'applique. Le serveur MCP

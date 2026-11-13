@@ -39,6 +39,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `audit_syslog.changed` | Le [serveur syslog](#envoi-vers-syslog) est modifié sur la page **Journal d'audit** (adresse et *facility* définies, `null` : valeur enregistrée supprimée) |
 | `controller_url.changed` | L'URL publique du serveur Controller, dont l'interface web est donnée aux agents sans jeton, est modifiée dans la page **Général**, ou recopiée depuis `SECREVIEW_PUBLIC_URL` par le serveur Controller au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
 | `mcp_scan_delegation.changed` | La [délégation de `scan_code`](../review/analysis/opengrep.md#scans-de-fragments-scan_code) à l'adresse du serveur Controller est activée ou désactivée dans la page **Général**, ou désactivée par un changement de cette adresse (`enabled`) |
+| `osv_download.changed` | Le [téléchargement OSV](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller) est activé ou désactivé, ou son intervalle modifié, sur la page **Base OSV** (`enabled`, `interval_hours`) |
 | `oauth.client_registered` | Un client MCP s'enregistre pour la [connexion OAuth](mcp-oauth.md) (acteur `anonymous`, nom du client) |
 | `oauth.grant_approved` / `oauth.grant_denied` | Un utilisateur web autorise ou refuse un client MCP sur la page **Connecter un client MCP** |
 | `oauth.grant_revoked` | Une autorisation OAuth est révoquée : dans **Mon compte**, sur la page **Clients MCP** (une ou toutes), par le client (`/revoke`), ou avec son utilisateur |

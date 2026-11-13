@@ -80,7 +80,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 | **Rules** | The patterns of the code scan ([rules](../review/rules.md)) |
 | **Checklists** | The check items followed by the agents ([checklists](../review/checklists.md)) |
 | **Standards** | The development standards given to the AI assistants ([standards](../review/standards.md)) |
-| **OSV database** | State and update of the vulnerability database, choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) (`settings.manage`) |
+| **OSV database** | State and update of the vulnerability database, automatic download (on/off, interval), choice of the downloaded ecosystems ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller-server)) (`settings.manage`) |
 
 In the edit form, the long text fields (content of a standard, advice of a rule, checkpoint of a
 checklist item) have a full screen button: the text opens in a large editor, next to its

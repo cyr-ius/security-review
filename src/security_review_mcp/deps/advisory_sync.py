@@ -20,6 +20,7 @@ import threading
 import urllib.error
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -39,6 +40,9 @@ DOWNLOAD_TIMEOUT = 60
 CHUNK_BYTES = 1024 * 1024
 # Delay before trying again when an update failed or imported nothing
 RETRY_SECONDS = 3600
+# Longest wait of the updater between two reads of the settings: a download turned on, off or
+# given another interval in the web interface applies within this delay
+OSV_CHECK_SECONDS = 900
 # Updates kept in the history
 HISTORY_SIZE = 50
 # A "running" update older than this was interrupted (controller stopped during the download)
@@ -273,13 +277,17 @@ def start_web_update(settings: Settings, triggered_by: str) -> int:
     """Start an update in a background thread on behalf of an administrator; return its id.
 
     Raises:
-        DownloadDisabled: If SECREVIEW_OSV_AUTO_UPDATE is false.
+        DownloadDisabled: If the download is off (SECREVIEW_OSV_AUTO_UPDATE, or the web interface
+            while the variable is not set).
         ValueError: If the download settings are invalid.
         UpdateInProgress: If an update already runs (in this process or another replica).
     """
     global _web_worker
-    if not settings.osv_auto_update:
-        raise DownloadDisabled("the OSV download is disabled (SECREVIEW_OSV_AUTO_UPDATE=false)")
+    if not app_settings.effective_settings(settings).osv_auto_update:
+        raise DownloadDisabled(
+            "the OSV download is disabled: turn it on in the web interface or set "
+            "SECREVIEW_OSV_AUTO_UPDATE=true"
+        )
     validate_settings(settings)
     if not _lock.acquire(blocking=False):
         raise UpdateInProgress("an OSV update is already running")
@@ -355,49 +363,70 @@ def seconds_until_due(
 
 
 class AdvisoryUpdater:
-    """Background thread of the controller that keeps the advisory database up to date."""
+    """Background thread of the controller that keeps the advisory database up to date.
 
-    def __init__(self, settings: Settings) -> None:
+    Always started: it reads the settings at least every OSV_CHECK_SECONDS (``current``, the
+    effective settings), so that the download may be turned on, off or given another interval in
+    the web interface without a restart. Turned off, it only waits.
+    """
+
+    def __init__(self, settings: Settings, current: Callable[[], Settings] | None = None) -> None:
         """Prepare the updater; ``start`` launches the thread."""
         self.settings = settings
+        self.current = current or (lambda: settings)
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self.run, name="osv-updater", daemon=True)
 
-    def next_delay(self) -> float:
+    def next_delay(self, settings: Settings | None = None) -> float:
         """Seconds to wait before the next update, from the age of the database."""
+        settings = settings or self.current()
         last = advisories.last_imported_at()
-        return seconds_until_due(last, self.settings.osv_update_interval_hours)
+        return seconds_until_due(last, settings.osv_update_interval_hours)
+
+    def step(self) -> float:
+        """Update when on and due; return the seconds to wait before the next check."""
+        try:
+            settings = self.current()
+            if not settings.osv_auto_update:
+                return OSV_CHECK_SECONDS
+            delay = self.next_delay(settings)
+            if delay > 0:
+                return min(delay, OSV_CHECK_SECONDS)
+        except Exception:
+            logger.exception("Cannot read the OSV settings or database; next check in 1 hour")
+            return RETRY_SECONDS
+        try:
+            result = run_update(settings, "schedule")
+            failed = sorted(e for e, stats in result["ecosystems"].items() if "error" in stats)
+            if failed:
+                logger.warning("OSV update incomplete, failed ecosystems: %s", failed)
+            else:
+                logger.info("OSV advisories updated")
+            # A failed download leaves the database due: wait before trying again
+            return RETRY_SECONDS
+        except UpdateInProgress:
+            logger.info("OSV update already running; next check in 1 hour")
+        except Exception:
+            logger.exception("OSV update failed; next attempt in 1 hour")
+        return RETRY_SECONDS
 
     def run(self) -> None:
-        """Update when due, then wait for the next due date, until ``stop`` is called."""
-        try:
-            delay = self.next_delay()
-        except Exception:
-            logger.exception("Cannot read the advisory database; next OSV update in 1 hour")
-            delay = RETRY_SECONDS
+        """Check the settings and update when due, until ``stop`` is called."""
+        delay = self.step()
         while not self._stop.wait(delay):
-            try:
-                result = run_update(self.settings, "schedule")
-                failed = sorted(e for e, stats in result["ecosystems"].items() if "error" in stats)
-                if failed:
-                    logger.warning("OSV update incomplete, failed ecosystems: %s", failed)
-                else:
-                    logger.info("OSV advisories updated")
-                delay = max(self.next_delay(), RETRY_SECONDS)
-            except UpdateInProgress:
-                logger.info("OSV update already running; next check in 1 hour")
-                delay = RETRY_SECONDS
-            except Exception:
-                logger.exception("OSV update failed; next attempt in 1 hour")
-                delay = RETRY_SECONDS
+            delay = self.step()
 
     def start(self) -> None:
         """Start the background thread."""
-        logger.info(
-            "Daily OSV update enabled (every %d h, from %s)",
-            self.settings.osv_update_interval_hours,
-            self.settings.osv_url,
-        )
+        settings = self.current()
+        if settings.osv_auto_update:
+            logger.info(
+                "Daily OSV update enabled (every %d h, from %s)",
+                settings.osv_update_interval_hours,
+                settings.osv_url,
+            )
+        else:
+            logger.info("OSV update off; it may be turned on in the web interface")
         self._thread.start()
 
     def stop(self) -> None:

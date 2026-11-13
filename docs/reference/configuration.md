@@ -129,8 +129,8 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) of the OSV database by `serve` |
-| `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Age of the database beyond which `serve` updates it (minimum `1`) |
+| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) of the OSV database by `serve`; unset, it can be turned on on the **OSV database** page |
+| `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Age of the database beyond which `serve` updates it (minimum `1`); unset, it can be set on the **OSV database** page |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source of the `<URL>/<ecosystem>/all.zip` exports (HTTPS only, mirror possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Downloaded ecosystems, comma separated; while unset, they can be chosen on the **OSV database** page |
 | `SECREVIEW_OSV_CAFILE` | — | CA bundle used instead of the system one (internal mirror, proxy that inspects TLS) |

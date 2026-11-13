@@ -2056,6 +2056,27 @@ def test_advisory_update_is_refused_while_the_download_is_disabled(client, monke
     assert "SECREVIEW_OSV_AUTO_UPDATE" in response.json()["detail"]
 
 
+def test_admin_turns_on_the_osv_download(client, monkeypatch):
+    monkeypatch.setattr(advisory_sync, "update_advisories", pytest.fail)
+    response = client.put(
+        "/api/v1/settings/osv-download", json={"enabled": True, "update_interval_hours": 12}
+    )
+
+    assert response.status_code == 200
+    osv = response.json()["osv"]
+    assert (osv["download_enabled"], osv["update_interval_hours"]) == (True, 12)
+    assert osv["download"] == {"value": True, "env_set": False}
+    assert client.get("/api/v1/advisories").json()["download_enabled"] is True
+    (event,) = audit.list_events(action="osv_download.changed")["events"]
+    assert event["details"] == {"enabled": True, "interval_hours": 12}
+
+    # The variable wins: the web interface cannot change it
+    monkeypatch.setattr(app_settings, "env_set", lambda settings, field: field == "osv_auto_update")
+    response = client.put("/api/v1/settings/osv-download", json={"enabled": True})
+    assert response.status_code == 422
+    assert "SECREVIEW_OSV_AUTO_UPDATE" in response.json()["detail"]
+
+
 def test_admin_starts_an_advisory_update(client, monkeypatch):
     monkeypatch.setattr(get_settings(), "osv_auto_update", True)
     monkeypatch.setattr(

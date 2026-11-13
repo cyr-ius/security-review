@@ -51,6 +51,7 @@ export const audit = defineMessages({
     'audit.action.controller_url.changed': 'Controller server address changed',
     'audit.action.mcp_scan_delegation.changed':
       'scan_code delegation to the Controller server changed',
+    'audit.action.osv_download.changed': 'OSV download changed',
     'audit.action.finding.exported': 'Finding sent through a connector',
     'audit.action.connector.target_changed': 'Connector destination of a project changed',
     'audit.action.connector.changed': 'Connector connection changed',
@@ -136,6 +137,7 @@ export const audit = defineMessages({
     'audit.action.controller_url.changed': 'Adresse du serveur Controller modifiée',
     'audit.action.mcp_scan_delegation.changed':
       'Délégation de scan_code au serveur Controller modifiée',
+    'audit.action.osv_download.changed': 'Téléchargement OSV modifié',
     'audit.action.finding.exported': 'Finding envoyé par un connecteur',
     'audit.action.connector.target_changed': 'Destination d’un connecteur pour un projet modifiée',
     'audit.action.connector.changed': 'Connexion d’un connecteur modifiée',
@@ -221,6 +223,7 @@ export const audit = defineMessages({
     'audit.action.controller_url.changed': 'Dirección del servidor Controller modificada',
     'audit.action.mcp_scan_delegation.changed':
       'Delegación de scan_code en el servidor Controller modificada',
+    'audit.action.osv_download.changed': 'Descarga OSV modificada',
     'audit.action.finding.exported': 'Hallazgo enviado por un conector',
     'audit.action.connector.target_changed': 'Destino de un conector para un proyecto modificado',
     'audit.action.connector.changed': 'Conexión de un conector modificada',

@@ -83,7 +83,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 | **Règles** | Les motifs du scan de code ([règles](../review/rules.md)) |
 | **Checklists** | Les points de contrôle suivis par les agents ([checklists](../review/checklists.md)) |
 | **Normes** | Les normes de développement données aux assistants IA ([normes](../review/standards.md)) |
-| **Base OSV** | État et mise à jour de la base de vulnérabilités, choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) (`settings.manage`) |
+| **Base OSV** | État et mise à jour de la base de vulnérabilités, téléchargement automatique (activation, intervalle), choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) (`settings.manage`) |
 
 Dans le formulaire d'édition, les champs de texte long (contenu d'une norme, conseil d'une
 règle, point de contrôle d'une checklist) ont un bouton plein écran : le texte s'ouvre dans un

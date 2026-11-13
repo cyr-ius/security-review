@@ -127,8 +127,9 @@ Bon à savoir :
   la page **Général**.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
   dépendances répond qu'aucune base n'est chargée. Pour que le serveur Controller la télécharge au
-  démarrage puis toutes les 24 h, décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et
-  `SECREVIEW_OSV_ECOSYSTEMS`) dans le service `controller`, puis lancez `docker compose up -d`.
+  démarrage puis toutes les 24 h, activez **Télécharger automatiquement les avis OSV** sur la page
+  **Base OSV**, ou décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et `SECREVIEW_OSV_ECOSYSTEMS`) dans
+  le service `controller`, puis lancez `docker compose up -d`.
   Suivez l'import avec `docker compose logs -f controller`. Sans accès Internet, importez une
   archive avec `advisories import` (voir [Dépendances](../../review/analysis/dependencies.md#import-manuel)).
 - **Durcissement.** Les conteneurs de Security Review tournent en système de fichiers en

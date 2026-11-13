@@ -52,7 +52,7 @@ locks between replicas and dedicated migration job: see
 
 | Task | Enabled by | Details |
 |---|---|---|
-| Daily update of the OSV advisories | `SECREVIEW_OSV_AUTO_UPDATE=true` (off by default) | [Automatic update by the Controller server](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server) |
+| Daily update of the OSV advisories | `SECREVIEW_OSV_AUTO_UPDATE=true` or the **OSV database** page (off by default) | [Automatic update by the Controller server](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server) |
 | Purge of the reports without findings and of the audit log | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Retention](../database.md#retention-of-reports-without-findings), [audit retention](../audit-log.md#retention) |
 | Forwarding of the audit log to syslog | a syslog server set in the environment or in the interface | [Forwarding to syslog](../audit-log.md#forwarding-to-syslog) |
 | Automatic sending of the findings by the connectors | a connector switched on, a severity threshold on the project; `SECREVIEW_CONNECTORS_ENABLED=false` locks everything | [Connectors](../../usage/connectors/index.md) |
@@ -288,6 +288,7 @@ address** fills in the address of this Controller server.
 | `PUT /api/v1/settings/controller-url` | `value` (`null` deletes it) |
 | `PUT /api/v1/settings/mcp-scan-delegation` | `enabled`: delegate `scan_code` of the MCP server to the Controller server address (`422` while the address is unknown or while `SECREVIEW_SCANCODE_DELEGATED` is set; audited, `mcp_scan_delegation.changed`) |
 | `PUT /api/v1/settings/proxy` | `url` and `no_proxy`: `null` deletes the stored value, `"url": ""` forces the direct connection, a missing field is unchanged. Passwords are never shown again (`***`): sending `***` back keeps the stored one |
+| `PUT /api/v1/settings/osv-download` | `enabled` (boolean) and `update_interval_hours` (`1` to `8760`), each optional: turns on or off the OSV download and sets its interval, applied within 15 minutes (`422` when the variable of a given field is set or the download settings are invalid; audited, `osv_download.changed`) |
 | `PUT /api/v1/settings/osv-ecosystems` | `ecosystems`: list of the ecosystems to download, among `supported` of `GET /api/v1/settings` (`422` for an empty list or an unknown ecosystem); `null` deletes it (`SECREVIEW_OSV_ECOSYSTEMS` or its default applies again) |
 
 A value whose variable is set is refused with `422`. The OIDC settings have their own routes

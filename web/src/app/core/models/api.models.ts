@@ -321,6 +321,7 @@ export type AuditAction =
   | 'audit_syslog.changed'
   | 'controller_url.changed'
   | 'mcp_scan_delegation.changed'
+  | 'osv_download.changed'
   | 'finding.exported'
   | 'connector.target_changed'
   | 'connector.changed'
@@ -374,6 +375,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'audit_syslog.changed',
   'controller_url.changed',
   'mcp_scan_delegation.changed',
+  'osv_download.changed',
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
@@ -1106,8 +1108,12 @@ export interface AppSettings {
     };
   };
   osv: {
+    /** Effective state and interval (variable, else web interface, else default). */
     download_enabled: boolean;
     update_interval_hours: number;
+    /** value: set in the web interface (null: never); env_set: the variable wins. */
+    download: { value: boolean | null; env_set: boolean };
+    interval: { value: number | null; env_set: boolean };
     url: string;
     /** value: chosen in the web interface; env: SECREVIEW_OSV_ECOSYSTEMS; env_set: the variable
      * is set and takes precedence; effective: comma separated; supported: those to choose from. */

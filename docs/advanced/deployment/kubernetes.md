@@ -162,7 +162,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ## OSV update
 
 For the [daily update of the OSV advisories](../../review/analysis/dependencies.md#automatic-update-by-the-controller-server),
-uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
+turn it on on the **OSV database** page or uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
 and `NO_PROXY`, in the `secreview-controller` Secret if the proxy holds credentials) on the
 `controller` container, and allow its egress to `osv-vulnerabilities.storage.googleapis.com` (`SECREVIEW_OSV_URL`),
 your mirror or the proxy if an

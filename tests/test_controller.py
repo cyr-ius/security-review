@@ -417,9 +417,10 @@ class FakeUpdater:
 
     instances: list[FakeUpdater] = []
 
-    def __init__(self, settings) -> None:
+    def __init__(self, settings, current) -> None:
         """Remember the settings."""
         self.settings = settings
+        self.current = current
         self.events: list[str] = []
         FakeUpdater.instances.append(self)
 
@@ -440,16 +441,22 @@ def fake_updater(monkeypatch):
     return FakeUpdater.instances
 
 
-def test_serve_runs_the_osv_updater_only_when_enabled(settings, captured_run, ui_dir, fake_updater):
-    controller.main(["serve"])
-    assert fake_updater == []
-
-    settings(osv_auto_update=True, https_proxy="http://proxy.internal:3128")
+def test_serve_always_runs_the_osv_updater_with_the_web_settings(
+    settings, captured_run, ui_dir, fake_updater
+):
+    settings(https_proxy="http://proxy.internal:3128")
     controller.main(["serve"])
 
     (updater,) = fake_updater
     assert updater.events == ["start", "stop"]
     assert updater.settings.proxy == "http://proxy.internal:3128"
+    # The download turned on in the web interface reaches the running updater
+    assert updater.current().osv_auto_update is False
+    app_settings.set_osv_download(True, 6, "admin", updater.settings)
+    assert (updater.current().osv_auto_update, updater.current().osv_update_interval_hours) == (
+        True,
+        6,
+    )
 
 
 def test_serve_runs_the_report_pruner_unless_disabled(settings, captured_run, ui_dir, fake_pruner):
