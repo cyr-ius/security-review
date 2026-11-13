@@ -122,10 +122,9 @@ svg {
   }
 }
 
+/* The heartbeats stay under reduced motion (see styles.css): they are the only sign of life */
 @media (prefers-reduced-motion: reduce) {
-  .dot,
-  .beat,
-  .beat-ring {
+  .dot {
     display: none;
   }
 }
