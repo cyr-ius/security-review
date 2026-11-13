@@ -46,9 +46,9 @@
         </div>
 
         <h3 class="h6">{{ 'sso.provider' | t }}</h3>
-        <div class="row g-3 mb-3">
+        <div class="row g-2 mb-3">
           @for (field of providerFields; track field.name) {
-            <div class="col-md-6">
+            <div class="col-md-6 col-lg-4">
               <ng-container
                 [ngTemplateOutlet]="input"
                 [ngTemplateOutletContext]="{ $implicit: field, current: current }"
@@ -66,9 +66,9 @@
         </div>
 
         <h3 class="h6">{{ 'sso.groups' | t }}</h3>
-        <div class="row g-3 mb-3">
+        <div class="row g-2 mb-3">
           @for (field of accessFields; track field.name) {
-            <div [class]="field.kind === 'bool' ? 'col-12' : 'col-md-6'">
+            <div [class]="field.kind === 'bool' ? 'col-12' : 'col-md-6 col-lg-4'">
               <ng-container
                 [ngTemplateOutlet]="input"
                 [ngTemplateOutletContext]="{ $implicit: field, current: current }"

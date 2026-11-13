@@ -117,7 +117,10 @@
       />
       <div class="form-text">{{ 'mappings.projectsHelp' | t }}</div>
     </div>
-    <div class="col-md-2 pt-md-4">
+    <div class="col-md-2">
+      <div class="d-none d-md-block invisible" aria-hidden="true">
+        <span class="form-label small mb-1">.</span>
+      </div>
       <button type="submit" class="btn btn-sm btn-primary w-100" [disabled]="!canSubmit()">
         <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'access.add' | t }}
       </button>
