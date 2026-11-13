@@ -143,13 +143,14 @@ Controller server only, which says **Scans itself (engines off)** when the engin
 - on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
   (`scan_code` fragments), with their occupied slots out of the slots of the active engines;
 - under the pipelines, one circle per agent that sent a request to an MCP server in the last
-  5 minutes, linked to that server, with its `scan_code` calls since the previous heartbeat.
+  5 minutes, linked to that server, with its scan requests (`scan_code` and
+  `start_codebase_scan` calls) since the previous heartbeat.
   An agent is shown by the name of its MCP client (for example `claude-code`), never by the name
   of a person nor of a token; past 6 agents, a **+N** circle stands for the others. Without any
   agent known (MCP servers of an earlier version), a single **Agents** circle stands for them;
 - next to the agents, one yellow circle per running MCP server (HTTP transport), larger than
   the agents, with the most
-  `scan_code` calls it ran at once since its previous heartbeat. The agents reach the Controller
+  scan requests (`scan_code`, `start_codebase_scan`) it ran at once since its previous heartbeat. The agents reach the Controller
   server through it; its link to the Controller server is dashed, with **Local scan**, while the
   delegation of `scan_code` is off: it then scans the fragments itself and they never reach the
   engines. The pipelines go straight to the Controller server. The MCP servers in local mode
@@ -161,8 +162,9 @@ Controller server only, which says **Scans itself (engines off)** when the engin
   and a ring with the pipeline scans and fragments in progress;
 - on the right, one circle per engine, with its occupied OpenGrep slots out of its total.
 
-Thin links carry a moving dot while scans run, and each engine heartbeat sends a green pulse to
-the Controller server. An engine without a recent heartbeat is dimmed. The page reloads itself
+Thin links carry a moving dot while scans run: the dot of a request of an agent goes to its MCP
+server, then on to the Controller server when the server delegates `scan_code`. Each engine
+heartbeat sends a green pulse to the Controller server. An engine without a recent heartbeat is dimmed. The page reloads itself
 every 2 seconds while it is visible. The number of active fragments counts concurrent `scan_code`
 requests, not distinct agents. Hovering a circle shows its details, including the counters since
 the engine started (they restart from zero when it restarts and enrolls again); the list below
@@ -174,7 +176,7 @@ The diagram has no legend; its colors are:
 |---|---|
 | Blue | Code scans of the pipelines (`security-review-ci`, codebase reviews) |
 | Orange | Fragments sent by `scan_code` |
-| Yellow | An MCP server and its heartbeat (every 5 s, at once when `scan_code` runs) |
+| Yellow | An MCP server and its heartbeat (every 5 s, at once when `scan_code` or `start_codebase_scan` runs) |
 | Purple | Heartbeat of the Controller server (every 5 s) |
 | Green | Heartbeat of an engine (every 5 s while it scans, 30 s when idle) |
 | Light green | An engine connected and idle |

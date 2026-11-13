@@ -36,16 +36,12 @@
         }
       }
     }
-    <!-- The agents call scan_code on an MCP server, which delegates it to the Controller server -->
+    <!-- The agents call scan_code (or start_codebase_scan) on an MCP server, which delegates it
+         to the Controller server: one dot per request, from the agent through its MCP server -->
     <!-- Each agent seen lately, linked to the MCP server it calls -->
     @for (agent of agentNodes(); track agent.id) {
       @for (path of agent.paths; track path) {
         <path class="link link-fragment" [class.idle]="!agent.busy" [attr.d]="path" />
-        @if (agent.busy) {
-          <circle class="dot dot-fragment" r="5">
-            <animateMotion dur="1.6s" repeatCount="indefinite" [attr.path]="path" />
-          </circle>
-        }
       }
     }
     @for (node of mcpNodes(); track node.instance.id) {
@@ -58,22 +54,22 @@
         [class.inactive]="!node.instance.delegated"
         [attr.d]="node.outPath"
       />
-      @if (node.busy) {
-        @if (node.inPath) {
+    }
+    <!-- The dots after every link, so that the links drawn later never hide them -->
+    @for (agent of agentNodes(); track agent.id) {
+      @if (agent.busy) {
+        @for (path of agent.dotPaths; track path) {
           <circle class="dot dot-fragment" r="5">
-            <animateMotion dur="1.6s" repeatCount="indefinite" [attr.path]="node.inPath" />
+            <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="path" />
           </circle>
         }
-        @if (node.instance.delegated) {
-          <circle class="dot dot-fragment" r="5">
-            <animateMotion
-              dur="1.6s"
-              begin="0.8s"
-              repeatCount="indefinite"
-              [attr.path]="node.outPath"
-            />
-          </circle>
-        }
+      }
+    }
+    @for (node of mcpNodes(); track node.instance.id) {
+      @if (node.busy && node.dotPath) {
+        <circle class="dot dot-fragment" r="5">
+          <animateMotion dur="2.4s" repeatCount="indefinite" [attr.path]="node.dotPath" />
+        </circle>
       }
     }
     @for (node of nodes(); track node.engine.id) {

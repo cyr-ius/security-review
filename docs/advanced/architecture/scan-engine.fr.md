@@ -148,14 +148,15 @@ moteurs sont désactivés :
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
   `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs ;
 - sous les pipelines, un cercle par agent qui a envoyé une requête à un serveur MCP dans les
-  5 dernières minutes, relié à ce serveur, avec ses appels `scan_code` depuis le battement de cœur
-  précédent. Un agent est affiché par le nom de son client MCP (par exemple `claude-code`),
+  5 dernières minutes, relié à ce serveur, avec ses demandes de scan (appels `scan_code` et
+  `start_codebase_scan`) depuis le battement de cœur précédent. Un agent est affiché par le nom de son client MCP (par exemple `claude-code`),
   jamais par le nom d'une personne ni d'un jeton ; au-delà de 6 agents, un cercle **+N** regroupe
   les autres. Sans aucun agent connu (serveurs MCP d'une version précédente), un seul cercle
   **Agents** les représente ;
 - à côté des agents, un cercle jaune par serveur MCP en marche (transport HTTP), plus grand que
   ceux des agents, avec le plus grand
-  nombre d'appels `scan_code` simultanés depuis son battement de cœur précédent. Les agents
+  nombre de demandes de scan (`scan_code`, `start_codebase_scan`) simultanées depuis son
+  battement de cœur précédent. Les agents
   passent par lui pour atteindre le serveur Controller ; son lien vers le serveur Controller est en
   pointillés, avec **Scan local**, tant que la délégation de `scan_code` est désactivée : il scanne
   alors les fragments lui-même et ils n'atteignent jamais les moteurs. Les pipelines vont
@@ -169,8 +170,10 @@ moteurs sont désactivés :
   cours ;
 - à droite, un cercle par moteur, avec ses créneaux OpenGrep occupés sur son total.
 
-Des traits fins portent un point en mouvement pendant les scans, et chaque battement de cœur d'un
-moteur envoie une impulsion verte vers le serveur Controller. Un moteur sans battement de cœur
+Des traits fins portent un point en mouvement pendant les scans : le point d'une demande d'un
+agent va jusqu'à son serveur MCP, puis jusqu'au serveur Controller quand ce serveur délègue
+`scan_code`. Chaque battement de cœur d'un moteur envoie une impulsion verte vers le serveur
+Controller. Un moteur sans battement de cœur
 récent est grisé. La page se recharge d'elle-même toutes les 2 secondes tant qu'elle est visible.
 Le nombre de fragments actifs compte les requêtes `scan_code` simultanées, pas les agents
 distincts. Le survol d'un cercle affiche son détail, dont les compteurs depuis le démarrage du
@@ -183,7 +186,7 @@ Le diagramme n'a pas de légende ; ses couleurs sont :
 |---|---|
 | Bleu | Scans de code des pipelines (`security-review-ci`, revues du dépôt) |
 | Orange | Fragments envoyés par `scan_code` |
-| Jaune | Un serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand `scan_code` s'exécute) |
+| Jaune | Un serveur MCP et son battement de cœur (toutes les 5 s, aussitôt quand `scan_code` ou `start_codebase_scan` s'exécute) |
 | Violet | Battement de cœur du serveur Controller (toutes les 5 s) |
 | Vert | Battement de cœur d'un moteur (toutes les 5 s pendant un scan, 30 s au repos) |
 | Vert clair | Un moteur connecté et inactif |

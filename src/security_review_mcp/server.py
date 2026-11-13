@@ -282,10 +282,16 @@ def _caller_write_projects(ctx: Context) -> frozenset[str] | None:
 _heartbeat: server_instances.ServerHeartbeat | None = None
 
 
+# Scans requested by an agent, counted while they run: shown on the Activity page as a request
+# going from the agent to its MCP server (then to the Controller server when it is delegated)
+_COUNTED_TOOLS = frozenset({"scan_code", "start_codebase_scan"})
+
+
 async def _track_agent(ctx: Any, call_next: Callable[[Any], Any]) -> Any:
     """Middleware of every inbound message: record the agent in the heartbeat of this MCP server
     (by an opaque key and the name of its MCP client, never a person) and count its scan_code
-    calls while they run. Nothing with stdio, where there is no heartbeat."""
+    and start_codebase_scan calls while they run. Nothing with stdio, where there is no
+    heartbeat."""
     heartbeat = _heartbeat
     if heartbeat is None:
         return await call_next(ctx)
@@ -301,7 +307,9 @@ async def _track_agent(ctx: Any, call_next: Callable[[Any], Any]) -> Any:
         version = raw.get("version") if isinstance(raw, Mapping) else None
     state = (getattr(ctx.request, "scope", None) or {}).get("state") or {}
     agent = heartbeat.seen(state.get("auth_token_id"), name, version)
-    if ctx.method == "tools/call" and params.get("name") == "scan_code":
+    tool = params.get("name")
+    # Raw params of the client: a name that is not a string (unhashable) is never counted
+    if ctx.method == "tools/call" and isinstance(tool, str) and tool in _COUNTED_TOOLS:
         with heartbeat.processing(agent):
             return await call_next(ctx)
     return await call_next(ctx)

@@ -67,6 +67,9 @@ interface McpNode extends Point {
   labelY: number;
   inPath: string;
   outPath: string;
+  /** Path of a request from the "Agents" circle: through the server to the Controller server
+   * when it delegates scan_code ('' when the agents are drawn one by one). */
+  dotPath: string;
   busy: boolean;
 }
 
@@ -85,6 +88,9 @@ interface AgentNode extends Point {
   titleParams: Record<string, string | number>;
   processing: number;
   paths: string[];
+  /** Path of a request of the agent: through its MCP server to the Controller server when the
+   * server delegates scan_code, one per path. */
+  dotPaths: string[];
   busy: boolean;
 }
 
@@ -462,6 +468,27 @@ export class ScanEngineFlowComponent {
     });
   });
 
+  /** Link of each MCP server to the closest Controller server, in the order of the servers. */
+  private readonly mcpOutPaths = computed(() =>
+    this.mcpServers().map((_, index) => {
+      const y = this.mcpYs()[index];
+      const outStart: Point = { x: MCP.x + MCP.r, y };
+      const outEnd = controllerEdge(outStart, this.closestController(y));
+      return `M${f(outStart.x)},${f(y)} C${f(outStart.x + 60)},${f(y)} ${f(outEnd.x - 50)},${f(outEnd.y)} ${f(outEnd.x)},${f(outEnd.y)}`;
+    }),
+  );
+
+  /**
+   * Path of a request reaching the MCP server ``mcpNumber`` along ``path``: on through the
+   * server (under its circle) to the Controller server when it delegates scan_code, so that one
+   * dot goes from the agent to the MCP server, then to the Controller server.
+   */
+  private requestPath(path: string, mcpNumber: number): string {
+    const instance = this.mcpServers()[mcpNumber - 1];
+    const out = this.mcpOutPaths()[mcpNumber - 1];
+    return instance?.delegated && out ? `${path} L${out.slice(1)}` : path;
+  }
+
   /** The agents seen lately, each linked to its MCP server; the others in a "+N" circle. */
   readonly agentNodes = computed<AgentNode[]>(() => {
     const agents = this.agents();
@@ -491,6 +518,7 @@ export class ScanEngineFlowComponent {
       x: SOURCE.x,
       y: ys[index],
       paths: [link(ys[index], mcpNumber)],
+      dotPaths: [this.requestPath(link(ys[index], mcpNumber), mcpNumber)],
       busy: agent.processing_fragments > 0,
     }));
     const rest = agents.slice(shown.length);
@@ -509,6 +537,9 @@ export class ScanEngineFlowComponent {
         x: SOURCE.x,
         y,
         paths: [...new Set(rest.map((item) => item.mcpNumber))].map((n) => link(y, n)),
+        dotPaths: [...new Set(rest.map((item) => item.mcpNumber))].map((n) =>
+          this.requestPath(link(y, n), n),
+        ),
         busy: processing > 0,
       });
     }
@@ -521,8 +552,10 @@ export class ScanEngineFlowComponent {
       const y = this.mcpYs()[index];
       const agents: Point = { x: SOURCE.x + AGENT.r, y: SOURCE.ys[1] };
       const inEnd: Point = { x: MCP.x - MCP.r, y };
-      const outStart: Point = { x: MCP.x + MCP.r, y };
-      const outEnd = controllerEdge(outStart, this.closestController(y));
+      // From the "Agents" circle, when the MCP servers name no agent (the agents link otherwise)
+      const inPath = this.agentNodes().length
+        ? ''
+        : `M${f(agents.x)},${f(agents.y)} C${f(agents.x + 40)},${f(agents.y)} ${f(inEnd.x - 40)},${f(y)} ${f(inEnd.x)},${f(y)}`;
       return {
         instance,
         number: index + 1,
@@ -530,11 +563,9 @@ export class ScanEngineFlowComponent {
         y,
         r: MCP.r,
         labelY: y + MCP.r + 20,
-        // From the "Agents" circle, when the MCP servers name no agent (the agents link otherwise)
-        inPath: this.agentNodes().length
-          ? ''
-          : `M${f(agents.x)},${f(agents.y)} C${f(agents.x + 40)},${f(agents.y)} ${f(inEnd.x - 40)},${f(y)} ${f(inEnd.x)},${f(y)}`,
-        outPath: `M${f(outStart.x)},${f(y)} C${f(outStart.x + 60)},${f(y)} ${f(outEnd.x - 50)},${f(outEnd.y)} ${f(outEnd.x)},${f(outEnd.y)}`,
+        inPath,
+        outPath: this.mcpOutPaths()[index],
+        dotPath: inPath ? this.requestPath(inPath, index + 1) : '',
         busy: instance.processing_fragments > 0,
       };
     }),

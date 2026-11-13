@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 from mcp.client import Client
@@ -458,10 +459,33 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     assert "PY-004" in {m["rule_id"] for m in failed["matches"]}
 
 
+async def test_agent_tracking_ignores_a_tool_name_that_is_not_a_string(monkeypatch):
+    # Raw params of the client: an unhashable name must not break the request
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP)
+    monkeypatch.setattr(server, "_heartbeat", heartbeat)
+    ctx = SimpleNamespace(
+        method="tools/call",
+        params={"name": ["scan_code"]},
+        session=SimpleNamespace(client_params=None),
+        request=None,
+    )
+
+    async def call_next(ctx):
+        return "answered"
+
+    assert await server._track_agent(ctx, call_next) == "answered"
+    assert heartbeat.activity()["processing_fragments"] == 0
+
+
 async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):
     sent = []
+    # Counted like scan_code by the heartbeat: the Activity page shows the request
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, server._scan_code_delegated)
+    monkeypatch.setattr(server, "_heartbeat", heartbeat)
+    running = []
 
     def controller(url, authorization, project, timeout, scope):
+        running.append(heartbeat.activity()["processing_fragments"])
         sent.append((url, authorization, project, scope))
         return {
             "ticket": "secreview_scan_abc",
@@ -492,6 +516,7 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
         )
 
     assert local.is_error and "delegation of scan_code" in text_of(local)
+    assert running[0] == 1
     assert sent[0] == ("https://sr.example", "Bearer agent-token", "shop-api", "all")
     # The ticket of a dependency review opens the dependency scan only
     assert sent[2][3] == "deps"
