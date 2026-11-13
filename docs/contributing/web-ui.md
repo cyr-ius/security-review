@@ -62,6 +62,11 @@ local workstation and port 4200 is forwarded automatically.
   column headers (`<th [appSortHeader]="sort" sortKey="name">`), with a `TableSort` named after
   the table (`shared/utils/table-sort.ts`) that the browser remembers under
   `secreview.sort.<name>`.
+- **Refresh**: a page that follows outside activity (reviews, findings, audit events) calls
+  `reloadOnReturn` (`shared/utils/reload-on-return.ts`) to read its data again when the browser
+  tab becomes visible, with a condition that skips it when the reload would drop rows the user
+  added (**Load more**); it keeps an `app-refresh-button`. A page whose data only changes through
+  the page itself (settings, rules, roles) has no refresh button.
 - **Colors**: Bootstrap variables (`var(--bs-…)`) or the design tokens of `styles.css`
   (`--app-…`), never a color written in a component, so that the light and dark themes work.
 

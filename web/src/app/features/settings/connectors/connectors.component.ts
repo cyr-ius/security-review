@@ -7,7 +7,6 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import { ConnectorTarget, ConnectorInfo } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
-import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { describeError } from '../settings-page';
 import { ConnectorConnectionComponent } from './connector-connection.component';
 import { ConnectorTargetsComponent } from './connector-targets.component';
@@ -46,7 +45,6 @@ const PLUGIN_LOOK = { icon: 'bi-puzzle', about: 'connectors.about.plugin' as Mes
     HelpLinkComponent,
     ConnectorConnectionComponent,
     ConnectorTargetsComponent,
-    RefreshButtonComponent,
     TranslatePipe,
   ],
   templateUrl: './connectors.component.html',
@@ -87,12 +85,6 @@ export class ConnectorsComponent {
   );
   readonly tab = signal<ConnectorTab>('connection');
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('connectorDialog');
-
-  reload(): void {
-    this.settings.reload();
-    this.targets.reload();
-    this.projects.reload();
-  }
 
   state(connector: ConnectorInfo): ConnectorState {
     if (this.locked()) {

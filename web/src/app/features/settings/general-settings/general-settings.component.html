@@ -3,7 +3,6 @@
     <h1 class="h3 mb-0">{{ 'settings.generalTitle' | t }} <app-help-link topic="settings" /></h1>
     <p class="text-body-secondary mb-0">{{ 'settings.generalSubtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="settings.isLoading()" (refresh)="reload()" />
 </div>
 
 @if (error(); as text) {

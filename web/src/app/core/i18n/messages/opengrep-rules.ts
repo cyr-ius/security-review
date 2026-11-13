@@ -4,7 +4,6 @@ import { defineMessages } from '../catalog';
 export const opengrepRules = defineMessages({
   en: {
     'opengrepRules.title': 'OpenGrep rules',
-    'opengrepRules.subtitle': 'Manage YAML rules loaded by the optional OpenGrep scan engine.',
     'opengrepRules.new': 'New rule',
     'opengrepRules.search': 'Search an identifier, a message, a CWE',
     'opengrepRules.count': '{count} rules',
@@ -54,8 +53,6 @@ export const opengrepRules = defineMessages({
   },
   fr: {
     'opengrepRules.title': 'Règles OpenGrep',
-    'opengrepRules.subtitle':
-      'Gérer les règles YAML utilisées par le moteur d’analyse ' + 'OpenGrep facultatif.',
     'opengrepRules.new': 'Nouvelle règle',
     'opengrepRules.search': 'Rechercher un identifiant, un message, une CWE',
     'opengrepRules.count': '{count} règles',
@@ -106,7 +103,6 @@ export const opengrepRules = defineMessages({
   },
   es: {
     'opengrepRules.title': 'Reglas de OpenGrep',
-    'opengrepRules.subtitle': 'Administre las reglas YAML utilizadas por el motor OpenGrep.',
     'opengrepRules.new': 'Nueva regla',
     'opengrepRules.search': 'Buscar un identificador, un mensaje, una CWE',
     'opengrepRules.count': '{count} reglas',

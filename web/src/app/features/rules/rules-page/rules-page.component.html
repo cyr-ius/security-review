@@ -1,0 +1,36 @@
+<div class="mb-3">
+  <h1 class="h3 mb-0">{{ 'rules.title' | t }} <app-help-link [topic]="helpTopic()" /></h1>
+  <p class="text-body-secondary mb-0">{{ 'rules.subtitle' | t }}</p>
+</div>
+
+<nav class="nav nav-tabs mb-3" [attr.aria-label]="'rules.tabs' | t">
+  <a
+    class="nav-link"
+    routerLink="/rules"
+    routerLinkActive="active"
+    [routerLinkActiveOptions]="{ exact: true }"
+    ariaCurrentWhenActive="page"
+  >
+    <i class="bi bi-sliders" aria-hidden="true"></i>
+    {{ 'rules.tabPatterns' | t }}
+  </a>
+  <a
+    class="nav-link"
+    routerLink="/rules/opengrep"
+    routerLinkActive="active"
+    ariaCurrentWhenActive="page"
+  >
+    <i class="bi bi-filetype-yml" aria-hidden="true"></i>
+    {{ 'rules.tabOpengrep' | t }}
+    @if (pendingProposals.hasValue() && pendingProposals.value().total; as count) {
+      <span
+        class="badge rounded-pill text-bg-warning ms-1"
+        [title]="'layout.pendingProposals' | t: { count }"
+      >
+        {{ count }}
+      </span>
+    }
+  </a>
+</nav>
+
+<router-outlet />

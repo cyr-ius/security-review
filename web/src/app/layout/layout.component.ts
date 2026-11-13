@@ -89,11 +89,10 @@ export class LayoutComponent {
 
   /** What the reviews rely on: scan rules, checklists, development standards and the OSV database. */
   private readonly referenceItems: readonly NavItem[] = [
-    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.read' },
     {
-      path: '/opengrep-rules',
-      label: 'layout.opengrepRules',
-      icon: 'bi-filetype-yml',
+      path: '/rules',
+      label: 'layout.rules',
+      icon: 'bi-sliders',
       permission: 'rules.read',
       badgeTitle: 'layout.pendingProposals',
     },
@@ -191,7 +190,7 @@ export class LayoutComponent {
     if (item.path === '/findings') {
       return this.openFindings.hasValue() ? this.openFindings.value().total : null;
     }
-    if (item.path === '/opengrep-rules' && this.pendingProposals.hasValue()) {
+    if (item.path === '/rules' && this.pendingProposals.hasValue()) {
       // Shown only while proposals wait for a review
       return this.pendingProposals.value().total || null;
     }

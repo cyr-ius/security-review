@@ -96,20 +96,31 @@ export const routes: Routes = [
       },
       {
         path: 'rules',
-        title: 'layout.rules',
         canActivate: [permissionGuard('rules.read')],
         loadComponent: () =>
-          import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
-      },
-      {
-        path: 'opengrep-rules',
-        title: 'opengrepRules.title',
-        canActivate: [permissionGuard('rules.read')],
-        loadComponent: () =>
-          import('./features/opengrep-rules/opengrep-rule-list.component').then(
-            (m) => m.OpenGrepRuleListComponent,
+          import('./features/rules/rules-page/rules-page.component').then(
+            (m) => m.RulesPageComponent,
           ),
+        children: [
+          {
+            path: '',
+            title: 'layout.rules',
+            loadComponent: () =>
+              import('./features/rules/rule-list/rule-list.component').then(
+                (m) => m.RuleListComponent,
+              ),
+          },
+          {
+            path: 'opengrep',
+            title: 'opengrepRules.title',
+            loadComponent: () =>
+              import('./features/opengrep-rules/opengrep-rule-list.component').then(
+                (m) => m.OpenGrepRuleListComponent,
+              ),
+          },
+        ],
       },
+      { path: 'opengrep-rules', pathMatch: 'full', redirectTo: 'rules/opengrep' },
       {
         path: 'checklists',
         title: 'layout.checklists',

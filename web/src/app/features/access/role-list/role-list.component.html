@@ -3,7 +3,6 @@
     <h1 class="h3 mb-0">{{ 'layout.roles' | t }} <app-help-link topic="roles" /></h1>
     <p class="text-body-secondary mb-0">{{ 'roles.subtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="roles.isLoading()" (refresh)="roles.reload()" />
 </div>
 
 <p class="text-body-secondary small">{{ 'roles.help' | t }}</p>

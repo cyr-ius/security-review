@@ -343,10 +343,6 @@ export class ApiService {
     });
   }
 
-  reloadCustomRules(): Observable<RuleReloadResult> {
-    return this.http.post<RuleReloadResult>(`${API_URL}/rules/reload`, {});
-  }
-
   /** TOML pack of the rules and checklist items that differ from the defaults. */
   exportRulePack(sections: RulePackSection[]): Observable<Blob> {
     let params = new HttpParams();

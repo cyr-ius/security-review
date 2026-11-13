@@ -52,6 +52,11 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 - En bas de la barre : **Mon compte** (mot de passe, jetons personnels) et la version, un lien
   vers **À propos**.
 - Cliquez sur l'en-tête d'une colonne pour trier un tableau ; le navigateur mémorise le tri.
+- **Projets**, **Findings**, **Rapports** et **Journal d'audit** relisent leurs données quand vous
+  revenez sur l'onglet du navigateur, pour afficher les revues enregistrées entre-temps (pas après
+  **Afficher plus**, ni sur **Findings** une fois un finding trié sur la page : **Actualiser** le
+  fait alors). Les pages de réglages et de référentiel, modifiées seulement sur la page elle-même,
+  n'ont pas de bouton **Actualiser**.
 - Le point d'interrogation cerclé à côté d'un titre ouvre la page de cette documentation qui
   explique la page (en français pour une interface en français, sinon en anglais).
 - Si le serveur Controller ne répond plus, la page **Backend indisponible** s'ouvre : elle vérifie
@@ -80,7 +85,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 
 | Page | À quoi elle sert |
 |---|---|
-| **Règles** | Les motifs du scan de code ([règles](../review/rules.md)) |
+| **Règles** | Les règles du scan de code, un onglet par moteur : **Règles par motifs** ([règles](../review/rules.md)) et **Règles OpenGrep**, avec les règles proposées par les agents ([OpenGrep](../review/analysis/opengrep.md#gestion-des-regles-depuis-linterface-web)) |
 | **Checklists** | Les points de contrôle suivis par les agents ([checklists](../review/checklists.md)) |
 | **Normes** | Les normes de développement données aux assistants IA ([normes](../review/standards.md)) |
 | **Base OSV** | État et mise à jour de la base de vulnérabilités, téléchargement automatique (activation, intervalle), choix des écosystèmes téléchargés ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-serveur-controller)) (`settings.manage`) |

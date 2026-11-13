@@ -18,6 +18,7 @@ import {
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { TableSort } from '../../../shared/utils/table-sort';
+import { reloadOnReturn } from '../../../shared/utils/reload-on-return';
 
 const PAGE_SIZE = 25;
 
@@ -85,6 +86,10 @@ export class ReportListComponent {
     }),
     stream: ({ params }) => this.api.reports(params),
   });
+
+  constructor() {
+    reloadOnReturn(() => this.reports.reload());
+  }
 
   readonly rows = computed(() => (this.reports.value() ?? []).slice(0, PAGE_SIZE));
   readonly hasNext = computed(() => (this.reports.value() ?? []).length > PAGE_SIZE);

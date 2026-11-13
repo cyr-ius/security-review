@@ -33,6 +33,7 @@ import {
 } from '../../../shared/components/table-controls/table-controls.component';
 import { TableSort } from '../../../shared/utils/table-sort';
 import { filterAndSortRows } from '../../../shared/utils/table-utils';
+import { reloadOnReturn } from '../../../shared/utils/reload-on-return';
 
 /** Longest project name accepted by the server (token_store._clean_project). */
 const MAX_PROJECT_CHARS = 200;
@@ -104,6 +105,10 @@ export class ProjectListComponent {
     stream: () => this.api.pendingProjects(),
   });
   readonly deciding = signal(false);
+
+  constructor() {
+    reloadOnReturn(() => this.reload());
+  }
   readonly pendingError = signal<Message | null>(null);
 
   readonly search = signal('');

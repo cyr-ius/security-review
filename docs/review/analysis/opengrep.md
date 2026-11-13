@@ -79,7 +79,7 @@ without any rule, `scan-code` runs the built-in scanner only. Environment variab
 
 The [default rules](#default-rules) are installed in the database at start-up, or by
 `security-review-controller opengrep install`; add your own rules on the
-[**OpenGrep rules** page](#managing-rules-from-the-web-interface). Rules are never downloaded.
+[**OpenGrep rules** tab](#managing-rules-from-the-web-interface). Rules are never downloaded.
 `SECREVIEW_OPENGREP_RULES_DIR` only holds the copy written for OpenGrep: a file put there by hand
 is not read.
 
@@ -130,7 +130,7 @@ give the CWE and the OWASP category, copied into the findings.
 At each start, the Controller server copies the default rules into the database, like the
 default TOML rules, whether OpenGrep runs on it or not (the scan engines get them from it): a new
 rule is installed, a rule left as installed is updated with the new version, a rule edited or
-deleted on the **OpenGrep rules** page is left alone, and a default rule no longer shipped is
+deleted in the **OpenGrep rules** tab is left alone, and a default rule no longer shipped is
 removed unless it was edited. The command installs the bundled defaults on demand on the
 Controller server:
 
@@ -143,7 +143,7 @@ security-review-controller opengrep install --overwrite           # after an upg
 
 `install` writes the rules into the database and prints the installed, replaced and skipped ids
 (JSON). A rule that already exists is kept, so that an edit made on the
-**OpenGrep rules** page survives; `--overwrite` replaces it with the version of the package
+**OpenGrep rules** tab survives; `--overwrite` replaces it with the version of the package
 (after an upgrade, for instance). To drop a rule, delete it on that page. In a container, run
 the command in the Controller server container
 (`docker compose exec controller security-review-controller opengrep install`).
@@ -175,8 +175,8 @@ the command in the Controller server container
 
 ## Managing rules from the web interface
 
-The Controller server exposes an authenticated rule-management page at `/ui/opengrep-rules`
-(**OpenGrep rules**). Users with `rules.read` can inspect the YAML rules stored in the
+The Controller server manages these rules in the **OpenGrep rules** tab of the **Rules** page
+(`/ui/rules/opengrep`, authenticated). Users with `rules.read` can inspect the YAML rules stored in the
 database; users with `rules.manage` can create, edit, validate and delete them. Each rule holds
 exactly one OpenGrep rule, whose YAML id must match the rule identifier. Writes are validated
 with `opengrep validate` first, so creating or editing a rule needs the OpenGrep executable on
@@ -214,8 +214,8 @@ database, and the review prompts tell the agent to propose a rule only after sav
   `fix`, their comments, indentation, spacing or the quotes around a value. The refusal names
   the existing rule, or the proposal when it belongs to the same project; to correct a pending
   proposal, the agent proposes it again with its identifier.
-- Pending proposals are listed at the top of the **OpenGrep rules** page for the users with
-  `rules.manage`; their number is shown next to **OpenGrep rules** in the menu while some
+- Pending proposals are listed at the top of the **OpenGrep rules** tab for the users with
+  `rules.manage`; their number is shown next to **Rules** in the menu and on the tab while some
   wait. **Review** opens one in the editor with its project, author, reason and test
   code: the approver may correct the YAML (not its identifier), validate it with OpenGrep, then
   **Approve and install** it or **Reject** it with an optional reason.

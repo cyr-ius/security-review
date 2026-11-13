@@ -80,7 +80,7 @@ règle, `scan-code` n'exécute que le scanner intégré. Variables d'environneme
 
 Les [règles par défaut](#regles-par-defaut) sont installées en base au démarrage, ou par
 `security-review-controller opengrep install` ; ajoutez vos propres règles dans la
-[page **Règles OpenGrep**](#gestion-des-regles-depuis-linterface-web). Les règles ne sont jamais
+[onglet **Règles OpenGrep**](#gestion-des-regles-depuis-linterface-web). Les règles ne sont jamais
 téléchargées. `SECREVIEW_OPENGREP_RULES_DIR` ne contient que la copie écrite pour OpenGrep : un
 fichier déposé là à la main n'est pas lu.
 
@@ -131,7 +131,7 @@ métadonnées donnent la CWE et la catégorie OWASP, reprises dans les findings.
 À chaque démarrage, le serveur Controller copie les règles par défaut en base, comme les règles
 TOML par défaut, qu'OpenGrep tourne sur lui ou non (les moteurs de scan les y prennent) : une
 nouvelle règle est installée, une règle restée telle qu'installée est remplacée par la nouvelle
-version, une règle modifiée ou supprimée dans la page **Règles OpenGrep** est laissée telle
+version, une règle modifiée ou supprimée dans l'onglet **Règles OpenGrep** est laissée telle
 quelle, et une règle par défaut qui n'est plus fournie est retirée, sauf si elle a été modifiée.
 La commande installe les règles par défaut à la demande, sur le serveur Controller :
 
@@ -144,7 +144,7 @@ security-review-controller opengrep install --overwrite           # after an upg
 
 `install` écrit les règles en base et affiche les identifiants installés, remplacés et ignorés
 (JSON). Une règle déjà présente est conservée, pour
-qu'une modification faite dans la page **Règles OpenGrep** survive ; `--overwrite` la remplace
+qu'une modification faite dans l'onglet **Règles OpenGrep** survive ; `--overwrite` la remplace
 par la version du paquet (après une mise à niveau, par exemple). Pour retirer une règle,
 supprimez-la dans cette page. En conteneur, lancez la commande dans le conteneur du serveur
 Controller (`docker compose exec controller security-review-controller opengrep install`).
@@ -177,8 +177,8 @@ Controller (`docker compose exec controller security-review-controller opengrep 
 
 ## Gestion des règles depuis l’interface web
 
-Le serveur Controller propose une page de gestion authentifiée à l’adresse
-`/ui/opengrep-rules` (**Règles OpenGrep**). Les utilisateurs disposant de `rules.read` peuvent
+Le serveur Controller gère ces règles dans l'onglet **Règles OpenGrep** de la page **Règles**
+(`/ui/rules/opengrep`, authentifiée). Les utilisateurs disposant de `rules.read` peuvent
 consulter les règles YAML stockées en base. Ceux disposant de `rules.manage` peuvent les créer,
 modifier, valider et supprimer. Chaque règle contient exactement une règle OpenGrep, dont
 l'identifiant YAML doit correspondre à celui de la règle. Toute écriture est d'abord validée avec
@@ -219,9 +219,9 @@ proposer une règle qu'après avoir enregistré le rapport.
   espaces ou les guillemets autour d'une valeur. Le refus nomme la règle existante, ou la
   proposition quand elle appartient au même projet ; pour corriger une proposition en attente,
   l'agent la propose de nouveau avec son identifiant.
-- Les propositions en attente sont listées en haut de la page **Règles OpenGrep** pour les
+- Les propositions en attente sont listées en haut de l'onglet **Règles OpenGrep** pour les
   utilisateurs disposant de `rules.manage` ; tant qu'il y en a, leur nombre s'affiche à côté de
-  **Règles OpenGrep** dans le menu. **Examiner** en ouvre une dans l'éditeur avec son
+  **Règles** dans le menu et sur l'onglet. **Examiner** en ouvre une dans l'éditeur avec son
   projet, son auteur, son motif et son code de test : l'approbateur peut corriger le YAML (pas
   son identifiant), le valider avec OpenGrep, puis l'**Approuver et installer** ou la
   **Rejeter** avec un motif facultatif.

@@ -4,8 +4,11 @@ import { defineMessages } from '../catalog';
 export const rules = defineMessages({
   en: {
     'rules.title': 'Scan rules',
-    'rules.subtitle': 'Default rules',
-    'rules.reload': 'Reload',
+    'rules.tabs': 'Rule engines',
+    'rules.tabPatterns': 'Pattern rules',
+    'rules.tabOpengrep': 'OpenGrep rules',
+    'rules.subtitle':
+      'Rules of the code scan, one tab per engine: built-in patterns and OpenGrep YAML rules.',
     'rules.new': 'New rule',
     'rules.loadError': 'Could not load the rules.',
     'rules.count': '{count} rule(s)',
@@ -46,13 +49,15 @@ export const rules = defineMessages({
     'rules.enabledNotice': 'Rule {id} enabled.',
     'rules.confirmDelete': 'Permanently delete rule {id}?',
     'rules.deleted': 'Rule {id} deleted.',
-    'rules.reloaded': 'Rules reloaded ({count} custom).',
     'rules.failed': 'The change of the rules failed.',
   },
   fr: {
     'rules.title': 'Règles de scan',
-    'rules.subtitle': 'Règles par défaut',
-    'rules.reload': 'Recharger',
+    'rules.tabs': 'Moteurs de règles',
+    'rules.tabPatterns': 'Règles par motifs',
+    'rules.tabOpengrep': 'Règles OpenGrep',
+    'rules.subtitle':
+      'Les règles du scan de code, un onglet par moteur : motifs intégrés et règles YAML d’OpenGrep.',
     'rules.new': 'Nouvelle règle',
     'rules.loadError': 'Impossible de charger les règles.',
     'rules.count': '{count} règle(s)',
@@ -93,13 +98,15 @@ export const rules = defineMessages({
     'rules.enabledNotice': 'Règle {id} activée.',
     'rules.confirmDelete': 'Supprimer définitivement la règle {id} ?',
     'rules.deleted': 'Règle {id} supprimée.',
-    'rules.reloaded': 'Règles rechargées ({count} personnalisée(s)).',
     'rules.failed': 'La modification des règles a échoué.',
   },
   es: {
     'rules.title': 'Reglas de análisis',
-    'rules.subtitle': 'Reglas por defecto',
-    'rules.reload': 'Recargar',
+    'rules.tabs': 'Motores de reglas',
+    'rules.tabPatterns': 'Reglas por patrones',
+    'rules.tabOpengrep': 'Reglas de OpenGrep',
+    'rules.subtitle':
+      'Las reglas del análisis de código, una pestaña por motor: patrones integrados y reglas YAML de OpenGrep.',
     'rules.new': 'Nueva regla',
     'rules.loadError': 'No se pudieron cargar las reglas.',
     'rules.count': '{count} regla(s)',
@@ -140,7 +147,6 @@ export const rules = defineMessages({
     'rules.enabledNotice': 'Regla {id} activada.',
     'rules.confirmDelete': '¿Eliminar definitivamente la regla {id}?',
     'rules.deleted': 'Regla {id} eliminada.',
-    'rules.reloaded': 'Reglas recargadas ({count} personalizada(s)).',
     'rules.failed': 'La modificación de las reglas ha fallado.',
   },
 });

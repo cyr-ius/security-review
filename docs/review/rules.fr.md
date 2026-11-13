@@ -131,8 +131,9 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 - Un `id` identique à une règle par défaut la **modifie** (elle apparaît alors comme
   `modified` et n'est plus mise à jour par les nouvelles versions du serveur).
 - Une modification (CLI, interface web) est prise en compte par chaque serveur en cours
-  d'exécution **en quelques secondes**, sans redémarrage ; l'outil `reload_rules` et le bouton
-  **Recharger** de la page Règles l'appliquent immédiatement.
+  d'exécution **en quelques secondes**, sans redémarrage ; une modification faite dans la page
+  **Règles** s'applique aussitôt sur le serveur Controller, et l'outil `reload_rules` l'applique
+  aussitôt sur le serveur MCP.
 - Une règle stockée qui ne passe plus la validation est **ignorée et signalée** (outil
   `list_rules`, champ `load_errors`) ; si la base est inaccessible, les règles par défaut du
   fichier `default_rules.toml` s'appliquent.

@@ -125,8 +125,8 @@ A full example is provided in `examples/rules/company.toml`.
 - An `id` equal to a default rule **edits** it (it then shows as `modified` and is no longer
   updated by new versions of the server).
 - A change (CLI, web interface) is picked up by every running server **within a few seconds**,
-  without restart; the `reload_rules` tool and the **Reload** button of the **Rules** page apply
-  it immediately.
+  without restart; a change made on the **Rules** page applies at once on the Controller server,
+  and the `reload_rules` tool applies it at once on the MCP server.
 - A stored rule that no longer passes the validation is **ignored and reported** (`list_rules`
   tool, `load_errors` field); if the database cannot be reached, the default rules of the
   `default_rules.toml` file apply.
