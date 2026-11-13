@@ -8,8 +8,6 @@ export const scanEngines = defineMessages({
     'scanEngines.title': 'Scan engines',
     'scanEngines.subtitle':
       'Engines that run the rules and OpenGrep of the code scans in place of the Controller server.',
-    'scanEngines.help':
-      'Each engine enrolls at its start with the shared secret SECREVIEW_SCAN_ENGINE_TOKEN, then reads the rules through the REST API with its own OAuth access token, which it renews before it expires. It reads no database. A revoked engine is refused at once and enrolls again only when it restarts; to shut every engine out, change the shared secret.',
     'scanEngines.enabled':
       'The code scans go to the active engines, the one with the most free slots first.',
     'scanEngines.disabled':
@@ -72,8 +70,6 @@ export const scanEngines = defineMessages({
     'scanEngines.title': 'Moteurs de scan',
     'scanEngines.subtitle':
       'Moteurs qui exécutent les règles et OpenGrep des scans de code à la place du serveur Controller.',
-    'scanEngines.help':
-      'Chaque moteur s’enrôle à son démarrage avec le secret partagé SECREVIEW_SCAN_ENGINE_TOKEN, puis lit les règles par l’API REST avec son propre jeton d’accès OAuth, qu’il renouvelle avant son expiration. Il ne lit aucune base de données. Un moteur révoqué est refusé aussitôt et ne s’enrôle de nouveau qu’à son redémarrage ; pour écarter tous les moteurs, changez le secret partagé.',
     'scanEngines.enabled':
       'Les scans de code partent vers les moteurs actifs, celui qui a le plus de créneaux libres d’abord.',
     'scanEngines.disabled':
@@ -137,8 +133,6 @@ export const scanEngines = defineMessages({
     'scanEngines.title': 'Motores de escaneo',
     'scanEngines.subtitle':
       'Motores que ejecutan las reglas y OpenGrep de los escaneos de código en lugar del servidor Controller.',
-    'scanEngines.help':
-      'Cada motor se inscribe al arrancar con el secreto compartido SECREVIEW_SCAN_ENGINE_TOKEN y luego lee las reglas por la API REST con su propio token de acceso OAuth, que renueva antes de que caduque. No lee ninguna base de datos. Un motor revocado se rechaza de inmediato y solo se inscribe de nuevo al reiniciarse; para excluir a todos los motores, cambie el secreto compartido.',
     'scanEngines.enabled':
       'Los escaneos de código van a los motores activos, primero el que tiene más huecos libres.',
     'scanEngines.disabled':
