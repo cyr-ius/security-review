@@ -109,7 +109,7 @@ avec ce qu'un motif ligne par ligne ne voit pas :
   entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
   commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
   confiance. La valeur est suivie dans un fichier, d'une fonction à l'autre
-  (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../advanced/detection-benchmark.md)) ;
+  (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../reference/detection-benchmark.md)) ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
   combinaison d'arguments (CORS avec toute origine *et* identifiants).

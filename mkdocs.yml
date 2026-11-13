@@ -169,6 +169,7 @@ nav:
       - Centralized standards: getting-started/stored-standards.md
   - Security review:
       - How a review works: review/index.md
+      - Prompts and tools: review/prompts-tools.md
       - Rules: review/rules.md
       - Checklists: review/checklists.md
       - Development standards: review/standards.md
@@ -204,7 +205,6 @@ nav:
       - Bearer tokens: advanced/bearer-tokens.md
       - Connectors in detail: advanced/connectors.md
       - Database: advanced/database.md
-      - Detection benchmark: advanced/detection-benchmark.md
       - Deployment:
           - Docker: advanced/deployment/docker.md
           - Kubernetes: advanced/deployment/kubernetes.md
@@ -220,6 +220,7 @@ nav:
   - References:
       - Command line: reference/cli.md
       - Configuration: reference/configuration.md
+      - Detection benchmark: reference/detection-benchmark.md
       - Prometheus metrics: reference/metrics.md
       - Security and limits: reference/security.md
   - Contributing:

@@ -187,7 +187,7 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
     fait une **analyse statique (SAST)** qui suit le flux de données dans un fichier, d'une
     fonction à l'autre : 147 règles, dont 60 de propagation (taint), sur Java, Python,
     JavaScript/TypeScript, C#, Go et Rust,
-    [mesurées sur l'OWASP Benchmark](advanced/detection-benchmark.md). Sans lui, le scan par
+    [mesurées sur l'OWASP Benchmark](reference/detection-benchmark.md). Sans lui, le scan par
     motifs ne produit que des **pistes**, avec des faux positifs. Aucun des deux ne suit un flux
     d'un fichier à l'autre, ni ne voit la logique métier ou un contrôle absent :
     cela reste le travail de la revue par l'IA et d'une relecture humaine. Ce n'est pas non plus

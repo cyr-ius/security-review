@@ -177,7 +177,7 @@ The documentation follows the order of a set-up. **Getting started**, **Security
     runs a **static analysis (SAST)** that follows the data flow within a file, across its
     functions: 147 rules, 60
     of them taint rules, on Java, Python, JavaScript/TypeScript, C#, Go and Rust,
-    [measured on the OWASP Benchmark](advanced/detection-benchmark.md). Without it, the pattern
+    [measured on the OWASP Benchmark](reference/detection-benchmark.md). Without it, the pattern
     scan only produces **leads**, with false positives. Neither follows a flow from one file to
     another, nor sees business logic or a missing check: that remains the work of the AI review
     and of a human reviewer. It is not a full SCA analysis either. See
