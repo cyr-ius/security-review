@@ -67,7 +67,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 | Page | What for |
 |---|---|
 | **Projects** | Every project with its open findings by severity. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
-| **Project** | Trend, worst and oldest open findings, SARIF export, **All reports** of the project |
+| **Project** | Trend, worst and oldest open findings (the [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) folded in one row), SARIF export, **All reports** of the project |
 
 **Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read); **Reports** for every user (on the projects they read), opened from the search field (`#report:*`) or **All reports** of a project
 
@@ -75,7 +75,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 |---|---|
 | **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file, description, project, branch) narrows the list; the status, severity and review type filters accept several values |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
-| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status), Markdown and SARIF download |
+| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange the rules, checklists and standards as TOML files)
 

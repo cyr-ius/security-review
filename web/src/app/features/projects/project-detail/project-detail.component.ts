@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { DIRECTION_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
+import { ProjectFinding, SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ProjectMembersComponent } from '../project-members/project-members.component';
@@ -14,6 +14,7 @@ import { RefreshButtonComponent } from '../../../shared/components/refresh-butto
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
 import { TrendChartComponent } from '../../../shared/components/trend-chart/trend-chart.component';
+import { PackageGroup, groupByPackage } from '../../../shared/utils/package-groups';
 
 interface TrendWindow {
   days: number;
@@ -28,6 +29,11 @@ const WINDOWS: readonly TrendWindow[] = [
   { days: 180, granularity: 'week', label: 'project.window180' },
   { days: 365, granularity: 'month', label: 'project.window365' },
 ];
+
+/** A row of the open findings: a finding (member of an unfolded package or not) or a package. */
+type OpenRow =
+  | { kind: 'finding'; key: string; finding: ProjectFinding; member: boolean }
+  | { kind: 'package'; key: string; group: PackageGroup<ProjectFinding>; expanded: boolean };
 
 /** Open findings listed on the page (the full list is at /projects/:project/findings). */
 const TOP_OPEN_FINDINGS = 20;
@@ -84,6 +90,46 @@ export class ProjectDetailComponent {
     }),
     stream: ({ params }) => this.api.projectFindings(params),
   });
+
+  /**
+   * Rows of the open findings: the advisories of one vulnerable package fold in one row,
+   * followed by their own rows once unfolded.
+   */
+  readonly openRows = computed<OpenRow[]>(() => {
+    const expanded = this.expanded();
+    const rows: OpenRow[] = [];
+    for (const entry of groupByPackage(this.openFindings.value()?.findings ?? [])) {
+      if (entry.kind === 'finding') {
+        rows.push({ kind: 'finding', key: entry.key, finding: entry.finding, member: false });
+        continue;
+      }
+      const open = expanded.has(entry.group.key);
+      rows.push({ kind: 'package', key: entry.key, group: entry.group, expanded: open });
+      if (open) {
+        for (const finding of entry.group.findings) {
+          rows.push({ kind: 'finding', key: `finding-${finding.id}`, finding, member: true });
+        }
+      }
+    }
+    return rows;
+  });
+  private readonly expanded = signal<ReadonlySet<string>>(new Set());
+
+  toggleGroup(key: string): void {
+    this.expanded.update((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  /** Report of every finding of a group, when they come from a single one. */
+  sameReport(group: PackageGroup<ProjectFinding>): number | null {
+    const id = group.findings[0].report_id;
+    return group.findings.every((f) => f.report_id === id) ? id : null;
+  }
 
   readonly direction = computed(() => {
     const direction = this.trend.value()?.direction ?? 'insufficient_data';

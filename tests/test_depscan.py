@@ -197,13 +197,23 @@ def test_stale_database_adds_a_note(tmp_path):
 
 
 def test_findings_can_be_saved_as_a_report(tmp_path):
-    load(osv(severity="CRITICAL", fixed="2.20.0"), tmp_path=tmp_path)
+    load(
+        osv(severity="CRITICAL", fixed="2.20.0"),
+        osv("PYSEC-2", fixed="2.20.0", summary="Requests:  Header\ninjection"),
+        tmp_path=tmp_path,
+    )
     result = depscan.scan_dependencies("requests==2.19.0\nflask\n", "requirements.txt")
     findings = depscan.to_findings(result)
-    assert {f.rule_id for f in findings} == {"PYSEC-1", "DEP-001"}
+    assert {f.rule_id for f in findings} == {"PYSEC-1", "PYSEC-2", "DEP-001"}
     assert all(f.category == "dependency" for f in findings)
+    # Two advisories of one component: the title tells them apart, the summary counts it once
+    titles = {f.rule_id: f.title for f in findings}
+    assert titles["PYSEC-1"] == "requests 2.19.0: Issue in requests"
+    assert titles["PYSEC-2"] == "requests 2.19.0: Header injection"
+    content = depscan.report_content([result])
+    assert "1 vulnerable component(s) (2 advisory(ies))" in content["summary"]
     saved = services.save_report(project="demo", summary="Dependency scan", findings=findings)
-    assert saved["findings_count"] == 2
+    assert saved["findings_count"] == 3
     assert saved["risk_level"] == "critical"
 
 

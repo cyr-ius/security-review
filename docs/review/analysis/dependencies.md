@@ -260,3 +260,9 @@ The `vulnerability_check` field says whether the check took place:
   other extras (`postgres`...) are installed in production and stay runtime dependencies.
 - Hygiene rules `DEP-001` to `DEP-009`: unpinned versions, URL / VCS, HTTP, extra index,
   `--trusted-host`, etc.
+- Each advisory is its own finding (advisories that share an alias, such as a GHSA and its
+  CVE, are merged), titled with the component and the issue of the advisory
+  (`pillow 12.3.0: Heap buffer overflow in ImagingJpegDecode`). One release often fixes many
+  advisories of a package: the summary of the report counts the vulnerable components and
+  their advisories apart, and the web interface groups the advisories of one component
+  (**Report** page and open findings of a **Project**).

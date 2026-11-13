@@ -12,3 +12,12 @@
 .meta dd {
   margin-bottom: 0.5rem;
 }
+
+/* Advisories of one vulnerable package: a header that folds their finding cards */
+.package-group > summary {
+  cursor: pointer;
+}
+
+.package-group:not([open]) > summary {
+  border-bottom: 0;
+}

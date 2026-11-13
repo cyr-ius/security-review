@@ -17,6 +17,7 @@ from .dependencies import Parsed, parse_dependency_file
 MAX_COMPONENTS_LISTED = 200
 VULNERABLE_COMPONENT_CWE = "CWE-1395"  # Dependency on Vulnerable Third-Party Component
 REVIEWER = "security-review-ci scan-deps"
+MAX_TITLE_CHARS = 200  # FindingBase.title
 
 
 def _check_state(parsed: Parsed, status: dict) -> tuple[str, list[str]]:
@@ -133,6 +134,25 @@ def scan_dependencies(content: str, filename: str) -> dict:
     }
 
 
+def vulnerability_title(vuln: dict) -> str:
+    """Title of a vulnerable component finding: the component and the issue of its advisory.
+
+    A package often has several advisories fixed by one release: the summary of each one tells
+    its findings apart. A summary that starts with the package name (``Pillow: ...``) loses it.
+    """
+    component = f"{vuln['package']} {vuln['version']}"
+    summary = " ".join((vuln["summary"] or "").split())
+    head, colon, rest = summary.partition(":")
+    if colon and rest.strip() and head.strip().lower() == vuln["package"].lower():
+        summary = rest.strip()
+    if not summary:
+        return f"Vulnerable dependency: {component}"
+    title = f"{component}: {summary}"
+    if len(title) > MAX_TITLE_CHARS:
+        title = title[: MAX_TITLE_CHARS - 1].rstrip() + "…"
+    return title
+
+
 def to_findings(result: dict) -> list[FindingCreate]:
     """Convert a scan result to findings, ready for ``save_security_report``."""
     findings: list[FindingCreate] = []
@@ -147,7 +167,7 @@ def to_findings(result: dict) -> list[FindingCreate]:
         upgrade = vuln["recommended_upgrade"]
         findings.append(
             FindingCreate(
-                title=f"Vulnerable dependency: {vuln['package']} {vuln['version']}",
+                title=vulnerability_title(vuln),
                 severity=Severity(vuln["severity"]),
                 category="dependency",
                 rule_id=vuln["advisory_id"],
@@ -231,12 +251,15 @@ def report_content(results: Sequence[dict], reviewer: str = REVIEWER) -> dict:
     Shared by ``save`` (controller) and ``security-review-ci scan-deps --save``, which sends
     them to the ``save_security_report`` tool of a shared MCP server.
     """
-    vulnerabilities = sum(r["vulnerabilities_count"] for r in results)
+    advisories = sum(r["vulnerabilities_count"] for r in results)
+    vulnerable = {
+        (v["ecosystem"], v["package"], v["version"]) for r in results for v in r["vulnerabilities"]
+    }
     hygiene = sum(r["hygiene_count"] for r in results)
     return {
         "summary": (
-            f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
-            f"component(s), {hygiene} hygiene issue(s)."
+            f"Dependency scan of {len(results)} file(s): {len(vulnerable)} vulnerable "
+            f"component(s) ({advisories} advisory(ies)), {hygiene} hygiene issue(s)."
         ),
         "findings": [f for r in results for f in to_findings(r)],
         "reviewer": reviewer,
