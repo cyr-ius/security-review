@@ -12,7 +12,7 @@ import {
 const HEIGHT = 430;
 const SOURCE = { x: 72, r: 46, ys: [110, 320] };
 /** The agents: smaller than the MCP servers they call, stacked under the pipelines. */
-const AGENT = { r: 40, minY: 205 };
+const AGENT = { r: 36, minY: 205 };
 const AGENT_ROW_GAP = AGENT.r * 2 + 36;
 /** Agents drawn one by one; the others share a "+N" circle. */
 const MAX_AGENT_NODES = 6;
@@ -23,11 +23,13 @@ const MCP_ROW_GAP = MCP.r * 2 + 40;
 const MCP_COLUMN = 160;
 const CONTROLLER = { x: 262, y: 215, r: 66 };
 const CONTROLLER_ROW_GAP = CONTROLLER.r * 2 + 52;
-const ENGINE = { r: 52, x0: 440, dx: 145, rows: SOURCE.ys };
+const ENGINE = { r: SOURCE.r, x0: 440, dx: 145, rows: SOURCE.ys };
 const MIN_WIDTH = 620;
 /** Gap between two arcs of a ring. */
 const ARC_GAP = 3;
-const RING = 6;
+/** Width of the rings, and from the edge of a circle to the middle of its ring (3 units inside). */
+const RING = 3;
+const RING_INSET = 3 + RING / 2;
 
 /** One arc of a ring: a dash of a circle, starting at 12 o'clock. */
 interface Arc {
@@ -99,6 +101,8 @@ interface SourceNode {
   x: number;
   y: number;
   r: number;
+  /** Above the circle on the top row, like the engines there; below it otherwise. */
+  labelY: number;
   active: number;
   capacity: number;
   arcs: Arc[];
@@ -177,12 +181,13 @@ export class ScanEngineFlowComponent {
   readonly controllerRadius = CONTROLLER.r;
   readonly engineRadius = ENGINE.r;
   readonly ring = RING;
-  readonly controllerRing = CONTROLLER.r - RING;
-  readonly engineRing = ENGINE.r - RING;
+  readonly ringInset = RING_INSET;
+  readonly controllerRing = CONTROLLER.r - RING_INSET;
+  readonly engineRing = ENGINE.r - RING_INSET;
   readonly mcpRadius = MCP.r;
-  readonly mcpRing = MCP.r - RING;
+  readonly mcpRing = MCP.r - RING_INSET;
   readonly agentRadius = AGENT.r;
-  readonly agentRing = AGENT.r - RING;
+  readonly agentRing = AGENT.r - RING_INSET;
 
   /** The active engines first, in the order of the API (the most recently seen first). */
   private readonly engines = computed(() => {
@@ -447,10 +452,11 @@ export class ScanEngineFlowComponent {
         x: SOURCE.x,
         y,
         r,
+        labelY: index === 0 ? y - r - 12 : y + r + 20,
         active: kind === 'codebase' ? totals.activeCodebase : totals.activeFragment,
         capacity: kind === 'codebase' ? totals.capacityCodebase : totals.capacityFragment,
         arcs: ringArcs(
-          r - RING,
+          r - RING_INSET,
           kind === 'codebase' ? totals.activeCodebase : 0,
           kind === 'fragment' ? totals.activeFragment : 0,
           Math.max(

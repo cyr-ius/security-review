@@ -120,7 +120,7 @@
           class="ring ring-track"
           [attr.cx]="source.x"
           [attr.cy]="source.y"
-          [attr.r]="source.r - ring"
+          [attr.r]="source.r - ringInset"
           [attr.stroke-width]="ring"
         />
         @for (arc of source.arcs; track arc.kind) {
@@ -129,7 +129,7 @@
             [class]="'ring-' + arc.kind"
             [attr.cx]="source.x"
             [attr.cy]="source.y"
-            [attr.r]="source.r - ring"
+            [attr.r]="source.r - ringInset"
             [attr.stroke-width]="ring"
             [attr.stroke-dasharray]="arc.dash"
             [attr.stroke-dashoffset]="arc.offset"
@@ -154,7 +154,7 @@
             }
           </div>
         </foreignObject>
-        <text class="label" [attr.x]="source.x" [attr.y]="source.y + source.r + 20">
+        <text class="label" [attr.x]="source.x" [attr.y]="source.labelY">
           {{
             (source.kind === 'codebase' ? 'scanEngines.flowPipelines' : 'scanEngines.flowAgents')
               | t
