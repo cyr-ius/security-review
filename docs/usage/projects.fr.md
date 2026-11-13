@@ -32,7 +32,7 @@ Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets, chacu
 par projet ici (lecture, écriture, triage). Son créateur, ou le développeur dont la demande a été
 validée, en reçoit la lecture et l'écriture (`reports.read` et `reports.write`), jamais le tri.
 
-Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet,
+Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet (repliée : cliquez sur son en-tête pour la déplier),
 qu'ouvre aussi le bouton en forme de personnes de sa ligne sur la page **Projets** :
 recherchez des comptes, cochez-les et ajoutez-les (avec la lecture), choisissez les droits de
 chaque membre (**Écrire les rapports** pour ceux dont l'agent enregistre des revues) ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans

@@ -29,6 +29,8 @@ const SEARCH_LIMIT = 50;
   selector: 'app-project-members',
   imports: [HelpLinkComponent, ProjectPermissionsComponent, TranslatePipe],
   templateUrl: './project-members.component.html',
+  // The header of the folding card of the project page: the whole row folds or unfolds it
+  styles: '.foldable { cursor: pointer; }',
 })
 export class ProjectMembersComponent {
   private readonly api = inject(ApiService);
@@ -37,6 +39,21 @@ export class ProjectMembersComponent {
   readonly project = input.required<string>();
   /** Shown in a modal of the Projects page: the title names the project, no bottom margin. */
   readonly embedded = input(false);
+
+  /** On the project page the card starts folded; the modal of the Projects page is always open. */
+  readonly expanded = signal(false);
+  readonly open = computed(() => this.embedded() || this.expanded());
+
+  /**
+   * A click anywhere on the header folds or unfolds the card (its title button included, which
+   * serves the keyboard), except on the help link.
+   */
+  onHeaderClick(event: MouseEvent): void {
+    if (this.embedded() || (event.target as HTMLElement | null)?.closest('a')) {
+      return;
+    }
+    this.expanded.update((expanded) => !expanded);
+  }
 
   readonly members = rxResource({
     params: () => this.project(),

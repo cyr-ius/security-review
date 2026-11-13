@@ -34,7 +34,7 @@ request was approved, gets its reading and writing (`reports.read` and `reports.
 its triage.
 
 A person with `users.manage` sees the **Members** section at the bottom of the page of the
-project, also opened by the people button of its row on the **Projects**
+project (folded: click its header to unfold it), also opened by the people button of its row on the **Projects**
 page: search accounts, tick them and add them (with the reading), choose the permissions of
 each member (**Write the reports** for those whose agent saves reviews) or remove it, then **Save**. The same projects are given in **Users** ([roles and
 projects of an account](access-control.md#roles-and-projects-of-an-account)), or by approving the

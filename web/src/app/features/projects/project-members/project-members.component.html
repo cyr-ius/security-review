@@ -1,165 +1,198 @@
 <section class="card" [class.mb-4]="!embedded()" aria-labelledby="project-members-title">
   <div class="card-body">
-    <div class="d-flex align-items-start gap-2 mb-2">
+    <div
+      class="d-flex align-items-start gap-2"
+      [class.mb-2]="open()"
+      [class.foldable]="!embedded()"
+      (click)="onHeaderClick($event)"
+    >
       <h2 id="project-members-title" class="h5 mb-0 text-break">
-        <i class="bi bi-people me-2" aria-hidden="true"></i>
         @if (embedded()) {
+          <i class="bi bi-people me-2" aria-hidden="true"></i>
           {{ 'projects.members' | t: { project: project() } }}
         } @else {
-          {{ 'projectMembers.title' | t }}
+          <button
+            type="button"
+            class="btn btn-link p-0 text-reset text-decoration-none fs-5 text-start"
+            aria-controls="project-members-body"
+            [attr.aria-expanded]="expanded()"
+          >
+            <i class="bi bi-people me-2" aria-hidden="true"></i>
+            {{ 'projectMembers.title' | t }}
+          </button>
         }
         <app-help-link topic="projectMembers" />
       </h2>
-      <div class="ms-auto"><ng-content /></div>
+      <div class="ms-auto">
+        @if (embedded()) {
+          <ng-content />
+        } @else {
+          <i
+            class="bi"
+            [class.bi-chevron-up]="expanded()"
+            [class.bi-chevron-down]="!expanded()"
+            aria-hidden="true"
+          ></i>
+        }
+      </div>
     </div>
-    <p class="text-body-secondary small">{{ 'projectMembers.help' | t }}</p>
+    @if (open()) {
+      <div id="project-members-body">
+        <p class="text-body-secondary small">{{ 'projectMembers.help' | t }}</p>
 
-    @if (error(); as text) {
-      <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
-    }
-    @if (message(); as text) {
-      <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
-    }
+        @if (error(); as text) {
+          <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+        }
+        @if (message(); as text) {
+          <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+        }
 
-    @if (members.error()) {
-      <div class="alert alert-danger" role="alert">{{ 'projectMembers.loadError' | t }}</div>
-    } @else if (rows().length) {
-      <div class="table-responsive mb-2">
-        <table class="table table-sm align-middle mb-0">
-          <thead>
-            <tr>
-              <th scope="col">{{ 'login.username' | t }}</th>
-              <th scope="col">{{ 'access.projectPermissions' | t }}</th>
-              <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of rows(); track row.userId) {
-              <tr>
-                <td class="access-name">{{ username(row.userId) }}</td>
-                <td>
-                  <app-project-permissions
-                    [id]="'project-member-permissions-' + row.userId"
-                    [label]="'projectMembers.permissionsOf' | t: { user: username(row.userId) }"
-                    [permissions]="row.permissions"
-                    (permissionsChange)="setPermissions(row, $event)"
-                  />
-                </td>
-                <td class="text-end">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-danger"
-                    [attr.aria-label]="
-                      'projectMembers.removeOf' | t: { user: username(row.userId) }
-                    "
-                    (click)="remove(row)"
-                  >
-                    <i class="bi bi-x-lg" aria-hidden="true"></i>
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    } @else if (!members.isLoading()) {
-      <p class="text-body-secondary">{{ 'projectMembers.empty' | t }}</p>
-    }
-
-    @if (allProjects().length) {
-      <h3 class="h6 mt-3">{{ 'projectMembers.allProjects' | t }}</h3>
-      <p class="text-body-secondary small">{{ 'projectMembers.allProjectsHelp' | t }}</p>
-      <div class="table-responsive mb-3">
-        <table class="table table-sm align-middle mb-0">
-          <thead>
-            <tr>
-              <th scope="col">{{ 'login.username' | t }}</th>
-              <th scope="col">{{ 'access.projectPermissions' | t }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (member of allProjects(); track member.user_id) {
-              <tr>
-                <td class="access-name">{{ member.username }}</td>
-                <td class="small">{{ labels(member.all_projects_permissions) }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
-
-    <div class="border rounded p-2 mb-2">
-      <div class="row g-2 align-items-end">
-        <div class="col-md-8">
-          <label class="form-label small" for="project-members-search">{{
-            'projectMembers.searchUsers' | t
-          }}</label>
-          <div class="input-group input-group-sm">
-            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input
-              #searchField
-              id="project-members-search"
-              type="search"
-              class="form-control form-control-sm"
-              maxlength="64"
-              autocomplete="off"
-              [value]="search()"
-              (input)="onSearch($event)"
-            />
-            <button
-              type="button"
-              class="btn search-clear"
-              [hidden]="!search()"
-              [attr.aria-label]="'common.clearSearch' | t"
-              [title]="'common.clearSearch' | t"
-              (click)="clearSearch(searchField)"
-            >
-              <i class="bi bi-x-lg" aria-hidden="true"></i>
-            </button>
+        @if (members.error()) {
+          <div class="alert alert-danger" role="alert">{{ 'projectMembers.loadError' | t }}</div>
+        } @else if (rows().length) {
+          <div class="table-responsive mb-2">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th scope="col">{{ 'login.username' | t }}</th>
+                  <th scope="col">{{ 'access.projectPermissions' | t }}</th>
+                  <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of rows(); track row.userId) {
+                  <tr>
+                    <td class="access-name">{{ username(row.userId) }}</td>
+                    <td>
+                      <app-project-permissions
+                        [id]="'project-member-permissions-' + row.userId"
+                        [label]="'projectMembers.permissionsOf' | t: { user: username(row.userId) }"
+                        [permissions]="row.permissions"
+                        (permissionsChange)="setPermissions(row, $event)"
+                      />
+                    </td>
+                    <td class="text-end">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        [attr.aria-label]="
+                          'projectMembers.removeOf' | t: { user: username(row.userId) }
+                        "
+                        (click)="remove(row)"
+                      >
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="col-md-4">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-primary w-100"
-            [disabled]="!picked().length"
-            (click)="add()"
-          >
-            <i class="bi bi-plus-lg" aria-hidden="true"></i>
-            {{ 'projectMembers.addUsers' | t: { count: picked().length } }}
-          </button>
-        </div>
-      </div>
-      @if (choices().length) {
-        <div class="d-flex flex-wrap gap-3 mt-2">
-          @for (user of choices(); track user.id) {
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                [id]="'project-member-pick-' + user.id"
-                [checked]="picked().includes(user.id)"
-                (change)="togglePick(user.id, $event)"
-              />
-              <label class="form-check-label access-name" [for]="'project-member-pick-' + user.id">
-                {{ user.username }}
-              </label>
+        } @else if (!members.isLoading()) {
+          <p class="text-body-secondary">{{ 'projectMembers.empty' | t }}</p>
+        }
+
+        @if (allProjects().length) {
+          <h3 class="h6 mt-3">{{ 'projectMembers.allProjects' | t }}</h3>
+          <p class="text-body-secondary small">{{ 'projectMembers.allProjectsHelp' | t }}</p>
+          <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th scope="col">{{ 'login.username' | t }}</th>
+                  <th scope="col">{{ 'access.projectPermissions' | t }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (member of allProjects(); track member.user_id) {
+                  <tr>
+                    <td class="access-name">{{ member.username }}</td>
+                    <td class="small">{{ labels(member.all_projects_permissions) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        <div class="border rounded p-2 mb-2">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-8">
+              <label class="form-label small" for="project-members-search">{{
+                'projectMembers.searchUsers' | t
+              }}</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"
+                  ><i class="bi bi-search" aria-hidden="true"></i
+                ></span>
+                <input
+                  #searchField
+                  id="project-members-search"
+                  type="search"
+                  class="form-control form-control-sm"
+                  maxlength="64"
+                  autocomplete="off"
+                  [value]="search()"
+                  (input)="onSearch($event)"
+                />
+                <button
+                  type="button"
+                  class="btn search-clear"
+                  [hidden]="!search()"
+                  [attr.aria-label]="'common.clearSearch' | t"
+                  [title]="'common.clearSearch' | t"
+                  (click)="clearSearch(searchField)"
+                >
+                  <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
+            <div class="col-md-4">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary w-100"
+                [disabled]="!picked().length"
+                (click)="add()"
+              >
+                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                {{ 'projectMembers.addUsers' | t: { count: picked().length } }}
+              </button>
+            </div>
+          </div>
+          @if (choices().length) {
+            <div class="d-flex flex-wrap gap-3 mt-2">
+              @for (user of choices(); track user.id) {
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [id]="'project-member-pick-' + user.id"
+                    [checked]="picked().includes(user.id)"
+                    (change)="togglePick(user.id, $event)"
+                  />
+                  <label
+                    class="form-check-label access-name"
+                    [for]="'project-member-pick-' + user.id"
+                  >
+                    {{ user.username }}
+                  </label>
+                </div>
+              }
+            </div>
+          } @else if (!users.isLoading()) {
+            <div class="form-text mt-2">{{ 'projectMembers.noUserFound' | t }}</div>
           }
         </div>
-      } @else if (!users.isLoading()) {
-        <div class="form-text mt-2">{{ 'projectMembers.noUserFound' | t }}</div>
-      }
-    </div>
 
-    <button
-      type="button"
-      class="btn btn-sm btn-primary"
-      [disabled]="busy() || !changed() || !complete()"
-      (click)="save()"
-    >
-      <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'common.save' | t }}
-    </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          [disabled]="busy() || !changed() || !complete()"
+          (click)="save()"
+        >
+          <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'common.save' | t }}
+        </button>
+      </div>
+    }
   </div>
 </section>
