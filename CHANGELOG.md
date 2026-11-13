@@ -1,5 +1,31 @@
 # Changelog
 
+## [12.4.0](https://github.com/cyr-ius/security-review/compare/v12.3.0...v12.4.0) (2026-11-13)
+
+
+### Features
+
+* filter the findings to review by proposal and by report ([558f2f6](https://github.com/cyr-ius/security-review/commit/558f2f6899e9270edc139eec26d6ef274961b4eb))
+* show every request of the agents by family in the activity diagram ([8182070](https://github.com/cyr-ius/security-review/commit/81820703bc773ee1e02e1cde40c817d7f9279e92))
+* **web:** fold the members of a project ([4f80f3a](https://github.com/cyr-ius/security-review/commit/4f80f3a7b1877074782fcfe3877d445070ba883a))
+* **web:** open the findings and reports from the counts of the projects ([0420fd9](https://github.com/cyr-ius/security-review/commit/0420fd94f15e97d49deaffcc60cf495591c9e3f5))
+* **web:** show the most frequent CWEs of a project as a labeled pie ([3578cb7](https://github.com/cyr-ius/security-review/commit/3578cb74977c7cbb9f12c386c151cce039c6e736))
+
+
+### Bug Fixes
+
+* **deps:** title dependency findings with their advisory and group them by package in the web UI ([b8aa1f0](https://github.com/cyr-ius/security-review/commit/b8aa1f0b296ca39cc4dd8fbe5b53a01cee6bcff8))
+* show the scan requests of an agent going through its MCP server to the Controller server ([f8d1157](https://github.com/cyr-ius/security-review/commit/f8d115746184a040ba5af2dad8a670cb7e5ad6f9))
+* **web:** add a clear button to the search fields ([af70e7b](https://github.com/cyr-ius/security-review/commit/af70e7b4770827867790268fea31812c392f99d5))
+* **web:** keep the action buttons of the projects table visible in French at 1280 px ([6090fa1](https://github.com/cyr-ius/security-review/commit/6090fa1c3a5c0638211cba2b94a5d8cf3fc877c3))
+* **web:** keep the tooltips of the activity diagram across reloads ([e5835db](https://github.com/cyr-ius/security-review/commit/e5835db42fca56ae9cadcceae9f1a16e5e2bb21b))
+* **web:** unfold a risk acceptance by clicking its row ([660b311](https://github.com/cyr-ius/security-review/commit/660b3119e6172ba189a37ea7032c6d0f38a31052))
+
+
+### Documentation
+
+* add screenshots of the web interface ([359af0f](https://github.com/cyr-ius/security-review/commit/359af0f19f68805812547fcc6c1921b9f5f18d6f))
+
 ## [12.3.0](https://github.com/cyr-ius/security-review/compare/v12.2.0...v12.3.0) (2026-11-13)
 
 
