@@ -1,5 +1,43 @@
 # Changelog
 
+## [12.3.0](https://github.com/cyr-ius/security-review/compare/v12.2.0...v12.3.0) (2026-11-13)
+
+
+### Features
+
+* show one circle per active agent in the activity diagram ([f246f0d](https://github.com/cyr-ius/security-review/commit/f246f0d69f343053a70035ab2b361f860898bd23))
+* show one circle per active agent in the activity diagram ([0e2d61d](https://github.com/cyr-ius/security-review/commit/0e2d61dd13f872dfdbdda086c25ed8e32d311102))
+* store the OpenGrep rules in the database ([51d9d8f](https://github.com/cyr-ius/security-review/commit/51d9d8f869b138edd3262983f69b31c42d74f0af))
+* turn on the OSV download from the web interface ([caabcfe](https://github.com/cyr-ius/security-review/commit/caabcfe40a9fd0085f777b4fed697c0113e4da0c))
+* **web:** merge the rules pages into tabs and refresh pages on return ([fd9f4a1](https://github.com/cyr-ius/security-review/commit/fd9f4a10e41f9aa9878e2fa587eecc6076d4a308))
+* **web:** merge the users, roles and OIDC sign-in pages into tabs ([713d99e](https://github.com/cyr-ius/security-review/commit/713d99e6bbd23e57485b984851bcd215a32ca85c))
+* **web:** rename the scan engines page to Activity and open the audit log from it ([0a22b48](https://github.com/cyr-ius/security-review/commit/0a22b480e442ce4c6bf1d4786b06aa5daa470dcb))
+* **web:** show the duration of the server default validity of the tokens ([2caf163](https://github.com/cyr-ius/security-review/commit/2caf163a47953bad361497a585c74e8f76f6be5c))
+
+
+### Bug Fixes
+
+* compact the OIDC forms of the web interface ([f5b73a4](https://github.com/cyr-ius/security-review/commit/f5b73a466e3bc7f049d128f3f06ab124c43b6589))
+* compact the OSV download settings of the web interface ([08b0fdd](https://github.com/cyr-ius/security-review/commit/08b0fdd4ed05220f4d47620fa37780e155469935))
+* even out the circles and rings of the activity diagram ([605f782](https://github.com/cyr-ius/security-review/commit/605f78219181f0a68ad8a1b67d3e6329f3cf6cbe))
+* give every form of the web interface the small size ([49f6842](https://github.com/cyr-ius/security-review/commit/49f6842fcbe6177b46925c246f7d54c941793dbb))
+* give the scan engines their OpenGrep rules in the deployment examples ([719d432](https://github.com/cyr-ius/security-review/commit/719d4328444f0b9e90b4aab878c37b79eac260d2))
+* give the token creation form of the Tokens page the small size ([862ee93](https://github.com/cyr-ius/security-review/commit/862ee9389a9273349a799cf6b51e430a92cb3b87))
+* keep the heartbeats of the activity diagram under reduced motion ([01ea57b](https://github.com/cyr-ius/security-review/commit/01ea57b07ed519e142376920fd24fffde946d094))
+* make the scan engines Compose example the complete deployment ([aa050ff](https://github.com/cyr-ius/security-review/commit/aa050ffebdfd6cb36483efe4775e7ac49dd52a51))
+* point the OAuth suspension warning to the MCP clients page ([17a2cd6](https://github.com/cyr-ius/security-review/commit/17a2cd6ca0f8d71b55bcb8be49bd724842f1becc))
+* refuse the delegated content scan while the delegation is off ([2cd4228](https://github.com/cyr-ius/security-review/commit/2cd422822bec95f2ad112d303b580b59c97b6aae))
+* update launch.json to improve configuration names and add console titles ([c7994ae](https://github.com/cyr-ius/security-review/commit/c7994ae26550e72e97fb5b650271eee488343192))
+* **web:** drop the enrollment help of the scan engines section ([7092d4a](https://github.com/cyr-ius/security-review/commit/7092d4a6e9197d99b0bd02718c79faf9f45dd027))
+* **web:** drop the legend of the activity diagram, explained in the docs ([08d860f](https://github.com/cyr-ius/security-review/commit/08d860f62569687d2ac37738312bac45cd3c01ca))
+* **web:** list Activity under General in the menu ([7fd7d71](https://github.com/cyr-ius/security-review/commit/7fd7d715e840d5654630f145a1cb6c1dca94e94d))
+* **web:** show the robot icon on the MCP clients menu entry ([f6e32ed](https://github.com/cyr-ius/security-review/commit/f6e32ed693793d1b5cb3617edc7c0a622f7b1b5c))
+
+
+### Documentation
+
+* organize reference pages and proxy examples ([68e8343](https://github.com/cyr-ius/security-review/commit/68e8343d78fd3bdc4346745a2d9c9e3e5cebcdcd))
+
 ## [12.2.0](https://github.com/cyr-ius/security-review/compare/v12.1.0...v12.2.0) (2026-11-12)
 
 
