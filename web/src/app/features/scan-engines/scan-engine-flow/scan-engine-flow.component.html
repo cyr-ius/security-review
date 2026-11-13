@@ -1,6 +1,8 @@
 @let total = totals();
 <div class="flow">
   <svg
+    (pointermove)="onPointerMove($event)"
+    (pointerleave)="hovered.set(null)"
     [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
     [style.min-width.px]="width() * 0.75"
     [style.max-width.px]="width()"
@@ -106,15 +108,9 @@
         [class.source-codebase]="source.kind === 'codebase'"
         [class.source-fragment]="source.kind === 'fragment'"
         [class.idle]="!source.busy"
+        (pointerenter)="hovered.set('source:' + source.kind)"
+        (pointerleave)="hovered.set(null)"
       >
-        <title>
-          {{
-            (source.kind === 'codebase'
-              ? 'scanEngines.flowPipelinesTitle'
-              : 'scanEngines.flowAgentsTitle'
-            ) | t: { count: source.active, total: source.capacity }
-          }}
-        </title>
         <circle class="surface" [attr.cx]="source.x" [attr.cy]="source.y" [attr.r]="source.r" />
         <circle
           class="ring ring-track"
@@ -165,10 +161,12 @@
 
     <!-- One node per agent seen lately (its MCP client, never a person), or "+N" for the others -->
     @for (agent of agentNodes(); track agent.id) {
-      <g class="node source-fragment" [class.idle]="!agent.busy">
-        <title>
-          {{ agent.titleKey | t: agent.titleParams }}
-        </title>
+      <g
+        class="node source-fragment"
+        [class.idle]="!agent.busy"
+        (pointerenter)="hovered.set('agent:' + agent.id)"
+        (pointerleave)="hovered.set(null)"
+      >
         <circle class="surface" [attr.cx]="agent.x" [attr.cy]="agent.y" [attr.r]="agentRadius" />
         <circle
           class="ring ring-track"
@@ -201,7 +199,12 @@
 
     <!-- One node per active MCP server (HTTP transport): the scan_code calls it relays -->
     @for (node of mcpNodes(); track node.instance.id) {
-      <g class="node mcp" [class.idle]="!node.busy">
+      <g
+        class="node mcp"
+        [class.idle]="!node.busy"
+        (pointerenter)="hovered.set('mcp:' + node.instance.id)"
+        (pointerleave)="hovered.set(null)"
+      >
         @for (beat of [node.instance.heartbeat_at]; track beat) {
           <circle
             class="beat-ring beat-ring-mcp"
@@ -210,21 +213,6 @@
             [attr.r]="node.r"
           />
         }
-        <title>
-          {{ 'scanEngines.flowMcpInstance' | t: { number: node.number } }}.
-          {{
-            (node.instance.delegated
-              ? 'scanEngines.flowMcpTitleDelegated'
-              : 'scanEngines.flowMcpTitleLocal'
-            )
-              | t
-                : {
-                    name: node.instance.name,
-                    version: node.instance.version,
-                    count: node.instance.processing_fragments,
-                  }
-          }}
-        </title>
         <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
         <circle
           class="ring ring-track"
@@ -259,7 +247,11 @@
 
     <!-- One vertically stacked node per active Controller process -->
     @for (node of controllerNodes(); track node.instance.id) {
-      <g class="node">
+      <g
+        class="node"
+        (pointerenter)="hovered.set('controller:' + node.instance.id)"
+        (pointerleave)="hovered.set(null)"
+      >
         @if (node.instance.heartbeat_at) {
           @for (beat of [node.instance.heartbeat_at]; track beat) {
             <circle
@@ -270,20 +262,6 @@
             />
           }
         }
-        <title>
-          {{ 'scanEngines.flowControllerInstance' | t: { number: node.number } }}.
-          {{
-            'scanEngines.flowControllerTitle'
-              | t
-                : {
-                    active: total.active,
-                    total: data().engines.length,
-                    pipelines: total.activeCodebase,
-                    fragments: total.activeFragment,
-                    files: total.files,
-                  }
-          }}
-        </title>
         <circle class="surface" [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.r" />
         <circle
           class="ring ring-track"
@@ -338,24 +316,13 @@
 
     <!-- One node per engine: its slots in use, its scans, its failures -->
     @for (node of nodes(); track node.engine.id) {
-      <g class="node" [class.inactive]="!node.engine.active" [class.idle]="node.idle">
-        <title>
-          {{
-            'scanEngines.flowEngineTitle'
-              | t
-                : {
-                    name: node.engine.name,
-                    version: node.engine.version,
-                    codebase: node.engine.codebase_scans,
-                    fragments: node.engine.fragment_scans,
-                    files: node.engine.scanned_files,
-                    failed: node.engine.failed_scans,
-                    busy: node.engine.busy_refusals,
-                    used: node.used,
-                    capacity: node.capacity,
-                  }
-          }}
-        </title>
+      <g
+        class="node"
+        [class.inactive]="!node.engine.active"
+        [class.idle]="node.idle"
+        (pointerenter)="hovered.set('engine:' + node.engine.id)"
+        (pointerleave)="hovered.set(null)"
+      >
         @if (node.engine.active) {
           @for (beat of [node.engine.heartbeat_at]; track beat) {
             <circle
@@ -414,3 +381,16 @@
     }
   </svg>
 </div>
+@if (tooltip(); as text) {
+  @if (pointer(); as at) {
+    <div
+      class="flow-tooltip small"
+      [class.flipped]="at.flipped"
+      [style.left.px]="at.x"
+      [style.top.px]="at.y"
+      role="status"
+    >
+      {{ text }}
+    </div>
+  }
+}

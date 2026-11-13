@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
@@ -175,7 +184,103 @@ function shortName(name: string): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ScanEngineFlowComponent {
+  private readonly i18n = inject(I18nService);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+
   readonly data = input.required<ScanEngineList>();
+
+  /**
+   * Node under the pointer ("engine:<id>", "mcp:<id>"...) and the pointer, in the frame of the
+   * diagram. The tooltip is drawn in HTML from them: a native SVG <title> closes, or never opens,
+   * when the page reloads the data under the pointer (every 2 s).
+   */
+  readonly hovered = signal<string | null>(null);
+  readonly pointer = signal<{ x: number; y: number; flipped: boolean } | null>(null);
+
+  /** Text of the tooltip of the hovered node, from the current data (null once it is gone). */
+  readonly tooltip = computed(() => {
+    const key = this.hovered();
+    if (!key) {
+      return null;
+    }
+    const t = this.i18n.translate.bind(this.i18n);
+    const split = key.indexOf(':');
+    const kind = key.slice(0, split);
+    const id = key.slice(split + 1);
+    const total = this.totals();
+    switch (kind) {
+      case 'source': {
+        const source = this.sources().find((s) => s.kind === id);
+        return source
+          ? t(
+              source.kind === 'codebase'
+                ? 'scanEngines.flowPipelinesTitle'
+                : 'scanEngines.flowAgentsTitle',
+              { count: source.active, total: source.capacity },
+            )
+          : null;
+      }
+      case 'agent': {
+        const agent = this.agentNodes().find((a) => a.id === id);
+        return agent ? t(agent.titleKey, agent.titleParams) : null;
+      }
+      case 'mcp': {
+        const node = this.mcpNodes().find((n) => n.instance.id === id);
+        if (!node) {
+          return null;
+        }
+        const detail = t(
+          node.instance.delegated
+            ? 'scanEngines.flowMcpTitleDelegated'
+            : 'scanEngines.flowMcpTitleLocal',
+          {
+            name: node.instance.name,
+            version: node.instance.version,
+            count: node.instance.processing_fragments,
+          },
+        );
+        return `${t('scanEngines.flowMcpInstance', { number: node.number })}. ${detail}`;
+      }
+      case 'controller': {
+        const node = this.controllerNodes().find((n) => n.instance.id === id);
+        if (!node) {
+          return null;
+        }
+        const detail = t('scanEngines.flowControllerTitle', {
+          active: total.active,
+          total: this.data().engines.length,
+          pipelines: total.activeCodebase,
+          fragments: total.activeFragment,
+          files: total.files,
+        });
+        return `${t('scanEngines.flowControllerInstance', { number: node.number })}. ${detail}`;
+      }
+      case 'engine': {
+        const node = this.nodes().find((n) => n.engine.id === id);
+        return node
+          ? t('scanEngines.flowEngineTitle', {
+              name: node.engine.name,
+              version: node.engine.version,
+              codebase: node.engine.codebase_scans,
+              fragments: node.engine.fragment_scans,
+              files: node.engine.scanned_files,
+              failed: node.engine.failed_scans,
+              busy: node.engine.busy_refusals,
+              used: node.used,
+              capacity: node.capacity,
+            })
+          : null;
+      }
+    }
+    return null;
+  });
+
+  /** Follow the pointer; the tooltip goes left of it on the right half of the diagram. */
+  onPointerMove(event: PointerEvent): void {
+    const rect = this.host.nativeElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    this.pointer.set({ x, y: event.clientY - rect.top, flipped: x > rect.width / 2 });
+  }
 
   readonly height = computed(() => this.controllerLayout().height);
   readonly controllerRadius = CONTROLLER.r;

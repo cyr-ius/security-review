@@ -215,3 +215,28 @@ svg {
   fill: var(--bs-secondary-color);
   font-size: 11px;
 }
+
+/* Tooltip of the node under the pointer, out of the scrolling box so that it is never cut */
+:host {
+  display: block;
+  position: relative;
+}
+
+.flow-tooltip {
+  position: absolute;
+  z-index: 1;
+  max-width: 22rem;
+  padding: 0.4rem 0.6rem;
+  margin: 14px 0 0 14px;
+  pointer-events: none;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  box-shadow: var(--bs-box-shadow-sm);
+  white-space: pre-line;
+}
+
+.flow-tooltip.flipped {
+  margin-left: -14px;
+  transform: translateX(-100%);
+}
