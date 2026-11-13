@@ -30,7 +30,8 @@ Dans la page **Jetons**, un administrateur choisit :
 - l'**Usage** : **MCP**, **Pipeline CI/CD** ou **API REST** (avec le **Rôle** qu'il porte) ;
 - les **Projets autorisés**, cochés dans une liste déroulante avec recherche : **Tous les
   projets** (y compris ceux revus plus tard, jamais pour un jeton CI/CD) ou certains projets ;
-- la **Validité** : de 30 jours à 1 an.
+- la **Validité** : de 30 jours à 1 an, ou **Défaut du serveur**, suivi de sa durée entre
+  parenthèses : `SECREVIEW_TOKEN_MAX_DAYS`, ou sans expiration quand il vaut `0`.
 
 Un jeton ne donne jamais plus que ce que détient son créateur : un jeton **MCP** ou **Pipeline
 CI/CD** enregistre des rapports sur ses projets, son créateur doit donc y avoir **Écrire les

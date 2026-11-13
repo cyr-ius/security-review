@@ -73,6 +73,8 @@ class Identity(BaseModel):
     personal_tokens_enabled: bool = True
     # The OAuth login of the MCP clients is on (variable or web interface)
     mcp_oauth: bool = False
+    # Default and longest validity in days of a new token (SECREVIEW_TOKEN_MAX_DAYS); 0: none
+    token_max_days: int = 0
     version: str
 
 

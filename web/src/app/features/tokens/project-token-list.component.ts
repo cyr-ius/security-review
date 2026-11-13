@@ -23,6 +23,7 @@ import {
   TokenRoleChoice,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlMultiFilter,
@@ -64,6 +65,7 @@ const TOKEN_FILTER_ROLES: readonly ProjectTokenRole[] = ['mcp', 'ci', 'api'];
 })
 export class ProjectTokenListComponent {
   private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
@@ -166,6 +168,11 @@ export class ProjectTokenListComponent {
   readonly busy = signal(false);
   /** Validities offered at creation, in days ('' : default of the server). */
   readonly validities = VALIDITY_DAYS;
+  /** Validity of a token created without one: SECREVIEW_TOKEN_MAX_DAYS, or no expiry. */
+  readonly maxDays = computed(() => this.auth.identity()?.token_max_days ?? 0);
+  readonly defaultValidity = computed<MessageKey>(() =>
+    this.maxDays() ? 'tokens.validityDefaultDays' : 'tokens.validityDefaultNever',
+  );
   /** Grace periods offered for a rotation, in hours. */
   readonly graceChoices = GRACE_HOURS;
   /** Hours during which the previous secret keeps working after a rotation. */

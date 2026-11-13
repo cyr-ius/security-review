@@ -82,7 +82,7 @@
         class="form-select form-select-sm"
         [formField]="tokenForm.validity"
       >
-        <option value="">{{ 'tokens.validityDefault' | t }}</option>
+        <option value="">{{ defaultValidity() | t: { days: maxDays() } }}</option>
         @for (days of validities; track days) {
           <option [value]="days">{{ 'tokens.validityDays' | t: { days } }}</option>
         }

@@ -158,13 +158,16 @@ def reports() -> tuple[int, int]:
 # ── Read endpoints ───────────────────────────────────────────────────────────
 
 
-def test_me(client):
+def test_me(client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "token_max_days", 90)
     body = client.get("/api/v1/me").json()
     assert body["client"] == "test-admin"
     assert body["role"] == "admin"
     assert body["can_triage"] is True
     assert body["auth_enabled"] is True
     assert body["permanent_acceptance"] is False  # a bearer token never accepts a risk
+    # Shown as the default validity of the token forms
+    assert body["token_max_days"] == 90
 
 
 @pytest.mark.parametrize(

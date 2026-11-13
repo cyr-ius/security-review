@@ -39,6 +39,11 @@ export class ApiTokensComponent {
     maxLength(path.label, 64);
   });
   readonly validities = VALIDITY_DAYS;
+  /** Validity of a token created without one: SECREVIEW_TOKEN_MAX_DAYS, or no expiry. */
+  readonly maxDays = computed(() => this.auth.identity()?.token_max_days ?? 0);
+  readonly defaultValidity = computed<MessageKey>(() =>
+    this.maxDays() ? 'tokens.validityDefaultDays' : 'tokens.validityDefaultNever',
+  );
   /** The MCP and CI usages are offered while the server allows them (it checks it too). */
   readonly roles = computed(() => {
     const identity = this.auth.identity();
