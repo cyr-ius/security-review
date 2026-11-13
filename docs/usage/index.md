@@ -60,6 +60,8 @@ A page is missing? You do not hold its permission: ask an administrator (see
   on its own (after 5 s, then with a delay doubled after each failure, up to 60 s, paused while the
   tab is hidden) or when you click **Retry**, and brings you back to your page once it answers again.
 
+![The page of a project: open findings by severity, trend, open findings](../assets/screenshots/project-overview.png)
+
 ## Pages
 
 **Supervision**
@@ -113,6 +115,8 @@ The **Activity** page (`settings.manage`) shows what runs now and reloads itself
   [Scan engines](../advanced/architecture/scan-engine.md#administration));
 - the **Scan engines** section: the [scan engines](../advanced/architecture/scan-engine.md#administration)
   enrolled with the Controller server (version, address, last activity) and their revocation.
+
+![Activity diagram: agents, pipelines, MCP servers, Controller servers and scan engines](../assets/screenshots/activity-diagram.png)
 
 The **Audit log** button, next to **Refresh**, opens the [audit log](audit-metrics.md)
 (`audit.read`). The former address `/ui/scan-engines` leads to this page.

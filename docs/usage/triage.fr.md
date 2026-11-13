@@ -31,6 +31,10 @@ Pour utiliser l'API REST, voir [Triage par l'API REST](../advanced/reports/triag
 - Un trieur peut aussi envoyer un finding vers Jira ou ServiceNow quand son projet a une
   destination ([connecteurs](connectors/index.md#envoi-dun-finding)).
 
+![Un finding avec la proposition d'un agent, à appliquer ou à rejeter](../assets/screenshots/triage-proposal.png)
+
+![Accepter un risque : motif et date d'expiration](../assets/screenshots/triage-acceptance.png)
+
 ## Plusieurs findings à la fois
 
 Sur la page **Findings à revoir**, un trieur coche les findings à traiter (ou

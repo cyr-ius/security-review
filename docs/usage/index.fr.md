@@ -64,6 +64,8 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
   tant que l'onglet est masqué) ou quand vous cliquez sur **Réessayer**, et vous ramène à votre page
   dès qu'il répond de nouveau.
 
+![La page d'un projet : findings ouverts par criticité, tendance, findings ouverts](../assets/screenshots/project-overview.png)
+
 ## Pages
 
 **Supervision**
@@ -118,6 +120,8 @@ les 2 secondes tant qu'elle est visible :
   [Moteurs de scan](../advanced/architecture/scan-engine.md#administration)) ;
 - la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
   enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
+
+![Diagramme d'activité : agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan](../assets/screenshots/activity-diagram.png)
 
 Le bouton **Journal d'audit**, à côté d'**Actualiser**, ouvre le [journal d'audit](audit-metrics.md)
 (`audit.read`). L'ancienne adresse `/ui/scan-engines` mène à cette page.

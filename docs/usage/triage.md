@@ -28,6 +28,10 @@ Worth knowing:
 - A triager may also send a finding to Jira or ServiceNow when its project has a destination
   ([connectors](connectors/index.md#sending-a-finding)).
 
+![A finding with the proposal of an agent, to apply or reject](../assets/screenshots/triage-proposal.png)
+
+![Accepting a risk: reason and expiry date](../assets/screenshots/triage-acceptance.png)
+
 ## Several findings at once
 
 On the **Findings to review** page, a triager ticks the findings to decide on (or

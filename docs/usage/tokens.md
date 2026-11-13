@@ -38,6 +38,8 @@ reports on its projects, so its creator needs **Write the reports** (`reports.wr
 page only lists the tokens of the projects you read. **Projects** changes the projects of a token without changing its secret;
 **Rotate** replaces its secret.
 
+![A token just created, shown once](../assets/screenshots/tokens-created.png)
+
 ## API tokens
 
 An `api` token calls the REST API, from a script or from the Swagger documentation

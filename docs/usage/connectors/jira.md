@@ -14,6 +14,8 @@ Center. The variables are in [Connectors in detail](../../advanced/connectors.md
 
 The account only needs to browse and create issues in the Jira projects used.
 
+![The connection of Jira](../../assets/screenshots/connectors-jira.png)
+
 ## Destination
 
 The destination of a project is its **Jira project key** (`SEC`).

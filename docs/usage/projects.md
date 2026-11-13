@@ -24,6 +24,8 @@ project `mobile-app`, so that the members of a team reach the same project whate
 
 A project created without a report shows **No report yet** until its first review.
 
+![The Projects page with a project requested by the agent of a developer](../assets/screenshots/projects-pending.png)
+
 ## Members
 
 The **members** of a project are the accounts that have it in their projects, each with its
@@ -39,6 +41,8 @@ projects of an account](access-control.md#roles-and-projects-of-an-account)), or
 **Access request** filed by an agent in **Projects**. The accounts that have every project,
 themselves or by an [OIDC mapping](sso.md#oidc-mappings), are listed apart, under **Users who have
 every project**, read only: change their permissions in **Users** or in the mapping.
+
+![The members of a project](../assets/screenshots/project-members.png)
 
 ## Creating a project
 

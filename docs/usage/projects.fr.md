@@ -24,6 +24,8 @@ leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
 
 Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première revue.
 
+![La page Projets avec un projet demandé par l'agent d'un développeur](../assets/screenshots/projects-pending.png)
+
 ## Membres
 
 Les **membres** d'un projet sont les comptes qui l'ont dans leurs projets, chacun avec ses droits
@@ -39,6 +41,8 @@ ou en validant la **Demande d'accès** déposée par un agent dans **Projets**. 
 tous les projets, eux-mêmes ou par une [correspondance OIDC](sso.md#correspondances-oidc), sont
 listés à part, sous **Utilisateurs qui ont tous les projets**, en lecture seule : modifiez leurs
 droits dans **Utilisateurs** ou dans la correspondance.
+
+![Les membres d'un projet](../assets/screenshots/project-members.png)
 
 ## Création d'un projet
 
