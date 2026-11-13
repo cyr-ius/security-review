@@ -6,6 +6,11 @@
   width: auto;
 }
 
+/* Long headers (French) wrap so the action column stays visible at 1280 px */
+.table > thead th.header-wrap {
+  white-space: normal;
+}
+
 .numeric {
   font-variant-numeric: tabular-nums;
 }
