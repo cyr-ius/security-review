@@ -137,7 +137,7 @@ export class LayoutComponent {
     {
       path: '/mcp-clients',
       label: 'layout.mcpClients',
-      icon: 'bi-laptop',
+      icon: 'bi-robot',
       permission: 'tokens.manage',
     },
     { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
