@@ -42,6 +42,7 @@ import {
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { BulkTriageComponent } from './bulk-triage/bulk-triage.component';
 import { reloadOnReturn } from '../../../shared/utils/reload-on-return';
+import { reportSearch } from '../../../layout/global-search/search-query';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -93,6 +94,9 @@ export class ProjectFindingsComponent {
   readonly severityFilter = linkedSignal<Severity[]>(() => known(this.severity(), SEVERITIES));
   readonly reviewTypeFilter = signal<ReviewType[]>([]);
 
+  /** Only the findings with a status proposed by an agent. */
+  readonly proposedOnly = signal(false);
+
   /** Query parameter ?search= (set by the search field of the top bar). */
   readonly search = input<string>();
 
@@ -100,6 +104,12 @@ export class ProjectFindingsComponent {
   readonly searchInput = linkedSignal(() => this.search() ?? '');
   readonly appliedSearch = linkedSignal(() => (this.search() ?? '').trim());
   private searchTimer?: ReturnType<typeof setTimeout>;
+
+  /** Applied search split into ``#report:<number>`` (the findings of that report) and text. */
+  private readonly searchQuery = computed(() => {
+    const { reportId, text } = reportSearch(this.appliedSearch());
+    return { reportId, search: text || undefined };
+  });
 
   /** Statuses listed: the selected ones, or all of them. */
   private readonly statuses = computed(() =>
@@ -157,6 +167,7 @@ export class ProjectFindingsComponent {
       this.statusFilter()[0] === 'open' &&
       !this.severityFilter().length &&
       !this.reviewTypeFilter().length &&
+      !this.proposedOnly() &&
       !this.appliedSearch(),
   );
 
@@ -167,7 +178,8 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
-      search: this.appliedSearch() || undefined,
+      ...this.searchQuery(),
+      proposed: this.proposedOnly(),
       limit: PAGE_SIZE,
       offset: 0,
     }),
@@ -244,6 +256,11 @@ export class ProjectFindingsComponent {
     }
   }
 
+  /** List only the findings with a proposal of an agent, or every finding. */
+  toggleProposed(event: Event): void {
+    this.proposedOnly.set((event.target as HTMLInputElement).checked);
+  }
+
   /** Keep the typed text and search it once typing pauses. */
   onSearch(value: string): void {
     this.searchInput.set(value);
@@ -260,7 +277,8 @@ export class ProjectFindingsComponent {
       status: this.statuses(),
       severity: this.severityFilter(),
       reviewType: this.reviewTypeFilter(),
-      search: this.appliedSearch() || undefined,
+      ...this.searchQuery(),
+      proposed: this.proposedOnly(),
       limit: PAGE_SIZE,
       // Triaged findings left the filtered set on the server: skipping them in the offset
       // keeps the next page from jumping over findings not yet seen

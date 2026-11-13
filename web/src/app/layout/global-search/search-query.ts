@@ -154,6 +154,26 @@ export function parseSearch(raw: string): SearchTarget[] {
 }
 
 /**
+ * ``#report:<number>`` typed in the search of a list of findings, anywhere: the number of that
+ * report and the rest of the text (``xss #report:12``: "xss" in report 12). Without it, or
+ * with another value, the whole text is searched.
+ */
+export function reportSearch(raw: string): { reportId?: number; text: string } {
+  let reportId: number | undefined;
+  const words: string[] = [];
+  for (const word of raw.trim().split(/\s+/).filter(Boolean)) {
+    const prefixed = QUALIFIER.exec(word);
+    const id = prefixed?.[1].toLowerCase() === 'report' ? ID.exec(prefixed[2]) : null;
+    if (id && reportId === undefined) {
+      reportId = Number(id[1]);
+    } else {
+      words.push(word);
+    }
+  }
+  return { reportId, text: words.join(' ') };
+}
+
+/**
  * Projects whose name contains the query (text only), at most three: the exact name first.
  * Each one can be opened, or give its findings or its reports.
  */

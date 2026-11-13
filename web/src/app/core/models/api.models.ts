@@ -965,6 +965,10 @@ export interface ProjectFindingQuery {
   reviewType: readonly ReviewType[];
   /** Text in the title, rule, CWE, file, description, project or branch (omitted: no search). */
   search?: string;
+  /** The findings of this report only (omitted: every report). */
+  reportId?: number;
+  /** The findings with a status proposed by an agent only. */
+  proposed?: boolean;
   limit: number;
   offset: number;
 }

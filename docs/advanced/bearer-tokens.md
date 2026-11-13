@@ -121,7 +121,7 @@ Its status changes are limited to `open` and `fixed`, like those of an `api` tok
 The REST API lists the findings of a project across all its reports, open by default, worst
 first (`status`, `severity` and `review_type` filter, each repeatable: any of the values
 matches; `search`, at most 200 characters, keeps the findings whose title, rule, CWE, file,
-description, project or branch contains it, case-insensitive; `limit` is capped by `SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
+description, project or branch contains it, case-insensitive; `report_id` keeps the findings of one report and `proposed=true` those carrying a status proposed by an agent; `limit` is capped by `SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
 `project`, it lists the findings of every project the caller reads (`"project": null`):
 
 ```bash

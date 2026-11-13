@@ -607,6 +607,12 @@ export class ApiService {
     if (query.search) {
       params = params.set('search', query.search);
     }
+    if (query.reportId !== undefined) {
+      params = params.set('report_id', query.reportId);
+    }
+    if (query.proposed) {
+      params = params.set('proposed', true);
+    }
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }
 

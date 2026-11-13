@@ -21,6 +21,8 @@ Pour utiliser l'API REST, voir [Triage par l'API REST](../advanced/reports/triag
     - **Appliquer** reprend la proposition (le formulaire s'ouvre pour une acceptation ou un faux
       positif).
     - **Rejeter** supprime la proposition.
+    - Sur la page **Findings à revoir**, **Avec une proposition uniquement** liste les findings
+      qui attendent cette vérification.
 - **Les findings peu graves** (`low` et `info` par défaut) s'acceptent par une simple
   validation, sans motif ni date.
 - **Une acceptation expirée compte de nouveau comme ouverte** partout : listes, posture,

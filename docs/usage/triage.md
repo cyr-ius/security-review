@@ -19,6 +19,8 @@ Worth knowing:
   applying it.
     - **Apply** takes the proposal over (the form opens for an acceptance or a false positive).
     - **Reject** removes the proposal.
+    - On the **Findings to review** page, **With a proposal only** lists the findings waiting
+      for such a check.
 - **Low-severity findings** (`low` and `info` by default) are accepted by a plain validation,
   with no reason and no date.
 - **An expired acceptance counts as open again** everywhere: lists, posture, [gate](../review/gate.md),

@@ -256,6 +256,8 @@ async def project_findings(
     severity: Annotated[list[Severity] | None, Query(max_length=len(Severity))] = None,
     review_type: Annotated[list[ReviewType] | None, Query(max_length=len(ReviewType))] = None,
     search: Annotated[str | None, Query(max_length=200)] = None,
+    report_id: Annotated[int | None, Query(ge=1, le=2**53 - 1)] = None,
+    proposed: Annotated[bool, Query()] = False,
     limit: Annotated[int, Query(ge=1)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ProjectFindingPage:
@@ -264,7 +266,8 @@ async def project_findings(
     Gives an expert the whole list to review; without ``project``, lists the findings of every
     project in the scope of the caller. ``status``, ``severity`` and ``review_type`` may be
     repeated (any of the values matches); ``search`` keeps the findings whose title, rule, CWE,
-    file, description, project or branch contains it. limit is capped by
+    file, description, project or branch contains it; ``report_id`` keeps the findings of one
+    report and ``proposed`` those carrying a status proposed by an agent. limit is capped by
     SECREVIEW_MAX_LIST_LIMIT.
     """
     if project is not None:
@@ -279,6 +282,8 @@ async def project_findings(
         review_type,
         identity.projects,
         search,
+        report_id,
+        proposed,
     )
 
 
