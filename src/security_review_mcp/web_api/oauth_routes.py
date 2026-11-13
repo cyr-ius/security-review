@@ -2,7 +2,7 @@
 
 The consent screen reads a pending request and approves or denies it, and My account lists and
 revokes the approved clients: only a logged-in web user reaches them (403 for a bearer token),
-so a token never approves a client. The Tokens screen lists every client and grant, revokes a
+so a token never approves a client. The MCP clients page lists every client and grant, revokes a
 grant and deletes a client, with ``tokens.manage``; turning the login on or off and setting the
 URL of the MCP endpoint needs ``settings.manage``. The OAuth routes themselves (``/authorize``,
 ``/token``...) are those of the MCP SDK, served by create_app (OAuthRoutes) while the login is

@@ -341,7 +341,7 @@ class Settings(BaseSettings):
     # controller URL (variable or web interface); without mcp_url the login is only suspended
     # (see app_settings.effective_settings). The controller stores mcp_url in the database
     # at start, where the MCP server reads it (it needs no variable). Disabled by default. Unset,
-    # an administrator may turn it on and set mcp_url in the web interface (Tokens screen).
+    # an administrator may turn it on and set mcp_url in the web interface (MCP clients page).
     mcp_oauth_enabled: bool = False
     # Public URL of the MCP endpoint, e.g. https://mcp.example.com/mcp: the resource the OAuth
     # tokens are issued for (RFC 8707), announced by the MCP server (RFC 9728)

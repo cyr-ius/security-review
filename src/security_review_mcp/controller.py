@@ -118,7 +118,7 @@ def serve(argv: list[str]) -> None:
         if oauth["enabled"]["effective"] and not oauth_enabled:
             logger.warning(
                 "OAuth login of the MCP clients suspended: set the URL of the MCP endpoint "
-                "(SECREVIEW_MCP_URL or the Tokens page of the web interface)"
+                "(SECREVIEW_MCP_URL or the MCP clients page of the web interface)"
             )
         if not settings.personal_tokens_enabled:
             logger.warning(
