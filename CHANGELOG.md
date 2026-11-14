@@ -1,5 +1,19 @@
 # Changelog
 
+## [12.5.0](https://github.com/cyr-ius/security-review/compare/v12.4.0...v12.5.0) (2026-11-14)
+
+
+### Features
+
+* show the slots and files of the Controller server without scan engines ([fd88fa4](https://github.com/cyr-ius/security-review/commit/fd88fa40471acf1975eef78efa5dcaa17c9b2ea2))
+
+
+### Bug Fixes
+
+* **deps:** bump opentelemetry-api from 1.45.1 to 1.45.2 ([a518b2b](https://github.com/cyr-ius/security-review/commit/a518b2b84fa740e834d27c6a932f2d29fb4c13b2))
+* let only an administrator give users.manage and settings.manage ([84751d3](https://github.com/cyr-ius/security-review/commit/84751d3b4b8be77ffa4b00240480075346460640))
+* **web:** never reduce the animations of the activity diagram ([5d7d406](https://github.com/cyr-ius/security-review/commit/5d7d40692ff8789ed269d07b599ce0cce0265da4))
+
 ## [12.4.0](https://github.com/cyr-ius/security-review/compare/v12.3.0...v12.4.0) (2026-11-13)
 
 
