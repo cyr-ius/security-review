@@ -9,8 +9,8 @@ partagent la base (voir [Architecture](index.md)).
 
 | Route | Utilisée par | Identifiant |
 |---|---|---|
-| `/mcp` | les agents : [prompts, outils et ressources](../../review/prompts-tools.md) | jeton `mcp` (personnel ou non), jeton `admin`, ou jeton d'accès [OAuth](../mcp-oauth.md) |
-| `/mcp` sans jeton | un agent pas encore connecté : [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement), qui explique comment obtenir un jeton ; avec la [connexion OAuth](../mcp-oauth.md), un `401` qui la démarre | aucun |
+| `/mcp` | les agents : [prompts, outils et ressources](../../reference/prompts-tools.md) | jeton `mcp` (personnel ou non), jeton `admin`, ou jeton d'accès [OAuth](../mcp-oauth.md) |
+| `/mcp` sans jeton | un agent pas encore connecté : [serveur d'enrôlement](../../reference/prompts-tools.md#serveur-denrolement), qui explique comment obtenir un jeton ; avec la [connexion OAuth](../mcp-oauth.md), un `401` qui la démarre | aucun |
 | `/.well-known/oauth-protected-resource/mcp` | les hôtes, avec la [connexion OAuth](../mcp-oauth.md) active : métadonnées de la ressource protégée (RFC 9728), qui désignent le serveur Controller comme serveur d'autorisation (404 sinon) | aucun |
 | `/healthz` | sondes (`HEALTHCHECK` Docker, Kubernetes) | aucun |
 
@@ -55,7 +55,7 @@ En stdio, `security-review-mcp local` migre lui-même sa base locale.
 
 | Client | Réponse |
 |---|---|
-| Sans jeton | le [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement) : aucun outil, des prompts qui expliquent comment obtenir un jeton ; `401` tant que l'URL publique du serveur Controller est inconnue |
+| Sans jeton | le [serveur d'enrôlement](../../reference/prompts-tools.md#serveur-denrolement) : aucun outil, des prompts qui expliquent comment obtenir un jeton ; `401` tant que l'URL publique du serveur Controller est inconnue |
 | Jeton inconnu, révoqué ou expiré | `401` qui indique à l'utilisateur où créer un nouveau jeton ([jeton refusé](#jeton-refuse-se-reconnecter)) |
 | Jeton `mcp` ou `admin` valide | tous les prompts, outils et ressources, sur les projets du jeton ([jetons restreints à un projet](../bearer-tokens.md#jetons-restreints-a-un-projet)) |
 
@@ -66,7 +66,7 @@ s'applique à la requête suivante, une règle modifiée en 5 secondes.
 
 Cette section est la référence technique de ce que le serveur MCP expose à un client muni d'un
 jeton valide (en stdio, à l'hôte local). Quand s'en servir pendant une revue :
-[Prompts et outils](../../review/prompts-tools.md).
+[Prompts et outils](../../reference/prompts-tools.md).
 
 À la connexion, le serveur envoie des **instructions** que l'hôte montre au modèle : quel prompt
 lance une revue, `request_project` avant de relire, `save_security_report` une seule fois à la
@@ -94,7 +94,7 @@ la revue, que l'agent suit ensuite. Chaque argument est une chaîne facultative.
   une donnée et non comme des instructions.
 - `report_language` : lettres, espaces, `-`, `_` et parenthèses, 40 caractères au plus ; sans
   lui, `SECREVIEW_REPORT_LANGUAGE`, sinon la page **Général**
-  ([langue des rapports](../../review/prompts-tools.md#langue-des-rapports)).
+  ([langue des rapports](../../reference/prompts-tools.md#langue-des-rapports)).
 - Un argument invalide renvoie l'erreur MCP `INVALID_PARAMS` avec sa raison : `report_language`
   refusé, `scan_results` ou `task` + `context` au-delà de `SECREVIEW_MAX_CONTENT_CHARS`, rapport
   hors des projets du jeton, norme inconnue.
@@ -129,10 +129,10 @@ message de toute autre erreur lui est masqué.
 | Outil | Type | Paramètres | Renvoie |
 |---|---|---|---|
 | `request_project` | écriture | `project` | `status` : `accessible`, `created`, `joined` ou `requested` avec `next_steps` ([enrôlement](#enrolement-jeton-personnel-et-demande-de-projet)) ; jamais de jeton |
-| `save_security_report` | écriture | `project`, `summary`, `findings` (au plus `SECREVIEW_MAX_FINDINGS_PER_REPORT`) ; facultatifs `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (ne peut que relever le risque calculé), `review_type`, `author`, `checklist_results` (500 au plus), `scan_rules` (500 au plus) | Identifiant du rapport, niveau de risque, comptes par sévérité et couverture de la revue ([rapport enregistré](../../review/prompts-tools.md#rapport-enregistre)) |
+| `save_security_report` | écriture | `project`, `summary`, `findings` (au plus `SECREVIEW_MAX_FINDINGS_PER_REPORT`) ; facultatifs `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (ne peut que relever le risque calculé), `review_type`, `author`, `checklist_results` (500 au plus), `scan_rules` (500 au plus) | Identifiant du rapport, niveau de risque, comptes par sévérité et couverture de la revue ([rapport enregistré](../../reference/prompts-tools.md#rapport-enregistre)) |
 | `get_security_report` | lecture seule | `report_id`, `format` (`markdown` par défaut, ou `json`) | Le rapport et ses findings, sans son auteur |
 | `list_security_reports` | lecture seule | `project`, `risk_level`, `review_type`, `limit` (1 à 100, `20` par défaut), `offset` | Les rapports, du plus récent au plus ancien, sans leur auteur (`author` : obsolète, ignoré) |
-| `propose_finding_status` | écriture | `finding_id`, `status` (`fixed`, `accepted` ou `false_positive`), `reason` (10 à 1 000 caractères) | Le finding avec sa proposition ; son statut ne change pas tant qu'une personne n'a pas décidé ([statut d'un finding](../../review/prompts-tools.md#statut-dun-finding)) |
+| `propose_finding_status` | écriture | `finding_id`, `status` (`fixed`, `accepted` ou `false_positive`), `reason` (10 à 1 000 caractères) | Le finding avec sa proposition ; son statut ne change pas tant qu'une personne n'a pas décidé ([statut d'un finding](../../reference/prompts-tools.md#statut-dun-finding)) |
 | `propose_opengrep_rule` | écriture | `project`, `rule_id`, `content` (une règle YAML, au plus 256 Kio), `reason` (10 à 1 000 caractères), `test_code` (au plus `SECREVIEW_MAX_CONTENT_CHARS`) | La proposition en attente et `next_steps` ; la règle n'est installée qu'après l'approbation d'une personne ([règles proposées par les agents](../../review/analysis/opengrep.md#regles-proposees-par-les-agents)) |
 
 **Posture, gate, exports et tendances**
@@ -172,7 +172,7 @@ périmètre que les outils.
 Un objet inconnu renvoie une erreur « ressource introuvable », un identifiant invalide une
 erreur de ressource.
 
-Le [serveur d'enrôlement](../../review/prompts-tools.md#serveur-denrolement), servi à un client
+Le [serveur d'enrôlement](../../reference/prompts-tools.md#serveur-denrolement), servi à un client
 sans jeton, n'expose aucun de ces outils ni ressources : seulement les cinq prompts de revue,
 sans argument, qui expliquent comment obtenir un jeton.
 

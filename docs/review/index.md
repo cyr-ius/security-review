@@ -61,7 +61,7 @@ Every review prompt gives the agent the same method, in five steps:
 4. **Describe the vulnerabilities.** For each confirmed one, it gives the severity, the CWE,
    the file, the line and a fix.
 5. **Save the report.** The agent calls `save_security_report` **once**. It also declares what
-   it checked (the [coverage](prompts-tools.md#review-coverage)).
+   it checked (the [coverage](../reference/prompts-tools.md#review-coverage)).
 
 Then a person triages the findings in the [web interface](../usage/triage.md).
 The agent can only **propose** a status. It never closes a finding.

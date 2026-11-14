@@ -88,4 +88,4 @@ Sans interface web, vous triez les findings dans la conversation.
 L'hôte doit gérer l'elicitation MCP (Claude Code, VS Code). Sinon, l'assistant peut seulement
 proposer un statut.
 
-Détails : [décision du développeur en mode local](../review/prompts-tools.md#decision-du-developpeur-en-mode-local).
+Détails : [décision du développeur en mode local](../reference/prompts-tools.md#decision-du-developpeur-en-mode-local).

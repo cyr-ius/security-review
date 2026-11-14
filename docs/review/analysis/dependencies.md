@@ -188,7 +188,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
   cannot run for a file.
 - With `--save`, the user of a personal `ci` token is the author of the report, else
   `--author` stores the username of the developer with it (see
-  [author of a report](../prompts-tools.md#author-of-a-report)), `--repository`,
+  [author of a report](../../reference/prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context; the label of the token is stored as the device.
 - Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the Controller server, the request
   to `SECREVIEW_MAX_SCAN_REQUEST_MB`. Symbolic links are not read.

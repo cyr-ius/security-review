@@ -212,4 +212,4 @@ the host.
 - **Local mode (stdio)**, without a server (the host starts the process itself): see
   [Local mode (stdio)](stdio.md).
 
-**Next step:** run your first review with the [prompts and tools](../review/prompts-tools.md).
+**Next step:** run your first review with the [prompts and tools](../reference/prompts-tools.md).

@@ -84,6 +84,6 @@ ships the example of Claude Code.
 - The rules are a copy of the default `AI-*` rules: a rule changed by an administrator in the
   web interface does not apply to the guard, which runs without the Controller server.
 - The rules are a first pass: text addressed to an assistant can be worded in endless ways. The
-  [untrusted data rule](../prompts-tools.md#status-of-a-finding) of the review prompts and
+  [untrusted data rule](../../reference/prompts-tools.md#status-of-a-finding) of the review prompts and
   the fact that [an agent never closes a finding](../../reference/security.md#security-of-the-server-itself)
   remain the main protections.

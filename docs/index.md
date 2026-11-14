@@ -160,7 +160,7 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 |---|---|
 | 1. Deploy the Controller server and the MCP server (Docker Compose or Kubernetes), create the first accounts | [Deploying the server](getting-started/deploy.md) |
 | 2. Connect VS Code or Claude, get a token | [Connecting the host](getting-started/host.md) |
-| 3. Run a review | [How a review works](review/index.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](review/prompts-tools.md) |
+| 3. Run a review | [How a review works](review/index.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](reference/prompts-tools.md) |
 | 4. Read and triage the reports | [Web interface](usage/index.md) |
 | 5. Block a deployment on open findings | [Gate](review/gate.md) |
 

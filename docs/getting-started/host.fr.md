@@ -216,4 +216,4 @@ enregistrez-le dans l'hôte.
 - **Mode local (stdio)**, sans serveur (l'hôte lance lui-même le processus) : voir
   [Mode local (stdio)](stdio.md).
 
-**Étape suivante :** lancez votre première revue avec les [prompts et outils](../review/prompts-tools.md).
+**Étape suivante :** lancez votre première revue avec les [prompts et outils](../reference/prompts-tools.md).

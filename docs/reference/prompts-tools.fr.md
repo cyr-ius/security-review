@@ -1,7 +1,7 @@
 # Prompts et outils
 
 Pour comprendre quand s'appliquent les règles, les checklists et les normes, et comment écrire
-le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](index.md).
+le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](../review/index.md).
 
 ## Prompts
 
@@ -10,10 +10,10 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](index.md).
 | `security-review` | Revue générale de code Python, Java, Go, C#, Rust, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
-| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) ; [fonctionnement et coût](analysis/code-scan.md#ce-que-fait-codebase-review) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
+| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) ; [fonctionnement et coût](../review/analysis/code-scan.md#ce-que-fait-codebase-review) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
-| `development-standards` | Donne à l'assistant les [normes de développement](standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
+| `development-standards` | Donne à l'assistant les [normes de développement](../review/standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
 Chaque prompt de revue commence par appeler `request_project` (l'agent s'arrête quand le projet
@@ -24,7 +24,7 @@ Chaque prompt de revue intègre les checklists de son domaine (selon les langage
 `security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et les checklists
 `*` (tous les langages) et `company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
 récupère avec `get_review_checklist` quand elles s'appliquent
-([détails](checklists.md#checklists-des-prompts-de-revue)).
+([détails](../review/checklists.md#checklists-des-prompts-de-revue)).
 
 Quand le code, le diff ou l'espace de travail contient des fichiers de dépendances (manifestes,
 lockfiles, SBOM), `security-review`, `api-security-review` et `configuration-review` font aussi
@@ -37,7 +37,7 @@ dépendances, utilisez `dependency-review`.
 `report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
 `fr` ou `pt-BR`. Sans cet argument, le prompt reprend
-[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#serveur-mcp) quand elle est définie, sinon la
+[`SECREVIEW_REPORT_LANGUAGE`](configuration.md#serveur-mcp) quand elle est définie, sinon la
 langue choisie par un administrateur dans la page [**Général**](../usage/index.md#pages)
 de l'interface web ; si aucune n'est définie, l'agent choisit (en général la langue de la
 conversation).
@@ -60,14 +60,14 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | Outil | Rôle |
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
-| `scan_code` | Scan rapide par motifs ligne par ligne (pistes à vérifier, **pas** un SAST complet ; les flux de données sont suivis par OpenGrep lors d'un scan du dépôt, ou par `scan_code` quand il est [délégué au serveur Controller](analysis/opengrep.md#scans-de-fragments-scan_code)). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
-| `start_codebase_scan` | Donne à l'agent les commandes qui font scanner **tout le dépôt** par le serveur Controller (`security-review-ci` lancé avec `uvx`, ticket à usage unique), sans que l'agent lise les fichiers ni que le développeur crée de jeton `ci` ; `scope` `deps` ne donne que le scan des dépendances (prompt `dependency-review`) ; serveur MCP HTTP avec la délégation de `scan_code` uniquement ([scan lancé par l'agent](analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
+| `scan_code` | Scan rapide par motifs ligne par ligne (pistes à vérifier, **pas** un SAST complet ; les flux de données sont suivis par OpenGrep lors d'un scan du dépôt, ou par `scan_code` quand il est [délégué au serveur Controller](../review/analysis/opengrep.md#scans-de-fragments-scan_code)). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
+| `start_codebase_scan` | Donne à l'agent les commandes qui font scanner **tout le dépôt** par le serveur Controller (`security-review-ci` lancé avec `uvx`, ticket à usage unique), sans que l'agent lise les fichiers ni que le développeur crée de jeton `ci` ; `scope` `deps` ne donne que le scan des dépendances (prompt `dependency-review`) ; serveur MCP HTTP avec la délégation de `scan_code` uniquement ([scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
 | `decide_finding_status` | **Mode local (stdio) uniquement** : applique une décision de triage énoncée par le développeur dans la conversation, une fois qu'il l'a confirmée dans l'hôte ([décision du développeur en mode local](#decision-du-developpeur-en-mode-local)) |
-| `propose_opengrep_rule` | **Propose** une [règle OpenGrep](analysis/opengrep.md#regles-proposees-par-les-agents) pour un motif vulnérable que le scan n'a pas relevé ; installée seulement après l'approbation d'une personne |
+| `propose_opengrep_rule` | **Propose** une [règle OpenGrep](../review/analysis/opengrep.md#regles-proposees-par-les-agents) pour un motif vulnérable que le scan n'a pas relevé ; installée seulement après l'approbation d'une personne |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
@@ -76,8 +76,8 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
 | `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton peut y enregistrer des rapports, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), `joined` pour un projet existant que l'utilisateur ne lit pas encore quand il porte `projects.autojoin` (il le lit et y écrit), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
-| `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
-| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
+| `list_development_standards` / `get_development_standards` | [Normes de développement](../review/standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
+| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](../review/rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
 projets autorisés ; `reload_rules` lui est refusé (voir
@@ -109,7 +109,7 @@ Voir [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-per
 
 - `report://{report_id}` : un rapport enregistré ;
 - `checklist://{domain}` : la checklist d'un domaine ;
-- `standards://catalog` : le catalogue des [normes de développement](standards.md) ;
+- `standards://catalog` : le catalogue des [normes de développement](../review/standards.md) ;
 - `standard://{slug}` : une norme de développement.
 
 ## Rapport enregistré
@@ -234,9 +234,9 @@ l'affichent.
 
 Un finding est `open` à son enregistrement. **Un agent ne le ferme jamais** : le code relu est
 une entrée non fiable, et une injection de prompt dans un commentaire pourrait sinon amener
-l'agent à neutraliser ses propres findings et à débloquer la [gate](gate.md). Le serveur rend
+l'agent à neutraliser ses propres findings et à débloquer la [gate](../review/gate.md). Le serveur rend
 aussi visible le texte caché dans ce qu'il renvoie à l'agent et signale les instructions
-injectées ([injection de prompt](../reference/security.md#securite-du-serveur-lui-meme)).
+injectées ([injection de prompt](security.md#securite-du-serveur-lui-meme)).
 
 - `propose_finding_status` enregistre une **proposition** (`fixed`, `accepted` ou
   `false_positive`) avec le motif de l'agent (10 à 1000 caractères, secrets masqués) et le label

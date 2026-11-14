@@ -124,5 +124,5 @@ advice = "Move the secret to a vault or environment variable and rotate it."
 - `tests/conftest.py` gives each test an in-memory SQLite database and an empty rule
   registry; the `import_pack` fixture loads internal rules.
 
-See also the [prompts and tools](../review/prompts-tools.md) as users see them, and the
+See also the [prompts and tools](../reference/prompts-tools.md) as users see them, and the
 [rules](../review/rules.md).

@@ -202,7 +202,7 @@ avec **Valider**, **Enregistrer** et **Supprimer**.
 
 Pendant une revue, quand un problème confirmé suit un motif vulnérable que le scan n'a pas
 relevé et qui peut se répéter, l'agent peut proposer une règle OpenGrep avec l'outil MCP
-`propose_opengrep_rule` ([outils](../prompts-tools.md#outils)) : la règle YAML, son motif et
+`propose_opengrep_rule` ([outils](../../reference/prompts-tools.md#outils)) : la règle YAML, son motif et
 du code de test (cas `ruleid:` et `ok:`). **La règle n'est pas installée** : le serveur MCP
 enregistre seulement la proposition en base, et les prompts de revue demandent à l'agent de ne
 proposer une règle qu'après avoir enregistré le rapport.

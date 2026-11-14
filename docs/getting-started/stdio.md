@@ -88,4 +88,4 @@ Without a web interface, you triage the findings in the chat.
 The host must support MCP elicitation (Claude Code, VS Code). Otherwise, the assistant can only
 propose a status.
 
-Details: [decision of the developer in local mode](../review/prompts-tools.md#decision-of-the-developer-in-local-mode).
+Details: [decision of the developer in local mode](../reference/prompts-tools.md#decision-of-the-developer-in-local-mode).

@@ -170,7 +170,7 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 |---|---|
 | 1. Déployer le serveur Controller et le serveur MCP (Docker Compose ou Kubernetes), créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
 | 2. Connecter VS Code ou Claude, obtenir un jeton | [Connexion de l'hôte](getting-started/host.md) |
-| 3. Lancer une revue | [Fonctionnement d'une revue](review/index.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](review/prompts-tools.md) |
+| 3. Lancer une revue | [Fonctionnement d'une revue](review/index.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](reference/prompts-tools.md) |
 | 4. Consulter et trier les rapports | [Interface web](usage/index.md) |
 | 5. Bloquer un déploiement sur des findings ouverts | [Gate](review/gate.md) |
 

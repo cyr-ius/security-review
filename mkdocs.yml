@@ -168,7 +168,6 @@ nav:
       - The AGENTS.md file: getting-started/agents-md.md
   - Security review:
       - How a review works: review/index.md
-      - Prompts and tools: review/prompts-tools.md
       - Rules: review/rules.md
       - Checklists: review/checklists.md
       - Development standards: review/standards.md
@@ -222,6 +221,7 @@ nav:
       - Configuration: reference/configuration.md
       - Detection benchmark: reference/detection-benchmark.md
       - Prometheus metrics: reference/metrics.md
+      - Prompts and tools: reference/prompts-tools.md
       - Security and limits: reference/security.md
   - Contributing:
       - Overview: contributing/index.md

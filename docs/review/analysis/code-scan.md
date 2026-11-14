@@ -76,7 +76,7 @@ The client chooses the files; the Controller server never reads its own disk.
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, the most severe first), with the list of files
   not analyzed in `scope` and the label of the token as the device that saved it; the user of a
   personal `ci` token is the author, else `--author` adds the username of the developer (see
-  [author of a report](../prompts-tools.md#author-of-a-report)), `--repository`,
+  [author of a report](../../reference/prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context.
 - With `--save --format sarif`, the SARIF log carries the ids of the stored findings.
 
@@ -106,7 +106,7 @@ In the host, start the `codebase-review` prompt, either:
   copied by the model into `scan_code` calls.
 
 `languages` selects the checklists, `focus` and `context` steer the review (see
-[prompts and tools](../prompts-tools.md#prompts)). The `dependency-review` prompt does the same
+[prompts and tools](../../reference/prompts-tools.md#prompts)). The `dependency-review` prompt does the same
 for the dependencies: `start_codebase_scan` with `scope` `deps`, else `security-review-ci scan-deps`
 ([dependency analysis](dependencies.md#scan-started-by-the-agent)).
 

@@ -191,7 +191,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
   des vulnérabilités ne peut pas avoir lieu pour un fichier.
 - Avec `--save`, l'utilisateur d'un jeton `ci` personnel est l'auteur du rapport, sinon
   `--author` enregistre le nom d'utilisateur du développeur avec lui (voir
-  [auteur d'un rapport](../prompts-tools.md#auteur-dun-rapport)), `--repository`,
+  [auteur d'un rapport](../../reference/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil.
 - Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur Controller, la requête à
   `SECREVIEW_MAX_SCAN_REQUEST_MB`. Les liens symboliques ne sont pas lus.

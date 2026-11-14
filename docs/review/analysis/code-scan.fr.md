@@ -79,7 +79,7 @@ Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre 
   fichiers non analysés dans `scope` et le libellé du jeton comme appareil qui l'a enregistré ;
   l'utilisateur d'un jeton `ci` personnel en est l'auteur, sinon `--author` ajoute le nom
   d'utilisateur du développeur (voir
-  [auteur d'un rapport](../prompts-tools.md#auteur-dun-rapport)), `--repository`,
+  [auteur d'un rapport](../../reference/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte.
 - Avec `--save --format sarif`, le journal SARIF porte les identifiants des findings
   enregistrés.
@@ -110,7 +110,7 @@ Dans l'hôte, lancez le prompt `codebase-review`, avec au choix :
   lieu d'être recopiés par le modèle dans des appels à `scan_code`.
 
 `languages` choisit les checklists, `focus` et `context` orientent la revue (voir
-[prompts et outils](../prompts-tools.md#prompts)). Le prompt `dependency-review` fait de même
+[prompts et outils](../../reference/prompts-tools.md#prompts)). Le prompt `dependency-review` fait de même
 pour les dépendances : `start_codebase_scan` avec `scope` `deps`, sinon `security-review-ci scan-deps`
 ([analyse des dépendances](dependencies.md#scan-lance-par-lagent)).
 

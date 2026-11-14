@@ -198,7 +198,7 @@ and **Delete rule**.
 
 During a review, when a confirmed issue follows a vulnerable pattern the scan missed and that
 may recur, the agent can propose an OpenGrep rule with the MCP tool `propose_opengrep_rule`
-([tools](../prompts-tools.md#tools)): the YAML rule, its reason and test code (`ruleid:` and
+([tools](../../reference/prompts-tools.md#tools)): the YAML rule, its reason and test code (`ruleid:` and
 `ok:` cases). **The rule is not installed**: the MCP server only stores the proposal in the
 database, and the review prompts tell the agent to propose a rule only after saving the report.
 

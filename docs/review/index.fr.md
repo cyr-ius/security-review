@@ -64,7 +64,7 @@ Chaque prompt de revue donne à l'agent la même méthode, en cinq étapes :
 4. **Décrire les failles.** Pour chaque faille confirmée, il donne la gravité, la CWE, le
    fichier, la ligne et un correctif.
 5. **Enregistrer le rapport.** L'agent appelle `save_security_report` **une seule fois**. Il
-   déclare aussi ce qu'il a vérifié (la [couverture](prompts-tools.md#couverture-de-la-revue)).
+   déclare aussi ce qu'il a vérifié (la [couverture](../reference/prompts-tools.md#couverture-de-la-revue)).
 
 Ensuite, une personne trie les findings dans l'[interface web](../usage/triage.md).
 L'agent peut seulement **proposer** un statut. Il ne ferme jamais un finding.

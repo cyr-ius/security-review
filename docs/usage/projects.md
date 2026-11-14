@@ -12,7 +12,7 @@ The REST API and the detailed rules are in
 The name is **normalized**: lowercase, the last segment of a repository URL, and a single `-`
 between words. `Mobile App`, `mobile_app` and `git@github.com:acme/mobile-app.git` all give the
 project `mobile-app`, so that the members of a team reach the same project whatever they type
-(see [project name](../review/prompts-tools.md#project-name)).
+(see [project name](../reference/prompts-tools.md#project-name)).
 
 ## How a project appears
 

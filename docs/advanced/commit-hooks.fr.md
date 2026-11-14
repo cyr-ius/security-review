@@ -103,7 +103,7 @@ quand l'une atteint le seuil (code de sortie `1`) ; corrigez la version, ou fait
 
 ## Serveur Controller en HTTP sans TLS
 
-Servez de préférence le serveur Controller en HTTPS ([TLS](../advanced/tls.md)), ou
+Servez de préférence le serveur Controller en HTTPS ([TLS](tls.md)), ou
 derrière un reverse proxy. Si ce n'est pas possible, le HTTP fonctionne avec ces changements :
 
 | Où | Changement |

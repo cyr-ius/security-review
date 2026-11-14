@@ -102,7 +102,7 @@ one reaches the threshold (exit code `1`); fix the version, or have the finding 
 
 ## Controller server in HTTP without TLS
 
-Serve the Controller server over HTTPS ([TLS](../advanced/tls.md)), or behind a
+Serve the Controller server over HTTPS ([TLS](tls.md)), or behind a
 reverse proxy, when you can. Otherwise, HTTP works with these changes:
 
 | Where | Change |

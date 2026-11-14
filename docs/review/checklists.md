@@ -53,7 +53,7 @@ apply to the code it reviews. Without a prompt, the agent calls `list_checklists
 
 The agent then declares the outcome of each item it walked through in `save_security_report`;
 an item of a domain it used but did not report is stored as `not_covered`
-([review coverage](prompts-tools.md#review-coverage)).
+([review coverage](../reference/prompts-tools.md#review-coverage)).
 
 ## Creating a checklist item
 
