@@ -1,5 +1,35 @@
 # Changelog
 
+## [12.6.0](https://github.com/cyr-ius/security-review/compare/v12.5.0...v12.6.0) (2026-11-14)
+
+
+### Features
+
+* **web:** group the advisories of one vulnerable dependency on the Findings page ([f486303](https://github.com/cyr-ius/security-review/commit/f486303aaa5de434a43786026beb90ed8786c76b))
+* **web:** move the delegation of code scans to the Activity page ([b805a26](https://github.com/cyr-ius/security-review/commit/b805a26adcf8e6718f4289311d8e73954f01a2ab))
+
+
+### Bug Fixes
+
+* pin security-review-ci to the server version in the codebase scan commands ([0bce66c](https://github.com/cyr-ius/security-review/commit/0bce66c19d70ed273cd83eb184468679d7a0eb74))
+* **web:** shorten the help of the MCP clients page ([6831e71](https://github.com/cyr-ius/security-review/commit/6831e7181b8de19b95e8d3f214a7816b87b4458e))
+* **web:** simplify the texts of the code scan delegation and scan engines ([89add5d](https://github.com/cyr-ius/security-review/commit/89add5d022e63fbb3e74be48f87e9025d8d67061))
+
+
+### Documentation
+
+* add the AGENTS.md file to Getting started, move commit hooks to Advanced ([9083bc8](https://github.com/cyr-ius/security-review/commit/9083bc88b84e08a3572e25e87edae618c95d4dff))
+* add the scan engines to the services page ([6d14e43](https://github.com/cyr-ius/security-review/commit/6d14e43577224fc1519ca5dde46c656b347fc6cc))
+* document security-review-scan-engine in the CLI and configuration references ([78dd18a](https://github.com/cyr-ius/security-review/commit/78dd18a3a8de09b25dfe4807f78559799a4cd5f7))
+* keep the postgres extra when syncing the dev environment ([3720de0](https://github.com/cyr-ius/security-review/commit/3720de06c6c5bc8df7096edbdb71e89373b5e317))
+* make the Kubernetes setup easier to follow ([d5242b1](https://github.com/cyr-ius/security-review/commit/d5242b1d8f1d6890be114e465b350230e5082769))
+* move the prompts and tools page to Reference ([12e4c08](https://github.com/cyr-ius/security-review/commit/12e4c086b76bddffeec553914c9b28e68dd95a5b))
+* organize the host configuration by host and connection mode ([1409c39](https://github.com/cyr-ius/security-review/commit/1409c396dea6ce5b7496aec8aaa2ad5310175db0))
+* point to the scan engines and their examples ([830e9b8](https://github.com/cyr-ius/security-review/commit/830e9b88d3c765580c4b9a8bce318efeb38cb824))
+* shorten the home page and add the AGENTS.md step ([ff22984](https://github.com/cyr-ius/security-review/commit/ff22984abd13e431ac50edaa8c2fbfc70e4dd853))
+* show the two installations first on the services page ([d2f6067](https://github.com/cyr-ius/security-review/commit/d2f6067554f523fc34538964acdfe286b9c9cd07))
+* simplify the local mode page ([533ca13](https://github.com/cyr-ius/security-review/commit/533ca135b1d626bcf2a0bc3511d79694f3c1ad48))
+
 ## [12.5.0](https://github.com/cyr-ius/security-review/compare/v12.4.0...v12.5.0) (2026-11-14)
 
 
