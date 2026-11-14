@@ -53,7 +53,8 @@ svg {
   stroke: var(--fragment-idle-color);
 }
 
-/* A scan running now; 2px surface ring so the dot stays visible on its link */
+/* A scan running now; 2px surface ring so the dot stays visible on its link. No animation of
+   the diagram is reduced under reduced motion (see styles.css) */
 .dot {
   stroke: var(--bs-body-bg);
   stroke-width: 2;
@@ -134,13 +135,6 @@ svg {
   to {
     opacity: 0;
     transform: scale(1.25);
-  }
-}
-
-/* The heartbeats stay under reduced motion (see styles.css): they are the only sign of life */
-@media (prefers-reduced-motion: reduce) {
-  .dot {
-    display: none;
   }
 }
 

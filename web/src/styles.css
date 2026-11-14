@@ -344,13 +344,14 @@ dialog::backdrop {
 /*
  * Loading indicators (Bootstrap spinners, turning refresh icon) are left out: they are the only
  * sign that work is running, and they already turn slower under reduced motion. So is the icon
- * of a finding with an agent proposal (project page), which blinks slower, and the heartbeats of
- * the activity diagram (Scan engines page), the only sign that a process is alive.
+ * of a finding with an agent proposal (project page), which blinks slower. So is the whole
+ * activity diagram (Scan engines page): its animations (heartbeats, dots of the requests running)
+ * are the only sign that a process is alive or a request runs.
  */
 @media (prefers-reduced-motion: reduce) {
-  :not(.spinner-border, .spinner-grow, .spinning, .proposal-pending, .beat, .beat-ring),
-  *::before,
-  *::after {
+  :not(.spinner-border, .spinner-grow, .spinning, .proposal-pending, app-scan-engine-flow *),
+  :not(app-scan-engine-flow *)::before,
+  :not(app-scan-engine-flow *)::after {
     transition: none !important;
     animation: none !important;
   }
