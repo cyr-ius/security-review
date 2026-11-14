@@ -1826,6 +1826,18 @@ class ProcessingPublic(BaseModel):
     pipeline: int = 0
 
 
+class ControllerScansPublic(BaseModel):
+    """The code scans a Controller process runs itself (without scan engines, or when none
+    scanned the files): the most run at once since the previous heartbeat by pool, their files,
+    and its OpenGrep slots of each pool (0 without OpenGrep: the scans are then not limited)."""
+
+    codebase: int = 0
+    fragment: int = 0
+    files: int = 0
+    codebase_slots: int = 0
+    fragment_slots: int = 0
+
+
 class AgentActivityPublic(BaseModel):
     """An agent seen lately by an MCP server: an opaque key and its MCP client, never a person."""
 
@@ -1857,6 +1869,8 @@ class ServerInstancePublic(BaseModel):
     # The most requests run at once since the previous heartbeat, by family: the tool calls of the
     # agents (MCP server), the scans received (Controller server)
     processing: ProcessingPublic = ProcessingPublic()
+    # Controller server: the code scans it runs itself and its OpenGrep slots
+    scans: ControllerScansPublic = ControllerScansPublic()
     # MCP server: the agents that sent it a request lately, the most recent first
     agents: list[AgentActivityPublic] = []
 

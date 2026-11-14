@@ -76,6 +76,9 @@ class AuditAction(StrEnum):
     USER_PROJECTS_CHANGED = "user.projects_changed"
     # The OIDC mappings of the roles claim (see access_control.set_oidc_mappings)
     OIDC_MAPPINGS_CHANGED = "oidc.mappings_changed"
+    # A change of a protected permission refused to a caller that is not an administrator (see
+    # access_control.PROTECTED_PERMISSIONS)
+    ACCESS_DENIED = "access.denied"
     USER_LOGIN = "user.login"
     USER_LOGIN_FAILED = "user.login_failed"
     USER_LOGOUT = "user.logout"

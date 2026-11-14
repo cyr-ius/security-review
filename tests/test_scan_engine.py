@@ -528,6 +528,38 @@ def test_controller_heartbeat_registers_and_unregisters():
     assert server_instances.active_instances(ServerKind.CONTROLLER) == []
 
 
+def test_a_controller_reports_the_code_scans_it_runs_itself_and_its_opengrep_slots(monkeypatch):
+    heartbeat = server_instances.ServerHeartbeat(ServerKind.CONTROLLER)
+    heartbeat.start()
+    try:
+        # Without engines the controller scans itself: a scan shorter than the heartbeat shows
+        sources = [backend.Source("a.py", "python", "x = 1"), backend.Source("b.py", "python", "")]
+        backend.scan(sources)
+        heartbeat.beat()
+        [controller] = server_instances.active_instances(ServerKind.CONTROLLER)
+        assert controller["scans"] == {
+            "codebase": 1,
+            "fragment": 0,
+            "files": 2,
+            "codebase_slots": 0,
+            "fragment_slots": 0,
+        }
+        # With OpenGrep its slots limit the scans of each pool; the next heartbeat shows none
+        monkeypatch.setattr(get_settings(), "opengrep_enabled", True)
+        monkeypatch.setattr(get_settings(), "opengrep_max_concurrent_scans", 3)
+        heartbeat.beat()
+        [controller] = server_instances.active_instances(ServerKind.CONTROLLER)
+        assert controller["scans"] == {
+            "codebase": 0,
+            "fragment": 0,
+            "files": 0,
+            "codebase_slots": 3,
+            "fragment_slots": 1,
+        }
+    finally:
+        heartbeat.stop()
+
+
 def test_an_mcp_server_reports_its_requests_by_family_even_shorter_than_its_heartbeat():
     delegated = [True]
     heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, lambda: delegated[0])

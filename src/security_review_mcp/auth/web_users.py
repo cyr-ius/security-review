@@ -413,11 +413,13 @@ def create_user(
     auth_source: str = AUTH_LOCAL,
     actor: str | None = None,
     all_projects_permissions: Iterable[str] = (),
+    administrator: bool = True,
 ) -> dict[str, Any]:
     """Create a user with ``roles`` (ids), ``projects`` ((project, per-project permissions)
     pairs) and per-project permissions on every project; a local one without ``password`` gets
     a random one.
-    ``actor`` is written to the audit log (default: ``created_by``).
+    ``actor`` is written to the audit log (default: ``created_by``). Only an ``administrator``
+    gives a role with a protected permission (access_control.ProtectedAccessDenied).
 
     An OIDC user (``auth_source="oidc"``) has no password; the roles and projects of its OIDC
     mappings are added at each login. Returns the user and, when generated, its ``password``
@@ -450,7 +452,13 @@ def create_user(
             session.add(row)
             session.flush()
             if roles:
-                access_control.set_user_roles(session, row.id, roles, actor or created_by)  # type: ignore[arg-type]
+                access_control.set_user_roles(
+                    session,
+                    row.id,  # type: ignore[arg-type]
+                    roles,
+                    actor or created_by,
+                    administrator,
+                )
             every = list(all_projects_permissions)
             if projects or every:
                 access_control.set_user_projects(
@@ -474,19 +482,23 @@ def update_user(
     projects: Iterable[tuple[str, Iterable[str]]] | None = None,
     updated_by: str | None = None,
     all_projects_permissions: Iterable[str] | None = None,
+    administrator: bool = True,
 ) -> dict[str, Any]:
     """Replace the roles, the projects ((project, per-project permissions) pairs) and the
     per-project permissions on every project an administrator gave to a user; applies to its
     sessions at once.
 
     ``None`` leaves that part unchanged. Those of its OIDC mappings are kept. The last user that
-    holds ``users.manage`` cannot lose it.
+    holds ``users.manage`` cannot lose it. A caller that is not an ``administrator`` neither
+    changes a user who holds a protected permission nor gives or takes away a role with one
+    (access_control.ProtectedAccessDenied).
     """
     with session_scope() as session:
         row = _get(session, user_id)
+        access_control.check_protected_user(session, user_id, administrator, "change")
         before = access_control.managers(session)
         if roles is not None:
-            access_control.set_user_roles(session, user_id, roles, updated_by)
+            access_control.set_user_roles(session, user_id, roles, updated_by, administrator)
         if projects is not None or all_projects_permissions is not None:
             current = access_control.user_access(session, user_id)["projects"]
             access_control.set_user_projects(
@@ -508,19 +520,26 @@ def update_user(
 
 
 def set_password(
-    user_id: int, password: str | None = None, must_change: bool = True
+    user_id: int,
+    password: str | None = None,
+    must_change: bool = True,
+    administrator: bool = True,
 ) -> dict[str, Any]:
     """Replace the password of a local user and end its open sessions.
 
     Without ``password`` a random one is generated and returned in ``password``. An OIDC user has
     no password (ValueError). ``must_change`` (a password set by an administrator) makes the
-    user change it at its next login.
+    user change it at its next login. A caller that is not an ``administrator`` does not reset
+    the password of a user who holds a protected permission (it would log in as that user).
     """
     generated = password is None
     secret = generate_password() if password is None else clean_password(password)
     password_hash = hash_password(secret)
     with session_scope() as session:
         row = _get(session, user_id)
+        access_control.check_protected_user(
+            session, user_id, administrator, "reset the password of"
+        )
         if row.auth_source != AUTH_LOCAL:
             raise ValueError("An OIDC user has no password: it logs in with the identity provider")
         row.password_hash = password_hash
@@ -565,15 +584,19 @@ def set_theme(user_id: int, theme: str) -> dict[str, str]:
     return {"theme": theme}
 
 
-def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
+def delete_user(
+    user_id: int, deleted_by: str | None = None, administrator: bool = True
+) -> dict[str, Any]:
     """Delete a user (its sessions stop at once); the last administrator is kept.
 
     A deleted OIDC user is revoked, by its name and its identity (issuer and subject): a login
     never creates it again (even with ``SECREVIEW_OIDC_AUTO_CREATE_USERS``), under that name or
-    another one, until an administrator creates it again.
+    another one, until an administrator creates it again. Only an ``administrator`` deletes a
+    user who holds a protected permission (access_control.ProtectedAccessDenied).
     """
     with session_scope() as session:
         row = _get(session, user_id)
+        access_control.check_protected_user(session, user_id, administrator, "delete")
         if access_control.managers(session) == {user_id}:
             raise ValueError("The last holder of users.manage cannot be deleted")
         deleted = _public(session, row)

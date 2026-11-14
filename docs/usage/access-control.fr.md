@@ -78,10 +78,28 @@ plus : quand le fournisseur d'identité ne nomme plus le groupe qui en faisait l
 administrateur, le compte la garde (l'événement est journalisé et audité). Gardez de préférence un
 administrateur local.
 
+## Permissions protégées
+
+`users.manage` et `settings.manage` sont protégées : seul un **administrateur**, un compte qui
+détient toutes les permissions sur tout le serveur Controller (le rôle intégré `admin`), peut :
+
+- créer, modifier ou supprimer un rôle qui en contient une ;
+- donner ou retirer un tel rôle, à un compte ou dans une
+  [correspondance OIDC](sso.md#correspondances-oidc) ;
+- modifier les [réglages OIDC](sso.md), qui décident qui reçoit quel rôle ;
+- modifier, supprimer ou réinitialiser le mot de passe d'un compte qui en détient une ;
+- permettre de recréer un compte OIDC supprimé, puisque les groupes du fournisseur d'identité
+  peuvent lui en donner une.
+
+Un détenteur de `users.manage` qui n'est pas administrateur gère toujours les autres rôles et
+comptes. Chaque refus répond `403` et est écrit dans le [journal d'audit](audit-metrics.md)
+(`access.denied`).
+
 ## Points d'attention
 
-- **`users.manage` ouvre tout** : son titulaire peut se donner toutes les autres permissions.
-  Réservez-la aux administrateurs.
+- **`users.manage` et `settings.manage` sont des permissions d'administrateur** : qui détient
+  `users.manage` décide qui lit quoi, et `settings.manage` règle l'adresse du serveur Controller
+  à laquelle les serveurs MCP envoient les jetons des agents. Seul un administrateur les donne.
 - **Accepter un risque ou marquer un faux positif** exige une personne connectée, jamais un
   jeton, même avec `findings.triage`.
 - **Tous les projets** atteint tous les projets, y compris les sensibles : préférez une liste de

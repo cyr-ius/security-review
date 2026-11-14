@@ -51,6 +51,13 @@ on each of its projects. At least one user keeps ``users.manage``: a change that
 the last one is refused (see _guard_managers), and an OIDC login never removes it (see
 sync_oidc_claims).
 
+``users.manage`` and ``settings.manage`` are **protected** (PROTECTED_PERMISSIONS): only an
+administrator, who holds every permission on the whole controller (is_administrator), creates,
+changes or deletes a role that holds one, gives or takes away such a role (to a user or in an OIDC
+mapping), changes the OIDC settings, or changes, deletes or resets the password of a user who
+holds one. A holder of ``users.manage`` who is not an administrator manages the other roles and
+users; each refusal is written to the audit log (ProtectedAccessDenied, record_protected_denial).
+
 The bearer tokens are for machines and keep their fixed roles (see http_server.TOKEN_ROLES):
 token_grants gives every permission to an ``admin`` token, none to the others. An ``api`` token
 follows this model instead: a personal token holds the grants of its user (user_grants), a role
@@ -142,6 +149,10 @@ SCOPED_PERMISSIONS = frozenset(
 )
 ALL_PERMISSIONS = frozenset(Permission)
 SITE_PERMISSIONS = ALL_PERMISSIONS - SCOPED_PERMISSIONS
+# Permissions only an administrator (see is_administrator) gives or takes away: users.manage
+# decides who holds every other permission, settings.manage the URL of the Controller server to
+# which the MCP servers send the tokens of the agents (see ProtectedAccessDenied)
+PROTECTED_PERMISSIONS = frozenset({Permission.USERS_MANAGE, Permission.SETTINGS_MANAGE})
 # The built-in role, which the code relies on
 ADMIN_ROLE = "admin"
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {ADMIN_ROLE: SITE_PERMISSIONS}
@@ -185,6 +196,19 @@ _enrollment_limit = RateLimit("enrollment", ENROLLMENT_WINDOW_SECONDS)
 
 class AccessGrantDenied(PermissionError):
     """The approver may not give access to an existing project (see approve_enrollment)."""
+
+
+class ProtectedAccessDenied(PermissionError):
+    """A caller that is not an administrator touched a protected permission (see
+    PROTECTED_PERMISSIONS): ``target_type`` and ``target_id`` name what it tried to change."""
+
+    def __init__(self, action: str, target_type: str, target_id: str | int | None = None) -> None:
+        super().__init__(
+            f"Only an administrator may {action} (users.manage and settings.manage are protected)"
+        )
+        self.action = action
+        self.target_type = target_type
+        self.target_id = target_id
 
 
 class EnrollmentThrottled(ValueError):
@@ -361,6 +385,62 @@ def managers(session: Session) -> set[int]:
         else []
     )
     return set(direct.all()) | set(mapped)
+
+
+def is_administrator(grants: Grants) -> bool:
+    """True for grants that hold every permission on the whole controller: the ``admin`` role, an
+    ``admin`` token or an ``api`` token of the ``admin`` role. Only an administrator may give or
+    take away a protected permission (see PROTECTED_PERMISSIONS)."""
+    return all(
+        permission in grants and grants[permission] is None for permission in SITE_PERMISSIONS
+    )
+
+
+def _protected(permissions: Iterable[str]) -> bool:
+    """True when ``permissions`` hold a protected permission."""
+    return not PROTECTED_PERMISSIONS.isdisjoint(permissions)
+
+
+def _protected_roles(session: Session) -> set[int]:
+    """Ids of the roles that hold a protected permission (``admin`` among them)."""
+    return {
+        role.id  # type: ignore[misc]
+        for role in session.exec(select(AccessRole)).all()
+        if _protected(_permissions(role))
+    }
+
+
+def holds_protected(session: Session, user_id: int) -> bool:
+    """True when a user holds a protected permission, by its roles or those of its mappings."""
+    return any(_protected(permissions) for permissions, _ in _bindings(session, user_id))
+
+
+def check_protected_user(session: Session, user_id: int, administrator: bool, action: str) -> None:
+    """Refuse a change of a user who holds a protected permission, by a caller that is not an
+    administrator: it would take its permissions away or log in with its account.
+
+    Raises:
+        ProtectedAccessDenied: If the caller is not an administrator and the user holds one.
+    """
+    if not administrator and holds_protected(session, user_id):
+        raise ProtectedAccessDenied(
+            f"{action} a user who holds a protected permission", "user", user_id
+        )
+
+
+def record_protected_denial(exc: ProtectedAccessDenied, actor: str | None) -> None:
+    """Write a refused change of a protected permission to the audit log, in its own transaction:
+    the refused one is rolled back."""
+    with session_scope() as session:
+        audit.record(
+            session,
+            audit.AuditAction.ACCESS_DENIED,
+            actor,
+            exc.target_type,
+            exc.target_id,
+            details={"action": exc.action},
+        )
+    logger.warning("Change of a protected permission refused to %s: %s", actor, exc.action)
 
 
 def _guard_managers(session: Session, before: set[int]) -> None:
@@ -557,11 +637,16 @@ def create_role(
     permissions: Iterable[str],
     description: str | None = None,
     actor: str | None = None,
+    administrator: bool = True,
 ) -> dict[str, Any]:
-    """Create a custom role; raise ValueError when invalid, duplicated or over the limit."""
+    """Create a custom role; raise ValueError when invalid, duplicated or over the limit, and
+    ProtectedAccessDenied when a caller that is not an ``administrator`` gives it a protected
+    permission."""
     cleaned_name = clean_role_name(name)
     cleaned = clean_permissions(permissions)
     text = clean_description(description)
+    if not administrator and _protected(cleaned):
+        raise ProtectedAccessDenied("create a role with a protected permission", "role")
     try:
         with session_scope() as session:
             count = session.exec(select(func.count()).select_from(AccessRole)).one()
@@ -594,10 +679,12 @@ def update_role(
     description: str | None = None,
     name: str | None = None,
     actor: str | None = None,
+    administrator: bool = True,
 ) -> dict[str, Any]:
     """Replace the name, description and permissions of a custom role (not a built-in role).
 
-    The users, mappings and tokens that give the role keep it.
+    The users, mappings and tokens that give the role keep it. Only an ``administrator`` changes
+    a role that holds, or would hold, a protected permission (ProtectedAccessDenied).
     """
     cleaned = clean_permissions(permissions)
     text = clean_description(description)
@@ -608,6 +695,10 @@ def update_role(
                 raise ValueError(f"The built-in role {row.name} cannot be changed")
             before = managers(session)
             previous = sorted(_permissions(row))
+            if not administrator and (_protected(previous) or _protected(cleaned)):
+                raise ProtectedAccessDenied(
+                    "change a role with a protected permission", "role", role_id
+                )
             if name is not None:
                 row.name = clean_role_name(name)
             row.description = text
@@ -628,13 +719,20 @@ def update_role(
         raise ValueError(f"A role named '{name}' already exists") from None
 
 
-def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
+def delete_role(
+    role_id: int, actor: str | None = None, administrator: bool = True
+) -> dict[str, Any]:
     """Delete a custom role (the users and mappings that give it lose it); raise NotFoundError,
-    ValueError."""
+    ValueError, and ProtectedAccessDenied for a role with a protected permission when the caller
+    is not an ``administrator``."""
     with session_scope() as session:
         row = _get_role(session, role_id)
         if row.system:
             raise ValueError(f"The built-in role {row.name} cannot be deleted")
+        if not administrator and _protected(_permissions(row)):
+            raise ProtectedAccessDenied(
+                "delete a role with a protected permission", "role", role_id
+            )
         tokens = session.exec(
             select(func.count()).select_from(ApiToken).where(ApiToken.access_role_id == role_id)
         ).one()
@@ -773,7 +871,11 @@ def _check_roles(session: Session, role_ids: Iterable[int]) -> list[int]:
 
 
 def set_user_roles(
-    session: Session, user_id: int, role_ids: Iterable[int], actor: str | None = None
+    session: Session,
+    user_id: int,
+    role_ids: Iterable[int],
+    actor: str | None = None,
+    administrator: bool = True,
 ) -> None:
     """Replace the roles of a user.
 
@@ -782,12 +884,18 @@ def set_user_roles(
     Raises:
         NotFoundError: Unknown role.
         ValueError: More than MAX_ROLES roles.
+        ProtectedAccessDenied: A caller that is not an ``administrator`` gives or takes away a
+            role with a protected permission.
     """
     ids = _check_roles(session, role_ids)
     current = session.exec(select(UserRole).where(UserRole.user_id == user_id)).all()
     kept = {row.role_id for row in current}
     if kept == set(ids):
         return
+    if not administrator and (kept ^ set(ids)) & _protected_roles(session):
+        raise ProtectedAccessDenied(
+            "give or take away a role with a protected permission", "user", user_id
+        )
     for row in current:
         if row.role_id not in ids:
             session.delete(row)
@@ -1723,16 +1831,21 @@ def set_oidc_mappings(
     ],
     actor: str | None = None,
     expected_version: str | None = None,
+    administrator: bool = True,
 ) -> list[dict[str, Any]]:
     """Replace the OIDC mappings: ``mappings`` holds (claim value, role ids, per-project
     permissions on every project, (project, per-project permissions) pairs). A project not known
     yet is kept and ignored until it is created. The change applies at once to the OIDC users
     (their claims of the last login); a change that removes the last holder of ``users.manage``
     is refused. With ``expected_version`` (oidc_mappings_version of the mappings the caller
-    read), a change made since then is not undone: the replacement is refused.
+    read), a change made since then is not undone: the replacement is refused. A caller that is
+    not an ``administrator`` keeps the roles with a protected permission of each claim as they
+    are: it changes everything else.
 
     Raises:
         NotFoundError: Unknown role.
+        ProtectedAccessDenied: A caller that is not an administrator gives or takes away a role
+            with a protected permission.
         StaleVersion: The mappings changed since ``expected_version``.
         ValueError: Invalid claim, project or permission, a claim given twice, a mapping that
             gives nothing, more than MAX_PROJECTS_PER_TOKEN projects or MAX_ROLES roles in a
@@ -1765,6 +1878,17 @@ def set_oidc_mappings(
                 scoped,
                 [{"project": name, "permissions": held} for name, held in sorted(given.items())],
             )
+        if not administrator:
+            protected = _protected_roles(session)
+            held = {
+                row["claim"]: set(row["role_ids"]) & protected for row in _list_mappings(session)
+            }
+            given = {claim: set(roles) & protected for claim, (roles, _, _) in cleaned.items()}
+            if {k: v for k, v in held.items() if v} != {k: v for k, v in given.items() if v}:
+                raise ProtectedAccessDenied(
+                    "give or take away a role with a protected permission in the OIDC mappings",
+                    "oidc",
+                )
         before = managers(session)
         previous = {row["claim"] for row in _list_mappings(session)}
         session.exec(delete(OidcRoleMapping))  # type: ignore[arg-type]

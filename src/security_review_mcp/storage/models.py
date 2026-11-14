@@ -610,6 +610,10 @@ class ServerInstance(SQLModel, table=True):
     # server_instances.FAMILIES): the tool calls of the agents (MCP server), the scans received
     # (Controller server)
     processing: str = Field(default="{}", max_length=200)
+    # Controller server: the code scans it runs itself, as JSON (see server_instances.SCAN_FIELDS):
+    # the most run at once since the previous heartbeat by pool, their files, and its OpenGrep
+    # slots of each pool
+    scans: str = Field(default="{}", max_length=200)
     # MCP server: the agents seen lately, as JSON (see server_instances.AgentActivity): an opaque
     # key, the name and version of their MCP client, their last request and their scan_code
     # calls; never the name of a person nor a token

@@ -77,10 +77,29 @@ removing the OIDC mapping that gives it, is refused. An OIDC login never removes
 the identity provider no longer names the group that made the last administrator, the account
 keeps it (the event is logged and audited). Keep a local administrator preferably.
 
+## Protected permissions
+
+`users.manage` and `settings.manage` are protected: only an **administrator**, an account that
+holds every permission of the whole Controller server (the built-in `admin` role), may:
+
+- create, change or delete a role that holds one of them;
+- give or take away such a role, to an account or in an
+  [OIDC mapping](sso.md#oidc-mappings);
+- change the [OIDC settings](sso.md), which decide who gets which role;
+- change, delete or reset the password of an account that holds one of them;
+- let a deleted OIDC account be created again, since the groups of the identity provider may give
+  it one of them.
+
+A holder of `users.manage` who is not an administrator still manages the other roles and
+accounts. Each refusal answers `403` and is written to the [audit log](audit-metrics.md)
+(`access.denied`).
+
 ## Points to watch
 
-- **`users.manage` opens everything**: its holder can give itself every other permission. Give
-  it only to administrators.
+- **`users.manage` and `settings.manage` are administrator permissions**: whoever holds
+  `users.manage` decides who reads what, and `settings.manage` sets the address of the
+  Controller server to which the MCP servers send the tokens of the agents. Only an
+  administrator gives them.
 - **Accepting a risk or marking a false positive** needs a person signed in, never a token,
   even with `findings.triage`.
 - **All projects** reaches every project, the sensitive ones included: prefer a list of projects

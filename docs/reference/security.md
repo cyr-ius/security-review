@@ -190,6 +190,14 @@
   same rule (session with `findings.triage`) and are append-only: no route edits or deletes one.
   So does raising the severity of a finding: with a justification, logged, never below the
   severity of the report (lowering a finding goes through a risk acceptance).
+- **Protected permissions**: `users.manage` (who holds which permission) and `settings.manage`
+  (among others, the address of the Controller server to which the MCP servers send the tokens
+  of the agents and from which `start_codebase_scan` installs `security-review-ci`) are given
+  and taken away by an administrator only. A holder of `users.manage` who is not an
+  administrator can neither change a role or an OIDC mapping that gives one of them, nor the
+  OIDC settings, nor the account or the password of a holder of one: `403` and an
+  `access.denied` audit event (see
+  [Protected permissions](../usage/access-control.md#protected-permissions)).
 - **Agents never install a scan rule**: `propose_opengrep_rule` only stores a proposal (one
   rule, reserved `secreview.` prefix refused, no secret nor invisible character, reason masked,
   pending proposals bounded by `SECREVIEW_OPENGREP_MAX_PENDING_PROPOSALS`). A person logged in

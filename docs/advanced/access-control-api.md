@@ -103,6 +103,17 @@ OIDC mapping that gives it) is refused with `409` or `422`. An OIDC login never 
 values of the claim that gave it are kept, with a warning in the logs and a
 `user.roles_changed` event.
 
+`users.manage` and `settings.manage` are
+[protected](../usage/access-control.md#protected-permissions): a caller that does not hold every
+permission of the whole Controller server (the `admin` role, an `admin` token or an `api` token
+of the `admin` role) gets `403` and an `access.denied` audit event when it creates, changes or
+deletes a role that holds one of them (`/roles`), gives or takes away such a role
+(`POST /users`, `PUT /users/{id}`, `PUT /oidc/mappings`), changes the OIDC settings
+(`PUT /oidc/settings`), or changes, deletes or resets the password of an account that holds one
+of them (`PUT` and `DELETE /users/{id}`, `POST /users/{id}/password`), or lets a deleted OIDC
+account be created again (`DELETE /users/revoked/{username}`). The CLI, run by the operator of
+the server, is not limited.
+
 ## Projects
 
 ### Known projects

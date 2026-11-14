@@ -17,6 +17,7 @@ from .auth_routes import LOGIN_HEADERS, OidcLogins, current_oidc
 from .deps import UsersManager, actor_of, unprocessable
 from .schemas import (
     AccessRole,
+    Identity,
     KnownProject,
     OidcMappingCatalog,
     OidcMappingsUpdate,
@@ -45,6 +46,19 @@ UsernamePath = Annotated[str, APIPath(min_length=1, max_length=web_users.MAX_USE
 def _conflict(exc: ValueError) -> HTTPException:
     """409 answer for a deletion refused by a service (a role in use, last admin)."""
     return HTTPException(status.HTTP_409_CONFLICT, str(exc))
+
+
+def _administrator(identity: Identity) -> bool:
+    """True when the caller holds every permission on the whole controller: only it gives or
+    takes away users.manage and settings.manage (see access_control.PROTECTED_PERMISSIONS)."""
+    return access_control.is_administrator(identity.permissions)
+
+
+async def _refused(exc: access_control.ProtectedAccessDenied, identity: Identity) -> HTTPException:
+    """403 answer for a change of a protected permission by a caller that is not an
+    administrator, written to the audit log."""
+    await run_in_threadpool(access_control.record_protected_denial, exc, actor_of(identity))
+    return HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
 
 
 def _etag(version: str) -> str:
@@ -86,7 +100,7 @@ async def roles(identity: UsersManager) -> list[AccessRole]:
 
 @router.post("/roles", status_code=status.HTTP_201_CREATED)
 async def create_role(body: RoleWrite, identity: UsersManager) -> AccessRole:
-    """Create a custom role."""
+    """Create a custom role (one with users.manage or settings.manage: an administrator only)."""
     try:
         created = await run_in_threadpool(
             access_control.create_role,
@@ -94,7 +108,10 @@ async def create_role(body: RoleWrite, identity: UsersManager) -> AccessRole:
             body.permissions,
             body.description,
             actor_of(identity),
+            _administrator(identity),
         )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Role %s created by %s", created["name"], identity.client)
@@ -103,7 +120,8 @@ async def create_role(body: RoleWrite, identity: UsersManager) -> AccessRole:
 
 @router.put("/roles/{role_id}")
 async def update_role(role_id: int, body: RoleWrite, identity: UsersManager) -> AccessRole:
-    """Replace the name, description and permissions of a custom role (applies at once)."""
+    """Replace the name, description and permissions of a custom role (applies at once; one with
+    users.manage or settings.manage, before or after: an administrator only)."""
     try:
         updated = await run_in_threadpool(
             access_control.update_role,
@@ -112,7 +130,10 @@ async def update_role(role_id: int, body: RoleWrite, identity: UsersManager) -> 
             body.description,
             body.name,
             actor_of(identity),
+            _administrator(identity),
         )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Role %s updated by %s", updated["name"], identity.client)
@@ -121,9 +142,14 @@ async def update_role(role_id: int, body: RoleWrite, identity: UsersManager) -> 
 
 @router.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_role(role_id: int, identity: UsersManager) -> Response:
-    """Delete a custom role: the users and OIDC mappings that give it lose it at once."""
+    """Delete a custom role: the users and OIDC mappings that give it lose it at once (one with
+    users.manage or settings.manage: an administrator only)."""
     try:
-        deleted = await run_in_threadpool(access_control.delete_role, role_id, actor_of(identity))
+        deleted = await run_in_threadpool(
+            access_control.delete_role, role_id, actor_of(identity), _administrator(identity)
+        )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except ValueError as exc:
         raise _conflict(exc) from exc
     logger.info("Role %s deleted by %s", deleted["name"], identity.client)
@@ -226,7 +252,8 @@ async def set_oidc_mappings(
 ) -> OidcMappingCatalog:
     """Replace the OIDC mappings (applies at once to the OIDC users, by their claims of the last
     login); a change that removes the last holder of users.manage is refused, and with
-    If-Match, a change made since the GET that gave this ETag (412)."""
+    If-Match, a change made since the GET that gave this ETag (412). Only an administrator gives
+    or takes away a role with users.manage or settings.manage in a mapping (403)."""
     try:
         await run_in_threadpool(
             access_control.set_oidc_mappings,
@@ -241,7 +268,10 @@ async def set_oidc_mappings(
             ],
             actor_of(identity),
             _if_match(if_match),
+            _administrator(identity),
         )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except access_control.StaleVersion as exc:
         raise _stale(exc) from exc
     except ValueError as exc:
@@ -278,9 +308,15 @@ async def set_oidc_settings(
     is not set.
 
     Refused (422) when a changed setting has its variable set (it takes precedence), or when the
-    resulting settings enable an invalid login.
+    resulting settings enable an invalid login; refused (403) to a caller that is not an
+    administrator: the identity provider, the roles claim and the admin groups decide who gets
+    users.manage.
     """
     values = body.model_dump(exclude_unset=True)
+    if not _administrator(identity):
+        raise await _refused(
+            access_control.ProtectedAccessDenied("change the OIDC settings", "oidc"), identity
+        )
     try:
         await run_in_threadpool(app_settings.set_oidc, values, identity.client)
     except ValueError as exc:
@@ -322,7 +358,8 @@ async def users(identity: UsersManager) -> list[WebUser]:
 async def create_user(
     body: WebUserCreate, identity: UsersManager, response: Response
 ) -> WebUserWithPassword:
-    """Create a web user (local or OIDC); a generated password is returned once in ``password``."""
+    """Create a web user (local or OIDC); a generated password is returned once in ``password``.
+    Only an administrator gives a role with users.manage or settings.manage (403)."""
     try:
         created = await run_in_threadpool(
             web_users.create_user,
@@ -334,7 +371,10 @@ async def create_user(
             body.auth_source,
             actor_of(identity),
             body.all_projects_permissions,
+            _administrator(identity),
         )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except ValueError as exc:
         if "already exists" in str(exc):
             raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
@@ -358,7 +398,15 @@ async def revoked_users(identity: UsersManager) -> list[RevokedUser]:
 
 @router.delete("/users/revoked/{username}", status_code=status.HTTP_204_NO_CONTENT)
 async def lift_user_revocation(username: UsernamePath, identity: UsersManager) -> Response:
-    """Let a deleted OIDC user be created again at its next login (automatic creation)."""
+    """Let a deleted OIDC user be created again at its next login (automatic creation); an
+    administrator only (403): the groups of the identity provider may give it users.manage."""
+    if not _administrator(identity):
+        raise await _refused(
+            access_control.ProtectedAccessDenied(
+                "let a deleted OIDC user be created again", "user", username
+            ),
+            identity,
+        )
     lifted = await run_in_threadpool(web_users.lift_revocation, username)
     logger.info("Revocation of OIDC user %s lifted by %s", lifted["username"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -367,7 +415,8 @@ async def lift_user_revocation(username: UsernamePath, identity: UsersManager) -
 @router.put("/users/{user_id}")
 async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager) -> WebUser:
     """Replace the roles and projects an administrator gave to a web user (applies to its sessions
-    at once); a missing field is left unchanged."""
+    at once); a missing field is left unchanged. Only an administrator changes a user who holds
+    users.manage or settings.manage, or gives or takes away a role with one (403)."""
     projects = (
         None
         if body.projects is None
@@ -381,7 +430,10 @@ async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager)
             projects,
             actor_of(identity),
             body.all_projects_permissions,
+            _administrator(identity),
         )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Access of web user %s changed by %s", updated["username"], identity.client)
@@ -392,9 +444,17 @@ async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager)
 async def reset_user_password(
     user_id: int, body: PasswordReset, identity: UsersManager, response: Response
 ) -> WebUserWithPassword:
-    """Replace the password of a web user (generated when not given) and end its sessions."""
+    """Replace the password of a web user (generated when not given) and end its sessions; only
+    an administrator resets that of a user who holds users.manage or settings.manage (403)."""
     try:
-        updated = await run_in_threadpool(web_users.set_password, user_id, body.password)
+        updated = await run_in_threadpool(
+            web_users.set_password,
+            user_id,
+            body.password,
+            administrator=_administrator(identity),
+        )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Password of web user %s reset by %s", updated["username"], identity.client)
@@ -407,10 +467,15 @@ async def delete_user(user_id: int, identity: UsersManager) -> Response:
     """Delete a web user (its sessions stop at once); the last holder of users.manage is kept.
 
     A deleted OIDC user is revoked: a login never creates it again until an administrator
-    creates it again or lifts the revocation (DELETE /users/revoked/{username}).
+    creates it again or lifts the revocation (DELETE /users/revoked/{username}). Only an
+    administrator deletes a user who holds users.manage or settings.manage (403).
     """
     try:
-        deleted = await run_in_threadpool(web_users.delete_user, user_id, identity.client)
+        deleted = await run_in_threadpool(
+            web_users.delete_user, user_id, identity.client, _administrator(identity)
+        )
+    except access_control.ProtectedAccessDenied as exc:
+        raise await _refused(exc, identity) from exc
     except ValueError as exc:
         raise _conflict(exc) from exc
     logger.info(

@@ -34,7 +34,12 @@ build; `tests.yml` runs pytest on Python 3.14 and 3.15 with `uv sync --locked` (
 after a change of dependencies) with the pinned OpenGrep release of
 `.devcontainer/install-opengrep.sh` (for the test of the
 [default OpenGrep rules](tests.md#default-opengrep-rules)), and builds the `security-review-ci`
-client alone (**ci-client** job).
+client alone (**ci-client** job). The **build** job of `docs.yml` runs on every pull request,
+because the protection of `master` requires it, but builds the documentation (`mkdocs build
+--strict`) only when the pull request changes `docs/`, `mkdocs.yml`, `examples/`,
+`pyproject.toml`, `scripts/mkdocs_hooks.py` or the workflow; otherwise it passes at once.
+Do not filter it with `paths` in the trigger: a required check that never runs blocks the
+pull request.
 
 `codeql.yml` runs the CodeQL analysis (GitHub Actions, JavaScript / TypeScript, Python) on every
 push and pull request, and weekly. Its configuration, `.github/codeql/codeql-config.yml`,

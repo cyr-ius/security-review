@@ -1300,6 +1300,67 @@ def test_sso_settings_need_users_manage(accounts):
         assert response.status_code == 403, url
 
 
+def test_only_an_administrator_gives_or_takes_away_a_protected_permission(accounts):
+    root = make_user("root", USER_PASSWORD, "admin")
+    managers = access_control.create_role("Users manager", ["users.manage"])
+    keepers = access_control.create_role("Settings keeper", ["settings.manage"])
+    auditors = access_control.create_role("Auditor", ["audit.read"])
+    make_user("dele", USER_PASSWORD, role_ids=[managers["id"]])
+    bob = make_user("bob", USER_PASSWORD)
+    delegate = session_headers(accounts, "dele")
+    roles = "/api/v1/roles"
+    gives = {"name": "Ops", "permissions": ["settings.manage"]}
+
+    # A holder of users.manage that is not an administrator never reaches users.manage nor
+    # settings.manage, nor the account of one of their holders
+    for method, url, body in (
+        ("post", roles, gives),
+        (
+            "put",
+            f"{roles}/{keepers['id']}",
+            {"name": "Settings keeper", "permissions": ["audit.read"]},
+        ),
+        ("put", f"{roles}/{auditors['id']}", {"name": "Auditor", "permissions": ["users.manage"]}),
+        ("delete", f"{roles}/{managers['id']}", None),
+        ("put", f"/api/v1/users/{bob['id']}", {"role_ids": [keepers["id"]]}),
+        ("post", "/api/v1/users", {"username": "eve", "role_ids": [managers["id"]]}),
+        ("post", f"/api/v1/users/{root['id']}/password", {}),
+        ("put", f"/api/v1/users/{root['id']}", {"role_ids": []}),
+        ("delete", f"/api/v1/users/{root['id']}", None),
+        # A deleted OIDC user may get users.manage again from the groups of its provider
+        ("delete", "/api/v1/users/revoked/old-admin", None),
+        ("put", "/api/v1/oidc/settings", {"admin_groups": "my-idp-group"}),
+        (
+            "put",
+            "/api/v1/oidc/mappings",
+            {"mappings": [{"claim": "ops", "role_ids": [keepers["id"]]}]},
+        ),
+    ):
+        response = accounts.request(method, url, json=body, headers=delegate)
+        assert response.status_code == 403, (method, url, response.text)
+        assert "administrator" in response.json()["detail"]
+    events = accounts.get("/api/v1/audit", headers=session_headers(accounts, "root")).json()
+    assert sum(event["action"] == "access.denied" for event in events["events"]) == 12
+    assert login(accounts, "root", USER_PASSWORD).status_code == 200
+
+    # It still manages the other roles and users
+    body = {"name": "Readers", "permissions": ["rules.read"]}
+    assert accounts.post(roles, json=body, headers=delegate).status_code == 201
+    response = accounts.put(
+        f"/api/v1/users/{bob['id']}", json={"role_ids": [auditors["id"]]}, headers=delegate
+    )
+    assert response.status_code == 200, response.text
+    mapping = {"mappings": [{"claim": "auditors", "role_ids": [auditors["id"]]}]}
+    assert accounts.put("/api/v1/oidc/mappings", json=mapping, headers=delegate).status_code == 200
+    # And an administrator gives settings.manage
+    response = accounts.put(
+        f"/api/v1/users/{bob['id']}",
+        json={"role_ids": [keepers["id"]]},
+        headers=session_headers(accounts, "root"),
+    )
+    assert response.status_code == 200, response.text
+
+
 def test_a_manager_without_reports_read_reads_no_project(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     keeper = access_control.create_role("Keeper", ["tokens.manage", "standards.manage"])

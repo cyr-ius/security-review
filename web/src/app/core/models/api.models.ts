@@ -317,6 +317,7 @@ export type AuditAction =
   | 'user.roles_changed'
   | 'user.projects_changed'
   | 'oidc.mappings_changed'
+  | 'access.denied'
   | 'user.login'
   | 'user.login_failed'
   | 'user.logout'
@@ -371,6 +372,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.roles_changed',
   'user.projects_changed',
   'oidc.mappings_changed',
+  'access.denied',
   'user.login',
   'user.login_failed',
   'user.logout',
@@ -1363,8 +1365,23 @@ export interface ServerInstance {
    * the agents (MCP server), the scans received (Controller server). Absent from an earlier version.
    */
   processing?: Processing;
+  /** Controller server: the code scans it runs itself. Absent from an earlier version. */
+  scans?: ControllerScans;
   /** MCP server: the agents that sent it a request lately, the most recent first. */
   agents?: AgentActivity[];
+}
+
+/**
+ * The code scans a Controller process runs itself (without scan engines, or when none scanned
+ * the files): the most run at once since its previous heartbeat by pool, their files, and its
+ * OpenGrep slots of each pool (0 without OpenGrep: the scans are then not limited).
+ */
+export interface ControllerScans {
+  codebase: number;
+  fragment: number;
+  files: number;
+  codebase_slots: number;
+  fragment_slots: number;
 }
 
 /**

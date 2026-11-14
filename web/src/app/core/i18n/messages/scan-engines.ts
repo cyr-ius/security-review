@@ -46,6 +46,11 @@ export const scanEngines = defineMessages({
       '{active} active engines out of {total}, {pipelines} pipeline scans and {fragments} fragments in progress, {files} files in progress',
     'scanEngines.flowActive': 'active',
     'scanEngines.flowFiles': '{count} files in progress',
+    'scanEngines.flowFilesShort': 'files in progress',
+    'scanEngines.flowControllerLocalTitle':
+      '{pipelines} codebase scans and {fragments} fragments it runs itself, {files} files in progress; {used} of {capacity} OpenGrep slots in use',
+    'scanEngines.flowControllerLocalUnlimitedTitle':
+      '{pipelines} codebase scans and {fragments} fragments it runs itself, {files} files in progress; no slot limit without OpenGrep',
     'scanEngines.flowSlotsShort': 'slots',
     'scanEngines.flowSentOne': '1 upload',
     'scanEngines.flowSent': '{count} uploads',
@@ -123,6 +128,11 @@ export const scanEngines = defineMessages({
       '{active} moteurs actifs sur {total}, {pipelines} scans de pipeline et {fragments} fragments en cours, {files} fichiers en cours',
     'scanEngines.flowActive': 'actifs',
     'scanEngines.flowFiles': '{count} fichiers en cours',
+    'scanEngines.flowFilesShort': 'fichiers en cours',
+    'scanEngines.flowControllerLocalTitle':
+      '{pipelines} scans de dépôt et {fragments} fragments qu’il exécute lui-même, {files} fichiers en cours ; {used} créneaux OpenGrep occupés sur {capacity}',
+    'scanEngines.flowControllerLocalUnlimitedTitle':
+      '{pipelines} scans de dépôt et {fragments} fragments qu’il exécute lui-même, {files} fichiers en cours ; pas de limite de créneaux sans OpenGrep',
     'scanEngines.flowSlotsShort': 'créneaux',
     'scanEngines.flowSentOne': '1 envoi',
     'scanEngines.flowSent': '{count} envois',
@@ -200,6 +210,11 @@ export const scanEngines = defineMessages({
       '{active} motores activos de {total}, {pipelines} escaneos de pipelines y {fragments} fragmentos en curso, {files} archivos en curso',
     'scanEngines.flowActive': 'activos',
     'scanEngines.flowFiles': '{count} archivos en curso',
+    'scanEngines.flowFilesShort': 'archivos en curso',
+    'scanEngines.flowControllerLocalTitle':
+      '{pipelines} escaneos de repositorio y {fragments} fragmentos que ejecuta él mismo, {files} archivos en curso; {used} de {capacity} huecos de OpenGrep ocupados',
+    'scanEngines.flowControllerLocalUnlimitedTitle':
+      '{pipelines} escaneos de repositorio y {fragments} fragmentos que ejecuta él mismo, {files} archivos en curso; sin límite de huecos sin OpenGrep',
     'scanEngines.flowSlotsShort': 'huecos',
     'scanEngines.flowSentOne': '1 envío',
     'scanEngines.flowSent': '{count} envíos',
