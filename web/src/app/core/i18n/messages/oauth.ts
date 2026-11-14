@@ -35,10 +35,9 @@ export const oauth = defineMessages({
     'oauth.revokeFailed': 'The access could not be revoked.',
     'oauth.loadError': 'Could not load the connected MCP clients.',
     'oauth.loginTitle': 'OAuth login',
-    'oauth.pageSubtitle':
-      'The MCP clients of the workstations (Claude Code, VS Code…) that log in through the browser, and the accesses approved by each user.',
+    'oauth.pageSubtitle': 'The user approves the connection for a login through the browser.',
     'oauth.adminHelp':
-      'Clients that log in through the browser instead of a personal token. Revoke a grant to cut one user; delete a client to cut all its users (it must register again). The other settings are variables of the Controller server.',
+      'The agents open the browser so that the developer logs in and approves the request.',
     'oauth.mcpUrl': 'MCP endpoint',
     'oauth.enabled': 'Enable OAuth login',
     'oauth.mcpUrlHelp':
@@ -112,9 +111,9 @@ export const oauth = defineMessages({
     'oauth.loadError': 'Impossible de charger les clients MCP connectés.',
     'oauth.loginTitle': 'Connexion OAuth',
     'oauth.pageSubtitle':
-      'Les clients MCP des postes de travail (Claude Code, VS Code…) qui se connectent par le navigateur, et les accès approuvés par chaque utilisateur.',
+      'L’utilisateur approuve la connexion pour une authentification via le navigateur.',
     'oauth.adminHelp':
-      'Les clients qui se connectent par le navigateur au lieu d’un jeton personnel. Révoquez un accès pour couper un utilisateur ; supprimez un client pour couper tous ses utilisateurs (il devra se réenregistrer). Les autres réglages sont des variables du serveur Controller.',
+      'Les agents ouvrent le navigateur afin que le développeur s’authentifie et approuve la demande.',
     'oauth.mcpUrl': 'Point d’accès MCP',
     'oauth.enabled': 'Activer la connexion OAuth',
     'oauth.mcpUrlHelp':
@@ -188,9 +187,9 @@ export const oauth = defineMessages({
     'oauth.loadError': 'No se pudieron cargar los clientes MCP conectados.',
     'oauth.loginTitle': 'Inicio de sesión OAuth',
     'oauth.pageSubtitle':
-      'Los clientes MCP de los puestos de trabajo (Claude Code, VS Code…) que inician sesión con el navegador, y los accesos aprobados por cada usuario.',
+      'El usuario aprueba la conexión para una autenticación a través del navegador.',
     'oauth.adminHelp':
-      'Los clientes que inician sesión con el navegador en lugar de un token personal. Revoque un acceso para cortar a un usuario; elimine un cliente para cortar a todos sus usuarios (deberá registrarse de nuevo). Los demás ajustes son variables del servidor Controller.',
+      'Los agentes abren el navegador para que el desarrollador se autentique y apruebe la solicitud.',
     'oauth.mcpUrl': 'Punto de acceso MCP',
     'oauth.enabled': 'Activar el inicio de sesión OAuth',
     'oauth.mcpUrlHelp':

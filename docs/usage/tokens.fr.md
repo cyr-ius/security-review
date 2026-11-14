@@ -71,11 +71,20 @@ s'arrête tant que le compte doit changer un mot de passe défini par un adminis
 supprimé avec le compte. Un seul jeton par usage est permis par défaut : révoquez-le pour en
 créer un autre. Il ne se renouvelle pas : révoquez-le et créez-en un nouveau.
 
+### Clients MCP (connexion par le navigateur)
+
 Avec la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), l'agent MCP n'a besoin
-d'aucun jeton personnel : les clients que vous avez autorisés sont listés dans **Mon compte** >
-**Clients MCP connectés**, où vous les révoquez. Un administrateur voit et révoque tous les
-clients sur la page **Clients MCP**, où il active ou désactive aussi la connexion et saisit son
-point d'accès MCP.
+d'aucun jeton personnel. L'agent (Claude Code, VS Code…) ouvre le navigateur. Vous vous
+authentifiez et approuvez la demande.
+
+- **Vos clients** : **Mon compte** > **Clients MCP connectés** liste les clients que vous avez
+  autorisés. Révoquez-en un pour le couper.
+- **Tous les clients** : un administrateur les voit sur la page **Clients MCP**, avec les accès
+  approuvés par chaque utilisateur.
+    - **Révoquer** coupe un utilisateur.
+    - **Supprimer** coupe tous les utilisateurs d'un client. Le client devra se réenregistrer.
+- **Réglages** : l'administrateur active ou désactive la connexion et saisit son point d'accès MCP
+  sur la même page. Les autres réglages sont des [variables du serveur Controller](../reference/configuration.md).
 
 ### Jetons MCP et CI personnels
 

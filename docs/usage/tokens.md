@@ -71,10 +71,19 @@ request; it stops while the account must change a password set by an administrat
 deleted with the account. Only one token per usage is allowed by default: revoke it to create
 another. It cannot be rotated: revoke it and create a new one.
 
+### MCP clients (browser login)
+
 With the [OAuth login of MCP clients](../advanced/mcp-oauth.md), the MCP agent needs no personal
-token: the clients you approved are listed in **My account** > **Connected MCP clients**, where
-you revoke them. An administrator sees and revokes every client on the **MCP clients** page,
-where the login is also turned on or off and its MCP endpoint set.
+token. The agent (Claude Code, VS Code…) opens the browser. You log in and approve the request.
+
+- **Your clients**: **My account** > **Connected MCP clients** lists the clients you approved.
+  Revoke one to cut it.
+- **All the clients**: an administrator sees them on the **MCP clients** page, with the accesses
+  approved by each user.
+    - **Revoke** cuts one user.
+    - **Delete** cuts all the users of a client. The client must register again.
+- **Settings**: the administrator turns the login on or off and sets its MCP endpoint on the
+  same page. The other settings are [variables of the Controller server](../reference/configuration.md).
 
 ### Personal MCP and CI tokens
 
