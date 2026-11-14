@@ -159,7 +159,7 @@ usage unique sur l'entrée standard) :
 
 ```bash
 echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
-    security-review-ci@latest scan-deps . --url https://secreview.example.com \
+    security-review-ci@X.Y.Z scan-deps . --url https://secreview.example.com \
     --project my-project --save --token-stdin
 ```
 

@@ -125,13 +125,13 @@ files** and without the developer installing anything or creating a `ci` token:
 
     ```bash
     echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
-        security-review-ci@latest scan-code . --url https://secreview.example.com \
+        security-review-ci@X.Y.Z scan-code . --url https://secreview.example.com \
         --project portal --save --token-stdin --format summary
     ```
 
     `uvx` runs the [client served by the Controller server](../../advanced/architecture/ci.md#from-the-controller-server)
-    without installing it (only `uv` is needed); the ticket goes on the standard input, never on
-    the command line;
+    without installing it (only `uv` is needed), at the version of the MCP server (`X.Y.Z`);
+    the ticket goes on the standard input, never on the command line;
 3. the Controller server scans the files and saves a `code-scan` report (and a
     `dependency-scan` report with the `scan-deps .` command, which finds the manifests, lockfiles
     and SBOMs itself); `--format summary` only prints the

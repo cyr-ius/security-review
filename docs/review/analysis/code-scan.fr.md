@@ -128,13 +128,13 @@ sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
 
     ```bash
     echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
-        security-review-ci@latest scan-code . --url https://secreview.example.com \
+        security-review-ci@X.Y.Z scan-code . --url https://secreview.example.com \
         --project portal --save --token-stdin --format summary
     ```
 
     `uvx` exécute le [client servi par le serveur Controller](../../advanced/architecture/ci.md#depuis-le-serveur-controller)
-    sans l'installer (seul `uv` est nécessaire) ; le ticket passe par l'entrée standard, jamais
-    par la ligne de commande ;
+    sans l'installer (seul `uv` est nécessaire), à la version du serveur MCP (`X.Y.Z`) ; le
+    ticket passe par l'entrée standard, jamais par la ligne de commande ;
 3. le serveur Controller scanne les fichiers et enregistre un rapport `code-scan` (et un
     rapport `dependency-scan` avec la commande `scan-deps .`, qui trouve elle-même les manifestes,
     lockfiles et SBOM) ; `--format summary` n'affiche que
