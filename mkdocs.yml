@@ -90,7 +90,7 @@ plugins:
             Development standards: Normes de développement
             Getting started: Démarrage
             Home: Accueil
-            Three services, three roles: Trois services, trois rôles
+            Four services, four roles: Quatre services, quatre rôles
             How a review works: Fonctionnement d'une revue
             Kubernetes: Kubernetes
             Reverse proxy: Reverse proxy
@@ -160,7 +160,7 @@ validation:
 
 nav:
   - Home: index.md
-  - Three services, three roles: services.md
+  - Four services, four roles: services.md
   - Getting started:
       - Shared mode (HTTP): getting-started/deploy.md
       - Local mode (stdio): getting-started/stdio.md

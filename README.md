@@ -54,11 +54,11 @@ Details: [how a review works](https://cyr-ius.github.io/security-review/review/)
 
 ## Quick start
 
-The product runs as **three services**: the **MCP server** (`security-review-mcp`), used by the
+The product runs as **four services**: the **MCP server** (`security-review-mcp`), used by the
 agents, the **Controller server** (`security-review-controller`), used by people (web interface,
-REST API, tokens and accounts), on one shared database, and the pipeline client
-(`security-review-ci`). See
-[three services, three roles](https://cyr-ius.github.io/security-review/services/).
+REST API, tokens and accounts), on one shared database, the pipeline client
+(`security-review-ci`) and optional scan engines (`security-review-scan-engine`). See
+[four services, four roles](https://cyr-ius.github.io/security-review/services/).
 
 In an empty folder, this block starts PostgreSQL, the Controller server and the MCP server
 with Docker Compose and resets the password of the `admin` account:

@@ -2,7 +2,7 @@
 
 This page sets up the **shared mode (HTTP)** for a team: the Controller server (web interface,
 administration, pipelines) and the MCP server (used by the agents), on the same database. See
-[three services, three roles](../services.md).
+[four services, four roles](../services.md).
 
 ```mermaid
 flowchart LR

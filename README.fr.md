@@ -56,11 +56,12 @@ Détail : [fonctionnement d'une revue](https://cyr-ius.github.io/security-review
 
 ## Démarrage rapide
 
-Le produit repose sur **trois services** : le **serveur MCP** (`security-review-mcp`), utilisé
+Le produit repose sur **quatre services** : le **serveur MCP** (`security-review-mcp`), utilisé
 par les agents, le **serveur Controller** (`security-review-controller`), utilisé par les
-personnes (interface web, API REST, jetons et comptes), sur une base partagée, et le client de
-pipeline (`security-review-ci`). Voir
-[trois services, trois rôles](https://cyr-ius.github.io/security-review/fr/services/).
+personnes (interface web, API REST, jetons et comptes), sur une base partagée, le client de
+pipeline (`security-review-ci`) et des moteurs de scan facultatifs
+(`security-review-scan-engine`). Voir
+[quatre services, quatre rôles](https://cyr-ius.github.io/security-review/fr/services/).
 
 Dans un dossier vide, ce bloc démarre PostgreSQL, le serveur Controller et le serveur MCP avec
 Docker Compose et réinitialise le mot de passe du compte `admin` :
