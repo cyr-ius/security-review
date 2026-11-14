@@ -75,7 +75,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for |
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 | **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 

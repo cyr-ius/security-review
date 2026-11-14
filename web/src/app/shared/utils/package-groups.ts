@@ -5,7 +5,7 @@ const VULNERABLE_COMPONENT_CWE = 'CWE-1395';
 /** Evidence of such a finding: ``name==version (ecosystem)``. */
 const EVIDENCE_RE = /^(.+)==(\S+) \((.+)\)$/;
 
-/** Advisories of one vulnerable component (same package, version and manifest). */
+/** Advisories of one vulnerable component (same project, package, version and manifest). */
 export interface PackageGroup<T extends Finding> {
   key: string;
   /** ``name version``, as in the titles of its findings. */
@@ -33,8 +33,10 @@ function packageKey(finding: Finding): { key: string; component: string } | null
     return null;
   }
   const [, name, version, ecosystem] = match;
+  // The findings of every project are listed together at /findings: one group per project
+  const project = 'project' in finding ? String(finding.project) : '';
   return {
-    key: `${ecosystem}|${name}|${version}|${finding.file_path ?? ''}`,
+    key: `${project}|${ecosystem}|${name}|${version}|${finding.file_path ?? ''}`,
     component: `${name} ${version}`,
   };
 }

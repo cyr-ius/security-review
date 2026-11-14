@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
@@ -43,6 +43,8 @@ import { RefreshButtonComponent } from '../../../shared/components/refresh-butto
 import { BulkTriageComponent } from './bulk-triage/bulk-triage.component';
 import { reloadOnReturn } from '../../../shared/utils/reload-on-return';
 import { reportSearch } from '../../../layout/global-search/search-query';
+import { PackageGroup, groupByPackage } from '../../../shared/utils/package-groups';
+import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -63,7 +65,9 @@ const SEARCH_DELAY_MS = 300;
     RouterLink,
     DatePipe,
     FindingCardComponent,
+    NgTemplateOutlet,
     RefreshButtonComponent,
+    SeverityBadgeComponent,
     TableControlsComponent,
     TranslatePipe,
   ],
@@ -201,6 +205,14 @@ export class ProjectFindingsComponent {
   /** Loaded findings: the first page, then the pages added by "load more" and triage updates. */
   readonly findings = linkedSignal<ProjectFinding[]>(() => this.firstPage.value()?.findings ?? []);
   readonly total = computed(() => this.firstPage.value()?.total ?? 0);
+
+  /** Type the context of the finding card template (``let-`` variables are not typed). */
+  asFinding(finding: ProjectFinding): ProjectFinding {
+    return finding;
+  }
+
+  /** Loaded findings, the advisories of one vulnerable package gathered in a group. */
+  readonly entries = computed(() => groupByPackage(this.findings()));
   readonly hasMore = computed(() => this.findings().length < this.total());
 
   readonly loadingMore = signal(false);
@@ -314,6 +326,41 @@ export class ProjectFindingsComponent {
         next.add(finding.id);
       } else {
         next.delete(finding.id);
+      }
+      return next;
+    });
+  }
+
+  /** Findings of a group a decision applies to (a finding reported again is triaged on its latest). */
+  groupTriageable(group: PackageGroup<ProjectFinding>): ProjectFinding[] {
+    return group.findings.filter((f) => f.superseded_by === null);
+  }
+
+  /** Every finding of a group that can be triaged is picked. */
+  groupSelected(group: PackageGroup<ProjectFinding>): boolean {
+    const findings = this.groupTriageable(group);
+    return findings.length > 0 && findings.every((f) => this.selectedIds().has(f.id));
+  }
+
+  /** Some, but not every, finding of a group is picked. */
+  groupPartlySelected(group: PackageGroup<ProjectFinding>): boolean {
+    return (
+      !this.groupSelected(group) &&
+      this.groupTriageable(group).some((f) => this.selectedIds().has(f.id))
+    );
+  }
+
+  /** Pick or leave every finding of a group for a bulk decision. */
+  selectGroup(group: PackageGroup<ProjectFinding>, event: Event): void {
+    const picked = (event.target as HTMLInputElement).checked;
+    this.selectedIds.update((ids) => {
+      const next = new Set(ids);
+      for (const finding of this.groupTriageable(group)) {
+        if (picked) {
+          next.add(finding.id);
+        } else {
+          next.delete(finding.id);
+        }
       }
       return next;
     });

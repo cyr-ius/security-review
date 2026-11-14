@@ -41,6 +41,7 @@ export const reports = defineMessages({
     'packageGroup.open': 'Open: {count}',
     'packageGroup.proposals': 'Status proposals: {count}',
     'packageGroup.toggle': 'Show or hide the advisories of {component}',
+    'packageGroup.select': 'Select the advisories of {component}',
     'report.triageForbidden': 'Your role does not allow changing the status of a finding.',
     'report.triageFailed': 'The status of finding #{id} could not be saved.',
     'report.triageInvalid':
@@ -136,6 +137,7 @@ export const reports = defineMessages({
     'packageGroup.open': 'Ouverts : {count}',
     'packageGroup.proposals': 'Propositions de statut : {count}',
     'packageGroup.toggle': 'Afficher ou masquer les avis de {component}',
+    'packageGroup.select': 'Sélectionner les avis de {component}',
     'report.triageForbidden': "Votre rôle ne permet pas de modifier le statut d'un finding.",
     'report.triageFailed': "Le statut du finding #{id} n'a pas pu être enregistré.",
     'report.triageInvalid':
@@ -232,6 +234,7 @@ export const reports = defineMessages({
     'packageGroup.open': 'Abiertos: {count}',
     'packageGroup.proposals': 'Propuestas de estado: {count}',
     'packageGroup.toggle': 'Mostrar u ocultar los avisos de {component}',
+    'packageGroup.select': 'Seleccionar los avisos de {component}',
     'report.triageForbidden': 'Su rol no permite cambiar el estado de un hallazgo.',
     'report.triageFailed': 'No se pudo guardar el estado del hallazgo #{id}.',
     'report.triageInvalid':

@@ -265,4 +265,4 @@ The `vulnerability_check` field says whether the check took place:
   (`pillow 12.3.0: Heap buffer overflow in ImagingJpegDecode`). One release often fixes many
   advisories of a package: the summary of the report counts the vulnerable components and
   their advisories apart, and the web interface groups the advisories of one component
-  (**Report** page and open findings of a **Project**).
+  (**Report** and **Findings** pages, open findings of a **Project**).

@@ -267,5 +267,5 @@ Le champ `vulnerability_check` dit si la vérification a eu lieu :
   CVE, sont fusionnés), intitulé par le composant et le problème de l'avis
   (`pillow 12.3.0: Heap buffer overflow in ImagingJpegDecode`). Une version corrige souvent
   de nombreux avis d'un paquet : le résumé du rapport compte à part les composants vulnérables
-  et leurs avis, et l'interface web regroupe les avis d'un même composant (page **Rapport** et
-  findings ouverts d'un **Projet**).
+  et leurs avis, et l'interface web regroupe les avis d'un même composant (pages **Rapport** et
+  **Findings**, findings ouverts d'un **Projet**).
