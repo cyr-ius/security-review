@@ -70,6 +70,7 @@ plugins:
             Advanced: Avancé
             Analysis: Analyse
             Audit log in detail: Journal d'audit en détail
+            Activity: Activité
             Audit log: Journal d'audit
             Bearer tokens: Jetons Bearer
             Checklists: Checklists
@@ -185,6 +186,7 @@ nav:
       - Roles and permissions: usage/access-control.md
       - Tokens: usage/tokens.md
       - OIDC login: usage/sso.md
+      - Activity: usage/activity.md
       - Audit log: usage/audit-metrics.md
       - Connectors:
           - Overview: usage/connectors/index.md

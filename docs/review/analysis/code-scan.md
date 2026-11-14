@@ -114,7 +114,7 @@ for the dependencies: `start_codebase_scan` with `scope` `deps`, else `security-
 
 With the HTTP MCP server and the [delegation of `scan_code`](opengrep.md#fragment-scans-scan_code)
 turned on (`SECREVIEW_SCANCODE_DELEGATED`, or the switch of the
-[**Activity**](../../usage/index.md#activity) page, which covers both tools), the agent scans the whole repository on the Controller server **without reading the
+[**Activity**](../../usage/activity.md) page, which covers both tools), the agent scans the whole repository on the Controller server **without reading the
 files** and without the developer installing anything or creating a `ci` token:
 
 1. the agent calls `start_codebase_scan` with the project; the MCP server relays its token (an

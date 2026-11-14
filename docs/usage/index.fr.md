@@ -112,24 +112,8 @@ qui les enregistre ou les annule.
 
 ### Activité
 
-La page **Activité** (`settings.manage`) montre ce qui tourne en ce moment et se recharge toutes
-les 2 secondes tant qu'elle est visible :
-
-- le **Diagramme d'activité** : les agents, les pipelines, les serveurs MCP, les serveurs
-  Controller et les moteurs de scan, avec les scans en cours (ses couleurs sont expliquées dans
-  [Moteurs de scan](../advanced/architecture/scan-engine.md#administration)) ;
-- la section **Délégation des scans de code** : l'interrupteur qui envoie les fragments donnés à
-  `scan_code` par les serveurs MCP à l'adresse du serveur Controller de la page **Général**
-  ([scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) et permet à
-  `start_codebase_scan` de lui demander un
-  [ticket de scan](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan) ;
-- la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
-  enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
-
-![Diagramme d'activité : agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan](../assets/screenshots/activity-diagram.png)
-
-Le bouton **Journal d'audit**, à côté d'**Actualiser**, ouvre le [journal d'audit](audit-metrics.md)
-(`audit.read`). L'ancienne adresse `/ui/scan-engines` mène à cette page.
+La page **Activité** (`settings.manage`) montre ce qui tourne en ce moment : le diagramme
+d'activité, la délégation des scans de code et les moteurs de scan. Voir [Activité](activity.md).
 
 ## Points d'attention
 

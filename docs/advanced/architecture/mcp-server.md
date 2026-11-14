@@ -45,7 +45,7 @@ In HTTP, `security-review-mcp serve`:
    at the start of the process: neither reversible nor comparable between servers) and the name
    and version its MCP client gives at the start of the session (`clientInfo`); never the name of
    a person nor of a token. The Controller server shows it on the
-   [**Activity**](../../usage/index.md#activity) page. It deletes it when it stops; a
+   [**Activity**](../../usage/activity.md) page. It deletes it when it stops; a
    server gone without stopping disappears from the page after 30 seconds.
 
 In stdio, `security-review-mcp local` migrates its local database itself.

@@ -107,24 +107,8 @@ together. The changes go to the form, which still saves or cancels them.
 
 ### Activity
 
-The **Activity** page (`settings.manage`) shows what runs now and reloads itself every
-2 seconds while it is visible:
-
-- the **Activity diagram**: the agents, the pipelines, the MCP servers, the Controller servers and
-  the scan engines, with the scans in progress (its colors are explained in
-  [Scan engines](../advanced/architecture/scan-engine.md#administration));
-- the **Delegation of code scans** section: the switch that sends the fragments given to
-  `scan_code` by the MCP servers to the Controller server address of the **General** page
-  ([fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)) and lets
-  `start_codebase_scan` ask it for a
-  [scan ticket](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan);
-- the **Scan engines** section: the [scan engines](../advanced/architecture/scan-engine.md#administration)
-  enrolled with the Controller server (version, address, last activity) and their revocation.
-
-![Activity diagram: agents, pipelines, MCP servers, Controller servers and scan engines](../assets/screenshots/activity-diagram.png)
-
-The **Audit log** button, next to **Refresh**, opens the [audit log](audit-metrics.md)
-(`audit.read`). The former address `/ui/scan-engines` leads to this page.
+The **Activity** page (`settings.manage`) shows what runs now: the activity diagram, the
+delegation of the code scans and the scan engines. See [Activity](activity.md).
 
 ## Points to watch
 
