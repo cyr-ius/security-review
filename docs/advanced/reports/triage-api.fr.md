@@ -8,7 +8,7 @@ les limites, les réglages et les appels de l'API REST.
 Seule une **session** (compte local ou OIDC, voir [comptes utilisateurs](../../usage/user-accounts.md))
 avec la permission `findings.triage` peut changer un statut, relever une criticité ou commenter :
 un jeton Bearer, même `admin`, reçoit `403`. Un agent ne fait que proposer un statut avec l'outil
-MCP `propose_finding_status` (voir [statut d'un finding](../../review/prompts-tools.md#statut-dun-finding)).
+MCP `propose_finding_status` (voir [statut d'un finding](../../reference/prompts-tools.md#statut-dun-finding)).
 
 ## Limites et réglages
 

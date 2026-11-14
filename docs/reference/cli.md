@@ -1,11 +1,13 @@
 # Command line
 
 The `security-review` package installs two commands, one per process (see
-[Architecture](../advanced/architecture/index.md)), and a pipeline client:
+[Architecture](../advanced/architecture/index.md)), an optional scan engine and a pipeline client:
 
 - `security-review-mcp`: the **MCP server** (stdio or HTTP);
 - `security-review-controller`: the **Controller server** (REST API and web interface), the database
   and the administration;
+- `security-review-scan-engine`: an optional **scan engine**, which runs the code scans in place
+  of the Controller server (no database access);
 - `security-review-ci`: the **pipeline client** of the Controller server REST API (`ci` token, Python
   standard library only, no database access): gate, SARIF, trend, code and dependency scans.
   It is published alone, without the server, on PyPI as the `security-review-ci` package
@@ -62,6 +64,13 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 
 `serve` and the other commands migrate the schema at start-up when needed: `db upgrade` is
 only useful to a [dedicated migration job](../advanced/database.md#dedicated-migration-job).
+
+## `security-review-scan-engine`
+
+| Command | Role | Page |
+|---|---|---|
+| `security-review-scan-engine [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts a scan engine: it enrolls with the Controller server, reads its rules, then runs the rules and OpenGrep of the code scans it receives. Needs `SECREVIEW_SCAN_ENGINE_TOKEN` and `SECREVIEW_CONTROLLER_URL` (code `2` without them); never opens a database | [Scan engines](../advanced/architecture/scan-engine.md#enabling) |
+| `security-review-scan-engine --version` | Prints the version | |
 
 ## `security-review-ci`
 

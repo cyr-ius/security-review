@@ -114,7 +114,7 @@
   modules du serveur Controller qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. Seule exception, désactivée par défaut : avec
   `SECREVIEW_SCANCODE_DELEGATED` défini sur le serveur Controller (ou la délégation activée par un
-  administrateur dans la page **Général**), auditée et enregistrée en base, `scan_code` envoie son fragment au serveur Controller avec le
+  administrateur dans la page **Activité**), auditée et enregistrée en base, `scan_code` envoie son fragment au serveur Controller avec le
   jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
   journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
   `start_codebase_scan` demande de la même façon un ticket de scan (`POST /api/v1/scan/tickets`).
@@ -223,7 +223,7 @@
   web) : `decide_finding_status` applique une décision énoncée par le développeur, une fois que
   celui-ci l'a confirmée par l'hôte (elicitation MCP), à laquelle le modèle ne peut pas
   répondre ; l'outil n'existe pas en HTTP ([décision du développeur en mode
-  local](../review/prompts-tools.md#decision-du-developpeur-en-mode-local)). Une décision reprise sur le même problème signalé par un
+  local](prompts-tools.md#decision-du-developpeur-en-mode-local)). Une décision reprise sur le même problème signalé par un
   rapport ultérieur (mêmes projet, règle, fichier et titre : [finding signalé de
   nouveau](../usage/triage.md#finding-signale-de-nouveau)) garde son approbateur et sa
   date d'expiration : un nouveau rapport ne la prolonge jamais. Pages servies avec une CSP
@@ -351,7 +351,7 @@
   jeton refusé reçoit son `401` avant que son corps soit lu.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés. Chaque nom de projet est
-  [normalisé](../review/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des
+  [normalisé](prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des
   chiffres et des tirets simples atteignent la base, les journaux, les libellés des métriques et
   les noms de fichiers. Le schéma est migré par
   Alembic ; le serveur MCP HTTP ne le modifie jamais et refuse de servir une base qui n'est pas
@@ -392,7 +392,7 @@
   dépôt, ou pour `scan_code` quand il est
   [délégué au serveur Controller](../review/analysis/opengrep.md#scans-de-fragments-scan_code) ;
   sinon l'outil `scan_code` n'applique que les motifs ligne par ligne.
-- La [couverture d'une revue](../review/prompts-tools.md#couverture-de-la-revue) (résultats de
+- La [couverture d'une revue](prompts-tools.md#couverture-de-la-revue) (résultats de
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier
   que l'agent a réellement lu le code.
@@ -402,7 +402,7 @@
   par le client : quiconque détient un tel jeton du projet peut nommer quelqu'un d'autre.
   `submitted_by`, le libellé du jeton qui a enregistré le rapport, est toujours fixé par le
   serveur (voir
-  [auteur d'un rapport](../review/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
+  [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
   une adresse e-mail, donc une donnée personnelle, conservée aussi longtemps que le rapport :
   dans l'interface web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` la voit
   (les autres ne peuvent pas non plus la retrouver par le filtre, la recherche ou le tri) ; les

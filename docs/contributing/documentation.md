@@ -5,9 +5,9 @@ The documentation is written in Markdown in `docs/`, in **English and French**, 
 [mkdocs-static-i18n](https://ultrabug.github.io/mkdocs-static-i18n/) plugin.
 
 ```bash
-uv sync --extra docs
-uv run mkdocs serve          # preview on http://127.0.0.1:8000, hot reload
-uv run mkdocs build --strict # what the CI does: a broken link fails the build
+uv sync --inexact --extra docs   # --inexact keeps the other extras installed
+uv run mkdocs serve              # preview on http://127.0.0.1:8000, hot reload
+uv run mkdocs build --strict     # what the CI does: a broken link fails the build
 ```
 
 - Every page exists twice, side by side: `page.md` in English (default language, served at the

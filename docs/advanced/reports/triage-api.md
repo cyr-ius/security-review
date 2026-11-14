@@ -8,7 +8,7 @@ gives the limits, the settings and the REST API calls.
 Only a **session** (local or OIDC account, see [user accounts](../../usage/user-accounts.md))
 with the `findings.triage` permission may change a status, raise a severity or comment: a
 bearer token, even `admin`, gets `403`. An agent only proposes a status with the MCP tool
-`propose_finding_status` (see [status of a finding](../../review/prompts-tools.md#status-of-a-finding)).
+`propose_finding_status` (see [status of a finding](../../reference/prompts-tools.md#status-of-a-finding)).
 
 ## Limits and settings
 

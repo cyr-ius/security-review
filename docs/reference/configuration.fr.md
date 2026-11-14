@@ -4,7 +4,9 @@ Le serveur MCP et le serveur Controller lisent des variables d'environnement pr�
 un fichier `.env` dans le répertoire courant (voir `.env.example`). Les variables sont groupées
 ci-dessous selon le processus qui les lit : [les deux](#les-deux-processus), le
 [serveur MCP](#serveur-mcp) (`security-review-mcp`), le [serveur Controller](#serveur-controller)
-(`security-review-controller`) ou les [clients](#clients).
+(`security-review-controller`), les
+[moteurs de scan](#moteurs-de-scan-security-review-scan-engine) (`security-review-scan-engine`) ou les
+[clients](#clients).
 
 Certains réglages se définissent aussi dans l'[interface web](../usage/index.md#pages) :
 langue des rapports, proxy sortant, connexion OIDC et serveur syslog du journal d'audit. **Une variable définie est toujours
@@ -53,7 +55,7 @@ Lues par `security-review-mcp` uniquement.
 |---|---|---|
 | `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` ou `http` (mode partagé), ou `stdio` (mode local), sans tenir compte de la casse ; mode de la commande `mcp` de l'[image Docker](../advanced/deployment/docker.md#choisir-le-processus) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/bearer-tokens.md)) ; à réserver aux tests sur un réseau isolé |
-| `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](../review/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans la page [**Langue des rapports**](../usage/index.md#pages) |
+| `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans la page [**Langue des rapports**](../usage/index.md#pages) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code`, et de chaque texte d'un rapport (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |
 | `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Obsolète : définissez plutôt [`SECREVIEW_SCANCODE_DELEGATED`](#interface-web-et-sessions) sur le serveur Controller. Encore lue, avec un avertissement : URL racine du serveur Controller à qui `scan_code` délègue son scan ; prioritaire sur la délégation enregistrée par le serveur Controller. Le serveur Controller ne répond que si sa propre délégation est activée (`SECREVIEW_SCANCODE_DELEGATED` ou l'interface web) : sinon, `scan_code` revient aux règles du serveur MCP |
@@ -70,7 +72,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](../advanced/architecture/controller.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (rôle `admin`, avec la lecture, l'écriture et le triage de tous les projets), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; non défini : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
 | `SECREVIEW_PUBLIC_URL` | — | URL publique racine du serveur Controller (`https://…`, sans `/ui`), souvent la même adresse que `SECREVIEW_CONTROLLER_URL` de [`security-review-ci`](#clients). Recopiée en base à chaque démarrage ; le serveur MCP l'y lit (il ignore sa propre variable) et donne l'adresse de l'interface web (`/ui`) aux clients sans jeton valide (instructions et prompts du serveur d'enrôlement, `401` de `/mcp`), pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; les connecteurs l'utilisent pour leurs liens. Non définie, elle se règle dans la page [**Général**](../usage/index.md#pages) ; sans aucune des deux, aucun lien n'est donné. `SECREVIEW_CONTROLLER_URL`, son ancien nom, est encore lu par le serveur Controller quand elle n'est pas définie, avec un avertissement |
-| `SECREVIEW_SCANCODE_DELEGATED` | — | [Délégation de `scan_code`](../review/analysis/opengrep.md#scans-de-fragments-scan_code) du serveur MCP au serveur Controller, avec le jeton de l'agent, pour appliquer aussi ses règles et ses règles OpenGrep : `true` vers l'URL publique (`SECREVIEW_PUBLIC_URL`, obligatoire), une URL racine vers cette adresse vue du serveur MCP (`http://controller:8080` dans Compose), `false` désactivée. Recopiée en base à chaque démarrage, où le serveur MCP la lit (il n'a besoin d'aucune variable) ; définie, la page **Général** ne peut pas la changer, et retirer une variable qui donnait une adresse désactive la délégation. Non définie : l'interrupteur de la page **Général** décide (désactivée par défaut, aucune connexion sortante du serveur MCP) |
+| `SECREVIEW_SCANCODE_DELEGATED` | — | [Délégation de `scan_code`](../review/analysis/opengrep.md#scans-de-fragments-scan_code) du serveur MCP au serveur Controller, avec le jeton de l'agent, pour appliquer aussi ses règles et ses règles OpenGrep : `true` vers l'URL publique (`SECREVIEW_PUBLIC_URL`, obligatoire), une URL racine vers cette adresse vue du serveur MCP (`http://controller:8080` dans Compose), `false` désactivée. Recopiée en base à chaque démarrage, où le serveur MCP la lit (il n'a besoin d'aucune variable) ; définie, la page **Activité** ne peut pas la changer, et retirer une variable qui donnait une adresse désactive la délégation. Non définie : l'interrupteur de la page **Activité** décide (désactivée par défaut, aucune connexion sortante du serveur MCP) |
 | `SECREVIEW_SCAN_TICKET_TTL_SECONDS` | `600` | Durée de validité du ticket à usage unique que [`start_codebase_scan`](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan) donne à l'agent pour `security-review-ci` (60 à 3600) |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_WEB_UI` | `true` | Sert l'[interface web](../usage/index.md) sur `/ui` ; à `false`, seulement l'API REST |
@@ -201,16 +203,33 @@ Moteur du serveur Controller pour `scan-code`, désactivé par défaut et ignor�
 
 [Moteurs de scan](../advanced/architecture/scan-engine.md) facultatifs (`security-review-scan-engine`) qui exécutent les règles et OpenGrep des scans de code à la place du serveur Controller. Les réglages `SECREVIEW_OPENGREP_*` s'appliquent alors aux moteurs.
 
+Variables lues par les moteurs eux-mêmes : voir [Moteurs de scan (`security-review-scan-engine`)](#moteurs-de-scan-security-review-scan-engine).
+
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Serveur Controller et moteurs : secret partagé (32 caractères au moins), obligatoire des deux côtés. Défini sur le serveur Controller, il active les [moteurs de scan](../advanced/architecture/scan-engine.md) : ils s'enrôlent avec leur propre adresse et les scans de code partent vers les moteurs actifs ; absent : le serveur Controller scanne lui-même |
 | `SECREVIEW_SCAN_ENGINE_NETWORKS` | réseaux privés et de bouclage | Serveur Controller : réseaux (CIDR séparés par des virgules) où les moteurs peuvent [annoncer leur adresse](../advanced/architecture/scan-engine.md#comment-les-scans-parviennent-aux-moteurs), une adresse IP uniquement |
-| `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL` | IP du nom d'hôte, port d'écoute | Moteurs de scan : URL racine où le serveur Controller leur envoie les scans, donnée à leur enrôlement (par ex. `http://10.42.0.17:8000`, l'IP du pod) |
 | `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Serveur Controller : durée maximale d'un scan par un moteur (1 à 7200) |
 | `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Serveur Controller : quand aucun moteur ne répond, refuser le scan (`refuse`, `503` avec `Retry-After`) ou scanner localement (`local`) |
 | `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES` | `15` | Serveur Controller : durée de validité du jeton d'accès OAuth d'un [moteur enrôlé](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) (1 à 1440) |
 | `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` | `7` | Serveur Controller : un moteur enrôlé absent depuis ce nombre de jours est supprimé (1 à 365) |
-| `SECREVIEW_CONTROLLER_URL` | — | Moteurs de scan (obligatoire) : adresse interne du serveur Controller (par ex. `http://controller:8000`), où ils [s'enrôlent](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) et [lisent les règles](../advanced/architecture/scan-engine.md#regles) avant chaque scan, les règles OpenGrep copiées dans leur propre `SECREVIEW_OPENGREP_RULES_DIR` ; les moteurs ne lisent aucune base de données |
+
+## Moteurs de scan (`security-review-scan-engine`)
+
+Lues par les [moteurs de scan](../advanced/architecture/scan-engine.md) facultatifs. Un moteur
+n'ouvre aucune base de données : il reçoit ses règles du serveur Controller.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Obligatoire : le secret partagé, le même que sur le serveur Controller ([Moteurs de scan](#moteurs-de-scan)) |
+| `SECREVIEW_CONTROLLER_URL` | — | Obligatoire : adresse interne du serveur Controller (par ex. `http://controller:8000`), où ils [s'enrôlent](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) et [lisent les règles](../advanced/architecture/scan-engine.md#regles) avant chaque scan, les règles OpenGrep copiées dans leur propre `SECREVIEW_OPENGREP_RULES_DIR` ; les moteurs ne lisent aucune base de données |
+| `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL` | IP du nom d'hôte, port d'écoute | URL racine où le serveur Controller leur envoie les scans, donnée à leur enrôlement (par ex. `http://10.42.0.17:8000`, l'IP du pod) |
+
+Un moteur lit aussi :
+
+- les variables d'[écoute et TLS](#ecoute-tls-et-reverse-proxy) et `SECREVIEW_LOG_LEVEL` ;
+- les variables du [moteur OpenGrep](#moteur-opengrep), qui s'appliquent à ses scans ;
+- les [limites des scans de pipeline](#limites-des-scans-de-pipeline) (`SECREVIEW_MAX_SCAN_*`).
 
 ## Clients
 

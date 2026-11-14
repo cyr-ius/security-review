@@ -63,7 +63,7 @@ are fixed or justified with `propose_finding_status`, which a person approves in
 interface. The full procedure is in `AGENTS.md`.
 
 The `scan-deps` hook runs the `security-review-ci` of the Controller server given by
-`SECREVIEW_CONTROLLER_URL` ([client from the Controller server](../getting-started/commit-hooks.md)),
+`SECREVIEW_CONTROLLER_URL` ([client from the Controller server](../advanced/commit-hooks.md)),
 and is skipped while it is not set. With a personal `ci` token in `SECREVIEW_CI_TOKEN`,
 `scan-deps` scans the dependencies when `uv.lock`, `pyproject.toml` or `web/package*.json`
 change.

@@ -1,7 +1,7 @@
 # Prompts and tools
 
 To understand when the rules, the checklists and the standards apply, and how to write the
-`AGENTS.md` file of a project, see [How a review works](index.md).
+`AGENTS.md` file of a project, see [How a review works](../review/index.md).
 
 ## Prompts
 
@@ -10,10 +10,10 @@ To understand when the rules, the checklists and the standards apply, and how to
 | `security-review` | General review of Python, Java, Go, C#, Rust, TypeScript/Node.js or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | REST API (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
-| `codebase-review` | Review of the **whole repository** (not only a diff); [how it works and its cost](analysis/code-scan.md#what-codebase-review-does) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
+| `codebase-review` | Review of the **whole repository** (not only a diff); [how it works and its cost](../review/analysis/code-scan.md#what-codebase-review-does) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifests and lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualify the findings of a stored report | `report_id`, `context`, `report_language` |
-| `development-standards` | Gives the assistant the [development standards](standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
+| `development-standards` | Gives the assistant the [development standards](../review/standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
 
 If `code` is empty, the prompt asks the agent to read the files of its workspace. Every review
 prompt starts by calling `request_project` (the agent stops when the project is only
@@ -24,7 +24,7 @@ Each review prompt embeds the checklists of its domain (by language for `securit
 `codebase-review`, aliases such as `py` or `ts` accepted), the `*` (every language) and `company`
 checklists, then names
 the other available checklists, internal domains included, for the agent to fetch with
-`get_review_checklist` when they apply ([details](checklists.md#checklists-in-review-prompts)).
+`get_review_checklist` when they apply ([details](../review/checklists.md#checklists-in-review-prompts)).
 
 When the code, diff or workspace includes dependency files (manifests, lockfiles, SBOMs),
 `security-review`, `api-security-review` and `configuration-review` also have the agent call
@@ -36,7 +36,7 @@ when the code names such a file. For a review of the dependencies alone, use `de
 `report_language` sets the language of the agent's reply and of the written fields of the
 stored report (summary, scope, titles, descriptions, recommendations), for example `French`,
 `fr` or `pt-BR`. Without this argument, the prompt uses
-[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#mcp-server) when it is set, else the language
+[`SECREVIEW_REPORT_LANGUAGE`](configuration.md#mcp-server) when it is set, else the language
 chosen by an administrator on the [**General**](../usage/index.md#pages) page of the
 web interface; if none is set, the agent chooses (usually the language of the conversation).
 
@@ -58,14 +58,14 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | Tool | Role |
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` and internal domains |
-| `scan_code` | Quick line-by-line pattern scan (leads to check, **not** a full SAST; data flows are followed by OpenGrep during a scan of the codebase, or by `scan_code` when it is [delegated to the Controller server](analysis/opengrep.md#fragment-scans-scan_code)). Masked excerpts, invisible characters shown as `<U+XXXX>` |
-| `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
+| `scan_code` | Quick line-by-line pattern scan (leads to check, **not** a full SAST; data flows are followed by OpenGrep during a scan of the codebase, or by `scan_code` when it is [delegated to the Controller server](../review/analysis/opengrep.md#fragment-scans-scan_code)). Masked excerpts, invisible characters shown as `<U+XXXX>` |
+| `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type, with pagination |
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
 | `decide_finding_status` | **Local mode (stdio) only**: applies a triage decision the developer stated in the conversation, once they confirm it in the host ([decision of the developer in local mode](#decision-of-the-developer-in-local-mode)) |
-| `propose_opengrep_rule` | **Proposes** an [OpenGrep rule](analysis/opengrep.md#rules-proposed-by-agents) for a vulnerable pattern the scan missed; installed only once a person approves it |
+| `propose_opengrep_rule` | **Proposes** an [OpenGrep rule](../review/analysis/opengrep.md#rules-proposed-by-agents) for a vulnerable pattern the scan missed; installed only once a person approves it |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
@@ -74,8 +74,8 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
 | `request_project` | Called before a review with `project`: `accessible` when the token may save reports on it, `created` for a new project when the user holds `projects.create` (the user becomes its member), `joined` for an existing project the user does not read yet when the user holds `projects.autojoin` (the user reads and writes it), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
-| `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |
-| `list_rules` / `reload_rules` | Active rules ([default and custom](rules.md), stored in the database), loading errors, immediate reload |
+| `list_development_standards` / `get_development_standards` | [Development standards](../review/standards.md): catalog, then the standards to apply for technologies or file names |
+| `list_rules` / `reload_rules` | Active rules ([default and custom](../review/rules.md), stored in the database), loading errors, immediate reload |
 
 On the HTTP transport, a restricted token can only use the report tools on its allowed
 projects; `reload_rules` is refused to it (see
@@ -107,7 +107,7 @@ See [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-toke
 
 - `report://{report_id}`: a stored report;
 - `checklist://{domain}`: the checklist of a domain;
-- `standards://catalog`: the catalog of the [development standards](standards.md);
+- `standards://catalog`: the catalog of the [development standards](../review/standards.md);
 - `standard://{slug}`: a development standard.
 
 ## Stored report
@@ -228,9 +228,9 @@ finding is a lead the agent dismissed. The CLI scans declare no coverage. The re
 
 A finding is `open` when it is saved. **An agent never closes it**: the reviewed code is
 untrusted input, and a prompt injection in a comment could otherwise lead the agent to dismiss
-its own findings and unblock the [gate](gate.md). The server also makes hidden text visible in
+its own findings and unblock the [gate](../review/gate.md). The server also makes hidden text visible in
 what it hands back to the agent and reports injected instructions
-([prompt injection](../reference/security.md#security-of-the-server-itself)).
+([prompt injection](security.md#security-of-the-server-itself)).
 
 - `propose_finding_status` stores a **proposal** (`fixed`, `accepted` or `false_positive`) with
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The

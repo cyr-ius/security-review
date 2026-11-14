@@ -44,7 +44,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 - uv vérifie le SHA-256 donné par la page. Servez le serveur Controller en HTTPS : uv accepte aussi une
   URL en HTTP, mais la page et le wheel peuvent alors être remplacés en chemin, SHA-256 compris,
   et les développeurs exécuteraient ce code (voir
-  [serveur Controller en HTTP](../../getting-started/commit-hooks.md#serveur-controller-en-http-sans-tls)).
+  [serveur Controller en HTTP](../commit-hooks.md#serveur-controller-en-http-sans-tls)).
 - Les deux routes sont publiques (uv n'envoie aucun jeton) et en lecture seule ; comme la
   documentation de l'API, elles indiquent la version du serveur Controller :
   `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` les masque.
@@ -81,7 +81,7 @@ Un jeton `ci` n'atteint que les routes de pipeline : ni `/mcp`, ni le reste de l
 l'interface web. Il est **toujours restreint à des projets** : il ne voit le gate, le journal
 SARIF et la tendance que des projets sélectionnés, et n'enregistre des rapports de scan que pour
 eux ; un autre projet répond `404`, comme un projet inexistant. `--project` est
-[normalisé](../../review/prompts-tools.md#nom-du-projet) comme le projet d'une revue : donnez le nom du dépôt.
+[normalisé](../../reference/prompts-tools.md#nom-du-projet) comme le projet d'une revue : donnez le nom du dépôt.
 
 - Dans l'interface web, page **Jetons** : **Usage** **Pipeline CI/CD**, puis cochez les
   **Projets autorisés**. Le secret n'est affiché qu'une fois.
@@ -129,7 +129,7 @@ erreur (code `2` : serveur Controller injoignable, jeton refusé...). Sans lui, 
 d'eux-mêmes, ce qui suffit pour un premier essai.
 
 Installez le client à la version du serveur Controller (`X.Y.Z` ci-dessous). Le nom du projet est
-[normalisé](../../review/prompts-tools.md#nom-du-projet) : le nom du dépôt fourni par la plateforme
+[normalisé](../../reference/prompts-tools.md#nom-du-projet) : le nom du dépôt fourni par la plateforme
 convient tel quel.
 
 ## Exemples par plateforme

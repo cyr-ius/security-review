@@ -1247,7 +1247,10 @@ _SHELL_SAFE = re.compile(r"[A-Za-z0-9._:/%@+=,-]+")
 
 def _ci_command(controller_url: str, download: bool, project: str, ticket: str, scan: str) -> str:
     """Shell command that runs ``security-review-ci`` with uvx (nothing to install) and gives it
-    the ticket on stdin (never as an argument: it would show in the process list)."""
+    the ticket on stdin (never as an argument: it would show in the process list).
+
+    The client is pinned to the version of this server, deployed with the Controller server
+    (``latest`` only for sources used without being installed)."""
     # The agent runs the command in a shell: only characters no shell interprets
     for value in (controller_url, project, ticket):
         if not _SHELL_SAFE.fullmatch(value):
@@ -1256,8 +1259,9 @@ def _ci_command(controller_url: str, download: bool, project: str, ticket: str, 
                 "shell command: review the files with scan_code instead"
             )
     source = f"--no-index --find-links {controller_url}/api/ci-client/ " if download else ""
+    version = __version__ if __version__ != "0.0.0" else "latest"
     return (
-        f"echo '{ticket}' | uvx {source}security-review-ci@latest {scan} "
+        f"echo '{ticket}' | uvx {source}security-review-ci@{version} {scan} "
         f"--url {controller_url} --project {project} --save --token-stdin"
     )
 

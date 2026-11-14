@@ -61,7 +61,7 @@ Every review prompt gives the agent the same method, in five steps:
 4. **Describe the vulnerabilities.** For each confirmed one, it gives the severity, the CWE,
    the file, the line and a fix.
 5. **Save the report.** The agent calls `save_security_report` **once**. It also declares what
-   it checked (the [coverage](prompts-tools.md#review-coverage)).
+   it checked (the [coverage](../reference/prompts-tools.md#review-coverage)).
 
 Then a person triages the findings in the [web interface](../usage/triage.md).
 The agent can only **propose** a status. It never closes a finding.
@@ -133,62 +133,7 @@ For an important review, prefer the prompt.
     It is the only way for the agent to run the security reviews **automatically**, without the
     developer having to start a prompt before each commit.
 
-### Why you need it
-
-- The agent does not start the prompts. Without instructions, it does not always think of the
-  review.
-- The agent reads `AGENTS.md` at the start of every session. The file tells it **when** to use
-  the server, and **how**.
-- It sets the **project name**. Every report lands in the same place. The gate, the trends and
-  the posture work on this name.
-- Without a set name, each agent makes one up. Reports get scattered and the gate does not see
-  them all.
-
-Some hosts read another file: `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md`
-for GitHub Copilot. Make them point to `AGENTS.md`. You keep a single source.
-
-### Simple example
-
-A `shop-api` project in Python (FastAPI), with a `Dockerfile`:
-
-```markdown
-# Instructions for AI agents
-
-## Project
-- Project name for the `security-review` MCP server: `shop-api`.
-- Always use this name in `save_security_report`.
-
-## Before writing code
-- Call `get_development_standards` with the technologies of the change
-  (e.g. `python`, `fastapi`) or the files you touch (`pyproject.toml`).
-- Apply these standards. Report any deviation with its reason.
-
-## Before saying a task is done
-1. Call `scan_code` on each changed file. Check each lead in the code.
-2. Call `get_review_checklist` for `python`, `api`, `*` and `company`.
-   Add `config` if the `Dockerfile` changes.
-3. If `pyproject.toml` or `uv.lock` changes, call `scan_dependencies`.
-4. Call `save_security_report` once:
-   project `shop-api`, `review_type` `security-review`, branch and commit,
-   `checklist_results` and `scan_rules` filled in.
-5. Fix the `critical` and `high` findings before finishing.
-6. Never change a status. Use `propose_finding_status` with a reason.
-
-If the `security-review` server does not answer, say so. Never claim the review was done.
-```
-
-And a minimal `CLAUDE.md` that points to this file:
-
-```markdown
-The project instructions are in `AGENTS.md`. Follow them in full.
-
-@AGENTS.md
-```
-
-!!! warning "Development standards"
-    The development standards are stored in the server: name them in `AGENTS.md` without copying
-    them. See how to write the `AGENTS.md` file in the Advanced section:
-    [How to mention them in `AGENTS.md`](../getting-started/stored-standards.md#how-to-mention-them-in-agentsmd).
+Its content and a full example: [The AGENTS.md file](../getting-started/agents-md.md).
 
 ## Which check, at which moment
 

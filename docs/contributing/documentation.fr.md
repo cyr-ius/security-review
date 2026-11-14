@@ -5,9 +5,9 @@ construite avec [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) 
 [mkdocs-static-i18n](https://ultrabug.github.io/mkdocs-static-i18n/).
 
 ```bash
-uv sync --extra docs
-uv run mkdocs serve          # aperçu sur http://127.0.0.1:8000, rechargement à chaud
-uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer le build
+uv sync --inexact --extra docs   # --inexact garde les autres extras installés
+uv run mkdocs serve              # aperçu sur http://127.0.0.1:8000, rechargement à chaud
+uv run mkdocs build --strict     # ce que fait la CI : un lien cassé fait échouer le build
 ```
 
 - Chaque page existe deux fois, côte à côte : `page.md` en anglais (langue par défaut, servie à

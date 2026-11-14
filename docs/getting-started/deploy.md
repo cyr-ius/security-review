@@ -2,7 +2,7 @@
 
 This page sets up the **shared mode (HTTP)** for a team: the Controller server (web interface,
 administration, pipelines) and the MCP server (used by the agents), on the same database. See
-[three services, three roles](../services.md).
+[four services, four roles](../services.md).
 
 ```mermaid
 flowchart LR
@@ -29,9 +29,6 @@ At the end, you have:
 - a web interface where people read and triage the reports;
 - an `/mcp` endpoint, protected by tokens, that the hosts of the developers connect to;
 - an `admin` account to manage the users, the tokens and the rules.
-
-Without containers, all-in-one on one Linux server: see Advanced section
-[Manual installation (without containers)](../advanced/deployment/manual-install.md).
 
 ## With Docker Compose
 
@@ -67,9 +64,12 @@ and the PostgreSQL upgrade.
 
 ## With Kubernetes
 
-Copy and paste the whole block: it deploys PostgreSQL (official image), the Controller server and the
-MCP server (published image) in the `secreview` namespace, then gives the first administrator
-password and a token. The Controller server migrates the schema when it starts.
+Copy and paste these commands into a terminal. In the `secreview` namespace, they:
+
+- deploys PostgreSQL, the Controller server and the MCP server;
+- shows the password of the first administrator and a token.
+
+The Controller server creates the tables of the database when it starts.
 
 ```bash
 kubectl create namespace secreview
@@ -96,26 +96,50 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller user reset-password admin
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller token create --label alice
-
-# 4. Web interface on http://127.0.0.1:8080/ui/
-kubectl -n secreview port-forward svc/secreview-controller 8080:80
 ```
 
-The manifests expose nothing outside the cluster: for a first test, you open the web interface
-from your workstation with the last command of the block (`port-forward`), which stays active
-as long as the terminal is open.
+### First test
 
-For the team, expose each Service through an Ingress with TLS: `secreview-mcp` for the agents,
-`secreview-controller` for the developers (web interface, personal MCP tokens) and for the CI
-(`security-review-ci` calls the Controller server). Then set, in the ConfigMap of the manifest,
-`SECREVIEW_PUBLIC_URL` (public root URL of the Controller server) and `SECREVIEW_FORWARDED_ALLOW_IPS` (address
-range of the ingress controller pods: without it, every client seems to come from the same
-address, the one of the Ingress). To let the MCP hosts sign in through the browser instead of a
-personal token, see [OAuth login of MCP clients](../advanced/mcp-oauth.md): with one Ingress per
-Service, the OAuth paths need no extra rule.
+The manifests expose nothing outside the cluster. To log in:
 
-**More information:** see [Kubernetes](../advanced/deployment/kubernetes.md) in the **Advanced** section
-(existing PostgreSQL, content of the manifests, Secrets, exposure, OSV update, several replicas).
+1. Type on your workstation:
+
+    ```bash
+    kubectl -n secreview port-forward svc/secreview-controller 8080:80
+    ```
+
+2. Open <http://127.0.0.1:8080/ui/> in your browser.
+3. Log in with the user `admin` and the password shown by the commands.
+
+Keep the terminal open: the connection stops when you close it.
+
+### For the team
+
+1. Expose each Service through an Ingress with TLS:
+
+    | Service | Used by |
+    |---|---|
+    | `secreview-mcp` | the agents |
+    | `secreview-controller` | the developers (web interface) and the CI |
+
+2. In the ConfigMap of the manifest, set:
+
+    - `SECREVIEW_PUBLIC_URL`: the public address of the Controller server;
+    - `SECREVIEW_FORWARDED_ALLOW_IPS`: the addresses of the ingress controller pods. Without it,
+      every client seems to come from the Ingress.
+
+To let the agents sign in through the browser instead of a token, see
+[OAuth login of MCP clients](../advanced/mcp-oauth.md). With one Ingress per Service, nothing else
+needs configuring.
+
+**Further reading:** [Kubernetes](../advanced/deployment/kubernetes.md) (existing PostgreSQL,
+content of the manifests, Secrets, exposure, OSV update, several replicas).
+
+## Adding scan engines (optional)
+
+With many developers or pipelines, the code scans load the Controller server.
+[Scan engines](../advanced/architecture/scan-engine.md) can take them over, with as many replicas
+as needed. Without them, the Controller server scans by itself.
 
 ## Next step
 

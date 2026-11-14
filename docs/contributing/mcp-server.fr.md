@@ -125,5 +125,5 @@ advice = "Move the secret to a vault or environment variable and rotate it."
 - `tests/conftest.py` fournit à chaque test une base SQLite en mémoire et un registre de règles
   vide ; la fixture `import_pack` charge des règles internes.
 
-Voir aussi les [prompts et outils](../review/prompts-tools.md) tels que les utilisateurs les
+Voir aussi les [prompts et outils](../reference/prompts-tools.md) tels que les utilisateurs les
 voient, et les [règles](../review/rules.md).

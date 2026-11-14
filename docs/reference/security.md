@@ -107,7 +107,7 @@
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the Controller server that make them (advisory download, OIDC, syslog, connectors, version check):
   a test checks it. Only exception, disabled by default: with `SECREVIEW_SCANCODE_DELEGATED` set
-  on the Controller server (or the delegation turned on by an administrator on the **General**
+  on the Controller server (or the delegation turned on by an administrator on the **Activity**
   page), audited and stored in the database,
   `scan_code` sends its fragment to the Controller server with the token of the agent, to that URL
   only, without proxy nor redirect, answer bounded, token never logged (see
@@ -210,7 +210,7 @@
   finding. Only exception, in local mode (stdio, no web interface): `decide_finding_status`
   applies a decision the developer stated, once the developer confirms it through the host
   (MCP elicitation), which the model cannot answer; it does not exist over HTTP ([decision of
-  the developer in local mode](../review/prompts-tools.md#decision-of-the-developer-in-local-mode)).
+  the developer in local mode](prompts-tools.md#decision-of-the-developer-in-local-mode)).
   A decision carried to the same issue raised by a later report (same project, rule,
   file and title: [finding reported again](../usage/triage.md#finding-reported-again))
   keeps its approver and its expiry date: a new report never extends it. Pages are served with a strict CSP and the anti-clickjacking headers, and every
@@ -332,7 +332,7 @@
   its `401` before its body is read.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
   findings and the pagination are bounded. Every project name is
-  [normalized](../review/prompts-tools.md#project-name) before use: only letters, digits and
+  [normalized](prompts-tools.md#project-name) before use: only letters, digits and
   single dashes reach the database, the logs, the metric labels and the file names. The schema is migrated by Alembic; the HTTP MCP
   server never changes it and refuses to serve a database that is not at the expected
   revision.
@@ -370,7 +370,7 @@
   on the Controller server, during a scan of the codebase, or for `scan_code` when it is
   [delegated to the Controller server](../review/analysis/opengrep.md#fragment-scans-scan_code);
   otherwise the `scan_code` tool only applies the line-by-line patterns.
-- The [coverage of a review](../review/prompts-tools.md#review-coverage) (checklist results,
+- The [coverage of a review](prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.
 - The `author` of a report (developer username) is the user of the personal token that saved
@@ -378,7 +378,7 @@
   by an administrator), it is declared by the client: anyone holding such
   a token of the project can name someone else. `submitted_by`, the label of the token that
   saved the report, is always set by the server (see
-  [author of a report](../review/prompts-tools.md#author-of-a-report)). An `author` is often an
+  [author of a report](prompts-tools.md#author-of-a-report)). An `author` is often an
   email address, that is personal data, kept as long as the report: in the web interface and
   the REST API, only a holder of `users.manage` or `tokens.manage` sees it (nor can the others
   find it by the filter, the search or the sort); the MCP tools, resources and prompts never

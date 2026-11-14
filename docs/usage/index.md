@@ -75,9 +75,9 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for |
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
-| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../review/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
+| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../reference/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange the rules, checklists and standards as TOML files)
 
@@ -97,8 +97,8 @@ together. The changes go to the form, which still saves or cancels them.
 
 | Page | What for |
 |---|---|
-| **General** | Report language, Controller server address (and delegation of `scan_code` to it) and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
-| **Activity** | What runs now, and the scan engines with their revocation (`settings.manage`): see [Activity](#activity) |
+| **General** | Report language, Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
+| **Activity** | What runs now, the delegation of `scan_code` and `start_codebase_scan` to the Controller server, and the scan engines with their revocation (`settings.manage`): see [Activity](#activity) |
 | **Users** | One tab each: **Accounts**, with their roles and their projects ([user accounts](user-accounts.md)), **Roles** ([roles and permissions](access-control.md)) and **OIDC sign-in**, the company login ([OIDC login](sso.md)) (`users.manage`) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
 | **MCP clients** | The MCP clients that log in through the browser ([OAuth login](../advanced/mcp-oauth.md#administration)): turning the login on or off, registered clients and approved accesses, revocation (`tokens.manage`) |
@@ -113,6 +113,11 @@ The **Activity** page (`settings.manage`) shows what runs now and reloads itself
 - the **Activity diagram**: the agents, the pipelines, the MCP servers, the Controller servers and
   the scan engines, with the scans in progress (its colors are explained in
   [Scan engines](../advanced/architecture/scan-engine.md#administration));
+- the **Delegation of code scans** section: the switch that sends the fragments given to
+  `scan_code` by the MCP servers to the Controller server address of the **General** page
+  ([fragment scans](../review/analysis/opengrep.md#fragment-scans-scan_code)) and lets
+  `start_codebase_scan` ask it for a
+  [scan ticket](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan);
 - the **Scan engines** section: the [scan engines](../advanced/architecture/scan-engine.md#administration)
   enrolled with the Controller server (version, address, last activity) and their revocation.
 

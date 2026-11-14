@@ -84,9 +84,9 @@ type ProxyField = 'url' | 'no_proxy';
 /**
  * Administrator page: general settings. The language of the review reports, the public URL of
  * the controller (the MCP server gives its web interface to the agents without a valid token,
- * the connectors link to it, scan_code may be delegated to it) and the proxy of the outgoing
- * connections of the controller (OSV download and OIDC provider). SECREVIEW_REPORT_LANGUAGE,
- * SECREVIEW_PUBLIC_URL,
+ * the connectors link to it, the Activity page may delegate scan_code to it) and the proxy of the
+ * outgoing connections of the controller (OSV download and OIDC provider).
+ * SECREVIEW_REPORT_LANGUAGE, SECREVIEW_PUBLIC_URL,
  * HTTPS_PROXY / HTTP_PROXY and NO_PROXY, when set, take precedence: their field then only shows
  * them.
  */
@@ -185,15 +185,6 @@ export class GeneralSettingsComponent extends SettingsPage {
     await this.run(
       () => firstValueFrom(this.api.setControllerUrl(value)),
       value ? msg('settings.controllerUrlSaved') : msg('settings.storedDeleted'),
-    );
-  }
-
-  /** Delegate scan_code of the MCP server to the controller URL, or stop. */
-  async setScanDelegation(event: Event): Promise<void> {
-    const enabled = (event.target as HTMLInputElement).checked;
-    await this.run(
-      () => firstValueFrom(this.api.setMcpScanDelegation(enabled)),
-      enabled ? msg('settings.scanDelegationOn') : msg('settings.scanDelegationOff'),
     );
   }
 

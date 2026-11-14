@@ -1,6 +1,7 @@
 # Security Review
 
-**The MCP server for AI-assisted security code review.**
+**The Security Review server performs AI-assisted security code reviews by providing an MCP
+server.**
 
 Security Review turns the AI assistants of your developers into security reviewers that
 follow your rules, and gives your security team a central view of everything they find.
@@ -48,109 +49,6 @@ recorded in one place, where your security team reads it, triages it and follows
 3. **The security team triages** the findings in the web interface, and the pipeline checks
    with the gate that no serious finding remains open before deploying.
 
-## What the product contains
-
-An **MCP server** for **security-focused code review** (identifying vulnerabilities and misconfigurations). It provides the host (VS Code, Copilot, Claude, CI/CD agent, etc.) with:
-
-- Structured **prompts** to initiate a review;
-- **Tools**, including checklists, pattern-based quick scans, and the ability to save and retrieve reports;
-- A **database** (SQLite by default, with support for PostgreSQL) to store reports and their associated findings.
-
-Accessed via the `security-review-mcp` command.
-
-A **Controller server** for **administration and control management** (the Controller server is optional). It provides administrators and cybersecurity analysts with:
-
-- Access to security analysis **reports**;
-- The ability to conduct **security reviews** and manage **risk acceptance**;
-- Options to add, modify, or delete **rules and checklists**;
-- The ability to incorporate **development standards**;
-- **Management** of developer communities;
-- Third-party **connectors** for tracking and integration (Jira, ServiceNow, etc.).
-
-Accessed via the `security-review-controller` command.
-
-A **CI command** for injection into pipelines (such as Jenkins, etc.) that enables:
-
-- Full **repository scanning**;
-- Deployment **gates** that block releases if open findings exist;
-- SARIF export and **trend reporting**;
-- **Dependency analysis**.
-
-Accessed via the `security-review-ci` command.
-
-## Quick start (shared mode)
-
-The repository provides a ready-to-use `docker-compose.yml` file in `examples/docker/`. This
-block starts everything (PostgreSQL, Controller server, MCP server) and resets the password of
-the `admin` account:
-
-```bash
-mkdir secreview && cd secreview
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
-(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
-docker compose up -d --wait
-docker compose exec controller security-review-controller user reset-password admin   # password shown once
-# web interface: http://127.0.0.1:8080/ui/   MCP endpoint: http://127.0.0.1:8000/mcp
-```
-
-Then turn on the [OAuth login of MCP clients](advanced/mcp-oauth.md), so that the developers
-sign in through the browser instead of copying a token:
-
-1. Log in to the web interface with the `admin` account and choose a new password.
-2. On the **General** page, enter `http://127.0.0.1:8080` as **Public URL of the Controller
-   server** (or click **Use the current address**) and save: the OAuth login needs it.
-3. On the **MCP clients** page, in the **OAuth login** section, enter
-   `http://127.0.0.1:8000/mcp` as **MCP endpoint** and turn on **Enable OAuth login**.
-
-Declare the MCP server in the `.mcp.json` file at the root of the repository, read by VS Code,
-GitHub Copilot and Claude Code. It holds the URL only, no token:
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "http",
-      "url": "http://127.0.0.1:8000/mcp"
-    }
-  }
-}
-```
-
-At the first connection, the host opens the browser: sign in and approve the client on the
-**Connect an MCP client** page. The host then renews its tokens by itself.
-
-In the chat, run the `security-review` prompt (or `codebase-review` for the whole repository).
-The agent reads the code, relies on the checklists and saves its report with
-`save_security_report`.
-Read and triage it in the web interface.
-
-This set-up is a test on the machine that runs the containers: the URLs are on `127.0.0.1`,
-in plain HTTP, which the OAuth login accepts on localhost only. The ports are still open on every
-interface of the machine, in plain HTTP: do not run it on a shared network. Before the team uses it, enable
-HTTPS and give the public URLs of the two servers: see [Deploying the server](getting-started/deploy.md)
-and [OAuth login of MCP clients](advanced/mcp-oauth.md#enabling-it).
-
-## Quick start (local mode)
-
-To try the prompts alone, without a server: the host starts the MCP server itself with
-[uv](https://docs.astral.sh/uv/getting-started/installation/), and the reports are kept in a
-SQLite database of the workstation, without web interface or token. Declare it in the
-`.mcp.json` file at the root of the repository:
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["--from", "security-review=={{ release_version }}", "security-review-mcp", "local"]
-    }
-  }
-}
-```
-
-See [Local mode (stdio)](getting-started/stdio.md).
-
 ## Where to go next
 
 The documentation follows the order of a set-up. **Getting started**, **Security review** and
@@ -160,9 +58,10 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 |---|---|
 | 1. Deploy the Controller server and the MCP server (Docker Compose or Kubernetes), create the first accounts | [Deploying the server](getting-started/deploy.md) |
 | 2. Connect VS Code or Claude, get a token | [Connecting the host](getting-started/host.md) |
-| 3. Run a review | [How a review works](review/index.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](review/prompts-tools.md) |
-| 4. Read and triage the reports | [Web interface](usage/index.md) |
-| 5. Block a deployment on open findings | [Gate](review/gate.md) |
+| 3. Ask the agent to review and to follow the standards | [The AGENTS.md file](getting-started/agents-md.md) |
+| 4. Run a review | [How a review works](review/index.md) (rules, checklists), [Prompts and tools](reference/prompts-tools.md) |
+| 5. Read and triage the reports | [Web interface](usage/index.md) |
+| 6. Block a deployment on open findings | [Gate](review/gate.md) |
 
 | Going further (Advanced) | Page |
 |---|---|

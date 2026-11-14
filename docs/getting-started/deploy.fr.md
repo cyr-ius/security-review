@@ -2,7 +2,7 @@
 
 Cette page met en place le **mode partagé (HTTP)** pour une équipe : le serveur Controller (interface web,
 administration, pipelines) et le serveur MCP (utilisé par les agents), sur la même base. Voir
-[trois services, trois rôles](../services.md).
+[quatre services, quatre rôles](../services.md).
 
 ```mermaid
 flowchart LR
@@ -30,9 +30,6 @@ flowchart LR
 - d'un endpoint `/mcp`, protégé par des jetons, auquel se connectent les hôtes des
   développeurs ;
 - d'un compte `admin` pour gérer les utilisateurs, les jetons et les règles.
-
-Sans conteneur, tout-en-un sur un serveur Linux : voir la section Avancé
-[Installation manuelle (sans conteneur)](../advanced/deployment/manual-install.md).
 
 ## Avec Docker Compose
 
@@ -68,9 +65,12 @@ pour les sauvegardes et la mise à niveau de PostgreSQL.
 
 ## Avec Kubernetes
 
-Copiez-collez tout le bloc : il déploie PostgreSQL (image officielle), le serveur Controller et le
-serveur MCP (image publiée) dans le namespace `secreview`, puis donne le mot de passe du premier
-administrateur et un jeton. Le serveur Controller migre le schéma à son démarrage.
+Copiez-collez ces commandes dans un terminal. Dans le namespace `secreview`, elles :
+
+- déploient PostgreSQL, le serveur Controller et le serveur MCP ;
+- affichent le mot de passe du premier administrateur et un jeton.
+
+Le serveur Controller crée les tables de la base à son démarrage.
 
 ```bash
 kubectl create namespace secreview
@@ -97,28 +97,50 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller user reset-password admin
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller token create --label alice
-
-# 4. Interface web sur http://127.0.0.1:8080/ui/
-kubectl -n secreview port-forward svc/secreview-controller 8080:80
 ```
 
-Les manifestes n'exposent rien hors du cluster : pour un premier essai, vous ouvrez l'interface
-web depuis votre poste avec la dernière commande du bloc (`port-forward`), qui reste active tant
-que le terminal est ouvert.
+### Premier essai
 
-Pour l'équipe, exposez chaque Service par un Ingress avec TLS : `secreview-mcp` pour les agents,
-`secreview-controller` pour les développeurs (interface web, jetons MCP personnels) et pour la
-CI (`security-review-ci` appelle le serveur Controller). Renseignez alors, dans la ConfigMap du
-manifeste, `SECREVIEW_PUBLIC_URL` (URL publique racine du serveur Controller) et
-`SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
-réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress). Pour que les
-hôtes MCP se connectent par le navigateur plutôt qu'avec un jeton personnel, voir
-[Connexion OAuth des clients MCP](../advanced/mcp-oauth.md) : avec un Ingress par Service, les
-chemins OAuth n'ont besoin d'aucune règle supplémentaire.
+Les manifestes n'exposent rien hors du cluster. Pour vous connecter :
 
-**Pour plus d'informations :** voir [Kubernetes](../advanced/deployment/kubernetes.md) dans la section
-**Avancé** (PostgreSQL existant, contenu des manifestes, Secrets, exposition, mise à jour OSV,
-plusieurs réplicas).
+1. Saisissez sur votre poste :
+
+    ```bash
+    kubectl -n secreview port-forward svc/secreview-controller 8080:80
+    ```
+
+2. Ouvrez <http://127.0.0.1:8080/ui/> dans votre navigateur.
+3. Connectez-vous avec l'utilisateur `admin` et le mot de passe affiché par les commandes.
+
+Gardez le terminal ouvert : la connexion s'arrête quand vous le fermez.
+
+### Pour l'équipe
+
+1. Exposez chaque Service par un Ingress avec TLS :
+
+    | Service | Utilisé par |
+    |---|---|
+    | `secreview-mcp` | les agents |
+    | `secreview-controller` | les développeurs (interface web) et la CI |
+
+2. Dans la ConfigMap du manifeste, renseignez :
+
+    - `SECREVIEW_PUBLIC_URL` : l'adresse publique du serveur Controller ;
+    - `SECREVIEW_FORWARDED_ALLOW_IPS` : les adresses des pods de l'ingress controller. Sans ce
+      réglage, tous les clients semblent venir de l'Ingress.
+
+Pour que les agents se connectent par le navigateur plutôt qu'avec un jeton, voir
+[Connexion OAuth des clients MCP](../advanced/mcp-oauth.md). Avec un Ingress par Service, rien
+d'autre n'est à configurer.
+
+**Pour aller plus loin :** [Kubernetes](../advanced/deployment/kubernetes.md) (PostgreSQL
+existant, contenu des manifestes, Secrets, exposition, mise à jour OSV, plusieurs réplicas).
+
+## Ajouter des moteurs de scan (facultatif)
+
+Avec beaucoup de développeurs ou de pipelines, les scans de code chargent le serveur Controller.
+Des [moteurs de scan](../advanced/architecture/scan-engine.md) peuvent les reprendre, avec autant
+de réplicas que nécessaire. Sans eux, le serveur Controller scanne lui-même.
 
 ## Étape suivante
 

@@ -86,6 +86,6 @@ fournit que l'exemple de Claude Code.
   administrateur dans l'interface web ne s'applique pas à la garde, qui fonctionne sans le
   serveur Controller.
 - Les règles sont un premier filtre : un texte adressé à un assistant peut être formulé d'une
-  infinité de façons. La [règle de donnée non fiable](../prompts-tools.md#statut-dun-finding)
+  infinité de façons. La [règle de donnée non fiable](../../reference/prompts-tools.md#statut-dun-finding)
   des prompts de revue et le fait qu'[un agent ne ferme jamais un finding](../../reference/security.md#securite-du-serveur-lui-meme)
   restent les protections principales.

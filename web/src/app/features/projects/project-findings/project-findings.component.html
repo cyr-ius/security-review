@@ -108,73 +108,128 @@
     {{ 'projectFindings.loadError' | t }}
   </div>
 } @else if (firstPage.hasValue()) {
-  <!-- In a card, as the results of the other lists -->
-  <div class="card">
-    <div class="card-body">
-      @for (finding of findings(); track finding.id) {
-        <app-finding-card
-          [finding]="finding"
-          [canTriage]="auth.canTriage()"
-          [permanentAcceptance]="auth.permanentAcceptance()"
-          [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
-          [saving]="triage.saving() === finding.id"
-          [exportKinds]="exportKinds().get(finding.project) ?? noKinds"
-          [exporting]="exports.sending() === finding.id"
-          [systemNamesByKind]="systemNames()"
-          [selectable]="auth.canTriage()"
-          [selected]="selectedIds().has(finding.id)"
-          (selectedChange)="select(finding, $event)"
-          (decided)="decide(finding, $event)"
-          (proposalRejected)="decide(finding, null)"
-          (exportRequested)="exportFinding(finding, $event)"
-        >
+  <!-- Each finding is its own card; the advisories of one vulnerable package are grouped -->
+  <ng-template #card let-row>
+    @let finding = asFinding(row);
+    <app-finding-card
+      [finding]="finding"
+      [canTriage]="auth.canTriage()"
+      [permanentAcceptance]="auth.permanentAcceptance()"
+      [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
+      [saving]="triage.saving() === finding.id"
+      [exportKinds]="exportKinds().get(finding.project) ?? noKinds"
+      [exporting]="exports.sending() === finding.id"
+      [systemNamesByKind]="systemNames()"
+      [selectable]="auth.canTriage()"
+      [selected]="selectedIds().has(finding.id)"
+      (selectedChange)="select(finding, $event)"
+      (decided)="decide(finding, $event)"
+      (proposalRejected)="decide(finding, null)"
+      (exportRequested)="exportFinding(finding, $event)"
+    >
+      @if (!project()) {
+        <a [routerLink]="['/projects', finding.project]" class="text-break">
+          <i class="bi bi-folder" aria-hidden="true"></i> {{ finding.project }}
+        </a>
+      }
+      <a [routerLink]="['/reports', finding.report_id]">
+        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+        {{ 'report.title' | t: { id: finding.report_id } }}
+      </a>
+      <span>{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</span>
+      @if (finding.review_type; as reviewType) {
+        <span [attr.title]="'report.reviewType' | t">
+          <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
+          {{ reviewTypeMeta[reviewType].label | t }}
+        </span>
+      }
+      @if (finding.branch) {
+        <span><i class="bi bi-diagram-2" aria-hidden="true"></i> {{ finding.branch }}</span>
+      }
+      @if (finding.commit_sha) {
+        <code>{{ finding.commit_sha.slice(0, 12) }}</code>
+      }
+    </app-finding-card>
+  </ng-template>
+  @for (entry of entries(); track entry.key) {
+    @if (entry.kind === 'package') {
+      @let group = entry.group;
+      <details class="card package-group mb-3">
+        <summary class="card-header d-flex flex-wrap align-items-center gap-2">
+          @if (auth.canTriage() && groupTriageable(group).length) {
+            <input
+              type="checkbox"
+              class="form-check-input mt-0"
+              [checked]="groupSelected(group)"
+              [indeterminate]="groupPartlySelected(group)"
+              [attr.aria-label]="'packageGroup.select' | t: { component: group.component }"
+              (change)="selectGroup(group, $event)"
+            />
+          }
+          <app-severity-badge [severity]="group.severity" />
+          <span class="fw-semibold me-auto text-break">
+            {{ 'packageGroup.title' | t: { component: group.component } }}
+          </span>
           @if (!project()) {
-            <a [routerLink]="['/projects', finding.project]" class="text-break">
-              <i class="bi bi-folder" aria-hidden="true"></i> {{ finding.project }}
+            <a [routerLink]="['/projects', group.findings[0].project]" class="small text-break">
+              <i class="bi bi-folder" aria-hidden="true"></i> {{ group.findings[0].project }}
             </a>
           }
-          <a [routerLink]="['/reports', finding.report_id]">
-            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
-            {{ 'report.title' | t: { id: finding.report_id } }}
-          </a>
-          <span>{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</span>
-          @if (finding.review_type; as reviewType) {
-            <span [attr.title]="'report.reviewType' | t">
-              <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
-              {{ reviewTypeMeta[reviewType].label | t }}
+          @if (group.filePath) {
+            <code class="small">{{ group.filePath }}</code>
+          }
+          <span class="badge bg-body-secondary text-body border">
+            {{ 'packageGroup.advisories' | t: { count: group.findings.length } }}
+          </span>
+          @if (group.open) {
+            <span class="small text-body-secondary">
+              {{ 'packageGroup.open' | t: { count: group.open } }}
             </span>
           }
-          @if (finding.branch) {
-            <span><i class="bi bi-diagram-2" aria-hidden="true"></i> {{ finding.branch }}</span>
+          @if (group.proposals) {
+            <span
+              class="small text-body-secondary"
+              [title]="'packageGroup.proposals' | t: { count: group.proposals }"
+            >
+              <i class="bi bi-robot" aria-hidden="true"></i> {{ group.proposals }}
+            </span>
           }
-          @if (finding.commit_sha) {
-            <code>{{ finding.commit_sha.slice(0, 12) }}</code>
+        </summary>
+        <div class="card-body pb-0">
+          @for (finding of group.findings; track finding.id) {
+            <ng-container *ngTemplateOutlet="card; context: { $implicit: finding }" />
           }
-        </app-finding-card>
-      } @empty {
+        </div>
+      </details>
+    } @else {
+      <ng-container *ngTemplateOutlet="card; context: { $implicit: entry.finding }" />
+    }
+  } @empty {
+    <div class="card">
+      <div class="card-body">
         <p class="text-body-secondary text-center my-4">
           <i class="bi bi-check2-circle" aria-hidden="true"></i>
           {{ (defaultFilters() ? 'projectFindings.none' : 'report.noneFiltered') | t }}
         </p>
-      }
+      </div>
+    </div>
+  }
 
-      @if (hasMore()) {
-        <div class="text-center my-3">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            (click)="loadMore()"
-            [disabled]="loadingMore()"
-          >
-            {{ 'projectFindings.loadMore' | t }}
-          </button>
-          @if (loadMoreFailed()) {
-            <p class="text-danger small mt-2 mb-0">{{ 'projectFindings.loadError' | t }}</p>
-          }
-        </div>
+  @if (hasMore()) {
+    <div class="text-center my-3">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        (click)="loadMore()"
+        [disabled]="loadingMore()"
+      >
+        {{ 'projectFindings.loadMore' | t }}
+      </button>
+      @if (loadMoreFailed()) {
+        <p class="text-danger small mt-2 mb-0">{{ 'projectFindings.loadError' | t }}</p>
       }
     </div>
-  </div>
+  }
 } @else {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>

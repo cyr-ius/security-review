@@ -27,9 +27,11 @@ it at each call. `SECREVIEW_SCANCODE_DELEGATED`, set on the Controller server, g
 public URL), the root URL of the Controller server as seen by the MCP server (for example
 `http://controller:8080` inside Compose: the fragments then stay on the internal network), or
 `false`. Without the variable, an administrator can turn on the delegation in the web interface: on the
-**General** page, under **Controller server address**, the **Delegate the scan_code tool to this
-Controller server** switch sends the fragments to that public address (the MCP server must reach
-it). It is off by default, needs a known address, applies at the next `scan_code` call, and is turned off when the address
+**Activity** page, the **The MCP server delegates code analysis to the Controller server** switch (section **Delegation of code scans**) sends the fragments to the public address set
+on the **General** page, under **Controller server address** (the MCP server must reach it). The
+same switch gives
+[`start_codebase_scan`](code-scan.md#scan-started-by-the-agent-start_codebase_scan) its scan
+ticket: while it is off, that tool is refused. It is off by default, needs a known address, applies at the next `scan_code` call, and is turned off when the address
 changes (turn it on again for the new address: the tokens never follow a changed address). Each
 change is recorded in the audit log (`mcp_scan_delegation.changed`). When the variable is set, the
 switch is locked. `SECREVIEW_MCP_SCAN_CONTROLLER_URL`, the former variable of the MCP server, is
@@ -196,7 +198,7 @@ and **Delete rule**.
 
 During a review, when a confirmed issue follows a vulnerable pattern the scan missed and that
 may recur, the agent can propose an OpenGrep rule with the MCP tool `propose_opengrep_rule`
-([tools](../prompts-tools.md#tools)): the YAML rule, its reason and test code (`ruleid:` and
+([tools](../../reference/prompts-tools.md#tools)): the YAML rule, its reason and test code (`ruleid:` and
 `ok:` cases). **The rule is not installed**: the MCP server only stores the proposal in the
 database, and the review prompts tell the agent to propose a rule only after saving the report.
 

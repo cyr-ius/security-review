@@ -12,7 +12,7 @@ L'API REST et les règles détaillées sont dans
 Le nom est **normalisé** : minuscules, dernier segment d'une URL de dépôt, et un seul `-` entre
 les mots. `Mobile App`, `mobile_app` et `git@github.com:acme/mobile-app.git` donnent tous le
 projet `mobile-app`, pour que les membres d'une équipe atteignent le même projet quelle que soit
-leur saisie (voir [nom du projet](../review/prompts-tools.md#nom-du-projet)).
+leur saisie (voir [nom du projet](../reference/prompts-tools.md#nom-du-projet)).
 
 ## Comment un projet apparaît
 

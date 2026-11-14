@@ -9,8 +9,8 @@ reports. It never calls the [Controller server](controller.md): both share the d
 
 | Route | Used by | Credential |
 |---|---|---|
-| `/mcp` | the agents: [prompts, tools and resources](../../review/prompts-tools.md) | `mcp` token (personal or not), `admin` token, or [OAuth](../mcp-oauth.md) access token |
-| `/mcp` without a token | an agent not yet connected: [enrollment server](../../review/prompts-tools.md#enrollment-server), which tells how to get a token; with the [OAuth login](../mcp-oauth.md), a `401` that starts it | none |
+| `/mcp` | the agents: [prompts, tools and resources](../../reference/prompts-tools.md) | `mcp` token (personal or not), `admin` token, or [OAuth](../mcp-oauth.md) access token |
+| `/mcp` without a token | an agent not yet connected: [enrollment server](../../reference/prompts-tools.md#enrollment-server), which tells how to get a token; with the [OAuth login](../mcp-oauth.md), a `401` that starts it | none |
 | `/.well-known/oauth-protected-resource/mcp` | the hosts, with the [OAuth login](../mcp-oauth.md) on: protected resource metadata (RFC 9728), which names the Controller server as authorization server (404 otherwise) | none |
 | `/healthz` | probes (Docker `HEALTHCHECK`, Kubernetes) | none |
 
@@ -54,7 +54,7 @@ In stdio, `security-review-mcp local` migrates its local database itself.
 
 | Client | Answer |
 |---|---|
-| No token | the [enrollment server](../../review/prompts-tools.md#enrollment-server): no tool, prompts that explain how to get a token; `401` while the public URL of the Controller server is unknown |
+| No token | the [enrollment server](../../reference/prompts-tools.md#enrollment-server): no tool, prompts that explain how to get a token; `401` while the public URL of the Controller server is unknown |
 | Unknown, revoked or expired token | `401` that tells the user where to create a new token ([rejected token](#rejected-token-sign-in-again)) |
 | Valid `mcp` or `admin` token | every prompt, tool and resource, on the projects of the token ([tokens restricted to a project](../bearer-tokens.md#tokens-restricted-to-a-project)) |
 
@@ -65,7 +65,7 @@ to the next request, a changed rule within 5 seconds.
 
 This section is the technical reference of what the MCP server exposes to a client with a valid
 token (in stdio, to the local host). When to use them in a review:
-[Prompts and tools](../../review/prompts-tools.md).
+[Prompts and tools](../../reference/prompts-tools.md).
 
 At connection, the server sends **instructions** that the host shows the model: which prompt
 starts a review, `request_project` before reviewing, `save_security_report` once at the end,
@@ -92,7 +92,7 @@ review, which the agent then follows. Every argument is an optional string.
   not as instructions.
 - `report_language`: letters, spaces, `-`, `_` and parentheses, 40 characters at most;
   without it, `SECREVIEW_REPORT_LANGUAGE`, else the **General** page
-  ([report language](../../review/prompts-tools.md#report-language)).
+  ([report language](../../reference/prompts-tools.md#report-language)).
 - An invalid argument returns the MCP error `INVALID_PARAMS` with its reason: refused
   `report_language`, `scan_results` or `task` + `context` beyond
   `SECREVIEW_MAX_CONTENT_CHARS`, report outside the projects of the token, unknown standard.
@@ -127,10 +127,10 @@ error is hidden from it.
 | Tool | Type | Parameters | Returns |
 |---|---|---|---|
 | `request_project` | write | `project` | `status`: `accessible`, `created`, `joined` or `requested` with `next_steps` ([enrollment](#enrollment-personal-token-and-project-requests)); never a token |
-| `save_security_report` | write | `project`, `summary`, `findings` (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`); optional `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (can only raise the computed risk), `review_type`, `author`, `checklist_results` (at most 500), `scan_rules` (at most 500) | Report id, risk level, counts by severity and review coverage ([stored report](../../review/prompts-tools.md#stored-report)) |
+| `save_security_report` | write | `project`, `summary`, `findings` (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`); optional `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (can only raise the computed risk), `review_type`, `author`, `checklist_results` (at most 500), `scan_rules` (at most 500) | Report id, risk level, counts by severity and review coverage ([stored report](../../reference/prompts-tools.md#stored-report)) |
 | `get_security_report` | read-only | `report_id`, `format` (`markdown` by default, or `json`) | The report and its findings, without its author |
 | `list_security_reports` | read-only | `project`, `risk_level`, `review_type`, `limit` (1 to 100, `20` by default), `offset` | Reports, newest first, without their author (`author`: deprecated, ignored) |
-| `propose_finding_status` | write | `finding_id`, `status` (`fixed`, `accepted` or `false_positive`), `reason` (10 to 1,000 characters) | The finding with its proposal; its status does not change until a person decides ([status of a finding](../../review/prompts-tools.md#status-of-a-finding)) |
+| `propose_finding_status` | write | `finding_id`, `status` (`fixed`, `accepted` or `false_positive`), `reason` (10 to 1,000 characters) | The finding with its proposal; its status does not change until a person decides ([status of a finding](../../reference/prompts-tools.md#status-of-a-finding)) |
 | `propose_opengrep_rule` | write | `project`, `rule_id`, `content` (one YAML rule, at most 256 KiB), `reason` (10 to 1,000 characters), `test_code` (at most `SECREVIEW_MAX_CONTENT_CHARS`) | The pending proposal and `next_steps`; the rule is installed only once a person approves it ([rules proposed by agents](../../review/analysis/opengrep.md#rules-proposed-by-agents)) |
 
 **Posture, gate, exports and trends**
@@ -170,7 +170,7 @@ tools.
 
 An unknown object returns a "resource not found" error, an invalid identifier a resource error.
 
-The [enrollment server](../../review/prompts-tools.md#enrollment-server), served to a client
+The [enrollment server](../../reference/prompts-tools.md#enrollment-server), served to a client
 without a token, exposes none of these tools nor resources: only the five review prompts,
 without argument, which explain how to get a token.
 
@@ -179,7 +179,7 @@ without argument, which explain how to get a token.
 - It makes **no outgoing connection** (the OSV database is imported by the Controller server), and loads
   no module of the Controller server. Only exception, disabled by default: `scan_code`
   [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)
-  (`SECREVIEW_SCANCODE_DELEGATED` on the Controller server, or the switch of the **General**
+  (`SECREVIEW_SCANCODE_DELEGATED` on the Controller server, or the switch of the **Activity**
   page), with the token of the agent, and `start_codebase_scan`, which asks the same way for a
   [scan ticket](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan).
 - Its tools **never read the disk** from a path given by the client: they work on the content

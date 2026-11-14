@@ -54,12 +54,16 @@ ciblez d'abord les tests du module modifié (`uv run pytest tests/test_<module>.
 ## Commandes
 
 ```bash
-uv sync --extra dev --extra docs   # environnement complet
+uv sync --extra dev --extra docs --extra postgres   # environnement complet
 uv run pytest                      # tests (aucun accès réseau, base SQLite en mémoire)
 uv run pytest tests/test_scanner.py -k python   # cibler un test
 uv run ruff check --fix . && uv run ruff format .
 uv run mkdocs build --strict       # ce que fait la CI : un lien cassé fait échouer le build
 ```
+
+`uv sync` est exact : il désinstalle tout extra non demandé. Ne lancez jamais `uv sync` sans
+`--extra postgres` dans le devcontainer (sa base est PostgreSQL : sans `psycopg2`, le serveur
+Controller ne démarre plus) ; `uv run` suffit pour les tests et ne retire rien.
 
 La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.14 et 3.15 avec
 `uv sync --locked` (d'où `uv lock` après un changement de dépendances). Les actions des workflows sont épinglées sur le SHA complet d'un commit,
@@ -218,7 +222,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Seule exception du serveur MCP : `scan_code` délégué au contrôleur (`rules/remote_scan.py`,
   **désactivé par défaut**, décidé par le serveur Controller : `SECREVIEW_SCANCODE_DELEGATED` ou la
-  page **Général**, enregistré en base), qui relaie le jeton de l'appelant
+  page **Activité**, enregistré en base), qui relaie le jeton de l'appelant
   à `POST /api/v1/scan/content` (qui ne lit ni n'enregistre rien), sans proxy ni redirection,
   réponse bornée, jeton jamais journalisé, et revient aux règles locales en cas d'échec ; par le
   même chemin, `start_codebase_scan` demande à `POST /api/v1/scan/tickets` un ticket de scan à
@@ -360,7 +364,7 @@ langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
 mise en service du serveur en mode partagé, mode local avec l'installation du paquet PyPI,
-connexion de l'hôte, normes centralisées, hooks de commit), **Revue de sécurité** (`review/` : fonctionnement, prompts et outils, règles,
+connexion de l'hôte, fichier `AGENTS.md`), **Revue de sécurité** (`review/` : fonctionnement, règles,
 checklists, normes, gate) et **Application** (`usage/` : interface web, triage, jetons, comptes,
 projets, rôles et permissions, connexion OIDC, journal d'audit) ne
 contiennent que l'essentiel pour travailler ; **Connecteurs** (`usage/connectors/`, sous-menu d'**Application**) décrit l'envoi des
@@ -371,7 +375,7 @@ essentielles.
 
 | Si vous modifiez... | Mettez à jour (`.md` et `.fr.md`) |
 |---|---|
-| Un prompt ou un outil MCP (nom, argument, comportement) | `docs/review/prompts-tools` |
+| Un prompt ou un outil MCP (nom, argument, comportement) | `docs/reference/prompts-tools` |
 | Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/review/rules` ou `docs/review/checklists` (et `review/analysis/code-scan` si le scan du dépôt change) |
 | Une règle OpenGrep par défaut (`rules/opengrep/`) | `docs/review/analysis/opengrep` (tableau des règles par langage) |
 | Le format des packs TOML internes | `docs/review/rules` (et `review/checklists` pour `[[checklist]]`), `examples/rules/company.toml` |
@@ -384,7 +388,7 @@ essentielles.
 | Le serveur MCP (routes, transports, démarrage, réponse selon le jeton, enrôlement, garanties, exposition, réplicas) | `docs/advanced/architecture/mcp-server` |
 | Le client de pipeline `security-review-ci` (installation, jeton `ci`, commandes, exemples par plateforme CI/CD, tendance) | `docs/advanced/architecture/ci` (+ `review/gate`) |
 | Le contrôleur (routes, démarrage, tâches de fond, connexions sortantes, exposition, réplicas, premier administrateur, sessions, sécurité de l'interface) | `docs/advanced/architecture/controller` |
-| Les normes de développement (prompt, outils, ressources, page) | `docs/review/standards` (+ `review/prompts-tools`, `getting-started/stored-standards`) |
+| Les normes de développement (prompt, outils, ressources, page) | `docs/review/standards` (+ `reference/prompts-tools`, `getting-started/agents-md`) |
 | L'interface web, l'API REST ou les rôles | `docs/usage/index` (pages), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes), `docs/usage/access-control` (rôles, permissions), `docs/usage/projects` (projets) ; connexion OIDC : `docs/usage/sso` ; détails et API : `docs/advanced/reports/triage-api`, `docs/advanced/access-control-api`, `docs/advanced/oidc` |
 | Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, page **Connecteurs**, routes) | `docs/usage/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/advanced/connectors`, `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/deployment/installation`, `docs/advanced/deployment/manual-install`, `docs/advanced/deployment/docker` |

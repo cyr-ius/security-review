@@ -79,9 +79,9 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 
 | Page | À quoi elle sert |
 |---|---|
-| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, chemin du fichier, description, projet, branche, ou `#report:<n°>` pour les findings d'un rapport, comme dans la recherche générale) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs ; **Possède une proposition** garde les findings dont un agent propose un statut |
+| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, chemin du fichier, description, projet, branche, ou `#report:<n°>` pour les findings d'un rapport, comme dans la recherche générale) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs ; **Possède une proposition** garde les findings dont un agent propose un statut. Les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) sont repliés dans une carte, dont la case les sélectionne tous pour une décision groupée |
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
-| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../review/prompts-tools.md#couverture-de-la-revue), findings (recherche par texte, filtres de sévérité et de statut, avis d'une même dépendance vulnérable regroupés), téléchargement Markdown et SARIF |
+| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../reference/prompts-tools.md#couverture-de-la-revue), findings (recherche par texte, filtres de sévérité et de statut, avis d'une même dépendance vulnérable regroupés), téléchargement Markdown et SARIF |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent les règles, checklists et normes en fichiers TOML)
 
@@ -102,8 +102,8 @@ qui les enregistre ou les annule.
 
 | Page | À quoi elle sert |
 |---|---|
-| **Général** | Langue des rapports, adresse du serveur Controller (et délégation de `scan_code` à celle-ci) et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
-| **Activité** | Ce qui tourne en ce moment, et les moteurs de scan avec leur révocation (`settings.manage`) : voir [Activité](#activite) |
+| **Général** | Langue des rapports, adresse du serveur Controller et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
+| **Activité** | Ce qui tourne en ce moment, la délégation de `scan_code` et `start_codebase_scan` au serveur Controller et les moteurs de scan avec leur révocation (`settings.manage`) : voir [Activité](#activite) |
 | **Utilisateurs** | Un onglet chacun : **Comptes**, avec leurs rôles et leurs projets ([comptes utilisateurs](user-accounts.md)), **Rôles** ([rôles et permissions](access-control.md)) et **Connexion OIDC**, la connexion d'entreprise ([connexion OIDC](sso.md)) (`users.manage`) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
 | **Clients MCP** | Les clients MCP qui se connectent par le navigateur ([connexion OAuth](../advanced/mcp-oauth.md#administration)) : activation de la connexion, clients enregistrés et accès approuvés, révocation (`tokens.manage`) |
@@ -118,6 +118,11 @@ les 2 secondes tant qu'elle est visible :
 - le **Diagramme d'activité** : les agents, les pipelines, les serveurs MCP, les serveurs
   Controller et les moteurs de scan, avec les scans en cours (ses couleurs sont expliquées dans
   [Moteurs de scan](../advanced/architecture/scan-engine.md#administration)) ;
+- la section **Délégation des scans de code** : l'interrupteur qui envoie les fragments donnés à
+  `scan_code` par les serveurs MCP à l'adresse du serveur Controller de la page **Général**
+  ([scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) et permet à
+  `start_codebase_scan` de lui demander un
+  [ticket de scan](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan) ;
 - la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
   enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
 

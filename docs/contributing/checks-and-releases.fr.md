@@ -64,7 +64,7 @@ rapport enregistré avec `save_security_report` (projet `security-review-mcp`). 
 est dans `AGENTS.md`.
 
 Le hook `scan-deps` lance le `security-review-ci` du serveur Controller désigné par
-`SECREVIEW_CONTROLLER_URL` ([client du serveur Controller](../getting-started/commit-hooks.md)), et est
+`SECREVIEW_CONTROLLER_URL` ([client du serveur Controller](../advanced/commit-hooks.md)), et est
 sauté tant qu'elle n'est pas définie. Avec un jeton `ci` personnel dans
 `SECREVIEW_CI_TOKEN`, `scan-deps` analyse les dépendances quand `uv.lock`, `pyproject.toml` ou
 `web/package*.json` changent.

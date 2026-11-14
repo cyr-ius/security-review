@@ -8,7 +8,7 @@ Python 3.14, [uv](https://docs.astral.sh/uv/) and Node.js 24 are needed (the
 ```bash
 git clone https://github.com/cyr-ius/security-review.git
 cd security-review
-uv sync --extra dev --extra docs
+uv sync --extra dev --extra docs --extra postgres
 npm --prefix web ci                                   # Angular, Prettier (Node.js 24)
 npm --prefix web run build                            # interface served by the Controller server on /ui/
 uv run security-review-controller db upgrade

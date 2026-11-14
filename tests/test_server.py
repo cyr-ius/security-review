@@ -535,10 +535,12 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
     command = result["scan_code_command"]
     # The ticket goes on stdin, never as an argument
     assert command.startswith("echo 'secreview_scan_abc' | uvx --no-index --find-links ")
-    assert "https://sr.example/api/ci-client/ security-review-ci@latest scan-code . " in command
+    # The client is pinned to the version of the server, never latest
+    pinned = f"security-review-ci@{server.__version__}"
+    assert f"https://sr.example/api/ci-client/ {pinned} scan-code . " in command
     assert "--project shop-api --save --token-stdin" in command and "--format summary" in command
     # The dependency scan finds the manifests itself: nothing for the agent to fill in
-    assert "security-review-ci@latest scan-deps . --url" in result["scan_deps_command"]
+    assert f"{pinned} scan-deps . --url" in result["scan_deps_command"]
     assert "scan_code_command" not in deps and "scan-deps . " in deps["scan_deps_command"]
 
 

@@ -28,8 +28,11 @@ appel. `SECREVIEW_SCANCODE_DELEGATED`, défini sur le serveur Controller, vaut `
 publique), l'URL racine du serveur Controller vue du serveur MCP (par exemple
 `http://controller:8080` dans Compose : les fragments restent alors sur le réseau interne) ou
 `false`. Sans la variable, un administrateur peut activer la délégation dans l'interface web : dans la page
-**Général**, sous **Adresse du serveur Controller**, l'interrupteur **Déléguer l'outil scan_code à ce
-serveur Controller** envoie les fragments à cette adresse publique (le serveur MCP doit la joindre).
+**Activité**, l'interrupteur **Le serveur MCP délègue l'analyse du code au serveur Controller** (section **Délégation des scans de code**) envoie les fragments à l'adresse publique
+définie dans la page **Général**, sous **Adresse du serveur Controller** (le serveur MCP doit la
+joindre). Le même interrupteur donne son ticket de scan à
+[`start_codebase_scan`](code-scan.md#scan-lance-par-lagent-start_codebase_scan) : tant qu'il est
+désactivé, cet outil est refusé.
 Il est désactivé par défaut, exige une adresse connue, s'applique au prochain appel de `scan_code`,
 et se désactive quand l'adresse change (réactivez-le pour la nouvelle adresse : les jetons ne
 suivent jamais une adresse modifiée). Chaque changement est enregistré dans le journal d'audit (`mcp_scan_delegation.changed`). Quand
@@ -199,7 +202,7 @@ avec **Valider**, **Enregistrer** et **Supprimer**.
 
 Pendant une revue, quand un problème confirmé suit un motif vulnérable que le scan n'a pas
 relevé et qui peut se répéter, l'agent peut proposer une règle OpenGrep avec l'outil MCP
-`propose_opengrep_rule` ([outils](../prompts-tools.md#outils)) : la règle YAML, son motif et
+`propose_opengrep_rule` ([outils](../../reference/prompts-tools.md#outils)) : la règle YAML, son motif et
 du code de test (cas `ruleid:` et `ok:`). **La règle n'est pas installée** : le serveur MCP
 enregistre seulement la proposition en base, et les prompts de revue demandent à l'agent de ne
 proposer une règle qu'après avoir enregistré le rapport.

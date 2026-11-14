@@ -9,6 +9,37 @@ développeur **avant qu'il écrive du code**, pour que le code produit les respe
 Elles complètent la revue de sécurité : les normes guident l'écriture, les prompts de revue
 contrôlent le résultat.
 
+## Pourquoi centraliser
+
+- Les normes sont stockées **en base**, comme les règles. Elles ne sont pas dans votre dépôt.
+- Un administrateur les écrit dans la page **Normes** de l'interface web. Il peut aussi les
+  importer depuis un fichier TOML.
+- Chaque norme indique ses technologies et ses motifs de fichiers (`*.py`, `angular.json`).
+- Tous les projets reçoivent les mêmes normes. Une mise à jour s'applique tout de suite à tous
+  les agents.
+
+Avantage : vous écrivez vos conventions **une fois**, pour toute l'organisation. Chaque dépôt
+n'a plus besoin de les recopier.
+
+### Aucun skill à maintenir
+
+Sans le serveur, partager des conventions avec les agents passe en général par des **skills** ou
+des fichiers d'instructions : un skill Claude Code, des instructions Copilot, des règles
+Cursor... Chaque agent a son propre format, et chaque fichier doit être copié dans chaque dépôt ou
+sur chaque poste, puis tenu à jour partout.
+
+Les normes centralisées évitent cela pour les conventions :
+
+| Skills ou fichiers d'instructions | Normes centralisées |
+|---|---|
+| Un format par agent | Tout agent MCP (Claude Code, GitHub Copilot, Codex, Cursor...) les lit par le serveur `security-review` |
+| Copiés dans chaque dépôt ou sur chaque poste | Écrites une fois, dans la page **Normes** |
+| Mis à jour à la main partout | Une mise à jour s'applique tout de suite à tous les agents |
+| Tous chargés, ou choisis par l'agent | Sélectionnées par technologie ou par fichier (`*.py`, `angular.json`) |
+
+Un skill reste utile pour ce qui n'est pas une convention : une procédure, un script, un
+déroulé propre à l'équipe. Les normes ne remplacent que les règles de code.
+
 ## Contenu d'une norme
 
 | Champ | Rôle |

@@ -156,7 +156,7 @@ on the standard input):
 
 ```bash
 echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
-    security-review-ci@latest scan-deps . --url https://secreview.example.com \
+    security-review-ci@X.Y.Z scan-deps . --url https://secreview.example.com \
     --project my-project --save --token-stdin
 ```
 
@@ -188,14 +188,14 @@ security-review-ci scan-deps package-lock.json requirements.txt \
   cannot run for a file.
 - With `--save`, the user of a personal `ci` token is the author of the report, else
   `--author` stores the username of the developer with it (see
-  [author of a report](../prompts-tools.md#author-of-a-report)), `--repository`,
+  [author of a report](../../reference/prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context; the label of the token is stored as the device.
 - Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the Controller server, the request
   to `SECREVIEW_MAX_SCAN_REQUEST_MB`. Symbolic links are not read.
 
 ## Scan from a workstation (commit hook)
 
-Step-by-step setup: [Commit hooks](../../getting-started/commit-hooks.md).
+Step-by-step setup: [Commit hooks](../../advanced/commit-hooks.md).
 
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
 [personal `ci` token](../../usage/tokens.md#personal-mcp-and-ci-tokens) created in
@@ -265,4 +265,4 @@ The `vulnerability_check` field says whether the check took place:
   (`pillow 12.3.0: Heap buffer overflow in ImagingJpegDecode`). One release often fixes many
   advisories of a package: the summary of the report counts the vulnerable components and
   their advisories apart, and the web interface groups the advisories of one component
-  (**Report** page and open findings of a **Project**).
+  (**Report** and **Findings** pages, open findings of a **Project**).

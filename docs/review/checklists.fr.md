@@ -55,7 +55,7 @@ s'appliquent au code qu'il relit. Sans prompt, l'agent appelle lui-même `list_c
 
 L'agent déclare ensuite le résultat de chaque point parcouru dans `save_security_report` ; un
 item d'un domaine utilisé mais non déclaré est enregistré comme `not_covered`
-([couverture de la revue](prompts-tools.md#couverture-de-la-revue)).
+([couverture de la revue](../reference/prompts-tools.md#couverture-de-la-revue)).
 
 ## Créer un item de checklist
 

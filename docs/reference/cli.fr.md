@@ -1,11 +1,13 @@
 # Ligne de commande
 
 Le paquet `security-review` installe deux commandes, une par processus (voir
-[Architecture](../advanced/architecture/index.md)), et un client de pipeline :
+[Architecture](../advanced/architecture/index.md)), un moteur de scan facultatif et un client de pipeline :
 
 - `security-review-mcp` : le **serveur MCP** (stdio ou HTTP) ;
 - `security-review-controller` : le **serveur Controller** (API REST et interface web), la base de
   données et l'administration ;
+- `security-review-scan-engine` : un **moteur de scan** facultatif, qui exécute les scans de code à
+  la place du serveur Controller (sans accès à la base) ;
 - `security-review-ci` : le **client de pipeline** de l'API REST du serveur Controller (jeton `ci`,
   bibliothèque standard de Python uniquement, sans accès à la base) : gate, SARIF, tendance,
   scans du code et des dépendances. Il est publié seul, sans le serveur, sur le dépôt PyPI
@@ -63,6 +65,13 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 
 `serve` et les autres commandes migrent le schéma au démarrage si nécessaire : `db upgrade` ne
 sert qu'à une [tâche de migration dédiée](../advanced/database.md#tache-de-migration-dediee).
+
+## `security-review-scan-engine`
+
+| Commande | Rôle | Page |
+|---|---|---|
+| `security-review-scan-engine [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance un moteur de scan : il s'enrôle auprès du serveur Controller, lit ses règles, puis exécute les règles et OpenGrep des scans de code qu'il reçoit. Exige `SECREVIEW_SCAN_ENGINE_TOKEN` et `SECREVIEW_CONTROLLER_URL` (code `2` sans elles) ; n'ouvre jamais de base de données | [Moteurs de scan](../advanced/architecture/scan-engine.md#activation) |
+| `security-review-scan-engine --version` | Affiche la version | |
 
 ## `security-review-ci`
 

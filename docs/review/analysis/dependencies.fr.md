@@ -159,7 +159,7 @@ usage unique sur l'entrée standard) :
 
 ```bash
 echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
-    security-review-ci@latest scan-deps . --url https://secreview.example.com \
+    security-review-ci@X.Y.Z scan-deps . --url https://secreview.example.com \
     --project my-project --save --token-stdin
 ```
 
@@ -191,14 +191,14 @@ security-review-ci scan-deps package-lock.json requirements.txt \
   des vulnérabilités ne peut pas avoir lieu pour un fichier.
 - Avec `--save`, l'utilisateur d'un jeton `ci` personnel est l'auteur du rapport, sinon
   `--author` enregistre le nom d'utilisateur du développeur avec lui (voir
-  [auteur d'un rapport](../prompts-tools.md#auteur-dun-rapport)), `--repository`,
+  [auteur d'un rapport](../../reference/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil.
 - Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur Controller, la requête à
   `SECREVIEW_MAX_SCAN_REQUEST_MB`. Les liens symboliques ne sont pas lus.
 
 ## Scan depuis un poste de travail (hook de commit)
 
-Mise en place pas à pas : [Hooks de commit](../../getting-started/commit-hooks.md).
+Mise en place pas à pas : [Hooks de commit](../../advanced/commit-hooks.md).
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
 [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
@@ -267,5 +267,5 @@ Le champ `vulnerability_check` dit si la vérification a eu lieu :
   CVE, sont fusionnés), intitulé par le composant et le problème de l'avis
   (`pillow 12.3.0: Heap buffer overflow in ImagingJpegDecode`). Une version corrige souvent
   de nombreux avis d'un paquet : le résumé du rapport compte à part les composants vulnérables
-  et leurs avis, et l'interface web regroupe les avis d'un même composant (page **Rapport** et
-  findings ouverts d'un **Projet**).
+  et leurs avis, et l'interface web regroupe les avis d'un même composant (pages **Rapport** et
+  **Findings**, findings ouverts d'un **Projet**).

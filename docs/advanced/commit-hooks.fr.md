@@ -3,7 +3,11 @@
 Sur le poste de chaque développeur, un hook vérifie les dépendances avant chaque commit. Il est
 exécuté par [prek](https://prek.j178.dev) (ou [pre-commit](https://pre-commit.com)). La revue
 de sécurité du code elle-même est faite par l'agent de code, dans sa session, avec le
-[serveur MCP](host.md).
+[serveur MCP](../getting-started/host.md).
+
+Le hook est facultatif : pendant une revue, l'agent vérifie déjà les fichiers de dépendances
+modifiés. Le hook ajoute une vérification automatique à chaque commit, sans agent, et bloque le
+commit au-dessus du seuil.
 
 | Hook | Quand | Ce qu'il fait | Bloque le commit |
 |---|---|---|---|
@@ -99,7 +103,7 @@ quand l'une atteint le seuil (code de sortie `1`) ; corrigez la version, ou fait
 
 ## Serveur Controller en HTTP sans TLS
 
-Servez de préférence le serveur Controller en HTTPS ([TLS](../advanced/tls.md)), ou
+Servez de préférence le serveur Controller en HTTPS ([TLS](tls.md)), ou
 derrière un reverse proxy. Si ce n'est pas possible, le HTTP fonctionne avec ces changements :
 
 | Où | Changement |

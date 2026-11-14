@@ -79,7 +79,7 @@ Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre 
   fichiers non analysés dans `scope` et le libellé du jeton comme appareil qui l'a enregistré ;
   l'utilisateur d'un jeton `ci` personnel en est l'auteur, sinon `--author` ajoute le nom
   d'utilisateur du développeur (voir
-  [auteur d'un rapport](../prompts-tools.md#auteur-dun-rapport)), `--repository`,
+  [auteur d'un rapport](../../reference/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte.
 - Avec `--save --format sarif`, le journal SARIF porte les identifiants des findings
   enregistrés.
@@ -110,14 +110,15 @@ Dans l'hôte, lancez le prompt `codebase-review`, avec au choix :
   lieu d'être recopiés par le modèle dans des appels à `scan_code`.
 
 `languages` choisit les checklists, `focus` et `context` orientent la revue (voir
-[prompts et outils](../prompts-tools.md#prompts)). Le prompt `dependency-review` fait de même
+[prompts et outils](../../reference/prompts-tools.md#prompts)). Le prompt `dependency-review` fait de même
 pour les dépendances : `start_codebase_scan` avec `scope` `deps`, sinon `security-review-ci scan-deps`
 ([analyse des dépendances](dependencies.md#scan-lance-par-lagent)).
 
 ### Scan lancé par l'agent (`start_codebase_scan`)
 
 Avec le serveur MCP HTTP et la [délégation de `scan_code`](opengrep.md#scans-de-fragments-scan_code)
-activée, l'agent fait scanner tout le dépôt par le serveur Controller **sans lire les fichiers**,
+activée (`SECREVIEW_SCANCODE_DELEGATED`, ou l'interrupteur de la page
+[**Activité**](../../usage/index.md#activite), qui couvre les deux outils), l'agent fait scanner tout le dépôt par le serveur Controller **sans lire les fichiers**,
 sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
 
 1. l'agent appelle `start_codebase_scan` avec le projet ; le serveur MCP relaie son jeton (accès
@@ -128,13 +129,13 @@ sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
 
     ```bash
     echo 'secreview_scan_…' | uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
-        security-review-ci@latest scan-code . --url https://secreview.example.com \
+        security-review-ci@X.Y.Z scan-code . --url https://secreview.example.com \
         --project portal --save --token-stdin --format summary
     ```
 
     `uvx` exécute le [client servi par le serveur Controller](../../advanced/architecture/ci.md#depuis-le-serveur-controller)
-    sans l'installer (seul `uv` est nécessaire) ; le ticket passe par l'entrée standard, jamais
-    par la ligne de commande ;
+    sans l'installer (seul `uv` est nécessaire), à la version du serveur MCP (`X.Y.Z`) ; le
+    ticket passe par l'entrée standard, jamais par la ligne de commande ;
 3. le serveur Controller scanne les fichiers et enregistre un rapport `code-scan` (et un
     rapport `dependency-scan` avec la commande `scan-deps .`, qui trouve elle-même les manifestes,
     lockfiles et SBOM) ; `--format summary` n'affiche que

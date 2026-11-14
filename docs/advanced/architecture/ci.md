@@ -41,7 +41,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 - uv checks the SHA-256 given by the page. Serve the Controller server over HTTPS: uv also accepts a
   plain HTTP URL, but then the page and the wheel can be replaced on the way, SHA-256 included,
   and the developers would run that code (see
-  [Controller server in plain HTTP](../../getting-started/commit-hooks.md#controller-server-in-http-without-tls)).
+  [Controller server in plain HTTP](../commit-hooks.md#controller-server-in-http-without-tls)).
 - The two routes are public (uv sends no token) and read-only; like the API documentation, they
   tell the version of the Controller server: `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` hides them.
 
@@ -75,7 +75,7 @@ A `ci` token only reaches the pipeline routes: neither `/mcp`, nor the rest of t
 nor the web interface. It is **always restricted to projects**: it sees the gate, the SARIF
 log and the trend of the selected projects only, and only stores scan reports for them; another
 project answers `404`, like a project that does not exist. `--project` is
-[normalized](../../review/prompts-tools.md#project-name) like the project of a review: give the repository
+[normalized](../../reference/prompts-tools.md#project-name) like the project of a review: give the repository
 name.
 
 - In the web interface, **Tokens** page: **Usage** **CI/CD pipeline**, then tick the
@@ -123,7 +123,7 @@ but still stops the job on an error (code `2`: Controller server unreachable, to
 Without it, the scans block by themselves, which is enough for a first test.
 
 Install the client at the version of the Controller server (`X.Y.Z` below). The project name is
-[normalized](../../review/prompts-tools.md#project-name): the name of the repository given by the
+[normalized](../../reference/prompts-tools.md#project-name): the name of the repository given by the
 platform works as it is.
 
 ## Examples by platform
