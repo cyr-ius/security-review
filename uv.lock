@@ -1190,6 +1190,7 @@ dev = [
     { name = "debugpy" },
     { name = "pytest" },
     { name = "pytest-xdist" },
+    { name = "pyyaml" },
     { name = "ruff" },
 ]
 docs = [
@@ -1215,6 +1216,7 @@ requires-dist = [
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.15.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.2.0" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
+    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.17.3" },
     { name = "sqlmodel", specifier = ">=0.0.22" },
     { name = "tomlkit", specifier = ">=0.13" },
