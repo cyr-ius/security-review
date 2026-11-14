@@ -1,8 +1,8 @@
 # Installation: other cases
 
 The usual installations are in [Deploying the server](../../getting-started/deploy.md) (containers)
-and [Local mode (stdio)](../../getting-started/stdio.md#without-uvx-installed-package) (PyPI package). This page
-covers the installation from the sources and without Internet access.
+and [Local mode (stdio)](../../getting-started/stdio.md) (PyPI package, run by `uvx`). This page
+covers the local mode without `uvx`, the installation from the sources and without Internet access.
 
 ## From source
 
@@ -20,6 +20,33 @@ The [web interface](../../usage/index.md) is an Angular application to build (No
 ```bash
 cd web && npm ci && npm run build   # writes into src/security_review_mcp/webui/
 ```
+
+## Local mode without uvx
+
+If you would rather not use `uvx` (internal package index, fixed virtual environment), install the
+package in a dedicated virtual environment:
+
+```bash
+uv venv --python 3.14 /opt/secreview/venv
+uv pip install --python /opt/secreview/venv security-review
+```
+
+Then give the path of the command in `.mcp.json`, instead of `uvx`:
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "/opt/secreview/venv/bin/security-review-mcp",
+      "args": ["local"]
+    }
+  }
+}
+```
+
+To run the server from a container (`mcp` command with `SECREVIEW_TRANSPORT=stdio`), see
+[Docker: choosing the process](docker.md#choosing-the-process).
 
 ## Offline installation
 

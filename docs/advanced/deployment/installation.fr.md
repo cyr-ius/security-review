@@ -1,8 +1,8 @@
 # Installation : autres cas
 
 Les installations courantes sont décrites dans [Mise en service du serveur](../../getting-started/deploy.md)
-(conteneurs) et [Mode local (stdio)](../../getting-started/stdio.md#sans-uvx-paquet-installe) (paquet PyPI).
-Cette page couvre l'installation depuis les sources et sans accès Internet.
+(conteneurs) et [Mode local (stdio)](../../getting-started/stdio.md) (paquet PyPI, lancé par `uvx`).
+Cette page couvre le mode local sans `uvx`, l'installation depuis les sources et sans accès Internet.
 
 ## Depuis les sources
 
@@ -20,6 +20,33 @@ L'[interface web](../../usage/index.md) est une application Angular à compiler
 ```bash
 cd web && npm ci && npm run build   # écrit dans src/security_review_mcp/webui/
 ```
+
+## Mode local sans uvx
+
+Si vous préférez ne pas utiliser `uvx` (index de paquets interne, environnement virtuel figé),
+installez le paquet dans un environnement virtuel dédié :
+
+```bash
+uv venv --python 3.14 /opt/secreview/venv
+uv pip install --python /opt/secreview/venv security-review
+```
+
+Indiquez ensuite le chemin de la commande dans `.mcp.json`, à la place de `uvx` :
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "/opt/secreview/venv/bin/security-review-mcp",
+      "args": ["local"]
+    }
+  }
+}
+```
+
+Pour lancer le serveur depuis un conteneur (commande `mcp` avec `SECREVIEW_TRANSPORT=stdio`), voir
+[Docker : choisir le processus](docker.md#choisir-le-processus).
 
 ## Installation hors ligne
 

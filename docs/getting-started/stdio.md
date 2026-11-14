@@ -13,13 +13,6 @@ flowchart LR
     end
 ```
 
-!!! warning "For specific cases only"
-    The reports are saved in a **local** SQLite database that nobody else sees, there is no web
-    interface to triage them (the developer
-    [confirms decisions in the host](#triage-in-local-mode) instead), and every workstation keeps its own rules. For a team, use the
-    [shared mode (HTTP)](deploy.md) instead. Local mode is useful to try the
-    prompts alone, on an offline workstation, or for a personal use.
-
 ## Configuring the host
 
 This is the only step: with [uv](https://docs.astral.sh/uv/getting-started/installation/) on the
@@ -42,11 +35,13 @@ repository:
 }
 ```
 
-The version is pinned: to upgrade, change it in the file. To change a setting, add `SECREVIEW_*`
-variables in an `env` object next to `args` (see
+To change a setting, add `SECREVIEW_*` variables in an `env` object next to `args` (see
 [Configuration](../reference/configuration.md#mcp-server)).
 
 Then open the chat of the host and run the `security-review` prompt.
+
+Without `uvx` (installed package, offline workstation, sources, container): see
+[Installation: other cases](../advanced/deployment/installation.md).
 
 ## Database
 
@@ -61,73 +56,36 @@ after `sqlite:///`):
          "--database-url", "sqlite:////home/me/data/security_reports.db"]
 ```
 
-!!! note "`serve --transport stdio`"
-    `security-review-mcp serve --transport stdio` also runs the server in stdio, but it reads
-    `SECREVIEW_DATABASE_URL` (or `--database-url`) and accepts SQLite only: it refuses to start
-    (code `2`) when the URL points to another database (PostgreSQL...). Local mode has no token, and a shared
-    database would let it write to every project and migrate the schema of the team. To work
-    with that database, use the [shared mode (HTTP)](deploy.md).
-
-## Without uvx: installed package
-
-Only if you would rather not use `uvx` (offline workstation, internal package index, fixed
-virtual environment). Install the package in a dedicated virtual environment:
-
-```bash
-uv venv --python 3.14 /opt/secreview/venv
-uv pip install --python /opt/secreview/venv security-review
-```
-
-Then give the path of the command in `.mcp.json`, instead of `uvx`:
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "/opt/secreview/venv/bin/security-review-mcp",
-      "args": ["local"]
-    }
-  }
-}
-```
-
-!!! note "Formerly `security-review-mcp`"
-    Up to version 2.0.0, the package was published on PyPI as `security-review-mcp`. Both
-    packages install the same commands and the same Python module: uninstall the old one first
-    (`uv pip uninstall --python /opt/secreview/venv security-review-mcp`), then install
-    `security-review`. The commands, the settings and the database stay the same.
-
-Without Internet access, or from the sources: see [Installation: other cases](../advanced/deployment/installation.md).
-To run the server from a container (`mcp` command with `SECREVIEW_TRANSPORT=stdio`), see
-[Docker: choosing the process](../advanced/deployment/docker.md#choosing-the-process).
-
 ## Findings report (SECURITY_REPORT.md)
 
-Without the web interface, ask the assistant for the findings of the project, for example
-*"Show me the security findings of this project"* or *"Write the security findings to
-SECURITY_REPORT.md"*. It calls the `export_findings_report` tool, which returns one Markdown
-document: open findings by severity, then the findings, worst first. Two levels of detail:
+Without a web interface, ask the assistant for the findings of the project, for example:
 
-| `detail` | Content of each finding | Size |
-|---|---|---|
-| `compact` (default) | One line: severity, title, location, id and status | Small: a few tokens per finding |
-| `full` | Its report (id, date, branch, commit), description, masked evidence and recommendation | Much larger: ask for it only when you need the details |
+- *"Show me the security findings of this project"*
+- *"Write the security findings to SECURITY_REPORT.md"*
 
-With `include_resolved`, fixed, accepted and false-positive findings are listed too.
+The report lists the open findings, worst first, one line per finding. You can also ask for:
 
-The server only returns the text and never writes to disk: the assistant shows it, or writes
-`SECURITY_REPORT.md` at the root of the repository with its own tools (the host asks you to
-approve the write). The tool also works with the shared mode (HTTP), on the projects the token
-reaches. The file holds code excerpts of the findings: add it to `.gitignore` if it should not
-be committed.
+- **the details** of each finding (description, code excerpt, recommendation): the report is then
+  much longer;
+- **the resolved findings** (fixed, accepted, false positives).
+
+The server never writes to disk: the assistant writes `SECURITY_REPORT.md`, and the host asks you
+to approve the write. The file holds code excerpts: add it to `.gitignore` if it should not be
+committed.
 
 ## Triage in local mode
 
-Tell the assistant your decision in your own words, for example *"Line 12 of app/db.py is a
-false positive: the query is bound"* or *"Accept the risk of #42 until June 30: internal tool"*.
-It calls `decide_finding_status`, and your host shows you a confirmation with the findings, the
-status, the reason and the expiry date: the status changes only when you confirm, and you are
-recorded as the approver. Decline a confirmation you did not ask for. The host must support MCP
-elicitation (Claude Code, VS Code); otherwise the assistant can only propose a status. Details:
-[decision of the developer in local mode](../review/prompts-tools.md#decision-of-the-developer-in-local-mode).
+Without a web interface, you triage the findings in the chat.
+
+1. Tell the assistant your decision in your own words, for example:
+    - *"Line 12 of app/db.py is a false positive: the query is bound"*
+    - *"Accept the risk of #42 until June 30: internal tool"*
+2. Your host shows a confirmation: findings, status, reason and expiry date.
+3. The status changes only when you confirm. You are recorded as the approver.
+
+!!! warning "Decline a confirmation you did not ask for."
+
+The host must support MCP elicitation (Claude Code, VS Code). Otherwise, the assistant can only
+propose a status.
+
+Details: [decision of the developer in local mode](../review/prompts-tools.md#decision-of-the-developer-in-local-mode).
