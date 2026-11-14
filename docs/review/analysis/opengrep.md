@@ -27,7 +27,7 @@ it at each call. `SECREVIEW_SCANCODE_DELEGATED`, set on the Controller server, g
 public URL), the root URL of the Controller server as seen by the MCP server (for example
 `http://controller:8080` inside Compose: the fragments then stay on the internal network), or
 `false`. Without the variable, an administrator can turn on the delegation in the web interface: on the
-**Activity** page, the **Delegate code analysis to the Controller server** switch (section **Delegation of code scans**) sends the fragments to the public address set
+**Activity** page, the **The MCP server delegates code analysis to the Controller server** switch (section **Delegation of code scans**) sends the fragments to the public address set
 on the **General** page, under **Controller server address** (the MCP server must reach it). The
 same switch gives
 [`start_codebase_scan`](code-scan.md#scan-started-by-the-agent-start_codebase_scan) its scan

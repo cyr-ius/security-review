@@ -32,7 +32,8 @@ export const scanEngines = defineMessages({
     'scanEngines.none': 'No scan engine is enrolled.',
     'scanEngines.loadError': 'The scan engines could not be loaded.',
     'scanEngines.delegationTitle': 'Delegation of code scans',
-    'scanEngines.delegationLabel': 'Delegate code analysis to the Controller server',
+    'scanEngines.delegationLabel':
+      'The MCP server delegates code analysis to the Controller server',
     'scanEngines.delegationHelp':
       'The MCP server sends the given fragments or the files to the Controller server. The MCP server only holds the pattern rules.',
     'scanEngines.delegationLocked':
@@ -125,7 +126,7 @@ export const scanEngines = defineMessages({
     'scanEngines.none': 'Aucun moteur de scan n’est enrôlé.',
     'scanEngines.loadError': 'Impossible de charger les moteurs de scan.',
     'scanEngines.delegationTitle': 'Délégation des scans de code',
-    'scanEngines.delegationLabel': "Déléguer l'analyse du code au serveur Controller",
+    'scanEngines.delegationLabel': "Le serveur MCP délègue l'analyse du code au serveur Controller",
     'scanEngines.delegationHelp':
       'Le serveur MCP envoie les fragments donnés ou les fichiers au serveur Controller. Le serveur MCP contient uniquement les règles par motifs.',
     'scanEngines.delegationLocked':
@@ -218,7 +219,8 @@ export const scanEngines = defineMessages({
     'scanEngines.none': 'No hay ningún motor de escaneo inscrito.',
     'scanEngines.loadError': 'No se pudieron cargar los motores de escaneo.',
     'scanEngines.delegationTitle': 'Delegación de los escaneos de código',
-    'scanEngines.delegationLabel': 'Delegar el análisis del código en el servidor Controller',
+    'scanEngines.delegationLabel':
+      'El servidor MCP delega el análisis del código en el servidor Controller',
     'scanEngines.delegationHelp':
       'El servidor MCP envía los fragmentos dados o los archivos al servidor Controller. El servidor MCP solo contiene las reglas de patrones.',
     'scanEngines.delegationLocked':
