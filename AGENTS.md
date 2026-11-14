@@ -54,12 +54,16 @@ ciblez d'abord les tests du module modifié (`uv run pytest tests/test_<module>.
 ## Commandes
 
 ```bash
-uv sync --extra dev --extra docs   # environnement complet
+uv sync --extra dev --extra docs --extra postgres   # environnement complet
 uv run pytest                      # tests (aucun accès réseau, base SQLite en mémoire)
 uv run pytest tests/test_scanner.py -k python   # cibler un test
 uv run ruff check --fix . && uv run ruff format .
 uv run mkdocs build --strict       # ce que fait la CI : un lien cassé fait échouer le build
 ```
+
+`uv sync` est exact : il désinstalle tout extra non demandé. Ne lancez jamais `uv sync` sans
+`--extra postgres` dans le devcontainer (sa base est PostgreSQL : sans `psycopg2`, le serveur
+Controller ne démarre plus) ; `uv run` suffit pour les tests et ne retire rien.
 
 La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.14 et 3.15 avec
 `uv sync --locked` (d'où `uv lock` après un changement de dépendances). Les actions des workflows sont épinglées sur le SHA complet d'un commit,
