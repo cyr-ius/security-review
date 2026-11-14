@@ -52,115 +52,6 @@ trie et en assure le suivi.
 3. **L'équipe sécurité trie** les findings dans l'interface web, et le pipeline vérifie avec la
    gate qu'aucun finding grave ne reste ouvert avant de déployer.
 
-## Ce que contient le produit
-
-Un **serveur MCP** pour la **revue de code orientée sécurité** (failles et mauvaises
-configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
-
-- des **prompts** structurés pour lancer une revue ;
-- des **outils** : checklists, scan rapide par motifs, enregistrement et consultation de rapports ;
-- une **base de données** (SQLite par défaut, PostgreSQL possible) qui stocke les rapports et
-  leurs findings.
-
-via la commande `security-review-mcp`
-
-Un **serveur Controller** qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
-Il fournit aux administrateurs et analystes en cybersécurité :
-
- - la **consultation des rapports** d'analyse de sécurité
- - la possibilité d'effectuer des **revues de sécurité** et d'**acceptation de risque**
- - l'ajout, la modification et la suppression des **règles et des checklists**
- - l'ajout de **standards de développement**
- - la **gestion** de vos communautés de développeurs
- - des **connecteurs** tiers pour assurer un suivi (Jira, Service Now, ...)
-
-via la commande `security-review-controller`
-
-Une **commande CI** pour l'injection dans les pipelines (tels que Jenkins, etc.) et permet :
-
- - **scan du dépôt** complet
- - **gate** de déploiement avec blocage si des findings sont ouverts
- - export SARIF et **rapport** de tendance
- - **analyse des dépendances**
-
-via la commande `security-review-ci`
-
-## Démarrage rapide (mode partagé)
-
-Le dépôt fournit un fichier `docker-compose.yml` prêt à l'emploi dans `examples/docker/`. Ce
-bloc démarre tout (PostgreSQL, serveur Controller, serveur MCP) et réinitialise le mot de passe
-du compte `admin` :
-
-```bash
-mkdir secreview && cd secreview
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
-(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
-docker compose up -d --wait
-docker compose exec controller security-review-controller user reset-password admin   # mot de passe affiché une fois
-# interface web : http://127.0.0.1:8080/ui/   endpoint MCP : http://127.0.0.1:8000/mcp
-```
-
-Activez ensuite la [connexion OAuth des clients MCP](advanced/mcp-oauth.md), pour que les
-développeurs se connectent par le navigateur au lieu de copier un jeton :
-
-1. Connectez-vous à l'interface web avec le compte `admin` et choisissez un nouveau mot de passe.
-2. Sur la page **Général**, saisissez `http://127.0.0.1:8080` comme **URL publique du serveur
-   Controller** (ou cliquez sur **Utiliser l'adresse actuelle**) et enregistrez : la connexion
-   OAuth en a besoin.
-3. Sur la page **Clients MCP**, dans la section **Connexion OAuth**, saisissez
-   `http://127.0.0.1:8000/mcp` comme **Point d’accès MCP** et activez l'interrupteur **Activer la connexion OAuth**.
-
-Déclarez le serveur MCP dans le fichier `.mcp.json` à la racine du dépôt, lu par VS Code,
-GitHub Copilot et Claude Code. Il ne contient que l'URL, sans jeton :
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "http",
-      "url": "http://127.0.0.1:8000/mcp"
-    }
-  }
-}
-```
-
-À la première connexion, l'hôte ouvre le navigateur : connectez-vous et approuvez le client sur
-la page **Connecter un client MCP**. L'hôte renouvelle ensuite ses jetons tout seul.
-
-Dans le chat, lancez le prompt `security-review` (ou `codebase-review` pour tout le dépôt).
-L'agent lit le code, s'appuie sur les checklists et enregistre son rapport avec
-`save_security_report`.
-Consultez-le et triez-le dans l'interface web.
-
-Cette installation est un essai sur la machine qui fait tourner les conteneurs : les URL sont en
-`127.0.0.1`, en HTTP simple, ce que la connexion OAuth n'accepte qu'en local. Les ports restent
-pourtant ouverts sur toutes les interfaces de la machine, en HTTP simple : ne la lancez pas sur
-un réseau partagé. Avant que
-l'équipe s'en serve, activez le HTTPS et indiquez les URL publiques des deux serveurs : voir
-[Mise en service du serveur](getting-started/deploy.md) et
-[Connexion OAuth des clients MCP](advanced/mcp-oauth.md#activation).
-
-## Démarrage rapide (mode local)
-
-Pour essayer les prompts seul, sans serveur : l'hôte démarre lui-même le serveur MCP avec
-[uv](https://docs.astral.sh/uv/getting-started/installation/), et les rapports sont gardés dans
-une base SQLite du poste, sans interface web ni jeton. Déclarez-le dans le fichier `.mcp.json`
-à la racine du dépôt :
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["--from", "security-review=={{ release_version }}", "security-review-mcp", "local"]
-    }
-  }
-}
-```
-
-Voir [Mode local (stdio)](getting-started/stdio.md).
-
 ## Par où continuer
 
 La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de sécurité** et
@@ -170,9 +61,10 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 |---|---|
 | 1. Déployer le serveur Controller et le serveur MCP (Docker Compose ou Kubernetes), créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
 | 2. Connecter VS Code ou Claude, obtenir un jeton | [Connexion de l'hôte](getting-started/host.md) |
-| 3. Lancer une revue | [Fonctionnement d'une revue](review/index.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](reference/prompts-tools.md) |
-| 4. Consulter et trier les rapports | [Interface web](usage/index.md) |
-| 5. Bloquer un déploiement sur des findings ouverts | [Gate](review/gate.md) |
+| 3. Demander à l'agent de faire les revues et de suivre les normes | [Le fichier AGENTS.md](getting-started/agents-md.md) |
+| 4. Lancer une revue | [Fonctionnement d'une revue](review/index.md) (règles, checklists), [Prompts et outils](reference/prompts-tools.md) |
+| 5. Consulter et trier les rapports | [Interface web](usage/index.md) |
+| 6. Bloquer un déploiement sur des findings ouverts | [Gate](review/gate.md) |
 
 | Pour aller plus loin (Avancé) | Page |
 |---|---|
