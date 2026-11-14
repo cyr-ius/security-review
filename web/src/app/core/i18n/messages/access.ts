@@ -7,6 +7,8 @@ export const access = defineMessages({
     'access.description': 'Description',
     'access.lastManager':
       'At least one user must keep the users.manage permission: change refused.',
+    'access.adminOnly':
+      'Only an administrator gives or takes away users.manage and settings.manage, and changes the account of a user who holds one: change refused.',
     'access.notFound': 'This role, user or project no longer exists.',
     'access.stale':
       'Another administrator changed this list since it was loaded: it has been reloaded, check it and save again.',
@@ -126,6 +128,8 @@ export const access = defineMessages({
     'access.description': 'Description',
     'access.lastManager':
       'Au moins un utilisateur doit garder la permission users.manage : modification refusée.',
+    'access.adminOnly':
+      "Seul un administrateur donne ou retire users.manage et settings.manage, et modifie le compte d'un utilisateur qui en détient une : modification refusée.",
     'access.notFound': "Ce rôle, cet utilisateur ou ce projet n'existe plus.",
     'access.stale':
       'Un autre administrateur a modifié cette liste depuis son chargement : elle a été rechargée, vérifiez-la puis enregistrez de nouveau.',
@@ -246,6 +250,8 @@ export const access = defineMessages({
     'access.description': 'Descripción',
     'access.lastManager':
       'Al menos un usuario debe conservar el permiso users.manage: cambio rechazado.',
+    'access.adminOnly':
+      'Solo un administrador asigna o retira users.manage y settings.manage, y modifica la cuenta de un usuario que tenga uno: cambio rechazado.',
     'access.notFound': 'Este rol, usuario o proyecto ya no existe.',
     'access.stale':
       'Otro administrador modificó esta lista desde que se cargó: se ha recargado, revísela y guarde de nuevo.',

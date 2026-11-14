@@ -447,6 +447,10 @@ export class UserListComponent {
 function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse) {
     const detail = typeof error.error?.detail === 'string' ? error.error.detail : null;
+    // users.manage and settings.manage are given by an administrator only
+    if (error.status === 403) {
+      return msg('access.adminOnly');
+    }
     if (error.status === 409 && detail?.includes('users.manage')) {
       return msg('users.lastAdminDelete');
     }

@@ -5,6 +5,10 @@ import { Message, msg } from '../../core/i18n/i18n.service';
 export function describeAccessError(error: unknown): Message {
   if (error instanceof HttpErrorResponse) {
     const detail = typeof error.error?.detail === 'string' ? error.error.detail : null;
+    // users.manage and settings.manage are given by an administrator only
+    if (error.status === 403) {
+      return msg('access.adminOnly');
+    }
     if (detail?.includes('users.manage')) {
       return msg('access.lastManager');
     }

@@ -317,6 +317,7 @@ export type AuditAction =
   | 'user.roles_changed'
   | 'user.projects_changed'
   | 'oidc.mappings_changed'
+  | 'access.denied'
   | 'user.login'
   | 'user.login_failed'
   | 'user.logout'
@@ -371,6 +372,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.roles_changed',
   'user.projects_changed',
   'oidc.mappings_changed',
+  'access.denied',
   'user.login',
   'user.login_failed',
   'user.logout',

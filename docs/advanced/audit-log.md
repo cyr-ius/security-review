@@ -27,6 +27,7 @@ exists exactly when the change was committed.
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](../usage/access-control.md#roles) |
 | `group.*`, `user.groups_changed` | Changes of the groups of web users, removed in version 10: kept in the history |
 | `oidc.mappings_changed` | An administrator replaces the [OIDC mappings](../usage/sso.md#oidc-mappings) (claims added and removed), a login maps a value of `SECREVIEW_OIDC_ADMIN_GROUPS` (actor `oidc`), or the deletion of a project changes them |
+| `access.denied` | A caller that is not an administrator tried to give or take away a [protected permission](../usage/access-control.md#protected-permissions) (`users.manage`, `settings.manage`), to change the OIDC settings or the account of a holder of one: refused (`403`), the attempt in the details |
 | `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (the user id and its `reports.read` and `reports.write` permissions in the details) |
 | `project.joined` | A user with `projects.autojoin` joins an existing project through `request_project` (actor: the token) (the user id and its `reports.read` and `reports.write` permissions in the details) |
 | `project.autojoin_changed` | A user with `users.manage` [blocks or allows again the autojoin](../usage/projects.md#blocking-the-autojoin) of a project (`blocked` in the details) |

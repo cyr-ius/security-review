@@ -107,6 +107,17 @@ son rôle ou la correspondance OIDC qui la lui donne) est refusé avec `409` ou 
 OIDC ne la retire jamais : les valeurs du claim qui la donnaient sont gardées, avec un
 avertissement dans les journaux et un événement `user.roles_changed`.
 
+`users.manage` et `settings.manage` sont
+[protégées](../usage/access-control.md#permissions-protegees) : un appelant qui ne détient pas
+toutes les permissions sur tout le serveur Controller (le rôle `admin`, un jeton `admin` ou un
+jeton `api` du rôle `admin`) reçoit `403` et un événement d'audit `access.denied` quand il crée,
+modifie ou supprime un rôle qui en contient une (`/roles`), donne ou retire un tel rôle
+(`POST /users`, `PUT /users/{id}`, `PUT /oidc/mappings`), modifie les réglages OIDC
+(`PUT /oidc/settings`), ou modifie, supprime ou réinitialise le mot de passe d'un compte qui en
+détient une (`PUT` et `DELETE /users/{id}`, `POST /users/{id}/password`), ou permet de recréer
+un compte OIDC supprimé (`DELETE /users/revoked/{username}`). La CLI, lancée par l'opérateur du
+serveur, n'est pas limitée.
+
 ## Projets
 
 ### Projets connus

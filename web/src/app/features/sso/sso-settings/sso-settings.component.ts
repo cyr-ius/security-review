@@ -325,6 +325,10 @@ const SETTINGS_REFUSED: Refusal = {
 };
 
 function describeError(error: unknown, refusal: Refusal): Message {
+  // The OIDC settings decide who gets users.manage: an administrator only changes them
+  if (error instanceof HttpErrorResponse && error.status === 403) {
+    return msg('access.adminOnly');
+  }
   if (error instanceof HttpErrorResponse && error.status === 422) {
     const detail = error.error?.detail;
     return typeof detail === 'string' ? msg(refusal.detail, { detail }) : msg(refusal.generic);

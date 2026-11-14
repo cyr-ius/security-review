@@ -201,6 +201,14 @@
   les modifie ni ne les supprime. De même pour relever la criticité d'un finding : avec une
   justification, journalisé, jamais sous la criticité du rapport (baisser un finding passe par
   une acceptation de risque).
+- **Permissions protégées** : `users.manage` (qui détient quelle permission) et `settings.manage`
+  (entre autres, l'adresse du serveur Controller à laquelle les serveurs MCP envoient les jetons
+  des agents et depuis laquelle `start_codebase_scan` installe `security-review-ci`) ne sont
+  données et retirées que par un administrateur. Un détenteur de `users.manage` qui n'est pas
+  administrateur ne peut modifier ni un rôle ou une correspondance OIDC qui en donne une, ni les
+  réglages OIDC, ni le compte ou le mot de passe d'un détenteur de l'une d'elles : `403` et un
+  événement d'audit `access.denied` (voir
+  [Permissions protégées](../usage/access-control.md#permissions-protegees)).
 - **Les agents n'installent jamais une règle de scan** : `propose_opengrep_rule` enregistre
   seulement une proposition (une règle, préfixe réservé `secreview.` refusé, ni secret ni
   caractère invisible, motif masqué, propositions en attente bornées par
