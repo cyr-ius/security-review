@@ -9,6 +9,37 @@ assistant **before it writes code**, so that the code it produces follows them f
 They complete the security review: the standards guide the writing, the review prompts check
 the result.
 
+## Why centralize them
+
+- The standards are stored **in the database**, like the rules. They are not in your
+  repository.
+- An administrator writes them on the **Standards** page of the web interface. They can also
+  be imported from a TOML file.
+- Each standard lists its technologies and its file patterns (`*.py`, `angular.json`).
+- Every project gets the same standards. An update applies at once to every agent.
+
+The benefit: you write your conventions **once**, for the whole organization. No repository
+needs to copy them anymore.
+
+### No skill to maintain
+
+Without the server, sharing conventions with the agents usually means writing **skills** or
+instruction files: a Claude Code skill, Copilot instructions, Cursor rules... Each agent has its
+own format, and each file has to be copied into every repository or workstation, then kept up to
+date everywhere.
+
+The centralized standards avoid this for the conventions:
+
+| Skills or instruction files | Centralized standards |
+|---|---|
+| One format per agent | Any MCP agent (Claude Code, GitHub Copilot, Codex, Cursor...) reads them through the `security-review` server |
+| Copied into each repository or workstation | Written once, on the **Standards** page |
+| Updated by hand everywhere | An update applies at once to every agent |
+| All loaded, or chosen by the agent | Selected by technology or by file (`*.py`, `angular.json`) |
+
+A skill is still useful for what is not a convention: a procedure, a script, a workflow of the
+team. The standards only replace the coding rules.
+
 ## Content of a standard
 
 | Field | Role |

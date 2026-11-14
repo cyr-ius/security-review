@@ -100,7 +100,7 @@ When the token is refused (revoked or expired), the agent tells you to sign in a
 a new one.
 
 The personal **CI** token serves [`security-review-ci`](../advanced/architecture/ci.md) on your
-workstation, for example in the [commit hooks](../getting-started/commit-hooks.md), through
+workstation, for example in the [commit hooks](../advanced/commit-hooks.md), through
 `SECREVIEW_CI_TOKEN`. A report it saves shows you as its author.
 
 When the server uses the [OAuth login of MCP clients](../advanced/mcp-oauth.md), an administrator

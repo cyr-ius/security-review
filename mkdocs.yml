@@ -116,7 +116,7 @@ plugins:
             Security and limits: Sécurité et limites
             Security review: Revue de sécurité
             Shared mode (HTTP): Mode partagé (HTTP)
-            Centralized standards: Normes centralisées
+            The AGENTS.md file: Le fichier AGENTS.md
             Third-party connectors: Connecteurs tiers
             TLS and certificates: TLS et certificats
             Tokens: Jetons
@@ -165,8 +165,7 @@ nav:
       - Shared mode (HTTP): getting-started/deploy.md
       - Local mode (stdio): getting-started/stdio.md
       - Connecting the host: getting-started/host.md
-      - Commit hooks: getting-started/commit-hooks.md
-      - Centralized standards: getting-started/stored-standards.md
+      - The AGENTS.md file: getting-started/agents-md.md
   - Security review:
       - How a review works: review/index.md
       - Prompts and tools: review/prompts-tools.md
@@ -203,6 +202,7 @@ nav:
       - Access control through the REST API: advanced/access-control-api.md
       - Audit log in detail: advanced/audit-log.md
       - Bearer tokens: advanced/bearer-tokens.md
+      - Commit hooks: advanced/commit-hooks.md
       - Connectors in detail: advanced/connectors.md
       - Database: advanced/database.md
       - Deployment:

@@ -103,7 +103,7 @@ Quand le jeton est refusé (révoqué ou expiré), l'agent vous invite à vous r
 créer un nouveau.
 
 Le jeton personnel **CI** sert à [`security-review-ci`](../advanced/architecture/ci.md) sur votre
-poste, par exemple dans les [hooks de commit](../getting-started/commit-hooks.md), par
+poste, par exemple dans les [hooks de commit](../advanced/commit-hooks.md), par
 `SECREVIEW_CI_TOKEN`. Un rapport qu'il enregistre vous désigne comme auteur.
 
 Quand le serveur utilise la [connexion OAuth des clients MCP](../advanced/mcp-oauth.md), un

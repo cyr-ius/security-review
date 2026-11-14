@@ -136,62 +136,7 @@ Pour une revue importante, préférez le prompt.
     C'est la seule façon pour que l'agent fasse les revues de sécurité **automatiquement**, sans
     que le développeur ait à lancer un prompt avant chaque commit.
 
-### Pourquoi il est indispensable
-
-- L'agent ne lance pas les prompts. Sans consigne, il ne pense pas toujours à faire la revue.
-- `AGENTS.md` est lu par l'agent au début de chaque session. Il lui dit **quand** utiliser le
-  serveur, et **comment**.
-- Il fixe le **nom du projet**. Tous les rapports arrivent au même endroit. Le gate, les
-  tendances et la posture fonctionnent sur ce nom.
-- Sans nom fixé, chaque agent en invente un. Les rapports se dispersent et le gate ne voit pas
-  tout.
-
-Certains hôtes lisent un autre fichier : `CLAUDE.md` pour Claude Code,
-`.github/copilot-instructions.md` pour GitHub Copilot. Faites-les pointer vers `AGENTS.md`.
-Vous gardez ainsi une seule source.
-
-### Exemple simple
-
-Un projet `shop-api` en Python (FastAPI), avec un `Dockerfile` :
-
-```markdown
-# Consignes pour les agents IA
-
-## Projet
-- Nom du projet pour le serveur MCP `security-review` : `shop-api`.
-- Utilisez toujours ce nom dans `save_security_report`.
-
-## Avant d'écrire du code
-- Appelez `get_development_standards` avec les technologies du changement
-  (ex. `python`, `fastapi`) ou les fichiers touchés (`pyproject.toml`).
-- Appliquez ces normes. Signalez tout écart avec sa raison.
-
-## Avant de déclarer une tâche terminée
-1. Appelez `scan_code` sur chaque fichier modifié. Vérifiez chaque piste dans le code.
-2. Appelez `get_review_checklist` pour `python`, `api`, `*` et `company`.
-   Ajoutez `config` si le `Dockerfile` change.
-3. Si `pyproject.toml` ou `uv.lock` change, appelez `scan_dependencies`.
-4. Appelez `save_security_report` une seule fois :
-   projet `shop-api`, `review_type` `security-review`, branche et commit,
-   `checklist_results` et `scan_rules` remplis.
-5. Corrigez les findings `critical` et `high` avant de terminer.
-6. Ne changez jamais un statut. Utilisez `propose_finding_status` avec un motif.
-
-Si le serveur `security-review` ne répond pas, dites-le. Ne prétendez pas avoir fait la revue.
-```
-
-Et un `CLAUDE.md` minimal qui renvoie vers ce fichier :
-
-```markdown
-Les consignes du projet sont dans `AGENTS.md`. Suivez-les intégralement.
-
-@AGENTS.md
-```
-
-!!! warning "Normes de développement"
-    Les normes de développement sont stockées dans le serveur : citez-les dans `AGENTS.md` sans les
-    recopier. Voir comment rédiger le fichier `AGENTS.md` dans la section Avancé :
-    [Comment en parler dans `AGENTS.md`](../getting-started/stored-standards.md#comment-en-parler-dans-agentsmd).
+Son contenu et un exemple complet : [Le fichier AGENTS.md](../getting-started/agents-md.md).
 
 ## Quel contrôle, à quel moment
 

@@ -72,7 +72,7 @@ This is possible with the `security-review-ci` client (a single Python file, wit
 dependency): see [CI](advanced/architecture/ci.md).
 
 The same client can be used in your pre-commit (or prek) hooks to run your security reviews
-or dependency analysis directly from your IDE. See [Pre-commit hooks](getting-started/commit-hooks.md).
+or dependency analysis directly from your IDE. See [Pre-commit hooks](advanced/commit-hooks.md).
 
 ## Design
 

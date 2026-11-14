@@ -76,7 +76,7 @@ C'est possible avec le client `security-review-ci` (un seul fichier Python, sans
 voir [CI](advanced/architecture/ci.md).
 
 Ce même client peut être utilisé dans vos hooks de pre-commit (ou prek) afin d'effectuer
-vos revues de sécurité ou analyses de dépendances directement depuis votre IDE. Voir [Hooks de pre-commit](getting-started/commit-hooks.md).
+vos revues de sécurité ou analyses de dépendances directement depuis votre IDE. Voir [Hooks de pre-commit](advanced/commit-hooks.md).
 
 
 ## Design

@@ -3,7 +3,11 @@
 On the workstation of each developer, a hook checks the dependencies before every commit. It is
 run by [prek](https://prek.j178.dev) (or [pre-commit](https://pre-commit.com)). The security
 review of the code itself is done by the coding agent, in its session, with the
-[MCP server](host.md).
+[MCP server](../getting-started/host.md).
+
+The hook is optional: during a review, the agent already checks the dependency files that
+changed. The hook adds an automatic check at every commit, without an agent, and blocks the
+commit above the threshold.
 
 | Hook | When | What it does | Blocks the commit |
 |---|---|---|---|

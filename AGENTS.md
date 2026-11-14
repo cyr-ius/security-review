@@ -364,7 +364,7 @@ langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
 mise en service du serveur en mode partagé, mode local avec l'installation du paquet PyPI,
-connexion de l'hôte, normes centralisées, hooks de commit), **Revue de sécurité** (`review/` : fonctionnement, prompts et outils, règles,
+connexion de l'hôte, fichier `AGENTS.md`), **Revue de sécurité** (`review/` : fonctionnement, prompts et outils, règles,
 checklists, normes, gate) et **Application** (`usage/` : interface web, triage, jetons, comptes,
 projets, rôles et permissions, connexion OIDC, journal d'audit) ne
 contiennent que l'essentiel pour travailler ; **Connecteurs** (`usage/connectors/`, sous-menu d'**Application**) décrit l'envoi des
@@ -388,7 +388,7 @@ essentielles.
 | Le serveur MCP (routes, transports, démarrage, réponse selon le jeton, enrôlement, garanties, exposition, réplicas) | `docs/advanced/architecture/mcp-server` |
 | Le client de pipeline `security-review-ci` (installation, jeton `ci`, commandes, exemples par plateforme CI/CD, tendance) | `docs/advanced/architecture/ci` (+ `review/gate`) |
 | Le contrôleur (routes, démarrage, tâches de fond, connexions sortantes, exposition, réplicas, premier administrateur, sessions, sécurité de l'interface) | `docs/advanced/architecture/controller` |
-| Les normes de développement (prompt, outils, ressources, page) | `docs/review/standards` (+ `review/prompts-tools`, `getting-started/stored-standards`) |
+| Les normes de développement (prompt, outils, ressources, page) | `docs/review/standards` (+ `review/prompts-tools`, `getting-started/agents-md`) |
 | L'interface web, l'API REST ou les rôles | `docs/usage/index` (pages), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes), `docs/usage/access-control` (rôles, permissions), `docs/usage/projects` (projets) ; connexion OIDC : `docs/usage/sso` ; détails et API : `docs/advanced/reports/triage-api`, `docs/advanced/access-control-api`, `docs/advanced/oidc` |
 | Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, page **Connecteurs**, routes) | `docs/usage/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/advanced/connectors`, `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/deployment/installation`, `docs/advanced/deployment/manual-install`, `docs/advanced/deployment/docker` |

@@ -198,7 +198,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 ## Scan depuis un poste de travail (hook de commit)
 
-Mise en place pas à pas : [Hooks de commit](../../getting-started/commit-hooks.md).
+Mise en place pas à pas : [Hooks de commit](../../advanced/commit-hooks.md).
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
 [jeton `ci` personnel](../../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
