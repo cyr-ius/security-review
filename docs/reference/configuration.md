@@ -3,7 +3,8 @@
 The MCP server and the Controller server read environment variables prefixed with `SECREVIEW_`, or a
 `.env` file in the current directory (see `.env.example`). The variables are grouped below by
 the process that reads them: [both](#both-processes), the [MCP server](#mcp-server)
-(`security-review-mcp`), the [Controller server](#controller-server) (`security-review-controller`) or the
+(`security-review-mcp`), the [Controller server](#controller-server) (`security-review-controller`), the
+[scan engines](#scan-engines-security-review-scan-engine) (`security-review-scan-engine`) or the
 [clients](#clients).
 
 Some settings can also be set in the [web interface](../usage/index.md#pages): report
@@ -201,16 +202,33 @@ Engine of the Controller server for `scan-code`, disabled by default and skipped
 
 Optional [scan engines](../advanced/architecture/scan-engine.md) (`security-review-scan-engine`) that run the rules and OpenGrep of the code scans in place of the Controller server. The `SECREVIEW_OPENGREP_*` settings then apply to the engines.
 
+Variables read by the engines themselves: see [Scan engines (`security-review-scan-engine`)](#scan-engines-security-review-scan-engine).
+
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Controller server and engines: shared secret (at least 32 characters), required on both sides. Set on the Controller server, it turns the [scan engines](../advanced/architecture/scan-engine.md) on: they enroll with their own address and the code scans go to the active ones; unset: the Controller server scans itself |
 | `SECREVIEW_SCAN_ENGINE_NETWORKS` | private and loopback networks | Controller server: networks (comma-separated CIDRs) where the engines may [advertise their address](../advanced/architecture/scan-engine.md#how-the-scans-reach-the-engines), an IP address only |
-| `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL` | IP of the host name, listening port | Scan engines: root URL where the Controller server sends them the scans, given at their enrollment (e.g. `http://10.42.0.17:8000`, the pod IP) |
 | `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Controller server: time limit of a scan by an engine (1 to 7200) |
 | `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Controller server: when no engine answers, `refuse` the scan (`503` with `Retry-After`) or scan `local`ly |
 | `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES` | `15` | Controller server: validity of the OAuth access token of an [enrolled engine](../advanced/architecture/scan-engine.md#enrollment-and-access-tokens) (1 to 1440) |
 | `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` | `7` | Controller server: an enrolled engine not seen for this many days is deleted (1 to 365) |
-| `SECREVIEW_CONTROLLER_URL` | — | Scan engines (required): internal address of the Controller server (e.g. `http://controller:8000`), where they [enroll](../advanced/architecture/scan-engine.md#enrollment-and-access-tokens) and [read the rules](../advanced/architecture/scan-engine.md#rules) before each scan, OpenGrep rules copied into their own `SECREVIEW_OPENGREP_RULES_DIR`; the engines read no database |
+
+## Scan engines (`security-review-scan-engine`)
+
+Read by the optional [scan engines](../advanced/architecture/scan-engine.md). An engine opens no
+database: it gets its rules from the Controller server.
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Required: the shared secret, the same as on the Controller server ([Scan engines](#scan-engines)) |
+| `SECREVIEW_CONTROLLER_URL` | — | Required: internal address of the Controller server (e.g. `http://controller:8000`), where they [enroll](../advanced/architecture/scan-engine.md#enrollment-and-access-tokens) and [read the rules](../advanced/architecture/scan-engine.md#rules) before each scan, OpenGrep rules copied into their own `SECREVIEW_OPENGREP_RULES_DIR`; the engines read no database |
+| `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL` | IP of the host name, listening port | Root URL where the Controller server sends them the scans, given at their enrollment (e.g. `http://10.42.0.17:8000`, the pod IP) |
+
+An engine also reads:
+
+- the [listening and TLS](#listening-tls-and-reverse-proxy) variables and `SECREVIEW_LOG_LEVEL`;
+- the [OpenGrep engine](#opengrep-engine) variables, which apply to its scans;
+- the [pipeline scan limits](#pipeline-scan-limits) (`SECREVIEW_MAX_SCAN_*`).
 
 ## Clients
 

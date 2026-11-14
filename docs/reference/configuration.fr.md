@@ -4,7 +4,9 @@ Le serveur MCP et le serveur Controller lisent des variables d'environnement pr�
 un fichier `.env` dans le répertoire courant (voir `.env.example`). Les variables sont groupées
 ci-dessous selon le processus qui les lit : [les deux](#les-deux-processus), le
 [serveur MCP](#serveur-mcp) (`security-review-mcp`), le [serveur Controller](#serveur-controller)
-(`security-review-controller`) ou les [clients](#clients).
+(`security-review-controller`), les
+[moteurs de scan](#moteurs-de-scan-security-review-scan-engine) (`security-review-scan-engine`) ou les
+[clients](#clients).
 
 Certains réglages se définissent aussi dans l'[interface web](../usage/index.md#pages) :
 langue des rapports, proxy sortant, connexion OIDC et serveur syslog du journal d'audit. **Une variable définie est toujours
@@ -201,16 +203,33 @@ Moteur du serveur Controller pour `scan-code`, désactivé par défaut et ignor�
 
 [Moteurs de scan](../advanced/architecture/scan-engine.md) facultatifs (`security-review-scan-engine`) qui exécutent les règles et OpenGrep des scans de code à la place du serveur Controller. Les réglages `SECREVIEW_OPENGREP_*` s'appliquent alors aux moteurs.
 
+Variables lues par les moteurs eux-mêmes : voir [Moteurs de scan (`security-review-scan-engine`)](#moteurs-de-scan-security-review-scan-engine).
+
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Serveur Controller et moteurs : secret partagé (32 caractères au moins), obligatoire des deux côtés. Défini sur le serveur Controller, il active les [moteurs de scan](../advanced/architecture/scan-engine.md) : ils s'enrôlent avec leur propre adresse et les scans de code partent vers les moteurs actifs ; absent : le serveur Controller scanne lui-même |
 | `SECREVIEW_SCAN_ENGINE_NETWORKS` | réseaux privés et de bouclage | Serveur Controller : réseaux (CIDR séparés par des virgules) où les moteurs peuvent [annoncer leur adresse](../advanced/architecture/scan-engine.md#comment-les-scans-parviennent-aux-moteurs), une adresse IP uniquement |
-| `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL` | IP du nom d'hôte, port d'écoute | Moteurs de scan : URL racine où le serveur Controller leur envoie les scans, donnée à leur enrôlement (par ex. `http://10.42.0.17:8000`, l'IP du pod) |
 | `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Serveur Controller : durée maximale d'un scan par un moteur (1 à 7200) |
 | `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Serveur Controller : quand aucun moteur ne répond, refuser le scan (`refuse`, `503` avec `Retry-After`) ou scanner localement (`local`) |
 | `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES` | `15` | Serveur Controller : durée de validité du jeton d'accès OAuth d'un [moteur enrôlé](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) (1 à 1440) |
 | `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` | `7` | Serveur Controller : un moteur enrôlé absent depuis ce nombre de jours est supprimé (1 à 365) |
-| `SECREVIEW_CONTROLLER_URL` | — | Moteurs de scan (obligatoire) : adresse interne du serveur Controller (par ex. `http://controller:8000`), où ils [s'enrôlent](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) et [lisent les règles](../advanced/architecture/scan-engine.md#regles) avant chaque scan, les règles OpenGrep copiées dans leur propre `SECREVIEW_OPENGREP_RULES_DIR` ; les moteurs ne lisent aucune base de données |
+
+## Moteurs de scan (`security-review-scan-engine`)
+
+Lues par les [moteurs de scan](../advanced/architecture/scan-engine.md) facultatifs. Un moteur
+n'ouvre aucune base de données : il reçoit ses règles du serveur Controller.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Obligatoire : le secret partagé, le même que sur le serveur Controller ([Moteurs de scan](#moteurs-de-scan)) |
+| `SECREVIEW_CONTROLLER_URL` | — | Obligatoire : adresse interne du serveur Controller (par ex. `http://controller:8000`), où ils [s'enrôlent](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) et [lisent les règles](../advanced/architecture/scan-engine.md#regles) avant chaque scan, les règles OpenGrep copiées dans leur propre `SECREVIEW_OPENGREP_RULES_DIR` ; les moteurs ne lisent aucune base de données |
+| `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL` | IP du nom d'hôte, port d'écoute | URL racine où le serveur Controller leur envoie les scans, donnée à leur enrôlement (par ex. `http://10.42.0.17:8000`, l'IP du pod) |
+
+Un moteur lit aussi :
+
+- les variables d'[écoute et TLS](#ecoute-tls-et-reverse-proxy) et `SECREVIEW_LOG_LEVEL` ;
+- les variables du [moteur OpenGrep](#moteur-opengrep), qui s'appliquent à ses scans ;
+- les [limites des scans de pipeline](#limites-des-scans-de-pipeline) (`SECREVIEW_MAX_SCAN_*`).
 
 ## Clients
 
