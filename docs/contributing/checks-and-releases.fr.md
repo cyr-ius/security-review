@@ -35,7 +35,12 @@ Angular ; `tests.yml` lance pytest sur Python 3.14 et 3.15 avec `uv sync --locke
 `uv lock` après un changement de dépendances) avec la version épinglée d'OpenGrep de
 `.devcontainer/install-opengrep.sh` (pour le test des
 [règles OpenGrep par défaut](tests.md#regles-opengrep-par-defaut)), et construit le client
-`security-review-ci` seul (job **ci-client**).
+`security-review-ci` seul (job **ci-client**). Le job **build** de `docs.yml` tourne sur
+chaque pull request, car la protection de `master` l'exige, mais ne construit la
+documentation (`mkdocs build --strict`) que si la pull request modifie `docs/`, `mkdocs.yml`,
+`examples/`, `pyproject.toml`, `scripts/mkdocs_hooks.py` ou le workflow ; sinon, il passe
+aussitôt. Ne le filtrez pas avec `paths` dans le déclencheur : un check obligatoire qui ne
+tourne jamais bloque la pull request.
 
 `codeql.yml` lance l'analyse CodeQL (GitHub Actions, JavaScript / TypeScript, Python) à chaque
 push et pull request, et chaque semaine. Sa configuration, `.github/codeql/codeql-config.yml`,
