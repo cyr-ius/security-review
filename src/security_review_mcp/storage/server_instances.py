@@ -14,6 +14,11 @@ resource read of the agents (``code`` for the code scans, ``deps`` for the depen
 scans it receives: ``code`` and ``deps`` from the MCP servers, ``pipeline`` from
 ``security-review-ci``. The page draws them as the parts of a ring.
 
+A Controller process also reports the code scans it runs itself (without scan engines, or when
+none scanned the files): by pool (``codebase`` for the codebase scans, ``fragment`` for the
+fragments of scan_code), their files, and its OpenGrep slots of each pool (0 without OpenGrep:
+the scans are then not limited). The page draws them like the slots of an engine.
+
 An agent is never named after a person: it is an opaque key (an HMAC of its token id and of the
 name of its MCP client, with a secret drawn at the start of the process, so neither reversible
 nor comparable between processes) and the name and version its MCP client gives at the
@@ -40,6 +45,7 @@ from uuid import uuid4
 from sqlmodel import col, select
 
 from .. import __version__
+from ..config import get_settings
 from .database import session_scope
 from .models import ServerInstance, ServerKind, as_utc, utcnow
 
@@ -61,6 +67,9 @@ MAX_CLIENT_CHARS = 64
 MAX_CLIENT_VERSION_CHARS = 40
 # Families of the requests a process counts, in the order of the parts of its ring
 FAMILIES = ("code", "deps", "reports", "reads", "pipeline")
+# Pools of the code scans a Controller process runs itself (see scanning), with their files
+SCAN_POOLS = ("codebase", "fragment")
+SCAN_FIELDS = ("codebase", "fragment", "files", "codebase_slots", "fragment_slots")
 # Heartbeat of this process, for the routes and tools that count their requests (see track)
 _current: ServerHeartbeat | None = None
 
@@ -81,6 +90,25 @@ def _counts(value: object) -> dict[str, int]:
         valid = isinstance(count, int) and not isinstance(count, bool)
         counts[family] = max(0, min(count, MAX_PROCESSING)) if valid else 0
     return counts
+
+
+def _scan_counts(value: object) -> dict[str, int]:
+    """The code scans of a Controller process (see SCAN_FIELDS), bounded (a bad count gives 0)."""
+    raw = value if isinstance(value, dict) else {}
+    counts = {}
+    for field in SCAN_FIELDS:
+        count = raw.get(field)
+        valid = isinstance(count, int) and not isinstance(count, bool)
+        counts[field] = max(0, min(count, MAX_PROCESSING)) if valid else 0
+    return counts
+
+
+def _decode_scans(raw: str) -> dict[str, int]:
+    """The code scans of a row, checked (a malformed row gives zeros)."""
+    try:
+        return _scan_counts(json.loads(raw or "{}"))
+    except ValueError:
+        return _scan_counts(None)
 
 
 def _decode_processing(raw: str) -> dict[str, int]:
@@ -188,6 +216,8 @@ def heartbeat(
             )
         if "processing" in activity:
             instance.processing = json.dumps(_counts(activity["processing"]), separators=(",", ":"))
+        if "scans" in activity:
+            instance.scans = json.dumps(_scan_counts(activity["scans"]), separators=(",", ":"))
         if "agents" in activity:
             instance.agents = _encode_agents(list(activity["agents"]))
         session.add(instance)
@@ -220,6 +250,7 @@ def active_instances(kind: ServerKind) -> list[dict[str, Any]]:
                 "delegated": row.delegated,
                 "processing_fragments": row.processing_fragments,
                 "processing": _decode_processing(row.processing),
+                "scans": _decode_scans(row.scans),
                 "agents": _decode_agents(row.agents),
             }
             for row in rows
@@ -261,6 +292,9 @@ class ServerHeartbeat:
         # Most requests running at once since the last heartbeat: a request shorter than the
         # delay of the heartbeat still shows
         self._peak = dict.fromkeys(FAMILIES, 0)
+        # Code scans this process runs itself by pool, with their files, and their peak
+        self._scans = dict.fromkeys((*SCAN_POOLS, "files"), 0)
+        self._scan_peak = dict(self._scans)
         # Agents by opaque key, and the secret of their keys (never stored)
         self._agents: dict[str, _Agent] = {}
         self._agent_secret = secrets.token_bytes(32)
@@ -346,6 +380,26 @@ class ServerHeartbeat:
                     counted.last_seen = utcnow()
             self._wake.set()
 
+    @contextmanager
+    def scanning(self, pool: str, files: int) -> Iterator[None]:
+        """Count a code scan of ``pool`` and its ``files`` as running in this process while the
+        block runs, waking the heartbeat when it starts and ends."""
+        if pool not in SCAN_POOLS:
+            raise ValueError(f"Unknown pool of scans: {pool!r}")
+        with self._lock:
+            self._scans[pool] += 1
+            self._scans["files"] += files
+            for key, count in self._scans.items():
+                self._scan_peak[key] = max(self._scan_peak[key], count)
+        self._wake.set()
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._scans[pool] -= 1
+                self._scans["files"] -= files
+            self._wake.set()
+
     def _active_agents(self) -> list[dict[str, Any]]:
         """The agents seen lately or running a scan_code call, the most recent first; the others
         are forgotten. Called with the lock held."""
@@ -373,6 +427,7 @@ class ServerHeartbeat:
         """What the heartbeat records besides its date."""
         with self._lock:
             processing, self._peak = self._peak, dict(self._processing)
+            scans, self._scan_peak = self._scan_peak, dict(self._scans)
             agents = self._active_agents()
         delegated = False
         if self._delegated is not None:
@@ -380,12 +435,24 @@ class ServerHeartbeat:
                 delegated = self._delegated()
             except Exception:
                 logger.exception("Could not read whether scan_code is delegated")
-        return {
+        activity = {
             "delegated": delegated,
             "processing_fragments": processing["code"],
             "processing": processing,
             "agents": agents,
         }
+        if self.kind == ServerKind.CONTROLLER:
+            # The OpenGrep slots limit the scans of each pool; without OpenGrep, nothing does
+            settings = get_settings()
+            opengrep = settings.opengrep_enabled
+            activity["scans"] = {
+                **scans,
+                "codebase_slots": settings.opengrep_max_concurrent_scans if opengrep else 0,
+                "fragment_slots": settings.opengrep_max_concurrent_fragment_scans
+                if opengrep
+                else 0,
+            }
+        return activity
 
     def beat(self) -> None:
         """Write the heartbeat now."""
@@ -420,4 +487,16 @@ def track(family: str) -> Iterator[None]:
         yield
         return
     with heartbeat.processing(family=family):
+        yield
+
+
+@contextmanager
+def scanning(pool: str, files: int) -> Iterator[None]:
+    """Count a code scan of ``pool`` with ``files`` that this process runs itself in its
+    heartbeat while the block runs (nothing when the process keeps no heartbeat)."""
+    heartbeat = _current
+    if heartbeat is None:
+        yield
+        return
+    with heartbeat.scanning(pool, files):
         yield

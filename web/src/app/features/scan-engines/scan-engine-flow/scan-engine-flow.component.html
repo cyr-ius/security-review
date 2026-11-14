@@ -149,14 +149,14 @@
               [class]="source.kind === 'codebase' ? 'bi-diagram-3' : 'bi-robot'"
               aria-hidden="true"
             ></i>
-            <!-- Slots of the engines: none to count without an engine -->
-            @if (data().engines.length) {
+            <!-- Slots of the engines, or of the Controller server without engines (OpenGrep only) -->
+            @if (source.capacity) {
               <span class="value">{{ source.active }}/{{ source.capacity }}</span>
               <span class="detail">{{ 'scanEngines.flowSlotsShort' | t }}</span>
             }
             <!-- The scans security-review-ci sends to the Controller server, engines or not -->
             @if (source.kind === 'codebase') {
-              @if (data().engines.length) {
+              @if (source.capacity) {
                 <span class="detail">
                   {{
                     pipelineSent() === 1
@@ -329,7 +329,7 @@
           [attr.r]="controllerRing"
           [attr.stroke-width]="ring"
         />
-        @for (arc of total.arcs; track arc.kind) {
+        @for (arc of node.arcs; track arc.kind) {
           <circle
             class="ring"
             [class]="'ring-' + arc.kind"
@@ -368,6 +368,22 @@
               <span class="value">{{ total.active }}/{{ data().engines.length }}</span>
               <span class="detail">{{ 'scanEngines.flowActive' | t }}</span>
               <span class="detail">{{ 'scanEngines.flowFiles' | t: { count: total.files } }}</span>
+            } @else {
+              <!-- Without engines: the scans it runs itself, in its OpenGrep slots if any -->
+              @if (node.scans.codebase_slots + node.scans.fragment_slots) {
+                <span class="value"
+                  >{{ node.scans.codebase + node.scans.fragment }}/{{
+                    node.scans.codebase_slots + node.scans.fragment_slots
+                  }}</span
+                >
+                <span class="detail">{{ 'scanEngines.flowSlotsShort' | t }}</span>
+                <span class="detail">{{
+                  'scanEngines.flowFiles' | t: { count: node.scans.files }
+                }}</span>
+              } @else {
+                <span class="value">{{ node.scans.files }}</span>
+                <span class="detail">{{ 'scanEngines.flowFilesShort' | t }}</span>
+              }
             }
           </div>
         </foreignObject>

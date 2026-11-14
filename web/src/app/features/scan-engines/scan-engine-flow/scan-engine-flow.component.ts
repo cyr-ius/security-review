@@ -12,6 +12,7 @@ import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   AgentActivity,
+  ControllerScans,
   Processing,
   ScanEngine,
   ScanEngineList,
@@ -83,6 +84,10 @@ interface ControllerNode extends Point {
    * the inner ring. */
   processing: Counts;
   requestArcs: Arc[];
+  /** The code scans it runs itself (zeros from an earlier version). */
+  scans: ControllerScans;
+  /** Its ring: the slots of the engines, or its own slots when there is no engine. */
+  arcs: Arc[];
 }
 
 /** An MCP server as drawn: the link from the agents, and its link to the Controller server. */
@@ -190,6 +195,17 @@ function ringArcs(r: number, codebase: number, fragment: number, capacity: numbe
     }
   }
   return arcs;
+}
+
+/** The code scans a Controller process runs itself; zeros from an earlier version. */
+function scansOf(instance: ServerInstance): ControllerScans {
+  return {
+    codebase: instance.scans?.codebase ?? 0,
+    fragment: instance.scans?.fragment ?? 0,
+    files: instance.scans?.files ?? 0,
+    codebase_slots: instance.scans?.codebase_slots ?? 0,
+    fragment_slots: instance.scans?.fragment_slots ?? 0,
+  };
 }
 
 /** Requests by family; an MCP server of an earlier version gives its code scans only. */
@@ -335,13 +351,28 @@ export class ScanEngineFlowComponent {
         if (!node) {
           return null;
         }
-        const detail = t('scanEngines.flowControllerTitle', {
-          active: total.active,
-          total: this.data().engines.length,
-          pipelines: total.activeCodebase,
-          fragments: total.activeFragment,
-          files: total.files,
-        });
+        const scans = node.scans;
+        const capacity = scans.codebase_slots + scans.fragment_slots;
+        const detail = this.data().engines.length
+          ? t('scanEngines.flowControllerTitle', {
+              active: total.active,
+              total: this.data().engines.length,
+              pipelines: total.activeCodebase,
+              fragments: total.activeFragment,
+              files: total.files,
+            })
+          : t(
+              capacity
+                ? 'scanEngines.flowControllerLocalTitle'
+                : 'scanEngines.flowControllerLocalUnlimitedTitle',
+              {
+                pipelines: scans.codebase,
+                fragments: scans.fragment,
+                files: scans.files,
+                used: scans.codebase + scans.fragment,
+                capacity,
+              },
+            );
         const received = t('scanEngines.flowControllerRequests', {
           pipeline: node.processing.pipeline,
           code: node.processing.code,
@@ -462,6 +493,8 @@ export class ScanEngineFlowComponent {
             agents: [],
           },
         ];
+    // Without engines, each process draws its own slots; with them, the slots of the engines
+    const engineArcs = this.engines().length ? this.totals().arcs : null;
     const span = (instances.length - 1) * CONTROLLER_ROW_GAP;
     const lastMcp = this.mcpYs().at(-1);
     const lastAgent = this.agentYs().at(-1);
@@ -478,6 +511,7 @@ export class ScanEngineFlowComponent {
       nodes: instances.map((instance, index): ControllerNode => {
         const y = firstY + index * CONTROLLER_ROW_GAP;
         const processing = processingOf(instance);
+        const scans = scansOf(instance);
         return {
           instance,
           number: index + 1,
@@ -487,6 +521,18 @@ export class ScanEngineFlowComponent {
           labelY: y + CONTROLLER.r + 20,
           processing,
           requestArcs: shareArcs(this.controllerRequestRing, processing),
+          scans,
+          arcs:
+            engineArcs ??
+            ringArcs(
+              this.controllerRing,
+              scans.codebase,
+              scans.fragment,
+              Math.max(
+                scans.codebase_slots + scans.fragment_slots,
+                scans.codebase + scans.fragment,
+              ),
+            ),
         };
       }),
     };
@@ -524,6 +570,17 @@ export class ScanEngineFlowComponent {
       capacityCodebase: 0,
       capacityFragment: 0,
     };
+    // Without engines, the Controller server processes scan themselves, in their own slots
+    if (!this.engines().length) {
+      for (const instance of this.data().controllers ?? []) {
+        const scans = scansOf(instance);
+        totals.files += scans.files;
+        totals.activeCodebase += scans.codebase;
+        totals.activeFragment += scans.fragment;
+        totals.capacityCodebase += scans.codebase_slots;
+        totals.capacityFragment += scans.fragment_slots;
+      }
+    }
     for (const engine of this.engines()) {
       totals.files += engine.processing_files;
       if (engine.active) {

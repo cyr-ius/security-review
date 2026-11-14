@@ -146,7 +146,8 @@ MCP et le serveur Controller, qui indique **Scanne lui-même (moteurs désactiv�
 moteurs sont désactivés :
 
 - à gauche, les pipelines (`security-review-ci`, revues du dépôt) et les agents (fragments de
-  `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs (**créneaux**) ; les
+  `scan_code`), avec leurs créneaux occupés sur ceux des moteurs actifs, ou sans moteur sur les
+  créneaux OpenGrep du serveur Controller (**créneaux**) ; les
   pipelines donnent aussi les scans que `security-review-ci` envoie au serveur Controller depuis son
   battement de cœur précédent (**envois**), avec ou sans moteurs ;
 - sous les pipelines, un cercle par agent qui a envoyé une requête à un serveur MCP dans les
@@ -175,7 +176,12 @@ moteurs sont désactivés :
   fichiers en cours de traitement, et un anneau avec les scans de pipeline et les fragments en
   cours. Un anneau intérieur montre les scans que reçoit ce processus, en proportion par
   famille : les fichiers envoyés par `security-review-ci` (pipelines, scans du dépôt des agents),
-  et les scans de code et de dépendances des agents relayés par les serveurs MCP ;
+  et les scans de code et de dépendances des agents relayés par les serveurs MCP. Sans moteur,
+  chaque processus donne à la place les scans de code qu'il exécute lui-même : ses créneaux
+  OpenGrep occupés sur son total (**créneaux**, `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` plus
+  `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`) et les fichiers qu'il scanne en ce moment ;
+  sans OpenGrep, ses scans n'ont pas de limite de créneaux et il ne donne que ses fichiers
+  (**fichiers en cours**) ;
 - à droite, un cercle par moteur, en colonnes de 4 reliées par la gauche au serveur Controller
   le plus proche, avec ses créneaux OpenGrep occupés sur son total
   (**créneaux**), les fichiers qu'il scanne en ce moment et, avec un signe d'alerte, ses scans en

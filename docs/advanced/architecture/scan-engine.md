@@ -141,8 +141,8 @@ without any engine (engines off, or none enrolled): then the agents, the MCP ser
 Controller server only, which says **Scans itself (engines off)** when the engines are off:
 
 - on the left, the pipelines (`security-review-ci`, codebase reviews) and the agents
-  (`scan_code` fragments), with their occupied slots out of the slots of the active engines
-  (**slots**); the pipelines also give the scans `security-review-ci` sends to the Controller
+  (`scan_code` fragments), with their occupied slots out of the slots of the active engines, or
+  without engines out of the OpenGrep slots of the Controller server (**slots**); the pipelines also give the scans `security-review-ci` sends to the Controller
   server since its previous heartbeat (**uploads**), with or without engines;
 - under the pipelines, one circle per agent that sent a request to an MCP server in the last
   5 minutes, linked to that server, with its requests running (tools, prompts and resources)
@@ -168,7 +168,11 @@ Controller server only, which says **Scans itself (engines off)** when the engin
   and a ring with the pipeline scans and fragments in progress. An inner ring shows the scans
   this process receives, in proportion by family: the files sent by `security-review-ci`
   (pipelines, codebase scans of the agents), and the code and dependency scans of the agents
-  relayed by the MCP servers;
+  relayed by the MCP servers. Without engines, each process gives instead the code scans it runs
+  itself: its occupied OpenGrep slots out of its total (**slots**,
+  `SECREVIEW_OPENGREP_MAX_CONCURRENT_SCANS` plus `SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`)
+  and the files it scans now; without OpenGrep, its scans have no slot limit and it gives its
+  files only (**files in progress**);
 - on the right, one circle per engine, in columns of 4 linked from the left to the closest
   Controller server, with its occupied OpenGrep slots out of its total
   (**slots**), the files it scans now and, with a warning sign, its failed scans since it

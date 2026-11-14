@@ -16,6 +16,7 @@ from collections.abc import Sequence
 from starlette.types import ASGIApp
 
 from ..config import Settings, get_settings, secret_value
+from ..storage import server_instances
 from . import local
 from .local import Source
 
@@ -93,7 +94,14 @@ def scan(sources: Sequence[Source], fragment: bool = False) -> dict:
 
 
 def _local_scan(sources: Sequence[Source], fragment: bool) -> dict:
-    """Scan ``sources`` in this process, OpenGrep with a copy of the rules of the database."""
+    """Scan ``sources`` in this process, OpenGrep with a copy of the rules of the database,
+    counted in the heartbeat of this process (the activity diagram)."""
+    with server_instances.scanning("fragment" if fragment else "codebase", len(sources)):
+        return _scan_here(sources, fragment)
+
+
+def _scan_here(sources: Sequence[Source], fragment: bool) -> dict:
+    """Scan ``sources`` in this process (see _local_scan)."""
     settings = get_settings()
     if not settings.opengrep_enabled or (
         fragment and not settings.opengrep_max_concurrent_fragment_scans
