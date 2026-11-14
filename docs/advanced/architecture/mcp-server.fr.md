@@ -182,7 +182,7 @@ sans argument, qui expliquent comment obtenir un jeton.
   charge aucun module du serveur Controller. Seule exception, désactivée par défaut : `scan_code`
   [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)
   (`SECREVIEW_SCANCODE_DELEGATED` sur le serveur Controller, ou l'interrupteur de la page
-  **Général**), avec le jeton de l'agent, et `start_codebase_scan`, qui demande de la même façon un
+  **Activité**), avec le jeton de l'agent, et `start_codebase_scan`, qui demande de la même façon un
   [ticket de scan](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan).
 - Ses outils **ne lisent jamais le disque** à partir d'un chemin donné par le client : ils
   travaillent sur le contenu transmis.

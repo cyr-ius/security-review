@@ -114,7 +114,7 @@
   modules du serveur Controller qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. Seule exception, désactivée par défaut : avec
   `SECREVIEW_SCANCODE_DELEGATED` défini sur le serveur Controller (ou la délégation activée par un
-  administrateur dans la page **Général**), auditée et enregistrée en base, `scan_code` envoie son fragment au serveur Controller avec le
+  administrateur dans la page **Activité**), auditée et enregistrée en base, `scan_code` envoie son fragment au serveur Controller avec le
   jeton de l'agent, à cette URL uniquement, sans proxy ni redirection, réponse bornée, jeton jamais
   journalisé (voir [scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) ;
   `start_codebase_scan` demande de la même façon un ticket de scan (`POST /api/v1/scan/tickets`).

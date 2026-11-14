@@ -36,15 +36,6 @@ export const settings = defineMessages({
     'settings.controllerUrlLockedHelp': 'Set by {variable}',
     'settings.controllerUrlStoredIgnored': 'value set here ignored',
     'settings.controllerUrlDeleteStored': 'Delete the value set here for {variable}',
-    'settings.scanDelegationLabel': 'Delegate the scan_code tool to this Controller server',
-    'settings.scanDelegationHelp':
-      'The MCP server then sends the fragments given to scan_code to this address, with the token of the agent, so that the agents get the rules and OpenGrep rules of the Controller server. Changing the address turns it off. When the variable {variable} is set on the Controller server, it decides instead (true, false, or the address of the Controller server as seen by the MCP server).',
-    'settings.scanDelegationLocked': 'Set by the variable {variable}: scan_code is sent to {url}.',
-    'settings.scanDelegationLockedOff':
-      'Set by the variable {variable}: scan_code is scanned by the MCP server only.',
-    'settings.scanDelegationNeedsUrl': 'Save the address of the Controller server first.',
-    'settings.scanDelegationOn': 'scan_code delegated to the Controller server.',
-    'settings.scanDelegationOff': 'scan_code scanned by the MCP server only.',
     'settings.languageLockedHelp': 'Set by {variable}',
     'settings.languageStoredIgnored': 'value set here ignored',
     'settings.languageDeleteStored': 'Delete the value set here for {variable}',
@@ -180,16 +171,6 @@ export const settings = defineMessages({
     'settings.controllerUrlLockedHelp': 'Défini par {variable}',
     'settings.controllerUrlStoredIgnored': 'valeur définie ici ignorée',
     'settings.controllerUrlDeleteStored': 'Supprimer la valeur définie ici pour {variable}',
-    'settings.scanDelegationLabel': "Déléguer l'outil scan_code à ce serveur Controller",
-    'settings.scanDelegationHelp':
-      "Le serveur MCP envoie alors les fragments donnés à scan_code à cette adresse, avec le jeton de l'agent, pour que les agents profitent des règles et des règles OpenGrep du serveur Controller. Changer l'adresse la désactive. Quand la variable {variable} est définie sur le serveur Controller, c'est elle qui décide (true, false ou l'adresse du serveur Controller vue du serveur MCP).",
-    'settings.scanDelegationLocked':
-      'Défini par la variable {variable} : scan_code est envoyé à {url}.',
-    'settings.scanDelegationLockedOff':
-      'Défini par la variable {variable} : scan_code est analysé par le serveur MCP seul.',
-    'settings.scanDelegationNeedsUrl': "Enregistrez d'abord l'adresse du serveur Controller.",
-    'settings.scanDelegationOn': 'scan_code délégué au serveur Controller.',
-    'settings.scanDelegationOff': 'scan_code analysé par le serveur MCP seul.',
     'settings.languageLockedHelp': 'Défini par {variable}',
     'settings.languageStoredIgnored': 'valeur définie ici ignorée',
     'settings.languageDeleteStored': 'Supprimer la valeur définie ici pour {variable}',
@@ -333,16 +314,6 @@ export const settings = defineMessages({
     'settings.controllerUrlLockedHelp': 'Definido por {variable}',
     'settings.controllerUrlStoredIgnored': 'valor definido aquí ignorado',
     'settings.controllerUrlDeleteStored': 'Eliminar el valor definido aquí para {variable}',
-    'settings.scanDelegationLabel': 'Delegar la herramienta scan_code en este servidor Controller',
-    'settings.scanDelegationHelp':
-      'El servidor MCP envía entonces los fragmentos dados a scan_code a esta dirección, con el token del agente, para que los agentes aprovechen las reglas y las reglas OpenGrep del servidor Controller. Cambiar la dirección la desactiva. Cuando la variable {variable} está definida en el servidor Controller, es ella la que decide (true, false o la dirección del servidor Controller vista desde el servidor MCP).',
-    'settings.scanDelegationLocked':
-      'Definido por la variable {variable}: scan_code se envía a {url}.',
-    'settings.scanDelegationLockedOff':
-      'Definido por la variable {variable}: scan_code lo analiza solo el servidor MCP.',
-    'settings.scanDelegationNeedsUrl': 'Guarde primero la dirección del servidor Controller.',
-    'settings.scanDelegationOn': 'scan_code delegado en el servidor Controller.',
-    'settings.scanDelegationOff': 'scan_code analizado solo por el servidor MCP.',
     'settings.languageLockedHelp': 'Definido por {variable}',
     'settings.languageStoredIgnored': 'valor definido aquí ignorado',
     'settings.languageDeleteStored': 'Eliminar el valor definido aquí para {variable}',

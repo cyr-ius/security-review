@@ -26,6 +26,53 @@
     <h2 id="scan-engines-flow-title" class="h6">{{ 'scanEngines.flowTitle' | t }}</h2>
     <app-scan-engine-flow [data]="data" />
   </section>
+  @if (settings.value(); as current) {
+    <section class="card card-body mb-3" aria-labelledby="scan-delegation-title">
+      <h2 id="scan-delegation-title" class="h6">{{ 'scanEngines.delegationTitle' | t }}</h2>
+      <div class="form-check form-switch mb-0">
+        <input
+          id="scan-delegation"
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          aria-describedby="scan-delegation-help"
+          [checked]="current.mcp_scan_delegation.enabled"
+          [disabled]="
+            busy() ||
+            current.mcp_scan_delegation.env_set ||
+            (!current.mcp_scan_delegation.enabled && !current.controller_url.effective)
+          "
+          (change)="setScanDelegation($event)"
+        />
+        <label class="form-check-label" for="scan-delegation">{{
+          'scanEngines.delegationLabel' | t
+        }}</label>
+        <div id="scan-delegation-help" class="form-text">
+          {{ 'scanEngines.delegationHelp' | t }}
+          @if (current.mcp_scan_delegation.env_set) {
+            @if (current.mcp_scan_delegation.url) {
+              {{
+                'scanEngines.delegationLocked'
+                  | t
+                    : {
+                        variable: 'SECREVIEW_SCANCODE_DELEGATED',
+                        url: current.mcp_scan_delegation.url,
+                      }
+              }}
+            } @else {
+              {{
+                'scanEngines.delegationLockedOff' | t: { variable: 'SECREVIEW_SCANCODE_DELEGATED' }
+              }}
+            }
+          } @else if (!current.controller_url.effective) {
+            <a routerLink="/settings/general" fragment="controller-url">{{
+              'scanEngines.delegationNeedsUrl' | t
+            }}</a>
+          }
+        </div>
+      </div>
+    </section>
+  }
   <section class="card card-body" aria-labelledby="scan-engines-list-title">
     <h2 id="scan-engines-list-title" class="h6">
       {{ 'scanEngines.title' | t }} <app-help-link topic="scanEngines" />

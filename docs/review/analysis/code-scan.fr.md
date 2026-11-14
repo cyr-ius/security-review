@@ -117,7 +117,8 @@ pour les dépendances : `start_codebase_scan` avec `scope` `deps`, sinon `securi
 ### Scan lancé par l'agent (`start_codebase_scan`)
 
 Avec le serveur MCP HTTP et la [délégation de `scan_code`](opengrep.md#scans-de-fragments-scan_code)
-activée, l'agent fait scanner tout le dépôt par le serveur Controller **sans lire les fichiers**,
+activée (`SECREVIEW_SCANCODE_DELEGATED`, ou l'interrupteur de la page
+[**Activité**](../../usage/index.md#activite), qui couvre les deux outils), l'agent fait scanner tout le dépôt par le serveur Controller **sans lire les fichiers**,
 sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
 
 1. l'agent appelle `start_codebase_scan` avec le projet ; le serveur MCP relaie son jeton (accès

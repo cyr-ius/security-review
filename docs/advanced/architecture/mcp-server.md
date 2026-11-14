@@ -179,7 +179,7 @@ without argument, which explain how to get a token.
 - It makes **no outgoing connection** (the OSV database is imported by the Controller server), and loads
   no module of the Controller server. Only exception, disabled by default: `scan_code`
   [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)
-  (`SECREVIEW_SCANCODE_DELEGATED` on the Controller server, or the switch of the **General**
+  (`SECREVIEW_SCANCODE_DELEGATED` on the Controller server, or the switch of the **Activity**
   page), with the token of the agent, and `start_codebase_scan`, which asks the same way for a
   [scan ticket](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan).
 - Its tools **never read the disk** from a path given by the client: they work on the content

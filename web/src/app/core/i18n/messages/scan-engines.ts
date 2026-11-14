@@ -6,8 +6,7 @@ export const scanEngines = defineMessages({
     'scanEngines.pageSubtitle':
       'The agents, pipelines, MCP servers, Controller servers and scan engines at work.',
     'scanEngines.title': 'Scan engines',
-    'scanEngines.subtitle':
-      'Engines that run the rules and OpenGrep of the code scans in place of the Controller server.',
+    'scanEngines.subtitle': 'Engines that run the rules in place of the Controller server.',
     'scanEngines.enabled':
       'The code scans go to the active engines, the one with the most free slots first.',
     'scanEngines.disabled':
@@ -32,6 +31,19 @@ export const scanEngines = defineMessages({
     'scanEngines.revoked': 'Scan engine {name} revoked.',
     'scanEngines.none': 'No scan engine is enrolled.',
     'scanEngines.loadError': 'The scan engines could not be loaded.',
+    'scanEngines.delegationTitle': 'Delegation of code scans',
+    'scanEngines.delegationLabel': 'Delegate code analysis to the Controller server',
+    'scanEngines.delegationHelp':
+      'The MCP server sends the given fragments or the files to the Controller server. The MCP server only holds the pattern rules.',
+    'scanEngines.delegationLocked':
+      'Set by the variable {variable}: scan_code and start_codebase_scan go to {url}.',
+    'scanEngines.delegationLockedOff':
+      'Set by the variable {variable}: scan_code is scanned by the MCP server only and start_codebase_scan is unavailable.',
+    'scanEngines.delegationNeedsUrl': 'Save the address of the Controller server first.',
+    'scanEngines.delegationOn':
+      'scan_code and start_codebase_scan delegated to the Controller server.',
+    'scanEngines.delegationOff':
+      'scan_code scanned by the MCP server only, start_codebase_scan unavailable.',
     'scanEngines.flowTitle': 'Activity diagram',
     'scanEngines.flowLabel':
       'Current activity: {codebase} pipeline scans and {fragments} agent fragments in progress, through {mcp} active MCP servers and {controllers} active Controller server processes, to {active} active engines out of {total}.',
@@ -87,8 +99,7 @@ export const scanEngines = defineMessages({
     'scanEngines.pageSubtitle':
       'Les agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan à l’œuvre.',
     'scanEngines.title': 'Moteurs de scan',
-    'scanEngines.subtitle':
-      'Moteurs qui exécutent les règles et OpenGrep des scans de code à la place du serveur Controller.',
+    'scanEngines.subtitle': 'Moteurs qui exécutent les règles à la place du serveur Controller.',
     'scanEngines.enabled':
       'Les scans de code partent vers les moteurs actifs, celui qui a le plus de créneaux libres d’abord.',
     'scanEngines.disabled':
@@ -113,6 +124,18 @@ export const scanEngines = defineMessages({
     'scanEngines.revoked': 'Moteur de scan {name} révoqué.',
     'scanEngines.none': 'Aucun moteur de scan n’est enrôlé.',
     'scanEngines.loadError': 'Impossible de charger les moteurs de scan.',
+    'scanEngines.delegationTitle': 'Délégation des scans de code',
+    'scanEngines.delegationLabel': "Déléguer l'analyse du code au serveur Controller",
+    'scanEngines.delegationHelp':
+      'Le serveur MCP envoie les fragments donnés ou les fichiers au serveur Controller. Le serveur MCP contient uniquement les règles par motifs.',
+    'scanEngines.delegationLocked':
+      'Défini par la variable {variable} : scan_code et start_codebase_scan passent par {url}.',
+    'scanEngines.delegationLockedOff':
+      'Défini par la variable {variable} : scan_code est analysé par le serveur MCP seul et start_codebase_scan est indisponible.',
+    'scanEngines.delegationNeedsUrl': "Enregistrez d'abord l'adresse du serveur Controller.",
+    'scanEngines.delegationOn': 'scan_code et start_codebase_scan délégués au serveur Controller.',
+    'scanEngines.delegationOff':
+      'scan_code analysé par le serveur MCP seul, start_codebase_scan indisponible.',
     'scanEngines.flowTitle': 'Diagramme d’activité',
     'scanEngines.flowLabel':
       'Activité en cours : {codebase} scans de pipeline et {fragments} fragments d’agents, par {mcp} serveurs MCP actifs et {controllers} instances actives du serveur Controller, vers {active} moteurs actifs sur {total}.',
@@ -169,8 +192,7 @@ export const scanEngines = defineMessages({
     'scanEngines.pageSubtitle':
       'Los agentes, pipelines, servidores MCP, servidores Controller y motores de escaneo en funcionamiento.',
     'scanEngines.title': 'Motores de escaneo',
-    'scanEngines.subtitle':
-      'Motores que ejecutan las reglas y OpenGrep de los escaneos de código en lugar del servidor Controller.',
+    'scanEngines.subtitle': 'Motores que ejecutan las reglas en lugar del servidor Controller.',
     'scanEngines.enabled':
       'Los escaneos de código van a los motores activos, primero el que tiene más huecos libres.',
     'scanEngines.disabled':
@@ -195,6 +217,19 @@ export const scanEngines = defineMessages({
     'scanEngines.revoked': 'Motor de escaneo {name} revocado.',
     'scanEngines.none': 'No hay ningún motor de escaneo inscrito.',
     'scanEngines.loadError': 'No se pudieron cargar los motores de escaneo.',
+    'scanEngines.delegationTitle': 'Delegación de los escaneos de código',
+    'scanEngines.delegationLabel': 'Delegar el análisis del código en el servidor Controller',
+    'scanEngines.delegationHelp':
+      'El servidor MCP envía los fragmentos dados o los archivos al servidor Controller. El servidor MCP solo contiene las reglas de patrones.',
+    'scanEngines.delegationLocked':
+      'Definido por la variable {variable}: scan_code y start_codebase_scan pasan por {url}.',
+    'scanEngines.delegationLockedOff':
+      'Definido por la variable {variable}: scan_code lo analiza solo el servidor MCP y start_codebase_scan no está disponible.',
+    'scanEngines.delegationNeedsUrl': 'Guarde primero la dirección del servidor Controller.',
+    'scanEngines.delegationOn':
+      'scan_code y start_codebase_scan delegados en el servidor Controller.',
+    'scanEngines.delegationOff':
+      'scan_code analizado solo por el servidor MCP, start_codebase_scan no disponible.',
     'scanEngines.flowTitle': 'Diagrama de actividad',
     'scanEngines.flowLabel':
       'Actividad actual: {codebase} escaneos de pipelines y {fragments} fragmentos de agentes en curso, por {mcp} servidores MCP activos y {controllers} instancias activas del servidor Controller, hacia {active} motores activos de {total}.',

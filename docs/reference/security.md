@@ -107,7 +107,7 @@
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the Controller server that make them (advisory download, OIDC, syslog, connectors, version check):
   a test checks it. Only exception, disabled by default: with `SECREVIEW_SCANCODE_DELEGATED` set
-  on the Controller server (or the delegation turned on by an administrator on the **General**
+  on the Controller server (or the delegation turned on by an administrator on the **Activity**
   page), audited and stored in the database,
   `scan_code` sends its fragment to the Controller server with the token of the agent, to that URL
   only, without proxy nor redirect, answer bounded, token never logged (see

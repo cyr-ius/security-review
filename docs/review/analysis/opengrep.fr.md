@@ -28,8 +28,11 @@ appel. `SECREVIEW_SCANCODE_DELEGATED`, défini sur le serveur Controller, vaut `
 publique), l'URL racine du serveur Controller vue du serveur MCP (par exemple
 `http://controller:8080` dans Compose : les fragments restent alors sur le réseau interne) ou
 `false`. Sans la variable, un administrateur peut activer la délégation dans l'interface web : dans la page
-**Général**, sous **Adresse du serveur Controller**, l'interrupteur **Déléguer l'outil scan_code à ce
-serveur Controller** envoie les fragments à cette adresse publique (le serveur MCP doit la joindre).
+**Activité**, l'interrupteur **Déléguer l'analyse du code au serveur Controller** (section **Délégation des scans de code**) envoie les fragments à l'adresse publique
+définie dans la page **Général**, sous **Adresse du serveur Controller** (le serveur MCP doit la
+joindre). Le même interrupteur donne son ticket de scan à
+[`start_codebase_scan`](code-scan.md#scan-lance-par-lagent-start_codebase_scan) : tant qu'il est
+désactivé, cet outil est refusé.
 Il est désactivé par défaut, exige une adresse connue, s'applique au prochain appel de `scan_code`,
 et se désactive quand l'adresse change (réactivez-le pour la nouvelle adresse : les jetons ne
 suivent jamais une adresse modifiée). Chaque changement est enregistré dans le journal d'audit (`mcp_scan_delegation.changed`). Quand

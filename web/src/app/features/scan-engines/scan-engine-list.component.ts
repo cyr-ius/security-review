@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
@@ -41,6 +42,9 @@ export class ScanEngineListComponent {
   /** The Audit log button: the page is out of the menu for those who can open this one. */
   readonly canReadAudit = inject(AuthService).can('audit.read');
 
+  /** Stored settings: the delegation of scan_code and the Controller server address it needs. */
+  readonly settings = rxResource({ stream: () => this.api.appSettings() });
+
   readonly engineList = signal<ScanEngineList | null>(null);
   readonly initialLoading = signal(true);
   readonly manualRefreshing = signal(false);
@@ -68,6 +72,7 @@ export class ScanEngineListComponent {
     }
     this.manualRefreshing.set(true);
     this.error.set(null);
+    this.settings.reload();
     await this.loadEngines('manual');
   }
 
@@ -107,6 +112,28 @@ export class ScanEngineListComponent {
       } else if (source === 'automatic') {
         this.autoRefreshing = false;
       }
+    }
+  }
+
+  /** Delegate scan_code of the MCP servers to the Controller server address, or stop. */
+  async setScanDelegation(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const enabled = input.checked;
+    this.busy.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      await firstValueFrom(this.api.setMcpScanDelegation(enabled));
+      this.message.set(
+        enabled ? msg('scanEngines.delegationOn') : msg('scanEngines.delegationOff'),
+      );
+    } catch (error: unknown) {
+      // The switch shows the stored state again
+      input.checked = !enabled;
+      this.error.set(describeError(error));
+    } finally {
+      this.busy.set(false);
+      this.settings.reload();
     }
   }
 
