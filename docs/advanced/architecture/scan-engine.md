@@ -37,6 +37,12 @@ database.
 
 ## Enabling
 
+!!! tip "Ready-to-use examples"
+    - **Docker Compose**: [`docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml),
+      the complete deployment with two engines. See [Docker: scan engines](../deployment/docker.md#scan-engines).
+    - **Kubernetes**: [`scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml), two replicas.
+      See [Kubernetes: scan engines](../deployment/kubernetes.md#scan-engines).
+
 1. Generate a secret shared by the Controller server and the engines:
 
     ```bash
@@ -61,9 +67,9 @@ database.
     ```
 
     With the image: `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine`;
-    with Compose: the file `examples/docker/docker-compose.scan-engines.yml`, the complete
+    with Compose: the file [`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml), the complete
     deployment with two engines (see [Docker](../deployment/docker.md#scan-engines)); on
-    Kubernetes: `examples/kubernetes/scan-engine.yaml` (two replicas, Deployment and
+    Kubernetes: [`examples/kubernetes/scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml) (two replicas, Deployment and
     NetworkPolicy, the pod IP given in `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, see
     [Kubernetes](../deployment/kubernetes.md#scan-engines)).
 

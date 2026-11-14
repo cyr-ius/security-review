@@ -1,6 +1,7 @@
 # Security Review
 
-**Le serveur MCP de revue de code sécurité assistée par l'IA.**
+**Le serveur Security Review effectue des revues de code sécurité assistées par l'IA en proposant
+un serveur MCP.**
 
 Security Review fait des assistants IA de vos développeurs des relecteurs sécurité qui
 appliquent vos règles, et donne à votre équipe sécurité une vue centrale de tout ce qu'ils

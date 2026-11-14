@@ -1,6 +1,7 @@
 # Security Review
 
-**The MCP server for AI-assisted security code review.**
+**The Security Review server performs AI-assisted security code reviews by providing an MCP
+server.**
 
 Security Review turns the AI assistants of your developers into security reviewers that
 follow your rules, and gives your security team a central view of everything they find.

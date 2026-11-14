@@ -37,6 +37,12 @@ vulnérabilité.
 
 ## Activation
 
+!!! tip "Exemples prêts à l'emploi"
+    - **Docker Compose** : [`docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml),
+      le déploiement complet avec deux moteurs. Voir [Docker : moteurs de scan](../deployment/docker.md#moteurs-de-scan).
+    - **Kubernetes** : [`scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml), deux réplicas.
+      Voir [Kubernetes : moteurs de scan](../deployment/kubernetes.md#moteurs-de-scan).
+
 1. Générez un secret partagé par le serveur Controller et les moteurs :
 
     ```bash
@@ -61,9 +67,9 @@ vulnérabilité.
     ```
 
     Avec l'image : `docker run ... ghcr.io/cyr-ius/security-review:latest-opengrep scan-engine` ;
-    avec Compose : le fichier `examples/docker/docker-compose.scan-engines.yml`, le déploiement
+    avec Compose : le fichier [`examples/docker/docker-compose.scan-engines.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.scan-engines.yml), le déploiement
     complet avec deux moteurs (voir [Docker](../deployment/docker.md#moteurs-de-scan)) ;
-    sur Kubernetes : `examples/kubernetes/scan-engine.yaml` (deux réplicas, Deployment et
+    sur Kubernetes : [`examples/kubernetes/scan-engine.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/scan-engine.yaml) (deux réplicas, Deployment et
     NetworkPolicy, l'IP du pod donnée dans `SECREVIEW_SCAN_ENGINE_ADVERTISE_URL`, voir
     [Kubernetes](../deployment/kubernetes.md#moteurs-de-scan)).
 

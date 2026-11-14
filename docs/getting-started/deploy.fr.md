@@ -31,9 +31,6 @@ flowchart LR
   développeurs ;
 - d'un compte `admin` pour gérer les utilisateurs, les jetons et les règles.
 
-Sans conteneur, tout-en-un sur un serveur Linux : voir la section Avancé
-[Installation manuelle (sans conteneur)](../advanced/deployment/manual-install.md).
-
 ## Avec Docker Compose
 
 Le fichier `docker-compose.yml` démarre une base de donnée PostgreSQL,
@@ -138,6 +135,12 @@ d'autre n'est à configurer.
 
 **Pour aller plus loin :** [Kubernetes](../advanced/deployment/kubernetes.md) (PostgreSQL
 existant, contenu des manifestes, Secrets, exposition, mise à jour OSV, plusieurs réplicas).
+
+## Ajouter des moteurs de scan (facultatif)
+
+Avec beaucoup de développeurs ou de pipelines, les scans de code chargent le serveur Controller.
+Des [moteurs de scan](../advanced/architecture/scan-engine.md) peuvent les reprendre, avec autant
+de réplicas que nécessaire. Sans eux, le serveur Controller scanne lui-même.
 
 ## Étape suivante
 

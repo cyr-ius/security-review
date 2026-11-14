@@ -30,9 +30,6 @@ At the end, you have:
 - an `/mcp` endpoint, protected by tokens, that the hosts of the developers connect to;
 - an `admin` account to manage the users, the tokens and the rules.
 
-Without containers, all-in-one on one Linux server: see Advanced section
-[Manual installation (without containers)](../advanced/deployment/manual-install.md).
-
 ## With Docker Compose
 
 The `docker-compose.yml` file starts a PostgreSQL database,
@@ -137,6 +134,12 @@ needs configuring.
 
 **Further reading:** [Kubernetes](../advanced/deployment/kubernetes.md) (existing PostgreSQL,
 content of the manifests, Secrets, exposure, OSV update, several replicas).
+
+## Adding scan engines (optional)
+
+With many developers or pipelines, the code scans load the Controller server.
+[Scan engines](../advanced/architecture/scan-engine.md) can take them over, with as many replicas
+as needed. Without them, the Controller server scans by itself.
 
 ## Next step
 
