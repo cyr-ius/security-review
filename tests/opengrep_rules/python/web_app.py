@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import zipfile
 from typing import Annotated
+from urllib.parse import urlencode
 
 import httpx
 import jwt
@@ -15,7 +16,15 @@ import yaml
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from flask import Flask, Markup, redirect, render_template_string, request, send_file
+from flask import (
+    Flask,
+    Markup,
+    redirect,
+    render_template,
+    render_template_string,
+    request,
+    send_file,
+)
 from markupsafe import escape
 from werkzeug.utils import secure_filename
 
@@ -58,6 +67,26 @@ def ping():
     os.system("ping -c 1 " + shlex.quote(host))
     # ok: secreview.python.subprocess-shell-dynamic
     subprocess.run("ls -l", shell=True)
+
+
+@app.post("/clone")
+def clone_repository():
+    branch = request.form["branch"]
+    # ruleid: secreview.python.taint-argument-injection
+    subprocess.run(["git", "clone", "--branch", branch, "https://example.com/repo"])
+    # ok: secreview.python.taint-argument-injection
+    subprocess.run(["git", "clone", "--branch", "main", "https://example.com/repo"])
+    # ok: secreview.python.taint-argument-injection
+    subprocess.run(["git", "clone", "--", branch, "https://example.com/repo"])
+
+
+@app.post("/view")
+def render_requested_view():
+    name = request.args.get("name")
+    # ok: secreview.python.taint-view-injection
+    render_template("pages/home.html")
+    # ruleid: secreview.python.taint-view-injection
+    return render_template(name)
 
 
 @app.post("/calc")
@@ -115,6 +144,18 @@ def go(next_url: str):
 def home():
     # ok: secreview.python.taint-open-redirect
     return redirect("/dashboard")
+
+
+@api.get("/back")
+def back(error: str):
+    # ok: secreview.python.taint-open-redirect
+    return RedirectResponse("/login?" + urlencode({"error": error}))
+
+
+@api.get("/forward")
+def forward(target: str):
+    # ruleid: secreview.python.taint-open-redirect
+    return RedirectResponse(urlencode({target: ""}, safe="/:"))
 
 
 @app.get("/hello")

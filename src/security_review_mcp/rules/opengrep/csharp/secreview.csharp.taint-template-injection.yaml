@@ -1,0 +1,121 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-template-injection
+    message: >-
+      Request data is compiled as a template (Razor, Scriban, DotLiquid, Fluid): a template runs
+      code or reads server objects (SSTI). Use a fixed template and pass the value as its model.
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1336: Improper Neutralization of Special Elements Used in a Template Engine"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              # A number, a boolean, a GUID or a date cannot carry an injection
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(?!(int|long|short|byte|uint|ulong|ushort|bool|decimal|double|float|Guid|DateTime|DateTimeOffset|DateOnly|TimeOnly)\??$)
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+          # Minimal API handlers: the string parameters and the [From...] parameters of the lambda
+          - patterns:
+              - pattern-either:
+                  - patterns:
+                      - pattern-either:
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., $TYPE $PARAM, ...) => { ... })
+                      - metavariable-regex:
+                          metavariable: $TYPE
+                          regex: ^string\??$
+                  - patterns:
+                      - pattern-either:
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR] $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR] $TYPE $PARAM, ...) => { ... })
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR(...)] $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR(...)] $TYPE $PARAM, ...) => { ... })
+                      - metavariable-regex:
+                          metavariable: $ATTR
+                          regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - metavariable-regex:
+                  metavariable: $MAP
+                  regex: ^Map(Get|Post|Put|Patch|Delete|Methods)$
+              - pattern: $PARAM
+    pattern-propagators:
+      # A value appended to a StringBuilder or a writer taints what is built
+      - pattern: $TO.Append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AppendLine($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AppendFormat(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      # A value added to a collection taints it (string.Join...)
+      - pattern: $TO.Add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AddRange($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Add($KEY, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Engine.Razor.RunCompile($TEMPLATE, ...)
+              - pattern: Engine.Razor.Compile($TEMPLATE, ...)
+              - pattern: Razor.Parse($TEMPLATE, ...)
+              - pattern: $RAZOR.CompileRenderStringAsync($KEY, $TEMPLATE, ...)
+              - pattern: Template.Parse($TEMPLATE, ...)
+              - pattern: Template.ParseLiquid($TEMPLATE, ...)
+              - pattern: $FLUID.TryParse($TEMPLATE, ...)
+          - focus-metavariable: $TEMPLATE
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: int.Parse(...)
+          - pattern: long.Parse(...)
+          - pattern: Guid.Parse(...)
+          - pattern: Convert.ToInt32(...)

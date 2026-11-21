@@ -132,12 +132,12 @@ l'utiliser.
 | CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `role`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `guard`, hook de l'agent avant un appel d'outil, analyse hors ligne les fichiers lus avec une copie des règles `AI-*` (gardée identique par un test) | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
 | Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
-| Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py` ; battements de cœur des processus Controller et MCP en marche, pour la page **Activité** : `storage/server_instances.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
+| Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py` ; battements de cœur des processus Controller et MCP en marche, pour la page **Activité** : `storage/server_instances.py`) | `storage/models.py`, `reports/services/` (paquet par domaine : `core`, `persistence`, `triage`, `findings`, `exports`, `scope`), `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `observability/audit.py`, `observability/audit_syslog.py` ; `observability/metrics.py` |
 | Export et tendances | `reports/sarif.py`, `reports/trends.py` |
 | Connecteurs : envoi des findings vers des systèmes externes (tickets, registre de vulnérabilités...), manuel et automatique par le contrôleur : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_CONNECTORS_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `connectors/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/connector_routes.py`, exemple `examples/connector/` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; connexion OAuth des clients MCP (serveur d'autorisation du contrôleur, routes du SDK MCP, page de consentement : `web_api/oauth_routes.py`) : `auth/oauth_server.py`, jetons vérifiés par `auth/token_store.py` ; permissions, rôles des utilisateurs (droits site uniquement) et projets avec leurs droits par projet, correspondances OIDC du claim, membres d'un projet, demandes de projet (`request_project`) : `auth/access_control.py` ; projets connus (table `Project`, créée aussi par le serveur MCP) : `storage/projects.py` |
-| Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; connexion OAuth des clients MCP (serveur d'autorisation du contrôleur, routes du SDK MCP, page de consentement : `web_api/oauth_routes.py`) : `auth/oauth_server.py`, jetons vérifiés par `auth/token_store.py` ; permissions, rôles des utilisateurs (droits site uniquement) et projets avec leurs droits par projet, correspondances OIDC du claim, membres d'un projet, demandes de projet (`request_project`) : paquet `auth/access_control/` (`core`, `roles`, `users`, `members`, `projects`, `oidc_mappings` ; `__init__` réexporte tout, les tests patchent une limite dans le sous-module qui la lit) ; projets connus (table `Project`, créée aussi par le serveur MCP) : `storage/projects.py` |
+| Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas/` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, page « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
 
@@ -147,7 +147,7 @@ domaine (`storage/`, `reports/`, `rules/`, `deps/`, `auth/`, `observability/`, `
 `connectors/`, `web_api/`). Un nouveau module va dans le sous-paquet de son domaine, pas à la
 racine. L'application Angular (`web/`) est compilée par `npm run build` dans
 `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
-(`reports/services.py`, `rules/scanner.py`...) ; `server.py` et `cli.py` restent des couches
+(`reports/services/`, `rules/scanner.py`...) ; `server.py` et `cli.py` restent des couches
 minces qui valident les entrées et appellent ces modules.
 
 ## Conventions de code
@@ -176,12 +176,13 @@ cas de conflit, il prévaut.
   modèle hôte.
 - Un nouvel outil ou prompt doit être cité dans `INSTRUCTIONS` (`server.py`) s'il change le
   déroulé d'une revue.
-- Les prompts de revue se terminent par l'appel unique à `save_security_report` ; le contenu
-  fourni par l'utilisateur est encadré avec `prompts.fenced`.
+- Les prompts de revue se terminent par l'appel unique, obligatoire, à `save_security_report`
+  (règle commune `_REPORT_REQUIRED` de `prompts.py`) ; le contenu fourni par l'utilisateur est
+  encadré avec `prompts.fenced`.
 
 ### API REST et interface web
 
-- Chaque route JSON du contrôleur déclare son modèle de réponse dans `web_api/schemas.py` (jamais
+- Chaque route JSON du contrôleur déclare son modèle de réponse dans `web_api/schemas/` (module de son domaine) (jamais
   `-> dict`) : il documente l'API et filtre les champs non déclarés. Un test le vérifie sur le
   schéma OpenAPI.
 - Angular, en plus du standard `angular` : formulaires de saisie en Signal Forms (obligatoire),
@@ -279,7 +280,7 @@ un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (e
 ### Règles de scan
 
 Identifiants `PRÉFIXE-NNN` par famille : `PY`, `JV`, `NG` (Angular), `CFG`, `GEN`, `GL`
-(GitLab CI), `JK` (Jenkins), `CI`, `SP` (Spring), `FA` (FastAPI), `GO` (Go), `CS` (C#), `RS` (Rust), `TS` (backend
+(GitLab CI), `JK` (Jenkins), `CI`, `SP` (Spring), `FA` (FastAPI), `GO` (Go), `CS` (C#), `RS` (Rust), `PHP` (PHP), `RB` (Ruby, Rails), `KT` (Kotlin, Android), `TF` (Terraform), `TS` (backend
 TypeScript / Node.js), `DEP` (hygiène des
 dépendances), `AI` (texte caché ou instructions adressées à un assistant IA). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
@@ -339,8 +340,7 @@ une PR, quelle que soit la taille du changement :
    `pyproject.toml`, `uv.lock` ou `package.json` changent) sur les fichiers modifiés, avec le
    diff comme contexte. Pour un changement très étendu, utilisez `codebase-review`.
 2. Appuyez-vous sur `scan_code` et `get_review_checklist` pendant la revue.
-3. Enregistrez le résultat **une seule fois** avec `save_security_report` (`project` :
-   `security-review-mcp`, plus `branch` et `commit_sha` quand ils sont connus).
+3. Le prompt impose l'enregistrement du rapport : utilisez le projet `security-review-mcp`.
 4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
    correction. Pour les autres, corrigez-les ou justifiez-les, et proposez leur statut avec
    `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) : un agent ne
@@ -389,7 +389,7 @@ essentielles.
 | Le client de pipeline `security-review-ci` (installation, jeton `ci`, commandes, exemples par plateforme CI/CD, tendance) | `docs/advanced/architecture/ci` (+ `review/gate`) |
 | Le contrôleur (routes, démarrage, tâches de fond, connexions sortantes, exposition, réplicas, premier administrateur, sessions, sécurité de l'interface) | `docs/advanced/architecture/controller` |
 | Les normes de développement (prompt, outils, ressources, page) | `docs/review/standards` (+ `reference/prompts-tools`, `getting-started/agents-md`) |
-| L'interface web, l'API REST ou les rôles | `docs/usage/index` (pages), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes), `docs/usage/access-control` (rôles, permissions), `docs/usage/projects` (projets) ; connexion OIDC : `docs/usage/sso` ; détails et API : `docs/advanced/reports/triage-api`, `docs/advanced/access-control-api`, `docs/advanced/oidc` |
+| L'interface web, l'API REST ou les rôles | `docs/usage/index` (pages), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes), `docs/usage/access-control` (rôles, permissions), `docs/usage/projects` (projets), `docs/usage/activity` (page **Activité**) ; connexion OIDC : `docs/usage/sso` ; détails et API : `docs/advanced/reports/triage-api`, `docs/advanced/access-control-api`, `docs/advanced/oidc` |
 | Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, page **Connecteurs**, routes) | `docs/usage/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/advanced/connectors`, `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/deployment/installation`, `docs/advanced/deployment/manual-install`, `docs/advanced/deployment/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |

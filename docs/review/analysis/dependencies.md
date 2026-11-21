@@ -4,7 +4,7 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 and
-berry), `pom.xml`, `build.gradle(.kts)`, `go.mod`, `Cargo.lock`, `Cargo.toml`,
+berry), `pnpm-lock.yaml` (v5, v6 and v9), `pom.xml`, `build.gradle(.kts)`, `go.mod`, `Cargo.lock`, `Cargo.toml`,
 `packages.lock.json`, `*.csproj` / `*.fsproj` / `*.vbproj`, `Directory.Packages.props`,
 `Directory.Build.props`, `packages.config`, `nuget.config`, CycloneDX SBOMs (`bom.json`,
 `bom.xml`, `sbom.json`, `*.cdx.json`, `*.cdx.xml`...).

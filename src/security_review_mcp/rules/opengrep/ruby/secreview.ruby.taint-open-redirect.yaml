@@ -1,0 +1,70 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ruby.taint-open-redirect
+    message: >-
+      Request data chooses the target of a redirect. Redirect to named routes or to an allow-list of hosts; Rails 7 refuses other hosts unless allow_other_host: true.
+    languages: [ruby]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: params
+          - pattern: cookies
+          - patterns:
+              - pattern: request.$ATTR
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(params|parameters|query_parameters|request_parameters|path_parameters|headers|body|raw_post|query_string|cookies|referer|referrer|user_agent|fullpath|original_url|url)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $X.to_i
+          - pattern: $X.to_f
+          - pattern: Integer(...)
+          - pattern: Float(...)
+          # A record found in the database (User.find_by(name: params[:name]).avatar) is not
+          # request data
+          - patterns:
+              - pattern: $MODEL.$FIND(...)
+              - metavariable-regex:
+                  metavariable: $FIND
+                  regex: ^(find|find_by|find_by!|find_or_create_by|first|last|take)$
+          - patterns:
+              - pattern: $OBJ.$METHOD(...)
+              - metavariable-regex:
+                  metavariable: $OBJ
+                  regex: ^(?!(params|cookies|request|session)\b)
+    pattern-propagators:
+      # A value appended to a string or an array taints it (join...)
+      - pattern: $TO << $FROM
+        from: $FROM
+        to: $TO
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.concat($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.prepend($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern: redirect_to($URL, ...)
+          # A relative path or a route helper stays on the site
+          - metavariable-regex:
+              metavariable: $URL
+              regex: ^(?!["']/[^/"']|\w+_(path|url)\b)
+          - focus-metavariable: $URL

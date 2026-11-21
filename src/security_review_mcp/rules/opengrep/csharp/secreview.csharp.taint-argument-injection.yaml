@@ -1,0 +1,155 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-argument-injection
+    message: >-
+      Request data is passed as an argument of a program started with a list of arguments
+      (Process.Start, ArgumentList, CliWrap): a value that starts with "-" becomes an option
+      of the program (git --upload-pack, ssh -oProxyCommand, curl -o, tar --checkpoint-
+      action...), which runs commands or writes files. Quoting does not help. Put "--"
+      before the values, refuse a value that starts with "-", or pass it as the value of a
+      long option ("--branch=" + value).
+    languages: [csharp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-88: Improper Neutralization of Argument Delimiters in a Command ('Argument Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              # A number, a boolean, a GUID or a date cannot carry an injection
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(?!(int|long|short|byte|uint|ulong|ushort|bool|decimal|double|float|Guid|DateTime|DateTimeOffset|DateOnly|TimeOnly)\??$)
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+          # Minimal API handlers: the string parameters and the [From...] parameters of the lambda
+          - patterns:
+              - pattern-either:
+                  - patterns:
+                      - pattern-either:
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., $TYPE $PARAM, ...) => { ... })
+                      - metavariable-regex:
+                          metavariable: $TYPE
+                          regex: ^string\??$
+                  - patterns:
+                      - pattern-either:
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR] $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR] $TYPE $PARAM, ...) => { ... })
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR(...)] $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR(...)] $TYPE $PARAM, ...) => { ... })
+                      - metavariable-regex:
+                          metavariable: $ATTR
+                          regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - metavariable-regex:
+                  metavariable: $MAP
+                  regex: ^Map(Get|Post|Put|Patch|Delete|Methods)$
+              - pattern: $PARAM
+    pattern-propagators:
+      # A value appended to a StringBuilder or a writer taints what is built
+      - pattern: $TO.Append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AppendLine($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AppendFormat(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      # A value added to a collection taints it (string.Join...)
+      - pattern: $TO.Add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AddRange($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Add($KEY, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Process.Start($PROG, new[] { $PREV, ..., $ARG, ... })
+              - pattern: Process.Start($PROG, new string[] { $PREV, ..., $ARG, ... })
+              - pattern: Process.Start($PROG, new List<string> { $PREV, ..., $ARG, ... })
+              - pattern: Cli.Wrap($PROG).WithArguments(new[] { $PREV, ..., $ARG, ... })
+              - pattern: Process.Start($PROG, new[] { $ARG, ... })
+              - pattern: Process.Start($PROG, new string[] { $ARG, ... })
+              - pattern: Cli.Wrap($PROG).WithArguments(new[] { $ARG, ... })
+          - pattern-not: Process.Start($PROG, new[] { $PREV, ..., "--", ..., $ARG, ... })
+          - pattern-not: Process.Start($PROG, new string[] { $PREV, ..., "--", ..., $ARG, ... })
+          - pattern-not: Process.Start($PROG, new List<string> { $PREV, ..., "--", ..., $ARG, ... })
+          - pattern-not: Cli.Wrap($PROG).WithArguments(new[] { $PREV, ..., "--", ..., $ARG, ... })
+          - metavariable-regex:
+              metavariable: $PROG
+              regex: '^["''`](?:[^"''`]*/)?(git|hg|svn|ssh|scp|sftp|rsync|curl|wget|tar|zip|unzip|7z|7za|find|xargs|sed|awk|gawk|ffmpeg|convert|magick|gs|wkhtmltopdf|soffice|libreoffice|chromium|google-chrome|openssl|gpg|psql|mysql|mysqldump|pg_dump|docker|kubectl|helm|sudo|env|npm|npx|pip|man|less)["''`]$'
+          - metavariable-regex:
+              metavariable: $ARG
+              regex: "^(?!&?(?:format!\\()?(?:f|\\$|@)?[\"'`][^\"'`{#$\\\\])"
+          - focus-metavariable: $ARG
+
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  var $PSI = new ProcessStartInfo($PROG, ...);
+                  ...
+              - pattern-inside: |
+                  var $PSI = new ProcessStartInfo { FileName = $PROG, ... };
+                  ...
+          - pattern-not-inside: |
+              $PSI.ArgumentList.Add("--");
+              ...
+          - pattern: $PSI.ArgumentList.Add($ARG)
+          - metavariable-regex:
+              metavariable: $PROG
+              regex: '^["''`](?:[^"''`]*/)?(git|hg|svn|ssh|scp|sftp|rsync|curl|wget|tar|zip|unzip|7z|7za|find|xargs|sed|awk|gawk|ffmpeg|convert|magick|gs|wkhtmltopdf|soffice|libreoffice|chromium|google-chrome|openssl|gpg|psql|mysql|mysqldump|pg_dump|docker|kubectl|helm|sudo|env|npm|npx|pip|man|less)["''`]$'
+          - metavariable-regex:
+              metavariable: $ARG
+              regex: "^(?!&?(?:format!\\()?(?:f|\\$|@)?[\"'`][^\"'`{#$\\\\])"
+          - focus-metavariable: $ARG
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: int.Parse(...)
+          - pattern: long.Parse(...)
+          - pattern: Guid.Parse(...)
+          - pattern: Convert.ToInt32(...)

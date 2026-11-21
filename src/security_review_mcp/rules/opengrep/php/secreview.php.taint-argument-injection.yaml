@@ -1,0 +1,94 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.php.taint-argument-injection
+    message: >-
+      Request data is passed as an argument of a program (an array given to proc_open or
+      Symfony Process, or a value quoted with escapeshellarg): a value that starts with "-"
+      becomes an option of the program (git --upload-pack, ssh -oProxyCommand, curl -o, tar
+      --checkpoint-action...), which runs commands or writes files. Quoting does not help.
+      Put "--" before the values, refuse a value that starts with "-", or pass it as the
+      value of a long option ("--branch=" + value).
+    languages: [php]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-88: Improper Neutralization of Argument Delimiters in a Command ('Argument Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          # Superglobals (plain PHP)
+          - pattern: $_GET
+          - pattern: $_POST
+          - pattern: $_REQUEST
+          - pattern: $_COOKIE
+          - pattern: $_FILES
+          - pattern: file_get_contents("php://input")
+          - pattern: getallheaders()
+          # Laravel: $request->input('x'), request('x'), Request::input('x')
+          - patterns:
+              - pattern: $REQ->$GET(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^\$(request|req)$
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(input|query|post|get|cookie|header|all|json|file|route|string|integer|only|except)$
+          - pattern: request(...)
+          - pattern: request()->$GET(...)
+          - pattern: Request::$GET(...)
+          # Symfony: $request->query->get('x'), $request->request->all()...
+          - patterns:
+              - pattern: $REQ->$BAG->$GET(...)
+              - metavariable-regex:
+                  metavariable: $BAG
+                  regex: ^(query|request|cookies|headers|files|attributes)$
+    pattern-propagators:
+      # A value added to an array taints it (implode...)
+      - pattern: array_push($TO, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: array_unshift($TO, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: proc_open([$PROG, ..., $ARG, ...], ...)
+              - pattern: new Process([$PROG, ..., $ARG, ...], ...)
+              - pattern: Process::run([$PROG, ..., $ARG, ...], ...)
+          - pattern-not: proc_open([$PROG, ..., "--", ..., $ARG, ...], ...)
+          - pattern-not: new Process([$PROG, ..., "--", ..., $ARG, ...], ...)
+          - pattern-not: Process::run([$PROG, ..., "--", ..., $ARG, ...], ...)
+          - metavariable-regex:
+              metavariable: $PROG
+              regex: '^["''`](?:[^"''`]*/)?(git|hg|svn|ssh|scp|sftp|rsync|curl|wget|tar|zip|unzip|7z|7za|find|xargs|sed|awk|gawk|ffmpeg|convert|magick|gs|wkhtmltopdf|soffice|libreoffice|chromium|google-chrome|openssl|gpg|psql|mysql|mysqldump|pg_dump|docker|kubectl|helm|sudo|env|npm|npx|pip|man|less)["''`]$'
+          - metavariable-regex:
+              metavariable: $ARG
+              regex: "^(?!&?(?:format!\\()?(?:f|\\$|@)?[\"'`][^\"'`{#$\\\\])"
+          - focus-metavariable: $ARG
+
+      - patterns:
+          - pattern-either:
+              - pattern: exec($CMD, ...)
+              - pattern: system($CMD, ...)
+              - pattern: shell_exec($CMD)
+              - pattern: passthru($CMD, ...)
+              - pattern: popen($CMD, ...)
+              - pattern: proc_open($CMD, ...)
+          - metavariable-pattern:
+              metavariable: $CMD
+              pattern: <... escapeshellarg($ARG) ...>
+          - metavariable-regex:
+              metavariable: $CMD
+              regex: "^(?:f|\\$|@)?[\"'`](?:[^\"'`]*/)?(git|hg|svn|ssh|scp|sftp|rsync|curl|wget|tar|zip|unzip|7z|7za|find|xargs|sed|awk|gawk|ffmpeg|convert|magick|gs|wkhtmltopdf|soffice|libreoffice|chromium|google-chrome|openssl|gpg|psql|mysql|mysqldump|pg_dump|docker|kubectl|helm|sudo|env|npm|npx|pip|man|less)\\s(?!.*\\s--\\s)"
+          - focus-metavariable: $ARG
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: intval(...)
+          - pattern: floatval(...)
+          - pattern: (int) $X
+          - pattern: (float) $X

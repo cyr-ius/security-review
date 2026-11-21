@@ -17,7 +17,8 @@ at first start, for these domains:
 | Domain | Examples of points |
 |---|---|
 | `*` | Points that apply to every language: information disclosure through output, logs, errors or API responses; secrets kept out of logs (tokens, passwords, URLs with credentials) and masked before storage and in returned excerpts |
-| `python`, `java`, `go`, `csharp`, `rust` | Language and framework pitfalls |
+| `python`, `java`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin` | Language and framework pitfalls |
+| `terraform` | Network exposure, IAM, storage encryption, secrets in variables and state, audit logging |
 | `angular`, `node` | Front end, and TypeScript and JavaScript back end |
 | `api` | Validation of OAuth/OIDC tokens, webhooks, sensitive business flows, HTTP desync, CRLF injection, file upload |
 | `config` | Kubernetes hardening, RBAC, proxy headers, WAF, encrypted connections to back-end services (LDAPS...), instructions for AI assistants |
@@ -36,7 +37,7 @@ Two domains are special and added to **every** review prompt, whatever the langu
 
 | Prompt | Embedded checklists |
 |---|---|
-| `security-review` | The checklists of `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` and `node` for `typescript` and `javascript`, `config` and `cicd` for pipelines), then `api`, plus `dependencies` when the code names a dependency file |
+| `security-review` | The checklists of `language` (`python`, `java`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin` with `java`, `terraform` with `config`, `angular` and `node` for `typescript` and `javascript`, `config` and `cicd` for pipelines), then `api`, plus `dependencies` when the code names a dependency file |
 | `codebase-review` | The checklists of `languages`, then `api`, `config` and `cicd` |
 | `api-security-review` | `api`, plus `dependencies` when the code names a dependency file |
 | `configuration-review` | `config`, plus `cicd` when the files look like a pipeline and `dependencies` when they name a dependency file |

@@ -27,6 +27,7 @@ from .auth import access_control, token_store
 from .ci_client import EXIT_ERROR
 from .config import (
     Settings,
+    check_fix_min_severity,
     check_report_language,
     configure_logging,
     default_database_url,
@@ -65,13 +66,17 @@ Security code-review server.
 - Use the prompts `security-review`, `api-security-review` and `configuration-review` to \
 start a structured review, and `codebase-review` to review a whole repository (not only a diff).
 - Use `get_review_checklist` and `scan_code` while reviewing. When their results give a report \
-language, write your reply and the free-text fields of the report in that language.
+language, write your reply and the free-text fields of the report in that language. When they \
+give a severity to fix (`fix_min_severity`), fix in the code the confirmed findings of that \
+severity or above once the report is saved, then propose them as `fixed`. The tools give the \
+configured default: the "Findings to fix" section of a review prompt takes precedence.
 - To scan a whole repository when you can run shell commands, call `start_codebase_scan` and \
 run the commands it gives: the files reach the Controller server without you reading them, and \
 its summary tells you which files to read first. For the dependencies only, call it with \
 `scope` `deps` rather than `scan_dependencies` file by file.
-- At the end of a review, call `save_security_report` once to store the report in the \
-database: the server records the user of the token as its author. Use \
+- At the end of every review, calling `save_security_report` once is required: the review is \
+not done until it has returned a report id, even when nothing was found. The server records \
+the user of the token as its author. Use \
 `list_security_reports`, `get_security_report` and `get_project_security_posture` to read \
 stored results. When the developer asks for a report of the findings of a project (on \
 screen or in a file), call `export_findings_report`: show it, or write it yourself to \
@@ -370,6 +375,15 @@ def _report_language(requested: str) -> str:
         raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
 
 
+def _fix_min_severity(requested: str) -> str:
+    """Resolve the lowest severity to fix: prompt argument, web interface,
+    SECREVIEW_FIX_MIN_SEVERITY."""
+    try:
+        return check_fix_min_severity(requested) or app_settings.fix_min_severity()
+    except ValueError as exc:
+        raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
+
+
 @mcp.prompt(
     name="security-review",
     title="Security code review",
@@ -384,6 +398,7 @@ def security_review(
     context: str = "",
     focus: str = "",
     report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the general security-review prompt.
 
@@ -395,9 +410,16 @@ def security_review(
         focus: Optional areas to emphasize (for example "authentication, file upload").
         report_language: Language of the reply and of the stored report, for example French
             (default: SECREVIEW_REPORT_LANGUAGE).
+        fix_min_severity: Lowest severity of the findings to fix in the code after the review
+            (critical, high, medium, low or info; default: SECREVIEW_FIX_MIN_SEVERITY).
     """
     return prompts.build_security_review_prompt(
-        language, code, context, focus, _report_language(report_language)
+        language,
+        code,
+        context,
+        focus,
+        _report_language(report_language),
+        _fix_min_severity(fix_min_severity),
     )
 
 
@@ -412,6 +434,7 @@ def api_security_review(
     context: str = "",
     focus: str = "",
     report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the REST API review prompt.
 
@@ -421,9 +444,15 @@ def api_security_review(
         context: Optional context (public API, internal, consumers...).
         focus: Optional areas to emphasize.
         report_language: Language of the reply and of the stored report.
+        fix_min_severity: Lowest severity of the findings to fix in the code after the review.
     """
     return prompts.build_api_review_prompt(
-        framework, code, context, focus, _report_language(report_language)
+        framework,
+        code,
+        context,
+        focus,
+        _report_language(report_language),
+        _fix_min_severity(fix_min_severity),
     )
 
 
@@ -438,6 +467,7 @@ def configuration_review(
     context: str = "",
     focus: str = "",
     report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the configuration review prompt.
 
@@ -447,9 +477,15 @@ def configuration_review(
         context: Optional context (environment, exposure...).
         focus: Optional areas to emphasize.
         report_language: Language of the reply and of the stored report.
+        fix_min_severity: Lowest severity of the findings to fix in the code after the review.
     """
     return prompts.build_config_review_prompt(
-        config_type, content, context, focus, _report_language(report_language)
+        config_type,
+        content,
+        context,
+        focus,
+        _report_language(report_language),
+        _fix_min_severity(fix_min_severity),
     )
 
 
@@ -464,6 +500,7 @@ def codebase_review(
     context: str = "",
     focus: str = "",
     report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the whole-codebase review prompt.
 
@@ -474,8 +511,10 @@ def codebase_review(
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize.
         report_language: Language of the reply and of the stored report.
+        fix_min_severity: Lowest severity of the findings to fix in the code after the review.
     """
     language = _report_language(report_language)
+    fix_severity = _fix_min_severity(fix_min_severity)
     limit = get_settings().max_content_chars
     if len(scan_results) > limit:
         raise MCPError(
@@ -483,7 +522,9 @@ def codebase_review(
             message=f"scan_results too large ({len(scan_results)} chars); the limit is {limit}. "
             "Filter it, for example with --exclude or --fail-on, or use --save and triage-report.",
         )
-    return prompts.build_codebase_review_prompt(languages, scan_results, context, focus, language)
+    return prompts.build_codebase_review_prompt(
+        languages, scan_results, context, focus, language, fix_severity
+    )
 
 
 @mcp.prompt(
@@ -492,7 +533,11 @@ def codebase_review(
     description="Check manifests and lockfiles for vulnerable versions and risky practices.",
 )
 def dependency_review(
-    ecosystem: str = "", files: str = "", context: str = "", report_language: str = ""
+    ecosystem: str = "",
+    files: str = "",
+    context: str = "",
+    report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the dependency review prompt.
 
@@ -501,9 +546,14 @@ def dependency_review(
         files: Dependency files with their names (leave empty to read the workspace files).
         context: Optional context (exposure, runtime vs dev usage...).
         report_language: Language of the reply and of the stored report.
+        fix_min_severity: Lowest severity of the findings to fix in the code after the review.
     """
     return prompts.build_dependency_review_prompt(
-        ecosystem, files, context, _report_language(report_language)
+        ecosystem,
+        files,
+        context,
+        _report_language(report_language),
+        _fix_min_severity(fix_min_severity),
     )
 
 
@@ -594,10 +644,12 @@ def list_checklists() -> dict[str, int]:
 def get_review_checklist(
     domain: Annotated[str, Field(description="A domain from list_checklists")],
 ) -> str:
-    """Return the security checklist of a domain, in Markdown, with the report language."""
+    """Return the security checklist of a domain, in Markdown, with the report language and the
+    findings to fix."""
     checklist = registry.render_checklist_markdown(domain)
     language_block = prompts.report_language_block(app_settings.report_language())
-    return "\n\n".join(x for x in (checklist, language_block) if x)
+    fix_block = prompts.fix_severity_block(app_settings.fix_min_severity())
+    return "\n\n".join(x for x in (checklist, language_block, fix_block) if x)
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -658,6 +710,10 @@ def scan_code(
         "controller_error": controller_error,
         # Reviews made without a prompt only learn the configured language here
         "report_language": app_settings.report_language() or None,
+        # Lowest severity of the findings to fix in the code after the review (None: no rule).
+        # The configured default only: the "Findings to fix" section of a prompt, which may
+        # carry another severity given by the caller, takes precedence (INSTRUCTIONS)
+        "fix_min_severity": app_settings.fix_min_severity() or None,
         "note": (
             "Leads only: verify each one in context. No match does not mean safe. "
             "Suppressed lines carry an inline secreview:ignore marker: review them too."
@@ -1127,10 +1183,11 @@ def scan_dependencies(
     Check `vulnerability_check` first: when it is not `performed`, no vulnerability could be
     detected and an empty list does NOT mean the dependencies are safe. Lockfiles and SBOMs give
     the best results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
-    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts), go.mod,
-    Cargo.lock, Cargo.toml, packages.lock.json, *.csproj, Directory.Packages.props,
-    packages.config, nuget.config and CycloneDX SBOMs (bom.json, bom.xml, *.cdx.json): use an
-    SBOM for the transitive dependencies of a Maven or Gradle project.
+    uv.lock, package.json, package-lock.json, yarn.lock, pnpm-lock.yaml, pom.xml,
+    build.gradle(.kts), go.mod, Cargo.lock, Cargo.toml, packages.lock.json, *.csproj,
+    Directory.Packages.props, packages.config, nuget.config and CycloneDX SBOMs (bom.json,
+    bom.xml, *.cdx.json): use an SBOM for the transitive dependencies of a Maven or Gradle
+    project.
     """
     limit = get_settings().max_dependency_chars
     if len(content) > limit:

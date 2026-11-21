@@ -24,7 +24,7 @@ command line `cli`...), its target, its project and its details.
 ## Reading the log
 
 Administrators read it on the **Audit log** page, opened by the **Audit log** button of the
-[**Activity**](index.md#activity) page (in the menu for the accounts that hold `audit.read`
+[**Activity**](activity.md) page (in the menu for the accounts that hold `audit.read`
 without `settings.manage`): newest first, with filters by event and
 project, a search in the details and **Load more** for the older events.
 

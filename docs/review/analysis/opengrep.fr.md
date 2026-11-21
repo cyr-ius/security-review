@@ -94,24 +94,48 @@ SARIF que les résultats du scanner natif. Les identifiants des règles OpenGrep
 `OPENGREP:` (`OPENGREP:secreview.python.taint-sql`). OpenGrep ignore les chemins de sa liste
 d'exclusion par défaut (répertoires de tests comme `tests/`, `node_modules/`...).
 
+Une faiblesse n'est signalée qu'une fois. Un résultat d'une règle native sur la même ligne qu'un
+résultat OpenGrep, avec la même CWE, est retiré : OpenGrep, qui suit le flux de données, est le
+plus précis des deux (`PY-005` s'efface derrière `OPENGREP:secreview.python.taint-sql`). Des CWE
+proches comptent comme la même : CWE-94 et CWE-95 (injection de code), CWE-326, CWE-327 et
+CWE-328 (cryptographie faible). Un résultat de règle avec une autre CWE reste, comme tous les
+résultats des règles quand OpenGrep ne tourne pas. Le résultat OpenGrep prend la sévérité de la
+règle qu'il remplace quand elle est plus haute : le gate bloque comme avant. Les résultats
+OpenGrep d'un fichier sont
+gardés en premier : les règles natives ne les font jamais sortir des 200 résultats conservés
+par fichier.
+
 ## Règles par défaut
 
-Security Review fournit 147 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
+Security Review fournit 264 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
 reste du code) : les packs communautaires ne sont pas redistribués, car leurs licences
 (Semgrep Rules License, ou LGPL avec la Commons Clause pour le fork `opengrep-rules`) interdisent
 leur usage dans un produit comme celui-ci. Elles complètent les [règles intégrées](../rules.md)
 avec ce qu'un motif ligne par ligne ne voit pas :
 
 - **analyse de propagation (taint)** : une valeur lue dans la requête (Flask, Django, FastAPI,
-  aiohttp, Tornado, Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS,
-  ASP.NET Core, `net/http`, Gin, Echo), sur une socket, une websocket ou dans un événement AWS
-  Lambda est suivie à travers les variables et la construction de chaînes jusqu'à un appel
+  aiohttp, Tornado, Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS, Koa,
+  Hono, superglobales PHP, Laravel, Symfony, Rails,
+  contrôleurs et Minimal APIs ASP.NET Core, `net/http`, Gin, Echo, Fiber, Ktor), y compris les
+  paramètres que le framework remplit pour le gestionnaire (segments `<name>` de Flask,
+  paramètres d'URL de Django, paramètres de requête de FastAPI et modèles Pydantic déclarés dans
+  le fichier ou nommés comme un schéma de requête, tels `ItemCreate` ou `UserIn`, paramètres
+  Spring sans annotation), sur une socket, une websocket, dans un intent Android ou dans un événement AWS
+  Lambda est suivie à travers les variables, la construction de chaînes, les constructeurs de
+  chaînes et les collections (`StringBuilder.append`, `strings.Builder`, `list.add`, `push`,
+  `<<`...) jusqu'à un appel
   dangereux (SQL, commande, chemin de fichier, URL sortante, redirection, template, HTML,
-  désérialisation). Un assainissement en chemin (`int()`, `secure_filename`, `path.basename`,
-  `html.EscapeString`...) l'arrête. Les données locales (arguments de la ligne de commande,
+  désérialisation). Un assainissement en chemin l'arrête : un
+  nombre (`int()`), un nom de fichier (`secure_filename`, `path.basename`), un échappement
+  propre au sink (`html.EscapeString`, `shlex.quote`, un identifiant SQL mis entre guillemets
+  par le pilote, une valeur encodée dans une URL dont l'hôte est fixe). Une vérification dans un
+  `if` (`url.startswith("/")`, `Url.IsLocalUrl`) n'en est pas un : la valeur reste signalée. Les
+  données locales (arguments de la ligne de commande,
   entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
   commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
-  confiance. La valeur est suivie dans un fichier, d'une fonction à l'autre
+  confiance. Une valeur relue dans la base, un fichier ou un cache n'en est pas une non plus :
+  une valeur enregistrée par une requête puis utilisée par une autre (injection de second ordre)
+  n'est pas suivie, elle relève de la revue. La valeur est suivie dans un fichier, d'une fonction à l'autre
   (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../reference/detection-benchmark.md)) ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une
@@ -119,13 +143,17 @@ avec ce qu'un motif ligne par ligne ne voit pas :
 
 | Langage (répertoire) | Règles | Principaux contrôles |
 | --- | --- | --- |
-| Python (`python`) | 30 | Taint : SQL, NoSQL, commande, `eval`, SSRF, chemin, redirection, template, HTML (réponses Flask, Django et FastAPI), XPath, LDAP, session (trust boundary), désérialisation, mass assignment ; TLS, YAML, JWT, debug, CORS, archives, hachages, cookies, XXE, `random` pour un secret, TLS 1.0/1.1, `requests` sans timeout, `csrf_exempt`, secrets comparés avec `==` |
-| Java, Spring (`java`) | 31 | Taint : SQL/JPQL, commande, `ScriptEngine`/Groovy, chemin, SSRF, redirection, XSS, XPath, session (trust boundary), SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP ; désérialisation, XXE (DOM, SAX, StAX), CSRF, TLS sans vérification, nom d'hôte, chiffrements, hachages, cookies, Jackson, SnakeYAML, zip slip, `Random` pour un secret, JWT non vérifié, TLS 1.0/1.1, `XMLDecoder`, XStream, CORS avec toute origine et identifiants, secrets comparés avec `equals` |
-| JavaScript, TypeScript, Angular (`javascript`) | 24 | Taint : SQL, NoSQL, commande, désérialisation, mass assignment, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, templates, pollution de prototype, XSS DOM depuis l'URL ou la route ; données `message` lues sans vérifier leur origine, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie, XXE (`noent`), `Math.random` pour un secret, `postMessage` vers toute origine |
-| Go (`go`) | 17 | Taint : SQL, commande, chemin, SSRF, redirection, XSS, templates ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret, JWT non vérifié, cookies, TLS 1.0/1.1, client HTTP sans timeout, secrets comparés avec `==` |
-| C#, ASP.NET Core (`csharp`) | 20 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, chemin, SSRF, redirection, XSS, XPath ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS, zip slip, `System.Random` pour un secret, cookies, TLS 1.0/1.1, antiforgery désactivé, secrets comparés avec `==` |
-| Rust (`rust`) | 13 | Taint : SQL (sqlx, diesel, pilotes), commande, chemin, SSRF, redirection depuis les extracteurs axum et actix-web ; SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
-| Dockerfile (`dockerfile`) | 2 | Pas de `USER` avant `CMD`/`ENTRYPOINT`, dernier `USER` à root |
+| Python (`python`) | 39 | Taint : SQL, NoSQL, commande, injection d'arguments, réflexion non sûre, sélection dynamique de vue/template, `eval`, SSRF, chemin, redirection, template, HTML (réponses Flask, Django et FastAPI), XPath, LDAP, session (trust boundary), désérialisation, mass assignment, expression régulière (ReDoS), modèle `str.format`, journal, en-tête Host dans les e-mails (liens de réinitialisation), en-têtes d'e-mail ; TLS, YAML, JWT, debug, CORS, archives, hachages, cookies, XXE, `random` pour un secret, TLS 1.0/1.1, `requests` sans timeout, `csrf_exempt`, secrets comparés avec `==`, `SessionMiddleware` FastAPI sans `https_only` |
+| Java, Spring (`java`) | 41 | Taint : SQL/JPQL, commande, injection d'arguments, réflexion non sûre, sélection dynamique de vue/template, `ScriptEngine`/Groovy, chemin, SSRF, redirection, XSS, XPath, session (trust boundary), SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP, requêtes MongoDB, expression régulière (ReDoS), en-tête de réponse (CRLF), journal, en-tête Host dans les e-mails (liens de réinitialisation), en-têtes d'e-mail ; entité liée à la requête et enregistrée (mass assignment), désérialisation, XXE (DOM, SAX, StAX), CSRF, TLS sans vérification, nom d'hôte, chiffrements, hachages, cookies, Jackson, SnakeYAML, zip slip, `Random` pour un secret, JWT non vérifié, TLS 1.0/1.1, `XMLDecoder`, XStream, CORS avec toute origine et identifiants, secrets comparés avec `equals` |
+| JavaScript, TypeScript, Angular (`javascript`) | 32 | Taint : SQL, NoSQL, commande, injection d'arguments, réflexion non sûre, sélection dynamique de vue/template, désérialisation, mass assignment, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, templates, pollution de prototype, XPath, LDAP, journal, XSS DOM depuis l'URL ou la route, en-tête Host dans les e-mails (liens de réinitialisation) ; données `message` lues sans vérifier leur origine, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie, XXE (`noent`), `Math.random` pour un secret, `postMessage` vers toute origine, zip slip |
+| Go (`go`) | 23 | Taint : SQL, commande, injection d'arguments, réflexion non sûre, chemin, SSRF, redirection, XSS, templates, LDAP, MongoDB, `log` standard, en-tête Host dans les e-mails (liens de réinitialisation) ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret, JWT non vérifié, cookies, TLS 1.0/1.1, client HTTP sans timeout, secrets comparés avec `==` |
+| C#, ASP.NET Core (`csharp`) | 32 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, Dynamic LINQ, injection d'arguments, réflexion non sûre, sélection dynamique de vue/template, chemin, SSRF, redirection, XSS, XPath, LDAP, MongoDB, scripts Roslyn, templates (Razor, Scriban, DotLiquid), expression régulière sans délai (ReDoS), journal `ILogger`, en-tête Host dans les e-mails (liens de réinitialisation) ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS, zip slip, `System.Random` pour un secret, cookies, TLS 1.0/1.1, antiforgery désactivé, secrets comparés avec `==`, entité liée à la requête et enregistrée ou `TryUpdateModelAsync` sans liste de propriétés (overposting) |
+| PHP : PHP natif, Laravel, Symfony (`php`) | 21 | Taint : SQL (mysqli, PDO, requêtes brutes Laravel), filtres MongoDB, commande, injection d'arguments, réflexion non sûre, templates (Twig, Smarty, Blade), inclusion de fichier, chemin, fichier envoyé enregistré sous le nom choisi par le client, XPath, LDAP, expression régulière (ReDoS), journal, mass assignment, SSRF (cURL, Guzzle, HTTP Laravel), XSS (`echo`), redirection, `unserialize`, en-tête Host dans les e-mails (liens de réinitialisation), en-têtes d'e-mail |
+| Ruby, Rails (`ruby`) | 18 | Taint : fragments SQL d'Active Record, commande shell, injection d'arguments, réflexion non sûre, templates (ERB, Haml, `render inline:`), sélection de vue, XPath, LDAP, expression régulière (ReDoS), journal, mass assignment (`permit!`), `eval`/`send`/`constantize`, chemin et `send_file`, SSRF, `html_safe`/`raw`, redirection, `Marshal`/`YAML.unsafe_load`, en-tête Host dans les e-mails (liens de réinitialisation) ; les conditions par hash, les assistants de route et les enregistrements lus en base ne sont pas des sources ; zip slip |
+| Kotlin : Spring, Ktor, Android (`kotlin`) | 24 | Taint : SQL (JDBC, JdbcTemplate, JPA, Exposed, SQLite), requêtes MongoDB, commande, moteurs de script, SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP, XPath, session (trust boundary), en-tête Host dans les e-mails, en-têtes d'e-mail, redirection d'intent Android, injection d'arguments, réflexion non sûre, sélection dynamique de vue/template, chemin, SSRF (RestTemplate, WebClient, OkHttp, client Ktor), redirection, XSS (Ktor, servlets, WebView), `ObjectInputStream`, expression régulière (ReDoS), journal ; les extras d'intent et les paramètres d'URI d'un composant Android sont des sources ; entité liée à la requête et enregistrée (mass assignment), zip slip |
+| Rust (`rust`) | 16 | Taint : SQL (sqlx, diesel, pilotes), commande, injection d'arguments, chemin, SSRF, redirection, HTML, templates (tera, handlebars, minijinja) depuis les extracteurs axum et actix-web ; SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
+| TypeScript : NestJS, Prisma, TypeORM (`typescript`) | 3 | `$queryRawUnsafe`/`$executeRawUnsafe` avec une chaîne construite, `query`/`where`/`orderBy` TypeORM construits par template literal ou `+`, `ValidationPipe` sans `whitelist: true` |
+| Dockerfile (`dockerfile`) | 5 | Pas de `USER` avant `CMD`/`ENTRYPOINT`, dernier `USER` à root, `ADD` d'une URL sans `--checksum`, secret dans `ENV`/`ARG`, `curl \| sh` |
 | GitHub Actions (`github-actions`) | 10 | Injection de script avec `${{ }}`, `pull_request_target` qui récupère le code de la pull request, action non épinglée sur un SHA, `write-all`, artefacts de `workflow_run`, runner auto-hébergé sur les pull requests, `secrets: inherit` vers un autre dépôt, pas de `permissions`, `issue_comment` qui récupère une pull request, cache dans `pull_request_target` |
 
 Leurs identifiants suivent `secreview.<langage>.<contrôle>` (`secreview.go.zip-slip`) et leurs

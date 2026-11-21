@@ -31,13 +31,13 @@ recorded in one place, where your security team reads it, triages it and follows
   checked against an OSV vulnerability database, even without Internet access.
 - **Connected to your company tools.** [Single sign-on (OIDC)](usage/sso.md) with your identity provider,
   [roles and projects of each account](usage/access-control.md), findings sent to
-  [Jira or ServiceNow](usage/connectors/index.md),
+  [Jira, ServiceNow, GitHub or GitLab](usage/connectors/index.md),
   [audit log forwarded to syslog, Prometheus metrics](usage/audit-metrics.md).
 - **Your code stays with you.** The product is self-hosted: the MCP server makes no outgoing
   connection, secrets are masked before being stored, and it installs offline. It is open
   source (Apache 2.0 license). See [Security and limits](reference/security.md).
 - **A broad coverage.** Rules for Python (FastAPI), Java (Spring), TypeScript / Node.js,
-  Angular, Go, C#, Rust, configuration files and CI pipelines (GitLab CI, Jenkins...), plus the
+  Angular, Go, C#, Rust, PHP, Ruby, Kotlin, Terraform, configuration files and CI pipelines (GitLab CI, Jenkins...), plus the
   detection of hidden instructions aimed at AI assistants.
 
 ## How it works, in three steps
@@ -74,8 +74,8 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 !!! warning "What the static analysis covers"
     With the [OpenGrep engine](review/analysis/opengrep.md) (`-opengrep` image), Security Review
     runs a **static analysis (SAST)** that follows the data flow within a file, across its
-    functions: 147 rules, 60
-    of them taint rules, on Java, Python, JavaScript/TypeScript, C#, Go and Rust,
+    functions: 264 rules, 164
+    of them taint rules, on Java, Kotlin, Python, JavaScript/TypeScript, C#, Go, Rust, PHP and Ruby,
     [measured on the OWASP Benchmark](reference/detection-benchmark.md). Without it, the pattern
     scan only produces **leads**, with false positives. Neither follows a flow from one file to
     another, nor sees business logic or a missing check: that remains the work of the AI review

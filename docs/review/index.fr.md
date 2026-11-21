@@ -122,7 +122,7 @@ Les prompts sont à la disposition du développeur via l'agent disponible dans s
 | Prompt | Ce qu'il fait |
 |---|---|
 | `development-standards` | Donne à l'agent les normes de développement de sa pile, avant d'écrire le code |
-| `security-review` | Revue générale du code (Python, Java, Go, C#, Rust, TypeScript/Node.js, Angular) |
+| `security-review` | Revue générale du code (Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js, Angular) |
 | `api-security-review`, `configuration-review` | Revue d'une API REST (OWASP API Top 10), ou d'une configuration (Dockerfile, CI/CD, YAML...) |
 | `dependency-review` | Revue des manifestes et lockfiles (chaîne d'approvisionnement) |
 | `codebase-review` | Revue de tout le dépôt, pas seulement d'un diff |

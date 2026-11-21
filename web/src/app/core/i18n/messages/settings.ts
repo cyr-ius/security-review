@@ -1,6 +1,6 @@
 import { defineMessages } from '../catalog';
 
-/** Settings screens: general (report language, Controller server address), outgoing proxy and OSV database. */
+/** Settings screens: general (report language, findings to fix, Controller server address), outgoing proxy and OSV database. */
 export const settings = defineMessages({
   en: {
     'settings.generalTitle': 'General settings',
@@ -39,6 +39,18 @@ export const settings = defineMessages({
     'settings.languageLockedHelp': 'Set by {variable}',
     'settings.languageStoredIgnored': 'value set here ignored',
     'settings.languageDeleteStored': 'Delete the value set here for {variable}',
+    'settings.fixTitle': 'Findings to fix',
+    'settings.fixHelpBefore':
+      'Lowest severity of the findings the agent must fix in the code once the report is saved, then propose as fixed. The review prompts, get_review_checklist and scan_code tell it. The argument',
+    'settings.fixHelpAfter': ' of a prompt takes precedence.',
+    'settings.fixApplied': 'Findings to fix:',
+    'settings.fixNone': 'no instruction (the agent fixes what the user asks)',
+    'settings.fixOrAbove': '{severity} or above',
+    'settings.fixLabel': 'Fix the findings',
+    'settings.fixLockedHelp': 'Set by {variable}',
+    'settings.fixStoredIgnored': 'value set here ignored',
+    'settings.fixDeleteStored': 'Delete the value set here for {variable}',
+    'settings.fixSaved': 'Severity to fix saved: it applies to the next review prompts.',
     'settings.proxyLockedHelp': 'Set by {variable}',
     'settings.proxyStoredIgnored': 'value set here ignored',
     'settings.proxyDeleteStored': 'Delete the value set here for {variable}',
@@ -174,6 +186,19 @@ export const settings = defineMessages({
     'settings.languageLockedHelp': 'Défini par {variable}',
     'settings.languageStoredIgnored': 'valeur définie ici ignorée',
     'settings.languageDeleteStored': 'Supprimer la valeur définie ici pour {variable}',
+    'settings.fixTitle': 'Findings à corriger',
+    'settings.fixHelpBefore':
+      "Sévérité minimale des findings que l'agent doit corriger dans le code une fois le rapport enregistré, puis proposer comme corrigés. Les prompts de revue, get_review_checklist et scan_code la lui indiquent. L'argument",
+    'settings.fixHelpAfter': " d'un prompt reste prioritaire.",
+    'settings.fixApplied': 'Findings à corriger :',
+    'settings.fixNone': "aucune consigne (l'agent corrige ce que demande l'utilisateur)",
+    'settings.fixOrAbove': '{severity} ou plus',
+    'settings.fixLabel': 'Corriger les findings',
+    'settings.fixLockedHelp': 'Défini par {variable}',
+    'settings.fixStoredIgnored': 'valeur définie ici ignorée',
+    'settings.fixDeleteStored': 'Supprimer la valeur définie ici pour {variable}',
+    'settings.fixSaved':
+      "Sévérité à corriger enregistrée : elle s'applique aux prochains prompts de revue.",
     'settings.proxyLockedHelp': 'Défini par {variable}',
     'settings.proxyStoredIgnored': 'valeur définie ici ignorée',
     'settings.proxyDeleteStored': 'Supprimer la valeur définie ici pour {variable}',
@@ -317,6 +342,19 @@ export const settings = defineMessages({
     'settings.languageLockedHelp': 'Definido por {variable}',
     'settings.languageStoredIgnored': 'valor definido aquí ignorado',
     'settings.languageDeleteStored': 'Eliminar el valor definido aquí para {variable}',
+    'settings.fixTitle': 'Hallazgos a corregir',
+    'settings.fixHelpBefore':
+      'Severidad mínima de los hallazgos que el agente debe corregir en el código una vez guardado el informe, y luego proponer como corregidos. Los prompts de revisión, get_review_checklist y scan_code se la indican. El argumento',
+    'settings.fixHelpAfter': ' de un prompt tiene prioridad.',
+    'settings.fixApplied': 'Hallazgos a corregir:',
+    'settings.fixNone': 'ninguna instrucción (el agente corrige lo que pide el usuario)',
+    'settings.fixOrAbove': '{severity} o superior',
+    'settings.fixLabel': 'Corregir los hallazgos',
+    'settings.fixLockedHelp': 'Definido por {variable}',
+    'settings.fixStoredIgnored': 'valor definido aquí ignorado',
+    'settings.fixDeleteStored': 'Eliminar el valor definido aquí para {variable}',
+    'settings.fixSaved':
+      'Severidad a corregir guardada: se aplica a los próximos prompts de revisión.',
     'settings.proxyLockedHelp': 'Definido por {variable}',
     'settings.proxyStoredIgnored': 'valor definido aquí ignorado',
     'settings.proxyDeleteStored': 'Eliminar el valor definido aquí para {variable}',

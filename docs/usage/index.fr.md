@@ -102,7 +102,7 @@ qui les enregistre ou les annule.
 
 | Page | À quoi elle sert |
 |---|---|
-| **Général** | Langue des rapports, adresse du serveur Controller et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
+| **Général** | Langue des rapports, findings que l'agent doit corriger (à partir de quelle sévérité), adresse du serveur Controller et proxy sortant (téléchargement OSV et connexion OIDC) ; tant que l'adresse est inconnue, un bandeau en haut de chaque page y renvoie |
 | **Activité** | Ce qui tourne en ce moment, la délégation de `scan_code` et `start_codebase_scan` au serveur Controller et les moteurs de scan avec leur révocation (`settings.manage`) : voir [Activité](#activite) |
 | **Utilisateurs** | Un onglet chacun : **Comptes**, avec leurs rôles et leurs projets ([comptes utilisateurs](user-accounts.md)), **Rôles** ([rôles et permissions](access-control.md)) et **Connexion OIDC**, la connexion d'entreprise ([connexion OIDC](sso.md)) (`users.manage`) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
@@ -112,24 +112,8 @@ qui les enregistre ou les annule.
 
 ### Activité
 
-La page **Activité** (`settings.manage`) montre ce qui tourne en ce moment et se recharge toutes
-les 2 secondes tant qu'elle est visible :
-
-- le **Diagramme d'activité** : les agents, les pipelines, les serveurs MCP, les serveurs
-  Controller et les moteurs de scan, avec les scans en cours (ses couleurs sont expliquées dans
-  [Moteurs de scan](../advanced/architecture/scan-engine.md#administration)) ;
-- la section **Délégation des scans de code** : l'interrupteur qui envoie les fragments donnés à
-  `scan_code` par les serveurs MCP à l'adresse du serveur Controller de la page **Général**
-  ([scans de fragments](../review/analysis/opengrep.md#scans-de-fragments-scan_code)) et permet à
-  `start_codebase_scan` de lui demander un
-  [ticket de scan](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan) ;
-- la section **Moteurs de scan** : les [moteurs de scan](../advanced/architecture/scan-engine.md#administration)
-  enrôlés auprès du serveur Controller (version, adresse, dernière activité) et leur révocation.
-
-![Diagramme d'activité : agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan](../assets/screenshots/activity-diagram.png)
-
-Le bouton **Journal d'audit**, à côté d'**Actualiser**, ouvre le [journal d'audit](audit-metrics.md)
-(`audit.read`). L'ancienne adresse `/ui/scan-engines` mène à cette page.
+La page **Activité** (`settings.manage`) montre ce qui tourne en ce moment : le diagramme
+d'activité, la délégation des scans de code et les moteurs de scan. Voir [Activité](activity.md).
 
 ## Points d'attention
 

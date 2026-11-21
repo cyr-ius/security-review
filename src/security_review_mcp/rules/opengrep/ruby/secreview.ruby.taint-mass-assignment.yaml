@@ -1,0 +1,65 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ruby.taint-mass-assignment
+    message: >-
+      Request parameters are passed to a model without strong parameters (params.permit!,
+      to_unsafe_h, request.parameters): a client can set fields it should not control, such
+      as admin, role or user_id (mass assignment). Use params.require(:model).permit(:field,
+      ...) with the allowed fields.
+    languages: [ruby]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: params.permit!
+          - pattern: params.require(...).permit!
+          - pattern: params.to_unsafe_h
+          - pattern: params.to_unsafe_hash
+          - pattern: params.require(...).to_unsafe_h
+          - pattern: request.parameters
+          - pattern: request.request_parameters
+          - pattern: request.POST
+    pattern-propagators:
+      # A value appended to a string or an array taints it (join...)
+      - pattern: $TO << $FROM
+        from: $FROM
+        to: $TO
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.concat($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.prepend($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $MODEL.new($DATA, ...)
+              - pattern: $MODEL.create($DATA, ...)
+              - pattern: $MODEL.create!($DATA, ...)
+              - pattern: $MODEL.find_or_create_by($DATA)
+              - pattern: $MODEL.insert_all($DATA, ...)
+              - pattern: $MODEL.upsert($DATA, ...)
+              - pattern: $RECORD.update($DATA)
+              - pattern: $RECORD.update!($DATA)
+              - pattern: $RECORD.update_attributes($DATA)
+              - pattern: $RECORD.assign_attributes($DATA)
+              - pattern: $RECORD.attributes = $DATA
+              - pattern: $RECORD.$ASSOC.build($DATA)
+              - pattern: $RECORD.$ASSOC.create($DATA)
+          - focus-metavariable: $DATA

@@ -46,7 +46,9 @@ modifie.
    et parcourez la checklist `dependencies`.
 4. Appelez `save_security_report` une seule fois : projet `<nom-du-projet>`,
    `review_type` `security-review`, branche et commit, `checklist_results` et `scan_rules` remplis.
-5. Corrigez les findings `critical` et `high` avant de terminer.
+5. Corrigez les findings de la sévérité donnée par `get_review_checklist` ou `scan_code`
+   (`fix_min_severity`) ; si aucune n'est donnée, les `critical` et `high`. Proposez-les
+   ensuite comme `fixed`.
 6. Ne changez jamais un statut. Utilisez `propose_finding_status` avec un motif.
 
 Si le serveur `security-review` ne répond pas, dites-le. Ne prétendez pas avoir fait la revue.
@@ -55,6 +57,10 @@ Si le serveur `security-review` ne répond pas, dites-le. Ne prétendez pas avoi
 - Ajoutez ici vos commandes de test et vos exceptions locales.
 - En cas de conflit avec les normes du serveur, ce fichier prévaut.
 ```
+
+L'étape 5 suit les [findings à corriger](../reference/prompts-tools.md#findings-a-corriger)
+réglés une fois pour tous les dépôts dans la page **Général** (ou `SECREVIEW_FIX_MIN_SEVERITY`) :
+changez la sévérité là plutôt que dans chaque `AGENTS.md`.
 
 ## Les autres hôtes
 

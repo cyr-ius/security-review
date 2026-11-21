@@ -3,6 +3,7 @@
 import re
 from fnmatch import translate
 
+from .config import FIX_SEVERITIES
 from .deps.dependencies import SUPPORTED_FILES
 from .rules import scanner
 from .rules.registry import ALWAYS_INCLUDED_DOMAINS, render_checklist_markdown
@@ -37,6 +38,15 @@ _PROJECT_CHECK = """\
 Call `request_project` once with the project name you will pass to `save_security_report` \
 (usually the repository name). If its `status` is `requested`, stop there: the report could \
 not be saved, so give the user its `next_steps` instead of reviewing."""
+
+# Saving the report is what makes a review count (gate, posture, trends): never optional
+_REPORT_REQUIRED = """\
+Saving the report is **required**: the review is not done until `save_security_report` has \
+returned a report id. Save it even when nothing was found, and before you end your turn or \
+tell the user that the review or the task is complete. Pass `branch` and `commit_sha` when \
+you know them (for example from git). If the call fails, fix the arguments and call it again; \
+if it still fails, tell the user clearly that the report was NOT saved. Give the user the \
+report id."""
 
 # Last step of a review: a rule for a pattern the scan missed, approved by a person
 _RULE_PROPOSAL = """\
@@ -99,7 +109,7 @@ than reporting it.
 2. Then call the `save_security_report` tool exactly once with the project name, \
 `review_type` `{{review_type}}`, a summary and the structured findings, so that the review is \
 stored. {_AUTHOR_RULE} {_COVERAGE_RULE} Pass an empty findings list if \
-the review found nothing, and say what was covered.
+the review found nothing, and say what was covered. {_REPORT_REQUIRED}
 3. {_RULE_PROPOSAL}
 """
 
@@ -121,6 +131,11 @@ _LANGUAGE_DOMAINS = {
     "go": ("go",),
     "csharp": ("csharp",),
     "rust": ("rust",),
+    "php": ("php",),
+    "ruby": ("ruby",),
+    "kotlin": ("kotlin", "java"),
+    "android": ("kotlin",),
+    "terraform": ("terraform", "config"),
     "config": ("config",),
     "yaml": ("config",),
     "docker": ("config",),
@@ -216,6 +231,26 @@ def report_language_block(language: str) -> str:
     )
 
 
+def fix_severity_block(severity: str) -> str:
+    """Tell the agent which findings to fix in the code once the report is saved.
+
+    Empty, or anything but a severity (a stored value is not checked again): no instruction, so
+    that no free text reaches the prompt.
+    """
+    if severity not in FIX_SEVERITIES:
+        return ""
+    levels = ", ".join(FIX_SEVERITIES[: FIX_SEVERITIES.index(severity) + 1])
+    return (
+        f"## Findings to fix\nOnce the report is saved, fix in the code every confirmed finding "
+        f"of severity **{severity}** or above ({levels}), most severe first, unless the user "
+        "asked for a review only. For each fix, add or update a test that covers it when the "
+        "project has tests, then call `propose_finding_status` with the finding id, status "
+        "`fixed` and what you changed. Leave the less severe findings in the report without "
+        "changing the code, unless the user asks. When a fix needs a decision you cannot take "
+        "(breaking change, design choice), do not make it: explain the options to the user."
+    )
+
+
 def _code_block(code: str, language: str) -> str:
     """Render the code to review, or tell the agent to read it from the workspace."""
     if code.strip():
@@ -227,7 +262,12 @@ def _code_block(code: str, language: str) -> str:
 
 
 def build_security_review_prompt(
-    language: str, code: str, context: str, focus: str, report_language: str = ""
+    language: str,
+    code: str,
+    context: str,
+    focus: str,
+    report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the general security-review prompt for one or more languages ("python, angular")."""
     langs = _words(language)
@@ -238,6 +278,7 @@ def build_security_review_prompt(
         "(OWASP Top 10, CWE).",
         _context_block(context, focus),
         report_language_block(report_language),
+        fix_severity_block(fix_min_severity),
         _PROJECT_CHECK,
         _method("security-review"),
         _checklists([*_language_domains(language), "api", *_dependency_domains(code)]),
@@ -248,7 +289,12 @@ def build_security_review_prompt(
 
 
 def build_api_review_prompt(
-    framework: str, code: str, context: str, focus: str, report_language: str = ""
+    framework: str,
+    code: str,
+    context: str,
+    focus: str,
+    report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the REST API security-review prompt (OWASP API Security Top 10)."""
     fw = framework.strip() or "unspecified framework"
@@ -259,6 +305,7 @@ def build_api_review_prompt(
         "returned.",
         _context_block(context, focus),
         report_language_block(report_language),
+        fix_severity_block(fix_min_severity),
         _PROJECT_CHECK,
         "For each endpoint you can see, determine: who may call it, how identity is "
         "established, how object ownership is verified, which fields are accepted and "
@@ -271,7 +318,12 @@ def build_api_review_prompt(
 
 
 def build_config_review_prompt(
-    config_type: str, content: str, context: str, focus: str, report_language: str = ""
+    config_type: str,
+    content: str,
+    context: str,
+    focus: str,
+    report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the configuration review prompt (Docker, CI/CD, Spring, YAML, properties...)."""
     kind = config_type.strip() or "configuration"
@@ -281,6 +333,7 @@ def build_config_review_prompt(
         "network exposure, weak TLS, unpinned dependencies and risky CI/CD steps.",
         _context_block(context, focus),
         report_language_block(report_language),
+        fix_severity_block(fix_min_severity),
         _PROJECT_CHECK,
         _method("configuration-review").replace(
             "`scan_code`", "`scan_code` (use language `config`, `yaml` or `docker`)"
@@ -318,7 +371,11 @@ def build_triage_prompt(report_text: str, context: str, report_language: str = "
 
 
 def build_dependency_review_prompt(
-    ecosystem: str, files: str, context: str, report_language: str = ""
+    ecosystem: str,
+    files: str,
+    context: str,
+    report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the dependency / supply-chain review prompt."""
     scope = ecosystem.strip() or "PyPI, npm, Maven, Go, crates.io and NuGet"
@@ -327,6 +384,7 @@ def build_dependency_review_prompt(
         "of a project: known vulnerabilities and supply-chain hygiene.",
         _context_block(context, ""),
         report_language_block(report_language),
+        fix_severity_block(fix_min_severity),
         _PROJECT_CHECK,
         f"""\
 ## Method
@@ -359,7 +417,8 @@ Reply with a short summary and the findings, then call `save_security_report` on
 checklist item you walked through with its outcome (`ok`, `issue`, `not_applicable`, \
 `not_verifiable`). Use category `dependency`, the `advisory_id` returned by the tool (not \
 an alias) or the hygiene `rule_id` as `rule_id`, `CWE-1395` for vulnerable components and the \
-manifest path as `file_path`: the finding then matches the one of a dependency scan.
+manifest path as `file_path`: the finding then matches the one of a dependency scan. \
+{_REPORT_REQUIRED}
 """,
         _checklists(["dependencies"]),
         (
@@ -410,13 +469,18 @@ reporting them, unless they ship to production.
 files and areas reviewed, and those NOT reviewed.
 2. Call `save_security_report` exactly once with `review_type` `codebase-review`. \
 {_AUTHOR_RULE} {_COVERAGE_RULE} Put the coverage in `scope` (for example \
-"Full codebase: src/api, src/auth reviewed; src/legacy not reviewed").
+"Full codebase: src/api, src/auth reviewed; src/legacy not reviewed"). {_REPORT_REQUIRED}
 3. {_RULE_PROPOSAL}
 """
 
 
 def build_codebase_review_prompt(
-    languages: str, scan_results: str, context: str, focus: str, report_language: str = ""
+    languages: str,
+    scan_results: str,
+    context: str,
+    focus: str,
+    report_language: str = "",
+    fix_min_severity: str = "",
 ) -> str:
     """Build the whole-codebase review prompt (not limited to a diff)."""
     langs = _words(languages)
@@ -430,6 +494,7 @@ def build_codebase_review_prompt(
         "including issues that span several files.",
         _context_block(context, focus),
         report_language_block(report_language),
+        fix_severity_block(fix_min_severity),
         _PROJECT_CHECK,
         _CODEBASE_METHOD,
         checklists,

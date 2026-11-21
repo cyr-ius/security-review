@@ -67,6 +67,8 @@ class AuditAction(StrEnum):
     USER_GROUPS_CHANGED = "user.groups_changed"
     PROJECT_CREATED = "project.created"
     PROJECT_DELETED = "project.deleted"
+    # A project renamed with everything that refers to it (see access_control.rename_project)
+    PROJECT_RENAMED = "project.renamed"
     # A holder of projects.autojoin joined a project at once (see access_control.request_project)
     PROJECT_JOINED = "project.joined"
     # The autojoin of a project blocked or allowed again (see access_control.set_autojoin_blocked)

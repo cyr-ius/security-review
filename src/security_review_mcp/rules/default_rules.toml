@@ -305,7 +305,7 @@ title = "Container image uses :latest"
 severity = "low"
 cwe = "CWE-1357"
 languages = ["config", "docker", "yaml"]
-pattern = '(^|\s)(image\s*:|FROM)\s+[\w./-]+(:latest)?\s*$'
+pattern = '(^|\s)(image\s*:|(?-i:FROM))\s+[\w./-]+(:latest)?\s*$'
 advice = "Pin images by version or, better, by digest."
 
 [[rules]]
@@ -1974,6 +1974,492 @@ pattern = '\b\w*(signature|hmac|digest|apikey|api_key|secret|token)\s*(===|!==|=
 advice = "Compare secrets with crypto.timingSafeEqual on buffers of equal length."
 
 
+# ── PHP ──────────────────────────────────────────────────────────────────────
+
+[[rules]]
+id = "PHP-001"
+title = "OS command built from a variable (PHP)"
+severity = "high"
+cwe = "CWE-78"
+languages = ["php"]
+# A backtick expression only where a value starts (=, (, return, echo): not a MySQL identifier
+pattern = '''(?<![\w>$:])(system|exec|shell_exec|passthru|popen|proc_open|pcntl_exec)\s*\([^;]*\$\w|(=|\(|\breturn\b|\becho\b|\bprint\b)\s*`[^`'"\n]*\$\w[^`'"\n]*`'''
+advice = "Avoid the shell: pass a fixed program with escapeshellarg() on each argument, or use a library API."
+
+[[rules]]
+id = "PHP-002"
+title = "Dynamic code evaluation (PHP)"
+severity = "high"
+cwe = "CWE-95"
+languages = ["php"]
+pattern = '''(?<![\w>$:])(eval|create_function)\s*\(|(?<![\w>$:])assert\s*\(\s*\$'''
+advice = "Never evaluate code built at runtime; dispatch to known functions with an allow list."
+
+[[rules]]
+id = "PHP-003"
+title = "unserialize() without allowed_classes (PHP)"
+severity = "high"
+cwe = "CWE-502"
+languages = ["php"]
+pattern = '''\bunserialize\s*\((?![^;]*allowed_classes)'''
+advice = "Use json_decode() for data, or unserialize($data, ['allowed_classes' => false])."
+
+[[rules]]
+id = "PHP-004"
+title = "SQL query built from a variable (PHP)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["php"]
+pattern = '''(->(query|exec|multi_query)|\b(mysqli|mysql|pg|sqlite)_query)\s*\([^;]*\b(?i:select|insert|update|delete)\b[^;]*(\$\w|\.\s*\$)'''
+advice = "Use prepared statements with bound parameters (PDO::prepare, mysqli_prepare)."
+
+[[rules]]
+id = "PHP-005"
+title = "File included from request data (PHP)"
+severity = "critical"
+cwe = "CWE-98"
+languages = ["php"]
+pattern = '''\b(include|require)(_once)?\b[^;]*\$_(GET|POST|REQUEST|COOKIE)\b'''
+advice = "Map the request value to a fixed list of files; never include a path taken from the request."
+
+[[rules]]
+id = "PHP-006"
+title = "Request data written to the page without escaping (PHP)"
+severity = "high"
+cwe = "CWE-79"
+languages = ["php"]
+pattern = '''\b(echo|print)\b(?![^;]*\b(htmlspecialchars|htmlentities|intval|json_encode)\s*\()[^;]*\$_(GET|POST|REQUEST|COOKIE)\b|<\?=\s*\$_(GET|POST|REQUEST|COOKIE)\b'''
+advice = "Escape every output with htmlspecialchars($value, ENT_QUOTES, 'UTF-8') or use a template engine that escapes by default."
+
+[[rules]]
+id = "PHP-007"
+title = "TLS certificate verification disabled (PHP)"
+severity = "high"
+cwe = "CWE-295"
+languages = ["php"]
+pattern = '''\bCURLOPT_SSL_VERIFY(PEER|HOST)\s*,\s*(false|0)\b|['"]verify_peer(_name)?['"]\s*=>\s*false\b'''
+advice = "Keep certificate and host name verification on; trust a private CA with CURLOPT_CAINFO."
+
+[[rules]]
+id = "PHP-008"
+title = "Password hashed with a fast hash (PHP)"
+severity = "high"
+cwe = "CWE-916"
+languages = ["php"]
+pattern = '''\b(md5|sha1|hash\s*\(\s*['"](md5|sha1|sha256)['"]\s*,)\s*\(?[^;)]*\$\w*(?i:pass|pwd)'''
+advice = "Hash passwords with password_hash() and check them with password_verify()."
+
+[[rules]]
+id = "PHP-009"
+title = "Secret compared with a loose operator (PHP)"
+severity = "medium"
+cwe = "CWE-697"
+languages = ["php"]
+pattern = '''\$\w*(?i:token|hash|signature|hmac|secret)\w*\s*(==|!=)(?!=)'''
+advice = "Compare secrets with hash_equals(): == juggles types (\"0e123\" == \"0e456\") and leaks timing."
+
+[[rules]]
+id = "PHP-010"
+title = "Redirect to a URL taken from the request (PHP)"
+severity = "medium"
+cwe = "CWE-601"
+languages = ["php"]
+pattern = '''\bheader\s*\(\s*['"]Location:[^;]*\$_(GET|POST|REQUEST)\b'''
+advice = "Redirect only to relative paths or to an allow list of hosts."
+
+[[rules]]
+id = "PHP-011"
+title = "Request data imported as variables (PHP)"
+severity = "high"
+cwe = "CWE-621"
+languages = ["php"]
+pattern = '''\b(extract|parse_str)\s*\(\s*\$_(GET|POST|REQUEST|COOKIE|SERVER)\b(?![^;]*,)'''
+advice = "Read the expected keys explicitly; never turn request data into variables."
+
+[[rules]]
+id = "PHP-012"
+title = "URL or file opened from request data (PHP)"
+severity = "high"
+cwe = "CWE-918"
+languages = ["php"]
+pattern = '''\b(file_get_contents|fopen|readfile|curl_init|simplexml_load_file|getimagesize)\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)\b'''
+advice = "Check the host against an allow list (SSRF) or the path against a base directory (path traversal)."
+
+[[rules]]
+id = "PHP-013"
+title = "Predictable random value used as a secret (PHP)"
+severity = "medium"
+cwe = "CWE-338"
+languages = ["php"]
+pattern = '''\$\w*(?i:token|secret|nonce|salt|password|otp|key)\w*\s*=[^;]*\b(rand|mt_rand|uniqid|lcg_value|str_shuffle)\s*\('''
+advice = "Generate secrets with random_bytes() or random_int()."
+
+# ── Ruby / Rails ─────────────────────────────────────────────────────────────
+
+[[rules]]
+id = "RB-001"
+title = "OS command built with interpolation (Ruby)"
+severity = "high"
+cwe = "CWE-78"
+languages = ["ruby"]
+# A backtick command where a value starts, with a space in it: not a MySQL identifier (`#{column}`)
+pattern = '''\b(system|exec|spawn)\s*\(?\s*"[^"\n]*#\{|\b(IO\.popen|Open3\.\w+)\s*\(\s*"[^"\n]*#\{|(^|[=(,]|\breturn\b|\bputs\b)\s*`(?=[^`\n]*\s)[^`\n]*#\{[^`\n]*`|%x[\{\(\[][^\n]*#\{'''
+advice = "Pass the program and each argument separately: system(\"convert\", input, output)."
+
+[[rules]]
+id = "RB-002"
+title = "SQL fragment built with interpolation (Rails)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["ruby"]
+pattern = '''\.(where|not|find_by_sql|order|reorder|group|having|joins|select|pluck|from|lock|exists\?|execute|exec_query|select_all|select_value)\s*\(\s*"[^"\n]*#\{[^"\n]*"(?!\s*:)'''
+advice = "Use placeholders (where(\"name = ?\", name)) or hash conditions (where(name: name))."
+
+[[rules]]
+id = "RB-003"
+title = "Code or method chosen by request data (Ruby)"
+severity = "high"
+cwe = "CWE-95"
+languages = ["ruby"]
+pattern = '''\b(eval|instance_eval|class_eval|module_eval)\b[^\n]*\bparams\b|\.(send|public_send|__send__|try)\s*\(\s*params\b|\bparams\[[^\]\n]*\]\.(constantize|safe_constantize)\b'''
+advice = "Map request values to an allow list of methods or classes; never evaluate or dispatch them directly."
+
+[[rules]]
+id = "RB-004"
+title = "Unsafe deserialization (Ruby)"
+severity = "high"
+cwe = "CWE-502"
+languages = ["ruby"]
+pattern = '''\b(YAML|Psych)\.unsafe_load(_file)?\b|\bMarshal\.(load|restore)\b|\bOj\.load\b(?![^\n]*mode:\s*:(strict|null|compat))'''
+advice = "Use YAML.safe_load, JSON.parse or Oj in :strict mode; never Marshal.load untrusted bytes."
+
+[[rules]]
+id = "RB-005"
+title = "Output marked as safe HTML (Rails)"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["ruby"]
+# raw on a plain literal without interpolation is fixed markup
+pattern = '''\.html_safe\b|(?<![\w.])raw\s*\((?!\s*("(?:[^"\\#\n]|\\.)*"|'[^'\n]*')\s*\))|<%==|\bcontent_tag\b[^\n]*escape:\s*false'''
+advice = "Let Rails escape the output; for trusted markup use sanitize with an allow list of tags."
+
+[[rules]]
+id = "RB-006"
+title = "Every request parameter allowed (Rails mass assignment)"
+severity = "high"
+cwe = "CWE-915"
+languages = ["ruby"]
+pattern = '''\bparams\.(permit!|to_unsafe_h(ash)?\b)'''
+advice = "Allow the expected attributes only: params.require(:user).permit(:name, :email)."
+
+[[rules]]
+id = "RB-007"
+title = "CSRF protection skipped (Rails)"
+severity = "medium"
+cwe = "CWE-352"
+languages = ["ruby"]
+pattern = '''\bskip_before_action\s+:verify_authenticity_token\b|\bskip_forgery_protection\b|\bprotect_from_forgery\b[^\n]*\bwith:\s*:null_session'''
+advice = "Keep protect_from_forgery with: :exception for session-based controllers; skip it only for token-authenticated APIs."
+
+[[rules]]
+id = "RB-008"
+title = "TLS certificate verification disabled (Ruby)"
+severity = "high"
+cwe = "CWE-295"
+languages = ["ruby"]
+pattern = '''\bOpenSSL::SSL::VERIFY_NONE\b|\b(verify_ssl|ssl_verify)\s*(:|=>)\s*false\b|\bverify_mode\s*(:|=>)\s*:none\b'''
+advice = "Keep VERIFY_PEER; trust a private CA with ca_file or cert_store."
+
+[[rules]]
+id = "RB-009"
+title = "Redirect to a URL taken from the request (Rails)"
+severity = "medium"
+cwe = "CWE-601"
+languages = ["ruby"]
+pattern = '''\bredirect_to\s*\(?\s*(params\b|request\.(referer|referrer)\b)'''
+advice = "Redirect to named routes or an allow list; Rails 7 refuses other hosts unless allow_other_host: true."
+
+[[rules]]
+id = "RB-010"
+title = "File or command opened from request data (Ruby)"
+severity = "high"
+cwe = "CWE-22"
+languages = ["ruby"]
+pattern = '''(?<![\w.:])open\s*\(\s*params\b|\b(send_file|send_data)\s*\(?\s*params\b|\b(File|IO)\.(read|open|binread|readlines)\s*\(\s*params\b'''
+advice = "Map the request value to known files under a base directory; Kernel#open also runs \"|command\"."
+
+[[rules]]
+id = "RB-011"
+title = "Weak hash algorithm (Ruby)"
+severity = "medium"
+cwe = "CWE-328"
+languages = ["ruby"]
+pattern = '''\bDigest::(MD5|SHA1)\b|\bOpenSSL::Digest::(MD5|SHA1)\b'''
+advice = "Use SHA-256 or stronger; for passwords use bcrypt (has_secure_password)."
+
+[[rules]]
+id = "RB-012"
+title = "Validation regex anchored with ^ and $ (Ruby)"
+severity = "medium"
+cwe = "CWE-625"
+languages = ["ruby"]
+pattern = '''\bformat:\s*\{?\s*with:\s*/\^|\bwith:\s*/\^[^/\n]*\$/'''
+advice = "In Ruby ^ and $ match at each line: anchor validations with \\A and \\z."
+
+# ── Kotlin / Android ─────────────────────────────────────────────────────────
+
+[[rules]]
+id = "KT-001"
+title = "OS command built with a string template (Kotlin)"
+severity = "high"
+cwe = "CWE-78"
+languages = ["kotlin"]
+pattern = '''Runtime\.getRuntime\(\)\.exec\s*\(\s*"[^"\n]*\$|\bProcessBuilder\s*\(\s*(listOf\s*\()?\s*"(sh|bash|/bin/sh|/bin/bash|cmd|cmd\.exe)"'''
+advice = "Run a fixed program with separate arguments (ProcessBuilder(listOf(\"convert\", input))); never through a shell."
+
+[[rules]]
+id = "KT-002"
+title = "SQL query built with a string template (Kotlin)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["kotlin"]
+pattern = '''\.(rawQuery|execSQL|executeQuery|executeUpdate|execute|prepareStatement|createQuery|createNativeQuery|query)\s*\(\s*"[^"\n]*\b(?i:select|insert|update|delete|where)\b[^"\n]*\$'''
+advice = "Bind parameters (? placeholders with selectionArgs, or named parameters); never interpolate values."
+
+[[rules]]
+id = "KT-003"
+title = "JavaScript bridge or JavaScript enabled in a WebView (Android)"
+severity = "medium"
+cwe = "CWE-749"
+languages = ["kotlin"]
+pattern = '''\baddJavascriptInterface\s*\(|\bjavaScriptEnabled\s*=\s*true\b|\bsetJavaScriptEnabled\s*\(\s*true\s*\)'''
+advice = "Enable JavaScript only for trusted content, and expose a bridge only to pages of your own origin."
+
+[[rules]]
+id = "KT-004"
+title = "File access allowed in a WebView (Android)"
+severity = "medium"
+cwe = "CWE-200"
+languages = ["kotlin"]
+pattern = '''\b(allowFileAccess|allowFileAccessFromFileURLs|allowUniversalAccessFromFileURLs|allowContentAccess)\s*=\s*true\b|\bsetAllow(FileAccess|FileAccessFromFileURLs|UniversalAccessFromFileURLs)\s*\(\s*true\s*\)'''
+advice = "Keep file access off; load local content through WebViewAssetLoader."
+
+[[rules]]
+id = "KT-005"
+title = "Certificate or host name checks disabled (Kotlin)"
+severity = "high"
+cwe = "CWE-295"
+languages = ["kotlin"]
+pattern = '''\b[Hh]ostnameVerifier\s*\{\s*_\s*,\s*_\s*->\s*true\s*\}|\boverride\s+fun\s+checkServerTrusted\s*\([^)]*\)\s*(\{\s*\}|=\s*Unit\b|\{\s*//)'''
+advice = "Keep the default trust manager and host name verifier; pin certificates with a network security config."
+
+[[rules]]
+id = "KT-006"
+title = "Weak cipher or ECB mode (Kotlin)"
+severity = "high"
+cwe = "CWE-327"
+languages = ["kotlin"]
+pattern = '''\bCipher\.getInstance\s*\(\s*"((DES|DESede|RC2|RC4|Blowfish)\b[^"]*|AES|[^"]*/ECB/[^"]*)"'''
+advice = "Use AES/GCM/NoPadding with a random 12-byte IV."
+
+[[rules]]
+id = "KT-007"
+title = "Weak hash algorithm (Kotlin)"
+severity = "medium"
+cwe = "CWE-328"
+languages = ["kotlin"]
+pattern = '''\bMessageDigest\.getInstance\s*\(\s*"(MD5|MD2|SHA-?1)"'''
+advice = "Use SHA-256 or stronger; for passwords use a key derivation function (PBKDF2, Argon2)."
+
+[[rules]]
+id = "KT-008"
+title = "Predictable random value used as a secret (Kotlin)"
+severity = "medium"
+cwe = "CWE-338"
+languages = ["kotlin"]
+pattern = '''\b\w*(?i:token|secret|nonce|salt|password|otp)\w*\s*=[^\n]*\b(Random\.next\w*|Random\s*\(\s*\)\.next\w*|Math\.random)\s*\('''
+advice = "Generate secrets with java.security.SecureRandom."
+
+[[rules]]
+id = "KT-009"
+title = "World-readable or world-writable file (Android)"
+severity = "high"
+cwe = "CWE-276"
+languages = ["kotlin"]
+pattern = '''\bMODE_WORLD_(READABLE|WRITEABLE)\b'''
+advice = "Keep files private (MODE_PRIVATE) and share them with a FileProvider."
+
+[[rules]]
+id = "KT-010"
+title = "Java deserialization of a stream (Kotlin)"
+severity = "medium"
+cwe = "CWE-502"
+languages = ["kotlin"]
+pattern = '''\bObjectInputStream\s*\('''
+advice = "Exchange data as JSON (kotlinx.serialization); with Java serialization, set an ObjectInputFilter allow list."
+
+# Android manifest and network security configuration (language "android")
+
+[[rules]]
+id = "KT-011"
+title = "Debuggable application (Android manifest)"
+severity = "high"
+cwe = "CWE-489"
+languages = ["android"]
+pattern = '''\bandroid:debuggable\s*=\s*"true"'''
+advice = "Remove android:debuggable: the build type sets it, and a debuggable release lets anyone attach a debugger and read the app data."
+
+[[rules]]
+id = "KT-012"
+title = "Application data included in backups (Android manifest)"
+severity = "low"
+cwe = "CWE-530"
+languages = ["android"]
+pattern = '''\bandroid:allowBackup\s*=\s*"true"'''
+advice = "Set allowBackup=\"false\", or exclude tokens and keys with dataExtractionRules / fullBackupContent."
+
+[[rules]]
+id = "KT-013"
+title = "Clear-text traffic allowed (Android)"
+severity = "medium"
+cwe = "CWE-319"
+languages = ["android"]
+pattern = '''\bandroid:usesCleartextTraffic\s*=\s*"true"|\bcleartextTrafficPermitted\s*=\s*"true"'''
+advice = "Use HTTPS only; allow clear text for a named development domain in the network security config if needed."
+
+[[rules]]
+id = "KT-014"
+title = "User-installed certificates trusted (Android)"
+severity = "medium"
+cwe = "CWE-295"
+languages = ["android"]
+pattern = '''<certificates\s+src\s*=\s*"user"'''
+advice = "Trust only the system certificates in release builds; keep user CAs in a debug-overrides block."
+
+# ── Terraform ────────────────────────────────────────────────────────────────
+# Terraform also gets the config rules (0.0.0.0/0, public bucket ACL, passwords...).
+
+[[rules]]
+id = "TF-001"
+title = "Ingress open to the whole internet (Terraform)"
+severity = "high"
+cwe = "CWE-284"
+languages = ["terraform"]
+pattern = '''\bipv6_cidr_blocks\s*=\s*\[[^\]\n]*"::/0"|\bsource_address_prefix(es)?\s*=\s*\[?\s*"(\*|Internet|Any)"|\bsource_ranges\s*=\s*\[[^\]\n]*"0\.0\.0\.0/0"'''
+advice = "Allow only the address ranges that need the service; put administration ports behind a bastion or VPN."
+
+[[rules]]
+id = "TF-002"
+title = "Public access block of a bucket disabled (Terraform)"
+severity = "high"
+cwe = "CWE-284"
+languages = ["terraform"]
+pattern = '''\b(ignore_public_acls|restrict_public_buckets)\s*=\s*false\b|\b(allow_blob_public_access|allow_nested_items_to_be_public)\s*=\s*true\b'''
+advice = "Turn every public access block setting on; share objects with signed URLs."
+
+[[rules]]
+id = "TF-003"
+title = "Resource reachable from the internet (Terraform)"
+severity = "medium"
+cwe = "CWE-284"
+languages = ["terraform"]
+pattern = '''\bpublicly_accessible\s*=\s*true\b|\bpublic_network_access_enabled\s*=\s*true\b|\bassociate_public_ip_address\s*=\s*true\b|\bmap_public_ip_on_launch\s*=\s*true\b'''
+advice = "Keep databases and instances in private subnets; expose them through a load balancer or private endpoint."
+
+[[rules]]
+id = "TF-004"
+title = "Encryption at rest disabled (Terraform)"
+severity = "medium"
+cwe = "CWE-311"
+languages = ["terraform"]
+pattern = '''\b(encrypted|storage_encrypted|encryption_enabled|enable_encryption|at_rest_encryption_enabled|kms_encryption_enabled)\s*=\s*false\b'''
+advice = "Enable encryption at rest, with a customer-managed key for sensitive data."
+
+[[rules]]
+id = "TF-005"
+title = "IAM policy grants every action or every principal (Terraform)"
+severity = "high"
+cwe = "CWE-269"
+languages = ["terraform"]
+pattern = '''"Action"\s*:\s*\[?\s*"\*"|\bactions\s*=\s*\[\s*"\*"\s*\]|"Principal"\s*:\s*(\{\s*"AWS"\s*:\s*)?"\*"|\bidentifiers\s*=\s*\[\s*"\*"\s*\]'''
+advice = "Grant the exact actions and principals needed (least privilege)."
+
+[[rules]]
+id = "TF-006"
+title = "Instance metadata service v1 allowed (Terraform)"
+severity = "medium"
+cwe = "CWE-918"
+languages = ["terraform"]
+pattern = '''\bhttp_tokens\s*=\s*"optional"'''
+advice = "Require IMDSv2: http_tokens = \"required\" (an SSRF cannot then read the instance credentials)."
+
+[[rules]]
+id = "TF-007"
+title = "Plain HTTP or TLS not enforced (Terraform)"
+severity = "high"
+cwe = "CWE-319"
+languages = ["terraform"]
+pattern = '''\b(ssl_enforcement_enabled|enable_https_traffic_only|https_only|require_ssl|https_traffic_only_enabled)\s*=\s*false\b|\bviewer_protocol_policy\s*=\s*"allow-all"'''
+advice = "Enforce TLS on every endpoint (redirect-to-https, https_only = true, ssl enforcement on)."
+
+[[rules]]
+id = "TF-008"
+title = "Obsolete minimum TLS version (Terraform)"
+severity = "medium"
+cwe = "CWE-326"
+languages = ["terraform"]
+pattern = '''\b(min_tls_version|minimum_tls_version|ssl_minimal_tls_version_enforced)\s*=\s*"(TLS1_[01]|1\.[01])"|\bssl_policy\s*=\s*"ELBSecurityPolicy-(2015-05|2016-08|TLS-1-0-2015-04|TLS-1-1-2017-01)"'''
+advice = "Require TLS 1.2 or later (TLS1_2, ELBSecurityPolicy-TLS13-1-2-2021-06)."
+
+[[rules]]
+id = "TF-009"
+title = "Audit logging disabled (Terraform)"
+severity = "low"
+cwe = "CWE-778"
+languages = ["terraform"]
+pattern = '''\b(enable_log_file_validation|is_multi_region_trail|enable_logging|include_global_service_events)\s*=\s*false\b'''
+advice = "Keep audit trails on, in every region, with log file validation."
+
+
+# ── FastAPI / Starlette ──────────────────────────────────────────────────────
+
+[[rules]]
+id = "FA-005"
+title = "Every Host header accepted (FastAPI)"
+severity = "medium"
+cwe = "CWE-346"
+languages = ["python"]
+pattern = '''\bTrustedHostMiddleware\b[^\n]*\ballowed_hosts\s*=\s*\[\s*['"]\*['"]'''
+advice = "List the host names the application serves: a forged Host header otherwise reaches the links and redirects it builds."
+
+[[rules]]
+id = "FA-006"
+title = "Session signing key written in the code (FastAPI)"
+severity = "high"
+cwe = "CWE-798"
+languages = ["python"]
+pattern = '''\bSessionMiddleware\b[^\n]*\bsecret_key\s*=\s*['"][^'"\n]+['"]'''
+advice = "Read the key from the environment or a secret store: whoever knows it forges sessions."
+
+[[rules]]
+id = "FA-007"
+title = "Forwarded headers trusted from every client (Uvicorn)"
+severity = "medium"
+cwe = "CWE-348"
+languages = ["python", "config", "docker", "yaml"]
+pattern = '''\bforwarded_allow_ips\s*=\s*['"]\*['"]|--forwarded-allow-ips[= ]['"]?\*|\bFORWARDED_ALLOW_IPS\s*[:=]\s*['"]?\*'''
+advice = "Trust X-Forwarded-For only from the address of the reverse proxy: any client otherwise chooses its IP and scheme."
+
+[[rules]]
+id = "FA-008"
+title = "Debug mode enabled (FastAPI / Starlette)"
+severity = "medium"
+cwe = "CWE-215"
+languages = ["python"]
+pattern = '''\b(FastAPI|Starlette)\s*\([^)\n]*\bdebug\s*=\s*True\b'''
+advice = "Keep debug off outside development: it returns tracebacks with code and local values to the client."
+
+
 # The "*" domain applies to every language: it is added to every review prompt.
 [[checklist]]
 domain = "*"
@@ -2849,3 +3335,165 @@ id = "SC-09"
 title = "Update policy"
 what_to_look_for = "No automated update tool (Renovate, Dependabot), no deadline for fixing critical advisories, end-of-life runtimes or frameworks."
 cwe = "CWE-1104"
+
+# ── PHP ──────────────────────────────────────────────────────────────────────
+
+[[checklist]]
+domain = "php"
+id = "PHP-01"
+title = "Injection (SQL / command / code)"
+what_to_look_for = "Queries built by concatenation or interpolation instead of PDO or mysqli prepared statements; system, exec, shell_exec, passthru, backticks with request data; eval, assert on strings, create_function, preg_replace with /e."
+cwe = "CWE-89"
+
+[[checklist]]
+domain = "php"
+id = "PHP-02"
+title = "File inclusion and paths"
+what_to_look_for = "include/require of a path built from the request (LFI/RFI), allow_url_include on, file_get_contents/fopen/readfile on request data (path traversal, SSRF, php:// and phar:// wrappers), uploads stored under the web root with an executable extension."
+cwe = "CWE-98"
+
+[[checklist]]
+domain = "php"
+id = "PHP-03"
+title = "Output escaping (XSS)"
+what_to_look_for = "echo, print or <?= of request or database values without htmlspecialchars(..., ENT_QUOTES, 'UTF-8'); templates (Twig, Blade) with autoescape off, |raw or {!! !!}."
+cwe = "CWE-79"
+
+[[checklist]]
+domain = "php"
+id = "PHP-04"
+title = "Deserialization and type juggling"
+what_to_look_for = "unserialize() of untrusted data without allowed_classes, phar:// paths reaching file functions, loose comparisons (==, in_array without strict, switch) on tokens, hashes or passwords instead of hash_equals and ===."
+cwe = "CWE-502"
+
+[[checklist]]
+domain = "php"
+id = "PHP-05"
+title = "Sessions, passwords and randomness"
+what_to_look_for = "Session id not regenerated at login (session_regenerate_id), cookies without Secure/HttpOnly/SameSite, md5/sha1 password hashes instead of password_hash, rand/mt_rand/uniqid for tokens instead of random_bytes."
+cwe = "CWE-384"
+
+[[checklist]]
+domain = "php"
+id = "PHP-06"
+title = "Configuration exposed"
+what_to_look_for = "display_errors on in production, phpinfo() reachable, .env or composer files served by the web server, expose_php on, framework debug mode (APP_DEBUG=true) in production."
+cwe = "CWE-209"
+
+# ── Ruby / Rails ─────────────────────────────────────────────────────────────
+
+[[checklist]]
+domain = "ruby"
+id = "RB-01"
+title = "Injection (SQL / command / code)"
+what_to_look_for = "ActiveRecord where/order/pluck/find_by_sql with interpolated strings, system/exec/backticks/IO.popen with interpolation, Kernel#open on user input (runs \"|cmd\"), eval/send/constantize driven by params."
+cwe = "CWE-89"
+
+[[checklist]]
+domain = "ruby"
+id = "RB-02"
+title = "Mass assignment and strong parameters"
+what_to_look_for = "params.permit!, to_unsafe_h, permit of role/admin/owner attributes, update(params[:user]) without require/permit."
+cwe = "CWE-915"
+
+[[checklist]]
+domain = "ruby"
+id = "RB-03"
+title = "Views and XSS"
+what_to_look_for = "html_safe, raw, <%== on user data, link_to with a user-controlled URL (javascript: scheme), content_tag with escape: false, JSON rendered into script tags without json_escape."
+cwe = "CWE-79"
+
+[[checklist]]
+domain = "ruby"
+id = "RB-04"
+title = "CSRF, sessions and redirects"
+what_to_look_for = "protect_from_forgery missing or skipped on session controllers, cookie store secrets committed, redirect_to params or request.referer, allow_other_host: true."
+cwe = "CWE-352"
+
+[[checklist]]
+domain = "ruby"
+id = "RB-05"
+title = "Deserialization and files"
+what_to_look_for = "Marshal.load, YAML.unsafe_load, Oj.load outside :strict on untrusted data; send_file or File.read with paths from params; Active Storage files served inline with a user-chosen content type."
+cwe = "CWE-502"
+
+[[checklist]]
+domain = "ruby"
+id = "RB-06"
+title = "Authorization"
+what_to_look_for = "Records loaded with Model.find(params[:id]) instead of current_user.records.find (IDOR), Pundit/CanCan checks missing on some actions (verify_authorized), admin namespaces without a before_action."
+cwe = "CWE-639"
+
+# ── Kotlin / Android ─────────────────────────────────────────────────────────
+
+[[checklist]]
+domain = "kotlin"
+id = "KT-01"
+title = "Injection (SQL / command)"
+what_to_look_for = "rawQuery/execSQL, JDBC or JPA queries built with string templates instead of bound parameters; Runtime.exec or ProcessBuilder through a shell."
+cwe = "CWE-89"
+
+[[checklist]]
+domain = "kotlin"
+id = "KT-02"
+title = "Android components and intents"
+what_to_look_for = "Activities, services, receivers or providers exported without a permission, intents forwarded from extras (intent redirection), PendingIntent without FLAG_IMMUTABLE, deep links trusted without validation."
+cwe = "CWE-926"
+
+[[checklist]]
+domain = "kotlin"
+id = "KT-03"
+title = "WebView"
+what_to_look_for = "JavaScript enabled for untrusted content, addJavascriptInterface exposed to other origins, file or universal access from file URLs, shouldOverrideUrlLoading loading any URL."
+cwe = "CWE-749"
+
+[[checklist]]
+domain = "kotlin"
+id = "KT-04"
+title = "TLS and network"
+what_to_look_for = "Trust managers or host name verifiers that accept everything, cleartextTrafficPermitted, missing network security config or certificate pinning for sensitive APIs."
+cwe = "CWE-295"
+
+[[checklist]]
+domain = "kotlin"
+id = "KT-05"
+title = "Data storage and cryptography"
+what_to_look_for = "Secrets in SharedPreferences or files instead of the Android Keystore / EncryptedSharedPreferences, MODE_WORLD_READABLE, logs with personal data, ECB or static IVs, android:allowBackup on apps holding secrets."
+cwe = "CWE-312"
+
+# ── Terraform ────────────────────────────────────────────────────────────────
+
+[[checklist]]
+domain = "terraform"
+id = "TF-01"
+title = "Network exposure"
+what_to_look_for = "Security groups, firewall rules or NSGs open to 0.0.0.0/0 or ::/0 on administration or database ports, public IPs on instances, publicly accessible databases, missing private endpoints."
+cwe = "CWE-284"
+
+[[checklist]]
+domain = "terraform"
+id = "TF-02"
+title = "Identity and access"
+what_to_look_for = "IAM policies with Action or Resource \"*\", Principal \"*\" in resource policies, long-lived access keys created in Terraform, roles assumable by any account, missing permission boundaries."
+cwe = "CWE-269"
+
+[[checklist]]
+domain = "terraform"
+id = "TF-03"
+title = "Storage and encryption"
+what_to_look_for = "Buckets or containers with public ACLs or public access blocks off, encryption at rest disabled, no customer-managed keys for sensitive data, versioning off where deletion must be recoverable."
+cwe = "CWE-311"
+
+[[checklist]]
+domain = "terraform"
+id = "TF-04"
+title = "Secrets and state"
+what_to_look_for = "Passwords and keys in variables defaults, tfvars or locals; outputs not marked sensitive; state stored locally or in a backend without encryption and locking (the state holds every secret)."
+cwe = "CWE-798"
+
+[[checklist]]
+domain = "terraform"
+id = "TF-05"
+title = "Logging and metadata"
+what_to_look_for = "Audit trails disabled or single-region, log file validation off, IMDSv1 allowed (http_tokens optional), TLS not enforced or obsolete minimum versions."
+cwe = "CWE-778"

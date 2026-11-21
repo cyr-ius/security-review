@@ -30,6 +30,20 @@ rules:
                   regex: ^(?!(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|bool|Uuid|uuid::Uuid)$)
           - pattern: "($REQ : HttpRequest).query_string()"
           - pattern: "($REQ : HttpRequest).match_info()"
+    pattern-propagators:
+      # A value pushed to a String or a Vec taints it (join...)
+      - pattern: $TO.push_str($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -47,3 +61,7 @@ rules:
               - pattern: ureq::get($URL)
               - pattern: ureq::post($URL)
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: urlencoding::encode(...)
+          - pattern: encode(...)

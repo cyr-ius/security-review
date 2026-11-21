@@ -21,6 +21,7 @@ from .schemas import (
     AuditSyslogSettings,
     AuditSyslogUpdate,
     ControllerUrlUpdate,
+    FixSeverityUpdate,
     McpScanDelegationUpdate,
     OsvDownloadUpdate,
     OsvEcosystemsUpdate,
@@ -109,6 +110,18 @@ async def set_report_language(body: ReportLanguageUpdate, identity: SettingsMana
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Report language set to %r by %s", body.value, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/fix-severity")
+async def set_fix_severity(body: FixSeverityUpdate, identity: SettingsManager) -> AppSettings:
+    """Set the lowest severity of the findings the agent must fix (used by the MCP server for the
+    next prompts and tool calls)."""
+    try:
+        await run_in_threadpool(app_settings.set_fix_min_severity, body.value, identity.client)
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Fix severity set to %r by %s", body.value, identity.client)
     return await run_in_threadpool(app_settings.describe)
 
 

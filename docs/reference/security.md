@@ -72,6 +72,9 @@
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-log.md)).
+- **Application logs**: each message stays on one line, its line breaks written as escapes
+  (`\n`, `\r`...): a value sent by a client, such as a token label or a user name, cannot forge
+  a log entry. Only a traceback keeps its lines.
 - **Metrics**: `/metrics` exists on the Controller server only (the MCP server keeps `/mcp`
   and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token
@@ -143,9 +146,10 @@
   is replaced), and the page only gets a short error code. Once a
   connector is switched on on the **Connectors** page (every one off by default, all locked
   off by `SECREVIEW_CONNECTORS_ENABLED=false`), the Controller server sends the findings through it
-  (tickets in the configured Jira and ServiceNow, records of a third-party connector): HTTPS
+  (tickets in the configured Jira, ServiceNow, GitHub and GitLab, records of a third-party connector): HTTPS
   only, through the outgoing proxy, **no redirect**, answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
-  never read as wiki markup; the secrets entered on the **Connectors** page are stored in clear
+  never read as wiki markup, in GitHub and GitLab never read as Markdown (mentions, images, links,
+  quick actions); the secrets entered on the **Connectors** page are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
   is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
   URL through the client of the Controller server, see [connectors](../advanced/connectors.md#security). With

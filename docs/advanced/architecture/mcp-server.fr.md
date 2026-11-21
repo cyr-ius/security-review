@@ -46,7 +46,7 @@ En HTTP, `security-review-mcp serve` :
    processus : ni réversible, ni comparable d'un serveur à l'autre) et le nom et la version que
    son client MCP donne au début de la session (`clientInfo`) ; jamais le nom d'une personne ni
    d'un jeton. Le serveur Controller l'affiche
-   sur la page [**Activité**](../../usage/index.md#activite). Il le supprime à son arrêt ;
+   sur la page [**Activité**](../../usage/activity.md). Il le supprime à son arrêt ;
    un serveur disparu sans s'arrêter quitte la page au bout de 30 secondes.
 
 En stdio, `security-review-mcp local` migre lui-même sa base locale.
@@ -79,11 +79,11 @@ la revue, que l'agent suit ensuite. Chaque argument est une chaîne facultative.
 
 | Prompt | Arguments | Renvoie |
 |---|---|---|
-| `security-review` | `language` (un ou plusieurs, séparés par des virgules : `python, angular` ; alias `py`, `ts` acceptés), `code`, `context`, `focus`, `report_language` | Revue du code avec les checklists des langages |
-| `api-security-review` | `framework` (`FastAPI`, `Spring Boot`, `Express`…), `code`, `context`, `focus`, `report_language` | Revue d'une API REST selon l'OWASP API Security Top 10 |
-| `configuration-review` | `config_type` (`Dockerfile`, `GitLab CI`, `Jenkinsfile`…), `content`, `context`, `focus`, `report_language` | Revue de fichiers Docker, CI/CD, Spring, YAML ou properties |
-| `codebase-review` | `languages`, `scan_results` (sortie JSON de `security-review-ci scan-code . --project <name> --format json`), `context`, `focus`, `report_language` | Revue du dépôt entier, à partir des résultats du scan ([fichiers lus, règles, checklists, consommation de tokens](../../review/analysis/code-scan.md#ce-que-fait-codebase-review)) |
-| `dependency-review` | `ecosystem` (`PyPI`, `npm`, `Maven`, `Go`, `crates.io`, `NuGet` ; vide : tous), `files`, `context`, `report_language` | Revue des manifestes et lockfiles |
+| `security-review` | `language` (un ou plusieurs, séparés par des virgules : `python, angular` ; alias `py`, `ts` acceptés), `code`, `context`, `focus`, `report_language`, `fix_min_severity` | Revue du code avec les checklists des langages |
+| `api-security-review` | `framework` (`FastAPI`, `Spring Boot`, `Express`…), `code`, `context`, `focus`, `report_language`, `fix_min_severity` | Revue d'une API REST selon l'OWASP API Security Top 10 |
+| `configuration-review` | `config_type` (`Dockerfile`, `GitLab CI`, `Jenkinsfile`…), `content`, `context`, `focus`, `report_language`, `fix_min_severity` | Revue de fichiers Docker, CI/CD, Spring, YAML ou properties |
+| `codebase-review` | `languages`, `scan_results` (sortie JSON de `security-review-ci scan-code . --project <name> --format json`), `context`, `focus`, `report_language`, `fix_min_severity` | Revue du dépôt entier, à partir des résultats du scan ([fichiers lus, règles, checklists, consommation de tokens](../../review/analysis/code-scan.md#ce-que-fait-codebase-review)) |
+| `dependency-review` | `ecosystem` (`PyPI`, `npm`, `Maven`, `Go`, `crates.io`, `NuGet` ; vide : tous), `files`, `context`, `report_language`, `fix_min_severity` | Revue des manifestes et lockfiles |
 | `triage-report` | `report_id` (obligatoire, entier), `context`, `report_language` | Requalification des findings d'un rapport enregistré, inclus en Markdown sans son auteur |
 | `development-standards` | `technologies`, `files` (séparés par des virgules ou des retours à la ligne), `task`, `context` | Les [normes de développement](../../review/standards.md) de la pile (le catalogue si les deux listes sont vides) ; n'enregistre rien |
 
@@ -95,8 +95,11 @@ la revue, que l'agent suit ensuite. Chaque argument est une chaîne facultative.
 - `report_language` : lettres, espaces, `-`, `_` et parenthèses, 40 caractères au plus ; sans
   lui, `SECREVIEW_REPORT_LANGUAGE`, sinon la page **Général**
   ([langue des rapports](../../reference/prompts-tools.md#langue-des-rapports)).
+- `fix_min_severity` : `critical`, `high`, `medium`, `low` ou `info` (casse indifférente) ; sans
+  lui, `SECREVIEW_FIX_MIN_SEVERITY`, sinon la page **Général**
+  ([findings à corriger](../../reference/prompts-tools.md#findings-a-corriger)).
 - Un argument invalide renvoie l'erreur MCP `INVALID_PARAMS` avec sa raison : `report_language`
-  refusé, `scan_results` ou `task` + `context` au-delà de `SECREVIEW_MAX_CONTENT_CHARS`, rapport
+  ou `fix_min_severity` refusé, `scan_results` ou `task` + `context` au-delà de `SECREVIEW_MAX_CONTENT_CHARS`, rapport
   hors des projets du jeton, norme inconnue.
 
 ### Outils
@@ -111,8 +114,8 @@ message de toute autre erreur lui est masqué.
 | Outil | Type | Paramètres | Renvoie |
 |---|---|---|---|
 | `list_checklists` | lecture seule | aucun | Domaines (intégrés et internes) avec leur nombre d'éléments |
-| `get_review_checklist` | lecture seule | `domain` | La checklist en Markdown, suivie de la langue des rapports si elle est configurée |
-| `scan_code` | lecture seule | `content` (au plus `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (règle, ligne, extrait masqué), `suppressed` (lignes marquées `secreview:ignore`), compteurs, `engines` (`rules`, `opengrep` quand il est [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)), `controller_error`, `report_language` ; des pistes à vérifier, pas un SAST complet |
+| `get_review_checklist` | lecture seule | `domain` | La checklist en Markdown, suivie de la langue des rapports et des findings à corriger s'ils sont configurés |
+| `scan_code` | lecture seule | `content` (au plus `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (règle, ligne, extrait masqué), `suppressed` (lignes marquées `secreview:ignore`), compteurs, `engines` (`rules`, `opengrep` quand il est [délégué au serveur Controller](../../review/analysis/opengrep.md#scans-de-fragments-scan_code)), `controller_error`, `report_language`, `fix_min_severity` ; des pistes à vérifier, pas un SAST complet |
 | `start_codebase_scan` | écriture | `project`, `scope` (`all` par défaut, `code` ou `deps`) | `scan_code_command` et `scan_deps_command` (selon `scope`) (`security-review-ci` lancé avec `uvx`, ticket à usage unique sur l'entrée standard), `expires_at` ; demande la délégation de `scan_code` ([scan lancé par l'agent](../../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
 | `list_rules` | lecture seule | `language` (facultatif) | Règles actives, `disabled_rules`, `load_errors` des règles internes |
 | `reload_rules` | écriture | aucun | Relit aussitôt les règles en base (sinon en 5 secondes) ; refusé à un jeton restreint à des projets |

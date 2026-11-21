@@ -32,6 +32,8 @@ const STATE_BADGES: Record<ConnectorState, { label: MessageKey; css: string; ico
 const BUILTIN_LOOK: Record<string, { icon: string; about: MessageKey }> = {
   jira: { icon: 'bi-kanban', about: 'connectors.about.jira' },
   servicenow: { icon: 'bi-headset', about: 'connectors.about.servicenow' },
+  github: { icon: 'bi-github', about: 'connectors.about.github' },
+  gitlab: { icon: 'bi-gitlab', about: 'connectors.about.gitlab' },
 };
 const PLUGIN_LOOK = { icon: 'bi-puzzle', about: 'connectors.about.plugin' as MessageKey };
 

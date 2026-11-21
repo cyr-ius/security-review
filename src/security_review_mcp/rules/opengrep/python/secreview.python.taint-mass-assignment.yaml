@@ -33,7 +33,8 @@ rules:
                   - pattern: await $REQ.form()
               - metavariable-regex:
                   metavariable: $REQ
-                  regex: ^(request|req)$
+                  # self.request: Django class-based views, Tornado handlers
+                  regex: ^(self\.)?(request|req)$
           - pattern: json.loads(request.body)
     pattern-propagators:
       # A request value added to a list or a dict taints the container (argument lists, kwargs)

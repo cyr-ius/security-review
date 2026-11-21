@@ -1,13 +1,15 @@
 # Connecteurs
 
-Un **connecteur** envoie les findings vers un autre outil de vos équipes : un ticket dans **Jira**
-ou **ServiceNow**, une entrée dans un registre de vulnérabilités, un élément dans un outil de suivi
+Un **connecteur** envoie les findings vers un autre outil de vos équipes : un ticket dans **Jira**,
+**ServiceNow**, **GitHub** ou **GitLab**, une entrée dans un registre de vulnérabilités, un élément dans un outil de suivi
 interne... Ce que le connecteur crée dans cet outil est l'**enregistrement** du finding.
 
 | Connecteur | Enregistrement | Page |
 |---|---|---|
 | Jira (Cloud ou Data Center) | Ticket | [Jira](jira.md) |
 | ServiceNow | Incident (ou enregistrement d'une autre table) | [ServiceNow](servicenow.md) |
+| GitHub (github.com ou Enterprise Server) | Issue | [GitHub](github.md) |
+| GitLab (gitlab.com ou autogéré) | Ticket confidentiel | [GitLab](gitlab.md) |
 | Tiers | Ce que crée le connecteur | [Connecteurs tiers](third-party.md) |
 
 Les variables, les garanties et l'API REST sont dans

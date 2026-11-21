@@ -335,6 +335,63 @@ lodash@^4.17.0, lodash@^4.17.15:
     assert versions(parse_dependency_file(berry, "yarn.lock")) == {"lodash": "4.17.21"}
 
 
+@pytest.mark.parametrize(
+    "lockfile",
+    [
+        """lockfileVersion: 5.4
+specifiers:
+  lodash: ^4.17.0
+packages:
+  /lodash/4.17.15:
+    resolution: {integrity: sha512-abc}
+    dev: false
+  /@babel/core/7.1.0_typescript@5.0.0:
+    resolution: {integrity: sha512-def, tarball: http://registry.example.com/core.tgz}
+    dev: true
+  github.com/owner/repo/abc123:
+    resolution: {tarball: https://codeload.github.com/owner/repo/tar.gz/abc123}
+""",
+        """lockfileVersion: '6.0'
+packages:
+  /lodash@4.17.15:
+    resolution: {integrity: sha512-abc}
+    dev: false
+  /@babel/core@7.1.0(typescript@5.0.0):
+    resolution:
+      integrity: sha512-def
+      tarball: http://registry.example.com/core.tgz
+    dev: true
+  github.com/owner/repo/abc123:
+    resolution: {tarball: https://codeload.github.com/owner/repo/tar.gz/abc123}
+""",
+        """lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      lodash:
+        specifier: ^4.17.0
+        version: 4.17.15
+packages:
+  lodash@4.17.15:
+    resolution: {integrity: sha512-abc}
+  '@babel/core@7.1.0':
+    resolution: {integrity: sha512-def, tarball: http://registry.example.com/core.tgz}
+  repo@https://codeload.github.com/owner/repo/tar.gz/abc123:
+    resolution: {tarball: https://codeload.github.com/owner/repo/tar.gz/abc123}
+snapshots:
+  lodash@4.17.15: {}
+  '@babel/core@7.1.0(typescript@5.0.0)': {}
+""",
+    ],
+    ids=["v5", "v6", "v9"],
+)
+def test_pnpm_lock(lockfile):
+    parsed = parse_dependency_file(lockfile, "web/pnpm-lock.yaml")
+    assert parsed.is_lockfile and parsed.ecosystem == "npm"
+    assert versions(parsed) == {"lodash": "4.17.15", "@babel/core": "7.1.0"}
+    assert rules(parsed) == {"DEP-003", "DEP-004"}  # git tarball, then HTTP download
+
+
 POM = """<project xmlns="http://maven.apache.org/POM/4.0.0">
   <parent>
     <groupId>org.springframework.boot</groupId>

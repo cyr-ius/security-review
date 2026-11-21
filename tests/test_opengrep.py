@@ -8,9 +8,10 @@ from types import SimpleNamespace
 import pytest
 
 from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.engines import opengrep
+from security_review_mcp.engines import local, opengrep
 from security_review_mcp.rules import codescan, opengrep_rule_store
 from security_review_mcp.rules.codescan import SourceFile
+from security_review_mcp.storage.models import Severity
 
 
 def test_engine_disabled_by_default_runs_only_once_rules_are_installed(tmp_path, monkeypatch):
@@ -164,35 +165,59 @@ def test_scan_files_rejects_nonzero_exit_and_busy_engine(tmp_path, monkeypatch):
             opengrep.scan_files([("app.py", "print('ok')")], rules_dir=rules)
 
 
-def test_codebase_scan_merges_opengrep_findings(monkeypatch):
+def test_codebase_scan_merges_opengrep_findings(monkeypatch, import_pack):
+    # Rules that repeat OpenGrep on lines 3 and 4 (CWE-328 is the weak crypto of CWE-327), and
+    # one that reports another weakness on line 5
+    rules = [("ACME-001", "CWE-78", "subprocess"), ("ACME-002", "CWE-328", "md5")]
+    rules.append(("ACME-003", "CWE-347", "decode_unsigned"))
+    import_pack(
+        "".join(
+            f'[[rules]]\nid = "{rid}"\ntitle = "Demo {rid}"\nseverity = "critical"\n'
+            f'cwe = "{cwe}"\nlanguages = ["python"]\npattern = "{pattern}"\nadvice = "Fix it."\n'
+            for rid, cwe, pattern in rules
+        )
+    )
+
+    def opengrep_match(rule: str, cwe: str, line: int) -> dict:
+        return {
+            "title": f"OpenGrep {rule}",
+            "description": "Command injection risk",
+            "severity": "high",
+            "rule_id": f"OPENGREP:python.security.{rule}",
+            "cwe": cwe,
+            "line": line,
+            "line_end": line + 1,
+            "excerpt": "subprocess.run(command)",
+            "advice": "Use a safe argument list.",
+        }
+
+    found = [opengrep_match("demo", "CWE-78", 3), opengrep_match("hash", "CWE-327", 4)]
+    found.append(opengrep_match("tls", "CWE-295", 5))
     monkeypatch.setattr(get_settings(), "opengrep_enabled", True)
     monkeypatch.setattr(
-        opengrep,
-        "scan_files",
-        lambda files, fragment=False, rules_dir=None: {
-            "app.py": [
-                {
-                    "title": "Unsafe subprocess",
-                    "description": "Command injection risk",
-                    "severity": "high",
-                    "rule_id": "OPENGREP:python.security.demo",
-                    "cwe": "CWE-78",
-                    "line": 3,
-                    "line_end": 4,
-                    "excerpt": "subprocess.run(command)",
-                    "advice": "Use a safe argument list.",
-                }
-            ]
-        },
+        opengrep, "scan_files", lambda files, fragment=False, rules_dir=None: {"app.py": found}
     )
-    result = codescan.scan_files(
-        [SourceFile("app.py", "import subprocess\n\nsubprocess.run(command)\n")]
+    source = SourceFile(
+        "app.py", "import os\n\nsubprocess.run(command)\nmd5(data)\ndecode_unsigned(token)\n"
     )
+
+    result = codescan.scan_files([source])
+
     findings = codescan.to_findings(result)
-    assert result["matches_count"] == 1
-    assert findings[0].rule_id == "OPENGREP:python.security.demo"
+    # A finding kept for a rule it repeats takes its higher severity: the gate still blocks
+    assert [(f.rule_id, f.line_start, f.severity) for f in findings] == [
+        ("OPENGREP:python.security.demo", 3, Severity.CRITICAL),
+        ("OPENGREP:python.security.hash", 4, Severity.CRITICAL),
+        ("ACME-003", 5, Severity.CRITICAL),
+        ("OPENGREP:python.security.tls", 5, Severity.HIGH),
+    ]
     assert findings[0].description == "Command injection risk"
-    assert findings[0].line_start == 3 and findings[0].line_end == 4
+    assert findings[0].line_end == 4
+    # The rules never push the OpenGrep matches out of the matches kept per file
+    monkeypatch.setattr(local, "MAX_MATCHES_PER_FILE", 3)
+    entry = codescan.scan_files([source])["files"][0]
+    assert [m["rule_id"] for m in entry["matches"]] == [m["rule_id"] for m in found]
+    assert entry["truncated"]
 
 
 @pytest.mark.skipif(shutil.which("opengrep") is None, reason="OpenGrep is not installed")

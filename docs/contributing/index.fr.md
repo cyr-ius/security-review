@@ -119,7 +119,13 @@ src/security_review_mcp/
 │   ├── retention.py       # purge quotidienne des rapports sans findings et des anciens événements d'audit
 │   └── project_names.py   # normalisation des noms de projet (toute entrée)
 ├── reports/       # rapports de sécurité
-│   ├── services.py        # logique de persistance des rapports
+│   ├── services/          # logique de persistance des rapports, réexportée par le paquet
+│   │   ├── core.py        #   erreurs, niveau de risque, filtres de statut et contrôles
+│   │   ├── persistence.py #   enregistrement, lecture et purge des rapports
+│   │   ├── triage.py      #   décisions de statut, criticité, propositions des agents
+│   │   ├── findings.py    #   projets, findings, acceptations de risque, commentaires
+│   │   ├── exports.py     #   rendus Markdown, gate, éléments SARIF
+│   │   └── scope.py       #   périmètre de projets d'un appelant
 │   ├── coverage.py        # contrôle les résultats de checklist et règles déclarés avec un rapport
 │   ├── sarif.py           # export SARIF 2.1.0
 │   └── trends.py          # rapport de tendance
@@ -138,7 +144,13 @@ src/security_review_mcp/
 │   ├── advisory_sync.py   # téléchargement OSV par le serveur Controller (proxy, mise à jour quotidienne, historique)
 │   └── versions.py        # comparaison de versions
 ├── auth/          # identité et accès
-│   ├── access_control.py  # permissions, rôles des comptes web, correspondances OIDC, demandes de projet
+│   ├── access_control/    # permissions, rôles des comptes web, correspondances OIDC, demandes de projet
+│   │   ├── core.py        #   permissions, limites, droits, validation (les tests patchent les limites ici)
+│   │   ├── roles.py       #   rôles et rôles des jetons de rôle
+│   │   ├── users.py       #   rôles et projets d'un utilisateur
+│   │   ├── members.py     #   membres d'un projet
+│   │   ├── projects.py    #   projets, adhésion automatique, demandes de projet
+│   │   └── oidc_mappings.py  # correspondances OIDC et claims synchronisés à la connexion
 │   ├── token_store.py     # jetons Bearer en base : création, expiration, renouvellement, révocation
 │   ├── web_users.py       # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
 │   ├── oidc.py            # connexion OIDC OpenID Connect à l'interface web (serveur Controller)
@@ -163,7 +175,7 @@ src/security_review_mcp/
 │                  # registry, connections, transport (client HTTP), core (envoi), jira, servicenow
 └── web_api/       # serveur Controller : API REST /api/v1 et fichiers de l'application (/ui)
     ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
-    ├── schemas.py     # modèles de requête et de réponse de chaque route
+    ├── schemas/       # modèles de requête et de réponse de chaque route, un module par domaine
     ├── deps.py        # identité de l'appelant, permissions, portée projet
     └── *_routes.py    # un routeur par domaine (auth, account, report, ci, rule, token, admin, access)
 tests/             # pytest (scanner, services, client MCP de bout en bout)

@@ -1260,6 +1260,29 @@ def test_deleting_a_project_needs_the_permission_and_a_web_session(accounts, sec
     assert accounts.delete("/api/v1/projects/shop-api", headers=admin).status_code == 404
 
 
+def test_renaming_a_project_needs_the_permission_and_a_web_session(accounts, secured, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    make_user("ann", USER_PASSWORD, "reader")
+    url = "/api/v1/projects/shop-api/rename"
+    reader = session_headers(accounts, "ann")
+    response = accounts.post(url, json={"name": "shop"}, headers=reader)
+    assert response.status_code == 403
+    assert "projects.delete" in response.json()["detail"]
+    # An admin token holds every permission, but a token never renames a project
+    assert secured.post(url, json={"name": "shop"}, headers=auth("admin")).status_code == 403
+
+    admin = session_headers(accounts, "root")
+    assert accounts.post(url, json={"name": "Billing"}, headers=admin).status_code == 409
+    response = accounts.post(url, json={"name": "Shop"}, headers=admin)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["project"] == "shop"
+    assert response.json()["previous_name"] == "shop-api"
+    listed = accounts.get("/api/v1/projects", headers=admin).json()
+    assert sorted(item["project"] for item in listed) == ["billing", "shop"]
+    assert accounts.post(url, json={"name": "web"}, headers=admin).status_code == 404
+
+
 def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     crm_report = services.save_report("crm", "Review", [make_finding(Severity.HIGH)])
@@ -1903,6 +1926,27 @@ def test_admin_sets_the_report_language(client):
     assert reset["report_language"]["value"] is None
 
 
+def test_admin_sets_the_fix_severity(client, monkeypatch):
+    url = "/api/v1/settings/fix-severity"
+    response = client.put(url, json={"value": "high"})
+
+    assert response.status_code == 200
+    assert response.json()["fix_min_severity"]["effective"] == "high"
+    assert app_settings.fix_min_severity() == "high"
+    assert client.put(url, json={"value": "urgent"}).status_code == 422
+    monkeypatch.setattr(get_settings(), "fix_min_severity", "critical")
+    refused = client.put(url, json={"value": "low"})
+    assert refused.status_code == 422
+    assert "SECREVIEW_FIX_MIN_SEVERITY is set" in refused.json()["detail"]
+    reset = client.put(url, json={"value": None}).json()
+    assert reset["fix_min_severity"] == {
+        "value": None,
+        "env": "critical",
+        "env_set": True,
+        "effective": "critical",
+    }
+
+
 def test_admin_sets_the_controller_url(client):
     url = "/api/v1/settings/controller-url"
     response = client.put(url, json={"value": "https://sr.example"})
@@ -2039,6 +2083,8 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     assert {c["kind"]: c["enabled"] for c in switched.json()["connectors"]} == {
         "jira": True,
         "servicenow": False,
+        "github": False,
+        "gitlab": False,
     }
     # An unknown system is not found
     assert (

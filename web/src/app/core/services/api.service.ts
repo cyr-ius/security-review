@@ -42,6 +42,7 @@ import {
   PersonalTokenRole,
   Preferences,
   ProjectDeleted,
+  ProjectRenamed,
   ProjectFinding,
   ProjectFindingPage,
   ProjectFindingQuery,
@@ -404,6 +405,14 @@ export class ApiService {
     );
   }
 
+  /** POST /api/v1/projects/{project}/rename: the project and its references (projects.delete). */
+  renameProject(project: string, name: string): Observable<ProjectRenamed> {
+    return this.http.post<ProjectRenamed>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/rename`,
+      { name },
+    );
+  }
+
   /** DELETE /api/v1/projects/{project}: the project and its references (projects.delete). */
   deleteProject(project: string): Observable<ProjectDeleted> {
     return this.http.delete<ProjectDeleted>(`${API_URL}/projects/${encodeURIComponent(project)}`);
@@ -682,6 +691,11 @@ export class ApiService {
   /** '' lets the agent choose, null restores SECREVIEW_REPORT_LANGUAGE. */
   setReportLanguage(value: string | null): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/report-language`, { value });
+  }
+
+  /** Lowest severity to fix; '' gives no instruction, null restores SECREVIEW_FIX_MIN_SEVERITY. */
+  setFixSeverity(value: string | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/fix-severity`, { value });
   }
 
   /** null (or '') removes the stored URL of the controller. */

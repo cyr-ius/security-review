@@ -1,0 +1,61 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.php.taint-deserialization
+    message: >-
+      Request data reaches unserialize(): a crafted object runs code through magic methods (__wakeup, __destruct). Exchange data as JSON (json_decode), or pass ['allowed_classes' => false].
+    languages: [php]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          # Superglobals (plain PHP)
+          - pattern: $_GET
+          - pattern: $_POST
+          - pattern: $_REQUEST
+          - pattern: $_COOKIE
+          - pattern: $_FILES
+          - pattern: file_get_contents("php://input")
+          - pattern: getallheaders()
+          # Laravel: $request->input('x'), request('x'), Request::input('x')
+          - patterns:
+              - pattern: $REQ->$GET(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^\$(request|req)$
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(input|query|post|get|cookie|header|all|json|file|route|string|integer|only|except)$
+          - pattern: request(...)
+          - pattern: request()->$GET(...)
+          - pattern: Request::$GET(...)
+          # Symfony: $request->query->get('x'), $request->request->all()...
+          - patterns:
+              - pattern: $REQ->$BAG->$GET(...)
+              - metavariable-regex:
+                  metavariable: $BAG
+                  regex: ^(query|request|cookies|headers|files|attributes)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: intval(...)
+          - pattern: floatval(...)
+          - pattern: (int) $X
+          - pattern: (float) $X
+    pattern-propagators:
+      # A value added to an array taints it (implode...)
+      - pattern: array_push($TO, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: array_unshift($TO, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern: unserialize($DATA)
+          - focus-metavariable: $DATA

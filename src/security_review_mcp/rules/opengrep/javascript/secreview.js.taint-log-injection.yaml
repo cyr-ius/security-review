@@ -1,0 +1,124 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.taint-log-injection
+    message: >-
+      Request data is written to a log as-is: a line break in it forges log entries in a text log
+      that mislead an investigation or a log parser. Remove the line breaks
+      (value.replace(/[\r\n]/g, '')), log JSON.stringify(value), or use a JSON logger (pino).
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-117: Improper Output Neutralization for Logs"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$FIELD
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request|ctx\.request)$
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|body|params|headers|cookies|signedCookies|files|file|originalUrl|url|path|hostname)$
+          - patterns:
+              - pattern: $REQ.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(req|request)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(param|get|header)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      $METHOD(..., $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$ROUTE(...)
+                      async $METHOD(..., $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(Get|Post|Put|Patch|Delete|All|Head|Options)$
+              - pattern: $PARAM
+          # Koa: the request fields exposed on the context (ctx.body is the response, left out)
+          - patterns:
+              - pattern: ctx.$FIELD
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|params|querystring|search|headers|header|cookies|url|originalUrl|href|path|hostname)$
+          - pattern: ctx.get(...)
+          # Hono: c.req.query(), c.req.param(), await c.req.json()...
+          - patterns:
+              - pattern: $CTX.req.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $CTX
+                  regex: ^(c|ctx|context)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(query|queries|param|header|json|text|parseBody|formData)$
+          # AWS Lambda behind API Gateway or a function URL
+          - patterns:
+              - pattern: event.$FIELD
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(body|queryStringParameters|multiValueQueryStringParameters|pathParameters|headers|multiValueHeaders|cookies|rawPath|rawQueryString)$
+          # Messages received on a socket (socket.io, ws): the first argument of the handler
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $SOCKET.on($EVENT, ($DATA, ...) => { ... })
+                  - pattern-inside: |
+                      $SOCKET.on($EVENT, async ($DATA, ...) => { ... })
+                  - pattern-inside: |
+                      $SOCKET.on($EVENT, function ($DATA, ...) { ... })
+              - metavariable-regex:
+                  metavariable: $SOCKET
+                  regex: ^(socket|sock|ws|client|conn|connection)$
+              - metavariable-regex:
+                  metavariable: $EVENT
+                  # Connection life cycle events carry no message
+                  regex: ^(?!["'](connection|connect|disconnect|disconnecting|open|close|error|ping|pong|upgrade)["']$)
+              - pattern: $DATA
+    pattern-propagators:
+      # A value added to an array or a set taints it (join, spread...)
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern: $LOGGER.$METHOD(...)
+          - metavariable-regex:
+              metavariable: $LOGGER
+              regex: ^(console|(this\.)?_?(log|logger|winston))$
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(log|info|warn|error|debug|trace|fatal)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: JSON.stringify(...)
+          - pattern: encodeURIComponent(...)
+          - pattern: parseInt(...)
+          - pattern: Number(...)
+          - patterns:
+              - pattern-either:
+                  - pattern: $VALUE.replace($CHARS, ...)
+              - metavariable-regex:
+                  metavariable: $CHARS
+                  regex: .*(\\[rn]|[\r\n])
+          - patterns:
+              - pattern-either:
+                  - pattern: $VALUE.replaceAll($CHARS, ...)
+              - metavariable-regex:
+                  metavariable: $CHARS
+                  regex: .*(\\[rn]|[\r\n])

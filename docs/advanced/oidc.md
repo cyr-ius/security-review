@@ -164,8 +164,10 @@ account (see [Roles and permissions](../usage/access-control.md)).
 
 - A change of the mappings applies at once, to every OIDC account, through the values of its last
   login; a value that no mapping names any more is forgotten.
-- A project not created yet is ignored until it is, never created by the identity provider. A
-  deleted project is removed from the mappings; a mapping left giving nothing is deleted.
+- A project a mapping names is created when the mapping is saved (`project.created` event,
+  with the value of the claim): left unknown, its name could be taken first by a holder of
+  `projects.create`, who would then read what the mapped team saves there. The identity provider
+  never creates a project. A deleted project is removed from the mappings; a mapping left giving nothing is deleted.
 - A login never removes the last holder of `users.manage`: the values of the claim that gave it
   are kept, with a warning in the logs and a `user.roles_changed` event. Removing such a mapping
   in the interface is refused.

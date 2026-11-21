@@ -80,6 +80,7 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFallbackRefuse': 'No fallback (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version}: {codebase} code scans, {fragments} fragments, {files} files, {failed} failed, {busy} refused when busy; {used} of {capacity} slots in use',
+    'scanEngines.flowEngineLabel': 'Scan engine',
     'scanEngines.flowMcpInstance': 'MCP server {number}',
     'scanEngines.flowAgentTitle':
       '{client} {version}, through MCP server {number}, last request at {time}\nSince the last heartbeat: {requests}',
@@ -173,6 +174,7 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFallbackRefuse': 'Sans repli (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version} : {codebase} scans de code, {fragments} fragments, {files} fichiers, {failed} en échec, {busy} refusés car occupé ; {used} créneaux occupés sur {capacity}',
+    'scanEngines.flowEngineLabel': 'Moteur de scan',
     'scanEngines.flowMcpInstance': 'Serveur MCP {number}',
     'scanEngines.flowAgentTitle':
       '{client} {version}, par le serveur MCP {number}, dernière requête à {time}\nDepuis le dernier battement de cœur : {requests}',
@@ -269,6 +271,7 @@ export const scanEngines = defineMessages({
     'scanEngines.flowFallbackRefuse': 'Sin respaldo (503)',
     'scanEngines.flowEngineTitle':
       '{name} {version}: {codebase} escaneos de código, {fragments} fragmentos, {files} archivos, {failed} fallidos, {busy} rechazados por estar ocupado; {used} de {capacity} huecos ocupados',
+    'scanEngines.flowEngineLabel': 'Motor de escaneo',
     'scanEngines.flowMcpInstance': 'Servidor MCP {number}',
     'scanEngines.flowAgentTitle':
       '{client} {version}, a través del servidor MCP {number}, última petición a las {time}\nDesde el último latido: {requests}',

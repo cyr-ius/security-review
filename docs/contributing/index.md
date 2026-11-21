@@ -119,7 +119,13 @@ src/security_review_mcp/
 │   ├── retention.py       # daily purge of the reports without findings and of the old audit events
 │   └── project_names.py   # normalization of the project names (every input)
 ├── reports/       # security reports
-│   ├── services.py        # persistence logic of the reports
+│   ├── services/          # persistence logic of the reports, re-exported by the package
+│   │   ├── core.py        #   errors, risk level, status filters and checks
+│   │   ├── persistence.py #   saving, reading and pruning of the reports
+│   │   ├── triage.py      #   status decisions, severity, agent proposals
+│   │   ├── findings.py    #   projects, findings, risk acceptances, comments
+│   │   ├── exports.py     #   Markdown renderings, gate, SARIF items
+│   │   └── scope.py       #   project scope of a caller
 │   ├── coverage.py        # checks the checklist results and scan rules declared with a report
 │   ├── sarif.py           # SARIF 2.1.0 export
 │   └── trends.py          # trend report
@@ -138,7 +144,13 @@ src/security_review_mcp/
 │   ├── advisory_sync.py   # OSV download by the Controller server (proxy, daily update, history)
 │   └── versions.py        # version comparison
 ├── auth/          # identity and access
-│   ├── access_control.py  # permissions, roles of the web accounts, OIDC mappings, project requests
+│   ├── access_control/    # permissions, roles of the web accounts, OIDC mappings, project requests
+│   │   ├── core.py        #   permissions, limits, grants, validation (patch the limits here in tests)
+│   │   ├── roles.py       #   roles and the roles of the role tokens
+│   │   ├── users.py       #   roles and projects of a user
+│   │   ├── members.py     #   members of a project
+│   │   ├── projects.py    #   projects, autojoin, project requests
+│   │   └── oidc_mappings.py  # OIDC mappings and claims synced at login
 │   ├── token_store.py     # Bearer tokens in the database: creation, expiry, rotation, revocation
 │   ├── web_users.py       # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 │   ├── oidc.py            # OpenID Connect OIDC login to the web interface (Controller server)
@@ -163,7 +175,7 @@ src/security_review_mcp/
 │                  # connections, transport (HTTP client), core (sending), jira, servicenow
 └── web_api/       # Controller server: REST API /api/v1 and files of the application (/ui)
     ├── __init__.py    # create_app, static files of /ui, assembly of the routers
-    ├── schemas.py     # request and response models of every route
+    ├── schemas/       # request and response models of every route, one module per domain
     ├── deps.py        # identity of the caller, permissions, project scope
     └── *_routes.py    # one router per domain (auth, account, report, ci, rule, token, admin, access)
 tests/             # pytest (scanner, services, end-to-end MCP client)

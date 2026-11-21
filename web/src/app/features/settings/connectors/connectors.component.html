@@ -42,6 +42,10 @@
               class="connector-logo"
               [class.logo-jira]="connector.builtin && connector.kind === 'jira'"
               [class.logo-servicenow]="connector.builtin && connector.kind === 'servicenow'"
+              [class.logo-github]="connector.builtin && connector.kind === 'github'"
+              [class.logo-gitlab]="connector.builtin && connector.kind === 'gitlab'"
+              [class.logo-github]="connector.builtin && connector.kind === 'github'"
+              [class.logo-gitlab]="connector.builtin && connector.kind === 'gitlab'"
               aria-hidden="true"
             >
               <i class="bi" [class]="look.icon"></i>
@@ -142,6 +146,8 @@
           class="connector-logo connector-logo-sm"
           [class.logo-jira]="connector.builtin && connector.kind === 'jira'"
           [class.logo-servicenow]="connector.builtin && connector.kind === 'servicenow'"
+          [class.logo-github]="connector.builtin && connector.kind === 'github'"
+          [class.logo-gitlab]="connector.builtin && connector.kind === 'gitlab'"
           aria-hidden="true"
         >
           <i class="bi" [class]="look(connector).icon"></i>

@@ -34,6 +34,7 @@ scrape_configs:
 | `secreview_finding_proposals_pending` | | Propositions d'agents en attente d'une personne |
 | `secreview_tokens` | `role`, `state` | Jetons par rôle et état (`active`, `expired`) |
 | `secreview_tokens_expiring_soon` | | Jetons actifs qui expirent dans les 14 jours |
+| `secreview_acceptances_expiring_soon` | | Risques acceptés et faux positifs dont la décision expire dans les 14 jours (les findings comptent alors comme ouverts) |
 | `secreview_project_enrollments_pending` | | Projets demandés par les agents MCP des utilisateurs, en attente de validation |
 | `secreview_web_users` | `auth_source` | Comptes web (`local`, `oidc`) |
 | `secreview_advisories` | | Avis de la base |
@@ -47,6 +48,7 @@ secret ; les valeurs des labels sont échappées, si bien qu'un nom de projet ne
 de lignes à la réponse. `SECREVIEW_METRICS_ENABLED=false` désactive l'endpoint (`404`).
 
 Exemples d'alertes : `secreview_tokens_expiring_soon > 0`,
+`secreview_acceptances_expiring_soon > 0`,
 `secreview_open_findings{severity="critical"} > 0`,
 `time() - secreview_advisory_last_update_timestamp_seconds > 2 * 86400`,
 `rate(secreview_auth_rejections_total{reason="invalid_token"}[5m]) > 1`.

@@ -1,0 +1,89 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.taint-host-header
+    message: >-
+      The host name of the request (Host or X-Forwarded-Host header) is written into an e-mail: an
+      attacker who requests a password reset for a victim with a forged Host header receives the
+      reset token when the victim clicks the link. Build the links of e-mails from a configured base
+      URL, or check the host against an allow-list (Django checks it against ALLOWED_HOSTS:
+      get_host() and build_absolute_uri() are not reported).
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-640: Weak Password Recovery Mechanism for Forgotten Password"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.host
+          - pattern: flask.request.host_url
+          - pattern: flask.request.url_root
+          - pattern: url_for(..., _external=True, ...)
+          - patterns:
+              - pattern: $REQ.$ATTR
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(self\.)?(request|req)$
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(host|host_url|url_root|base_url)$
+          - pattern: $REQ.url_for(...)
+          - patterns:
+              - pattern-either:
+                  - pattern: $REQ.META[$KEY]
+                  - pattern: $REQ.META.get($KEY, ...)
+                  - pattern: $REQ.headers[$KEY]
+                  - pattern: $REQ.headers.get($KEY, ...)
+              - metavariable-regex:
+                  metavariable: $KEY
+                  regex: (?i)^["'](HTTP_HOST|HTTP_X_FORWARDED_HOST|host|x-forwarded-host)["']$
+    pattern-propagators:
+      # A request value added to a list or a dict taints the container (argument lists, kwargs)
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      # A request value stored in a container (configparser, cache, set, dict) taints it
+      - pattern: $TO.set(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.update($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.setdefault($KEY, $FROM)
+        from: $FROM
+        to: $TO
+      # A value written to a text buffer (io.StringIO) taints what is read back
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: send_mail(...)
+                  - pattern: send_mass_mail(...)
+                  - pattern: EmailMessage(...)
+                  - pattern: EmailMultiAlternatives(...)
+                  - pattern: $MESSAGE.attach_alternative(...)
+                  - pattern: Message(...)
+                  - pattern: MIMEText(...)
+                  - pattern: $MESSAGE.set_content(...)
+                  - pattern: $MESSAGE.add_alternative(...)
+                  - pattern: $SMTP.sendmail(...)
+                  - pattern: $MAIL.send_message(...)

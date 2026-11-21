@@ -1,24 +1,24 @@
 """Settings changed by an administrator in the web interface (table ``appsetting``).
 
 A stored value applies when its variable is not set, for both processes since they share the
-database: the language of the review reports (read by the MCP server when it builds a review
-prompt), the public URL of the controller (read by the MCP server for the clients without a
-token, and by the connectors; SECREVIEW_PUBLIC_URL set on the controller is copied here at
-start, see sync_controller_url; the MCP server reads it there only), the delegation of the
-scan_code tool to that URL or to the address given by SECREVIEW_SCANCODE_DELEGATED (see
-set_mcp_scan_delegation and sync_mcp_scan_delegation), the OAuth login of the MCP
-clients (see set_mcp_oauth), the proxy of the outgoing connections, the OSV download (turned
-on, interval and ecosystems), the single sign-on settings and the syslog server of the audit
-log (read by the controller, see effective_settings). A variable that is set (environment or
-``.env`` file) always wins: the web interface cannot change it, and a value stored before is
-ignored (see env_set).
+database: the language of the review reports and the lowest severity the agent must fix (read
+by the MCP server when it builds a review prompt), the public URL of the controller (read by
+the MCP server for the clients without a token, and by the connectors; SECREVIEW_PUBLIC_URL set
+on the controller is copied here at start, see sync_controller_url; the MCP server reads it
+there only), the delegation of the scan_code tool to that URL or to the address given by
+SECREVIEW_SCANCODE_DELEGATED (see set_mcp_scan_delegation and sync_mcp_scan_delegation), the
+OAuth login of the MCP clients (see set_mcp_oauth), the proxy of the outgoing connections, the
+OSV download (turned on, interval and ecosystems), the single sign-on settings and the syslog
+server of the audit log (read by the controller, see effective_settings). A variable that is set
+(environment or ``.env`` file) always wins: the web interface cannot change it, and a value
+stored before is ignored (see env_set).
 
 The proxy URL and the OIDC client secret are secrets: they are stored as given, but never
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
 
-The MCP server imports this module for the report language and the controller URL: the OIDC and
-syslog modules of the controller are imported in the functions that use them, never at the top
-(tests/test_server.py checks that the MCP server does not load them).
+The MCP server imports this module for the report language, the severity to fix and the
+controller URL: the OIDC and syslog modules of the controller are imported in the functions that
+use them, never at the top (tests/test_server.py checks that the MCP server does not load them).
 """
 
 from collections.abc import Callable
@@ -32,6 +32,7 @@ from sqlmodel import Session, select
 from .config import (
     Settings,
     check_controller_url,
+    check_fix_min_severity,
     check_mcp_url,
     check_report_language,
     get_settings,
@@ -44,6 +45,8 @@ from .storage.database import session_scope
 from .storage.models import AppSetting, utcnow
 
 REPORT_LANGUAGE = "report_language"
+# Key of the lowest severity the agent must fix, also the name of its Settings field
+FIX_MIN_SEVERITY = "fix_min_severity"
 # Key of the public URL of the controller, also the name of its Settings field
 CONTROLLER_URL = "controller_url"
 # Key of the URL of the MCP endpoint while the OAuth login of the MCP clients is enabled (see
@@ -165,6 +168,32 @@ def set_report_language(
         _check_not_env(settings or get_settings(), REPORT_LANGUAGE, "SECREVIEW_REPORT_LANGUAGE")
         value = check_report_language(value)
     _write({REPORT_LANGUAGE: value}, updated_by)
+
+
+# ── Severity to fix ──────────────────────────────────────────────────────────
+
+
+def fix_min_severity(settings: Settings | None = None) -> str:
+    """Lowest severity the agent must fix: SECREVIEW_FIX_MIN_SEVERITY when set, else the stored
+    one, else "" (no instruction)."""
+    settings = settings or get_settings()
+    if env_set(settings, FIX_MIN_SEVERITY):
+        return settings.fix_min_severity
+    return _stored().get(FIX_MIN_SEVERITY, settings.fix_min_severity)
+
+
+def set_fix_min_severity(
+    value: str | None, updated_by: str, settings: Settings | None = None
+) -> None:
+    """Store the lowest severity to fix; "" gives no instruction, None removes the stored value.
+
+    Raises:
+        ValueError: If the value is not a severity, or if SECREVIEW_FIX_MIN_SEVERITY is set.
+    """
+    if value is not None:
+        _check_not_env(settings or get_settings(), FIX_MIN_SEVERITY, "SECREVIEW_FIX_MIN_SEVERITY")
+        value = check_fix_min_severity(value)
+    _write({FIX_MIN_SEVERITY: value}, updated_by)
 
 
 # ── Public URL of the controller ─────────────────────────────────────────────
@@ -972,6 +1001,12 @@ def describe(settings: Settings | None = None) -> dict:
             "env": settings.report_language,
             "env_set": env_set(settings, REPORT_LANGUAGE),
             "effective": report_language(settings),
+        },
+        "fix_min_severity": {
+            "value": stored.get(FIX_MIN_SEVERITY),
+            "env": settings.fix_min_severity,
+            "env_set": env_set(settings, FIX_MIN_SEVERITY),
+            "effective": fix_min_severity(settings),
         },
         "controller_url": {
             "value": stored.get(CONTROLLER_URL),

@@ -173,6 +173,11 @@ exécute le [pipeline type](#pipeline-type).
 
     En production, épinglez chaque action sur le SHA d'un commit.
 
+    L'envoi d'un journal SARIF exige GitHub Advanced Security sur un dépôt privé. Sans lui,
+    `security-review-ci scan-code . --project "$PROJECT" --format github` affiche des
+    annotations que GitHub montre sur les lignes de la pull request (écrites sur la sortie
+    standard de l'étape, lancée depuis la racine du dépôt).
+
 === "GitLab CI"
 
     ```yaml
@@ -186,7 +191,8 @@ exécute le [pipeline type](#pipeline-type).
       script:
         - pip install security-review-ci==X.Y.Z
         - security-review-ci scan-code . --project "$CI_PROJECT_NAME" --save
-            --branch "$CI_COMMIT_REF_NAME" --commit "$CI_COMMIT_SHA" || [ $? -eq 1 ]
+            --branch "$CI_COMMIT_REF_NAME" --commit "$CI_COMMIT_SHA"
+            --format gitlab -o gl-code-quality-report.json || [ $? -eq 1 ]
         - security-review-ci scan-deps uv.lock --project "$CI_PROJECT_NAME" --save --require-database
             --branch "$CI_COMMIT_REF_NAME" --commit "$CI_COMMIT_SHA" || [ $? -eq 1 ]
         - security-review-ci sarif --project "$CI_PROJECT_NAME" -o security.sarif
@@ -194,9 +200,13 @@ exécute le [pipeline type](#pipeline-type).
       artifacts:
         when: always
         paths: [security.sarif]
+        reports:
+          codequality: gl-code-quality-report.json
     ```
 
-    GitLab ne lit pas le SARIF nativement : le journal est conservé comme artefact.
+    GitLab ne lit pas le SARIF nativement : le journal est conservé comme artefact. Le rapport
+    Code Quality de `--format gitlab` affiche les correspondances de `scan-code` dans la merge
+    request.
 
 === "Jenkins"
 

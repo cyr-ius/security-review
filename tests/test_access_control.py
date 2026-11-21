@@ -53,7 +53,7 @@ def test_combine_reaches_every_project_when_one_binding_does():
 
 
 def test_combine_bounds_the_projects_of_a_permission(monkeypatch):
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 2)
     with pytest.raises(ValueError, match="more than 2 projects"):
         access_control.combine([({"reports.read"}, ["a", "b", "c"])])
 
@@ -145,7 +145,7 @@ def test_duplicate_roles_and_the_role_limit_are_refused(monkeypatch):
         access_control.create_role("Auditor", ["rules.manage"])
     with pytest.raises(ValueError, match="already exists"):
         access_control.create_role("admin", ["rules.manage"])
-    monkeypatch.setattr(access_control, "MAX_ROLES", 2)
+    monkeypatch.setattr(access_control.core, "MAX_ROLES", 2)
     with pytest.raises(ValueError, match="At most 2 roles"):
         access_control.create_role("Other", ["audit.read"])
 
@@ -220,7 +220,7 @@ def test_the_projects_of_a_user_are_replaced_bounded_and_checked(monkeypatch):
         set_projects(("shop", []))
     with pytest.raises(ValueError, match="not a per-project permission"):
         set_projects(("shop", ["audit.read"]))
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 1)
     with pytest.raises(ValueError, match="at most 1 projects"):
         set_projects(("shop", ["reports.read"]), ("crm", ["reports.read"]))
     (event,) = audit.list_events(action="user.projects_changed")["events"][:1]
@@ -281,10 +281,13 @@ def test_oidc_mappings_give_their_roles_and_projects_to_the_claims_of_the_last_l
             session, alice["id"], {"devs", "unknown"}, _settings()
         )
     assert kept == ["devs"]
-    # A project not known yet is ignored, until it is created
-    assert grants_of(alice["id"]) == {"reports.read": frozenset({"shop"})}
-    known_projects("not-yet")
+    # A project not known yet is created by the mapping: no holder of projects.create may take
+    # its name first and read what the mapped team saves there
     assert grants_of(alice["id"]) == {"reports.read": frozenset({"not-yet", "shop"})}
+    (created,) = audit.list_events(action="project.created")["events"]
+    assert (created["target_id"], created["details"]) == ("not-yet", {"oidc_claim": "devs"})
+    with pytest.raises(ValueError, match="already exists"):
+        access_control.create_project(alice["id"], "not-yet")
     # A change of the mappings applies at once
     auditor = access_control.create_role("Auditor", ["audit.read"])
     access_control.set_oidc_mappings(
@@ -499,6 +502,93 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
         access_control.delete_project("shop")
 
 
+def test_renaming_a_project_moves_every_reference_and_keeps_the_triage():
+    from security_review_mcp.auth import token_store
+    from security_review_mcp.connectors import registry, set_target
+    from security_review_mcp.reports import services
+    from security_review_mcp.reports.sarif import issue_fingerprint
+    from security_review_mcp.storage.models import (
+        ConnectorTarget,
+        ExportState,
+        Finding,
+        FindingCreate,
+        FindingExport,
+        FindingStatus,
+        Severity,
+    )
+
+    finding = FindingCreate(
+        title="SQL injection", severity=Severity.HIGH, description="Query", file_path="app.py"
+    )
+    shop = services.save_report("shop", "Review", [finding])
+    shop_finding = services.get_report(shop["report_id"]).findings[0]
+    services.update_finding_status(
+        shop_finding.id, FindingStatus.FALSE_POSITIVE, "ann", "Dead code, never called"
+    )
+    set_target("shop", registry.get("jira"), "SEC", None, "user:root")
+    with session_scope() as session:
+        session.add(
+            FindingExport(
+                finding_id=shop_finding.id,
+                kind="jira",
+                project="shop",
+                fingerprint=issue_fingerprint("shop", finding),
+                state=ExportState.SENT,
+                external_key="SEC-1",
+            )
+        )
+    make_user("alice", PASSWORD, "triager", ["shop", "crm"])
+    map_claim("leads", "triager", ["shop", "crm"])
+    # A name already given by a mapping (created with it) would open the project to its users
+    map_claim("web-team", "reader", ["shop-web"])
+    with pytest.raises(ValueError, match="already exists"):
+        access_control.rename_project("shop", "shop-web")
+    token_store.create_token("ci-shop", Role.CI, projects=["shop", "crm"])
+
+    renamed = access_control.rename_project("Shop", "acme/Shop-API.git", "user:root")
+
+    assert renamed == {
+        "project": "shop-api",
+        "previous_name": "shop",
+        "reports": 1,
+        "findings": 1,
+        "tokens_changed": 1,
+        "mappings_changed": ["leads"],
+    }
+    assert [item["project"] for item in services.list_projects(set())] == ["shop-api"]
+    with session_scope() as session:
+        assert not access_control.project_exists(session, "shop")
+        assert session.exec(select(ConnectorTarget.project)).all() == ["shop-api"]
+        (export,) = session.exec(select(FindingExport)).all()
+        assert export.project == "shop-api"
+        renamed_digest = export.fingerprint
+    assert web_users.find_user("alice")["permissions"]["reports.read"] == ["crm", "shop-api"]
+    mappings = access_control.list_oidc_mappings()
+    assert [(m["claim"], [p["project"] for p in m["projects"]]) for m in mappings] == [
+        ("leads", ["crm", "shop-api"]),
+        ("web-team", ["shop-web"]),
+    ]
+    (token,) = token_store.list_tokens()
+    assert sorted(token["projects"]) == ["crm", "shop-api"]
+    # A later report under the new name finds the same issue: its decision carries on and its
+    # record is the one already sent
+    again = services.save_report("shop-api", "Review", [finding])
+    carried = services.get_report(again["report_id"]).findings[0]
+    assert carried.status == FindingStatus.FALSE_POSITIVE
+    with session_scope() as session:
+        assert session.get(Finding, carried.id).fingerprint == renamed_digest
+    assert renamed_digest == issue_fingerprint("shop-api", finding)
+    (event,) = audit.list_events(action="project.renamed")["events"]
+    assert (event["actor"], event["project"]) == ("user:root", "shop-api")
+    assert event["details"]["previous_name"] == "shop"
+    # Neither an unknown project nor a name already known is renamed
+    with pytest.raises(NotFoundError):
+        access_control.rename_project("shop", "shop-mobile")
+    services.save_report("crm", "Review", [finding])
+    with pytest.raises(ValueError, match="'crm' already exists"):
+        access_control.rename_project("shop-api", "CRM")
+
+
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
@@ -612,8 +702,8 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
     from security_review_mcp.reports import services
     from security_review_mcp.storage.models import ProjectEnrollment, utcnow
 
-    monkeypatch.setattr(access_control, "MAX_PENDING_PROJECTS", 2)
-    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 3)
+    monkeypatch.setattr(access_control.projects, "MAX_PENDING_PROJECTS", 2)
+    monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 3)
     access_control.request_project("first", "u1")
     access_control.request_project("second", "u2")
 
@@ -655,7 +745,7 @@ def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monke
     waits for an approval as the others do on a project whose autojoin is blocked."""
     from security_review_mcp.reports import services
 
-    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 10)
+    monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 10)
     role = access_control.create_role("Joiner", [Permission.PROJECTS_AUTOJOIN])
     joe = web_users.create_user("joe", PASSWORD)
     for project in ("shop", "crm", "vault"):
@@ -689,7 +779,7 @@ def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monke
     with pytest.raises(NotFoundError):
         access_control.set_autojoin_blocked("unknown", True)
     # Never beyond the projects one session may reach
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 2)
     with pytest.raises(ValueError, match="already reads 2 projects"):
         access_control.request_project("crm", "joe")
     assert grants_of(joe["id"])["reports.read"] == frozenset({"shop", "vault"})
@@ -705,14 +795,14 @@ def test_an_autojoin_counts_the_projects_once_added_with_those_of_the_oidc_mappi
     map_claim("devs", "reader", ["mapped"])
     with session_scope() as session:
         access_control.sync_oidc_claims(session, joe["id"], {"devs"}, _settings())
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 2)
     add = access_control.add_user_project
 
     def concurrent_join(session, user_id, project, actor=None):
         add(session, user_id, "crm", actor)
         add(session, user_id, project, actor)
 
-    monkeypatch.setattr(access_control, "add_user_project", concurrent_join)
+    monkeypatch.setattr(access_control.users, "add_user_project", concurrent_join)
 
     with pytest.raises(ValueError, match="already reads 2 projects"):
         access_control.request_project("shop", "joe")
@@ -724,7 +814,7 @@ def test_replacing_the_projects_of_a_user_removes_a_project_joined_meanwhile(mon
     is replaced too, never left beyond MAX_SESSION_PROJECTS."""
     known_projects("crm", "shop")
     joe = web_users.create_user("joe", PASSWORD)
-    lock = access_control._lock_user
+    lock = access_control.users._lock_user
     joined = []
 
     def join_then_lock(session, user_id):
@@ -733,7 +823,7 @@ def test_replacing_the_projects_of_a_user_removes_a_project_joined_meanwhile(mon
             access_control.add_user_project(session, user_id, "crm")
         lock(session, user_id)
 
-    monkeypatch.setattr(access_control, "_lock_user", join_then_lock)
+    monkeypatch.setattr(access_control.users, "_lock_user", join_then_lock)
     with session_scope() as session:
         access_control.set_user_projects(session, joe["id"], [("shop", ["reports.read"])])
 

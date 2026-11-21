@@ -35,13 +35,13 @@ trie et en assure le suivi.
   les [dépendances](review/analysis/dependencies.md) sont vérifiées avec une base de vulnérabilités OSV, même sans accès Internet.
 - **Relié aux outils de l'entreprise.** [Authentification unique (OIDC)](usage/sso.md) avec votre fournisseur
   d'identité, [rôles et projets de chaque compte](usage/access-control.md), envoi des findings vers
-  [Jira ou ServiceNow](usage/connectors/index.md),
+  [Jira, ServiceNow, GitHub ou GitLab](usage/connectors/index.md),
   [journal d'audit transmis à syslog, métriques Prometheus](usage/audit-metrics.md).
 - **Votre code reste chez vous.** Le produit est auto-hébergé : le serveur MCP n'établit aucune
   connexion sortante, les secrets sont masqués avant stockage, et il s'installe hors ligne. Il
   est open source (licence Apache 2.0). Voir [Sécurité et limites](reference/security.md).
 - **Une large couverture.** Des règles pour Python (FastAPI), Java (Spring), TypeScript /
-  Node.js, Angular, Go, C#, Rust, les fichiers de configuration et les pipelines CI (GitLab CI,
+  Node.js, Angular, Go, C#, Rust, PHP, Ruby, Kotlin, Terraform, les fichiers de configuration et les pipelines CI (GitLab CI,
   Jenkins...), ainsi que la détection d'instructions cachées destinées aux assistants IA.
 
 ## Comment ça marche, en trois étapes
@@ -78,8 +78,8 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 !!! warning "Ce que couvre l'analyse statique"
     Avec le [moteur OpenGrep](review/analysis/opengrep.md) (image `-opengrep`), Security Review
     fait une **analyse statique (SAST)** qui suit le flux de données dans un fichier, d'une
-    fonction à l'autre : 147 règles, dont 60 de propagation (taint), sur Java, Python,
-    JavaScript/TypeScript, C#, Go et Rust,
+    fonction à l'autre : 264 règles, dont 164 de propagation (taint), sur Java, Kotlin, Python,
+    JavaScript/TypeScript, C#, Go, Rust, PHP et Ruby,
     [mesurées sur l'OWASP Benchmark](reference/detection-benchmark.md). Sans lui, le scan par
     motifs ne produit que des **pistes**, avec des faux positifs. Aucun des deux ne suit un flux
     d'un fichier à l'autre, ni ne voit la logique métier ou un contrôle absent :

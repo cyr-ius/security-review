@@ -565,11 +565,15 @@ def test_prune_uses_the_setting_and_zero_disables_it(monkeypatch):
     age_report(old, 40)
 
     monkeypatch.setattr(
-        services, "get_settings", lambda: Settings(_env_file=None, empty_report_retention_days=0)
+        services.persistence,
+        "get_settings",
+        lambda: Settings(_env_file=None, empty_report_retention_days=0),
     )
     assert services.prune_empty_reports() == {"retention_days": 0, "deleted": 0}
     monkeypatch.setattr(
-        services, "get_settings", lambda: Settings(_env_file=None, empty_report_retention_days=30)
+        services.persistence,
+        "get_settings",
+        lambda: Settings(_env_file=None, empty_report_retention_days=30),
     )
     assert services.prune_empty_reports() == {"retention_days": 30, "deleted": 1}
     assert old not in stored_report_ids()
@@ -745,6 +749,14 @@ def test_risk_acceptances_list_expired_ones_and_comments(triage):
     rows = {row["id"]: row for row in page["acceptances"]}
     assert (rows[second]["expired"], rows[second]["status"]) == (True, FindingStatus.OPEN)
     assert (rows[first]["expired"], rows[first]["comments_total"]) == (False, 2)
+    # Neither the expired one nor one 30 days away expires soon
+    assert not rows[first]["expiring_soon"] and not rows[second]["expiring_soon"]
+    with session_scope() as session:
+        soon = session.get(Finding, first)
+        soon.status_expires_at = utcnow() + timedelta(days=3)
+        session.add(soon)
+    rows = {row["id"]: row for row in services.list_risk_acceptances("shop")["acceptances"]}
+    assert rows[first]["expiring_soon"] and not rows[first]["expired"]
     assert services.list_risk_acceptances("shop", projects=["billing"])["total"] == 0
     # The reason of the acceptance is its first comment
     reason, comment = services.list_finding_comments(first)

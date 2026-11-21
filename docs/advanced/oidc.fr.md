@@ -171,8 +171,10 @@ s'ajoutent aux rôles et projets donnés au compte (voir
 
 - Un changement des correspondances s'applique aussitôt, à chaque compte OIDC, par les valeurs de
   sa dernière connexion ; une valeur qu'aucune correspondance ne nomme plus est oubliée.
-- Un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur
-  d'identité. Un projet supprimé est retiré des correspondances ; une correspondance qui ne donne
+- Un projet nommé par une correspondance est créé à son enregistrement (événement
+  `project.created`, avec la valeur du claim) : resté inconnu, son nom pourrait être pris avant
+  par un détenteur de `projects.create`, qui lirait ensuite ce que l'équipe visée y enregistre.
+  Le fournisseur d'identité ne crée jamais de projet. Un projet supprimé est retiré des correspondances ; une correspondance qui ne donne
   plus rien est supprimée.
 - Une connexion ne retire jamais le dernier détenteur de `users.manage` : les valeurs du claim qui
   la lui donnaient sont gardées, avec un avertissement dans les journaux et un événement

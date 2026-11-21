@@ -154,6 +154,59 @@ def test_bundled_rules_match_their_test_cases(tmp_path):
     assert bundled - {key[2] for key in expected} == set(), "bundled rules without a test case"
 
 
+# Taint rules whose sources differ on purpose from those of the taint-sql rule of their language
+_OWN_SOURCES = {
+    "secreview.js.taint-dom-xss": "browser data: location, referrer, the Angular route",
+    "secreview.js.taint-mass-assignment": "a whole request body, not one of its fields",
+    "secreview.kotlin.taint-intent-redirection": "an intent sent by another application",
+    "secreview.php.taint-mass-assignment": "a whole request body, not one of its fields",
+    "secreview.ruby.taint-mass-assignment": "parameters without strong parameters",
+    "secreview.js.taint-nosql-injection": "labels: a request object can carry an operator",
+    "secreview.python.taint-mass-assignment": "a whole request body, not one of its fields",
+    "secreview.python.taint-nosql-injection": "labels: a request object can carry an operator",
+    "secreview.python.taint-open-redirect": "the URL of the current page stays on the site",
+    "secreview.python.taint-trust-boundary": "a socket or a serverless event has no session",
+    "secreview.python.taint-xss-markup": "a socket or a serverless event renders no HTML",
+    "secreview.python.taint-xss-response": "a socket or a serverless event renders no HTML",
+    # The host of the request only: the other request data is expected in an e-mail
+    **{
+        f"secreview.{prefix}.taint-host-header": "the Host header of the request"
+        for prefix in ("csharp", "go", "java", "js", "kotlin", "php", "python", "ruby")
+    },
+}
+
+
+def _taint_block(text: str, key: str) -> str:
+    """Block of a taint rule (sources, propagators), without its comments."""
+    match = re.search(rf"\n    pattern-{key}:\n(.*?)(?=\n    pattern-|\Z)", text, re.S)
+    block = match.group(1) if match else ""
+    return "\n".join(line for line in block.splitlines() if not line.lstrip().startswith("#"))
+
+
+def test_taint_rules_of_a_language_share_their_sources_and_propagators():
+    """A source or a propagator added to a language reaches all its taint rules."""
+    checked = 0
+    for language, paths in opengrep_rule_store.bundled_rules().items():
+        rules = {path.stem: path.read_text(encoding="utf-8") for path in paths}
+        rules = {rule_id: text for rule_id, text in rules.items() if "mode: taint" in text}
+        if not rules:
+            continue
+        reference = next(text for rule_id, text in rules.items() if rule_id.endswith(".taint-sql"))
+        for rule_id, text in rules.items():
+            assert _taint_block(text, "propagators") == _taint_block(reference, "propagators"), (
+                f"{rule_id}: propagators differ from the taint-sql rule of {language}"
+            )
+            if rule_id not in _OWN_SOURCES:
+                assert _taint_block(text, "sources") == _taint_block(reference, "sources"), (
+                    f"{rule_id}: sources differ from the taint-sql rule of {language}"
+                )
+            checked += 1
+    assert set(_OWN_SOURCES) <= {
+        path.stem for paths in opengrep_rule_store.bundled_rules().values() for path in paths
+    }
+    assert checked > 80
+
+
 def _bundle(directory, **rules):
     """Write a bundled rule pack: one python/<id>.yaml file per rule, message as content."""
     language = directory / "python"

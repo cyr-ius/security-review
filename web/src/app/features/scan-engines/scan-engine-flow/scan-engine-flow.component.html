@@ -476,12 +476,13 @@
             }
           </div>
         </foreignObject>
-        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">{{ node.label }}</text>
-        @if (!node.engine.active) {
-          <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 16">
-            {{ 'scanEngines.inactive' | t }}
-          </text>
-        }
+        <text class="label" [attr.x]="node.x" [attr.y]="node.labelY">
+          {{ 'scanEngines.flowEngineLabel' | t }}
+        </text>
+        <!-- Its name, or its state when it is down (no room for both: its name is in the tooltip) -->
+        <text class="label detail" [attr.x]="node.x" [attr.y]="node.labelY + 16">
+          {{ node.engine.active ? node.label : ('scanEngines.inactive' | t) }}
+        </text>
       </g>
     }
   </svg>

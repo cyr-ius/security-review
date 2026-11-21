@@ -168,11 +168,11 @@ def test_default_rules_file_is_valid_and_complete():
     ids = [rule.id for rule in defaults.rules]
     assert len(ids) == len(set(ids)) >= 120
     families = {"PY", "JV", "NG", "CFG", "GEN", "GL", "JK", "CI", "SP", "FA", "AI"}
-    families |= {"GO", "CS", "RS", "TS"}
+    families |= {"GO", "CS", "RS", "TS", "PHP", "RB", "KT", "TF"}
     assert {rule_id.split("-")[0] for rule_id in ids} <= families
     # The review prompts rely on these checklist domains
     domains = {"python", "java", "angular", "api", "config", "cicd", "dependencies"}
-    domains |= {"go", "csharp", "rust", "node", "*"}
+    domains |= {"go", "csharp", "rust", "node", "php", "ruby", "kotlin", "terraform", "*"}
     assert domains <= set(defaults.checklist)
     # Added to every review: secrets kept out of logs and masked before storage
     shared = {item.id: item.what_to_look_for for item in defaults.checklist["*"]}
@@ -935,6 +935,243 @@ ADDITIONAL_RULES = [
         "if (crypto.timingSafeEqual(received, expected)) {",
         "TS-015",
     ),
+    # False positives found on real projects (lobsters, BookStack, terraform-aws-eks)
+    ("php", "$out = `ls -l $dir`;", '$q = "SELECT * FROM `users` WHERE id = $id";', "PHP-001"),
+    (
+        "ruby",
+        "out = `convert #{file} out.png`",
+        "avg(length(`#{column.name}`)) avg_length,",
+        "RB-001",
+    ),
+    (
+        "ruby",
+        '<%= raw("Hi #{@user.name}") %>',
+        r'<%= raw("<a href=\"/threads\">Your Threads</a>") %>',
+        "RB-005",
+    ),
+    ("ruby", 'User.where("id = #{params[:id]}")', 'scope.where("#{type}_id": nil)', "RB-002"),
+    ("yaml", "image: nginx:latest", "# this role is different from IRSA", "CFG-003"),
+    # FastAPI / Starlette
+    (
+        "python",
+        'app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])',
+        'app.add_middleware(TrustedHostMiddleware, allowed_hosts=["api.example.com"])',
+        "FA-005",
+    ),
+    (
+        "python",
+        'app.add_middleware(SessionMiddleware, secret_key="dev-secret-key")',
+        "app.add_middleware(SessionMiddleware, secret_key=settings.session_key)",
+        "FA-006",
+    ),
+    (
+        "docker",
+        'CMD ["uvicorn", "app:app", "--proxy-headers", "--forwarded-allow-ips=*"]',
+        'CMD ["uvicorn", "app:app", "--proxy-headers", "--forwarded-allow-ips=10.0.0.5"]',
+        "FA-007",
+    ),
+    ("python", 'app = FastAPI(title="Shop", debug=True)', 'app = FastAPI(title="Shop")', "FA-008"),
+    # PHP, Ruby, Kotlin, Terraform
+    ("php", 'system("ping -c 1 " . $host);', 'system("uptime");', "PHP-001"),
+    ("php", "eval($code);", "$fn = $handlers[$name] ?? null;", "PHP-002"),
+    (
+        "php",
+        "$cart = unserialize($_COOKIE['cart']);",
+        "$cart = unserialize($data, ['allowed_classes' => false]);",
+        "PHP-003",
+    ),
+    (
+        "php",
+        '$db->query("SELECT * FROM users WHERE id = $id");',
+        '$stmt = $db->prepare("SELECT * FROM users WHERE id = ?");',
+        "PHP-004",
+    ),
+    ("php", "include($_GET['page'] . '.php');", "include __DIR__ . '/pages/home.php';", "PHP-005"),
+    (
+        "php",
+        "echo \"Hello \" . $_GET['name'];",
+        "echo \"Hello \" . htmlspecialchars($_GET['name'], ENT_QUOTES, 'UTF-8');",
+        "PHP-006",
+    ),
+    (
+        "php",
+        "curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);",
+        "curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);",
+        "PHP-007",
+    ),
+    (
+        "php",
+        "$hash = md5($password);",
+        "$hash = password_hash($password, PASSWORD_DEFAULT);",
+        "PHP-008",
+    ),
+    ("php", "if ($token == $expected) {", "if (hash_equals($expected, $token)) {", "PHP-009"),
+    (
+        "php",
+        "header(\"Location: \" . $_GET['next']);",
+        'header("Location: /dashboard");',
+        "PHP-010",
+    ),
+    ("php", "extract($_POST);", "$name = $_POST['name'] ?? '';", "PHP-011"),
+    (
+        "php",
+        "$page = file_get_contents($_GET['url']);",
+        "$page = file_get_contents(__DIR__ . '/data.json');",
+        "PHP-012",
+    ),
+    (
+        "php",
+        "$token = md5(uniqid(rand(), true));",
+        "$token = bin2hex(random_bytes(32));",
+        "PHP-013",
+    ),
+    (
+        "ruby",
+        'system("convert #{params[:file]} out.png")',
+        'system("convert", params[:file], "out.png")',
+        "RB-001",
+    ),
+    (
+        "ruby",
+        "User.where(\"name = '#{params[:name]}'\")",
+        'User.where("name = ?", params[:name])',
+        "RB-002",
+    ),
+    ("ruby", "record.send(params[:method])", "record.public_send(ALLOWED.fetch(action))", "RB-003"),
+    (
+        "ruby",
+        "state = Marshal.load(Base64.decode64(cookies[:state]))",
+        "state = JSON.parse(cookies[:state])",
+        "RB-004",
+    ),
+    ("ruby", "<%= comment.body.html_safe %>", "<%= comment.body %>", "RB-005"),
+    (
+        "ruby",
+        "@user.update(params.permit!)",
+        "@user.update(params.require(:user).permit(:name, :email))",
+        "RB-006",
+    ),
+    (
+        "ruby",
+        "skip_before_action :verify_authenticity_token",
+        "skip_before_action :authenticate_user!, only: :index",
+        "RB-007",
+    ),
+    (
+        "ruby",
+        "http.verify_mode = OpenSSL::SSL::VERIFY_NONE",
+        "http.verify_mode = OpenSSL::SSL::VERIFY_PEER",
+        "RB-008",
+    ),
+    ("ruby", "redirect_to params[:return_to]", "redirect_to root_path", "RB-009"),
+    (
+        "ruby",
+        "send_file params[:path]",
+        'send_file Rails.root.join("public", "report.pdf")',
+        "RB-010",
+    ),
+    (
+        "ruby",
+        "digest = Digest::MD5.hexdigest(data)",
+        "digest = Digest::SHA256.hexdigest(data)",
+        "RB-011",
+    ),
+    (
+        "ruby",
+        "validates :email, format: { with: /^[^@]+@[^@]+$/ }",
+        "validates :email, format: { with: /\\A[^@]+@[^@]+\\z/ }",
+        "RB-012",
+    ),
+    (
+        "kotlin",
+        'Runtime.getRuntime().exec("ping -c 1 $host")',
+        'ProcessBuilder(listOf("ping", "-c", "1", host)).start()',
+        "KT-001",
+    ),
+    (
+        "kotlin",
+        "db.rawQuery(\"SELECT * FROM users WHERE name = '$name'\", null)",
+        'db.rawQuery("SELECT * FROM users WHERE name = ?", arrayOf(name))',
+        "KT-002",
+    ),
+    (
+        "kotlin",
+        "webView.settings.javaScriptEnabled = true",
+        "webView.settings.javaScriptEnabled = false",
+        "KT-003",
+    ),
+    (
+        "kotlin",
+        "webView.settings.allowFileAccess = true",
+        "webView.settings.allowFileAccess = false",
+        "KT-004",
+    ),
+    (
+        "kotlin",
+        "val verifier = HostnameVerifier { _, _ -> true }",
+        "val verifier = HttpsURLConnection.getDefaultHostnameVerifier()",
+        "KT-005",
+    ),
+    (
+        "kotlin",
+        'val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")',
+        'val cipher = Cipher.getInstance("AES/GCM/NoPadding")',
+        "KT-006",
+    ),
+    (
+        "kotlin",
+        'val md = MessageDigest.getInstance("MD5")',
+        'val md = MessageDigest.getInstance("SHA-256")',
+        "KT-007",
+    ),
+    (
+        "kotlin",
+        "val token = Random.nextLong().toString()",
+        "val token = SecureRandom().nextLong().toString()",
+        "KT-008",
+    ),
+    (
+        "kotlin",
+        'openFileOutput("cache", Context.MODE_WORLD_READABLE)',
+        'openFileOutput("cache", Context.MODE_PRIVATE)',
+        "KT-009",
+    ),
+    (
+        "kotlin",
+        "val input = ObjectInputStream(socket.getInputStream())",
+        "val message = Json.decodeFromString<Message>(text)",
+        "KT-010",
+    ),
+    # Android manifest and network security configuration
+    (
+        "android",
+        '<application android:debuggable="true">',
+        '<application android:label="Shop">',
+        "KT-011",
+    ),
+    ("android", 'android:allowBackup="true"', 'android:allowBackup="false"', "KT-012"),
+    (
+        "android",
+        '<base-config cleartextTrafficPermitted="true">',
+        '<base-config cleartextTrafficPermitted="false">',
+        "KT-013",
+    ),
+    ("android", '<certificates src="user" />', '<certificates src="system" />', "KT-014"),
+    ("terraform", 'ipv6_cidr_blocks = ["::/0"]', 'ipv6_cidr_blocks = ["2001:db8::/64"]', "TF-001"),
+    ("terraform", "restrict_public_buckets = false", "restrict_public_buckets = true", "TF-002"),
+    ("terraform", "publicly_accessible = true", "publicly_accessible = false", "TF-003"),
+    ("terraform", "storage_encrypted = false", "storage_encrypted = true", "TF-004"),
+    ("terraform", 'actions = ["*"]', 'actions = ["s3:GetObject"]', "TF-005"),
+    ("terraform", 'http_tokens = "optional"', 'http_tokens = "required"', "TF-006"),
+    ("terraform", "https_only = false", "https_only = true", "TF-007"),
+    ("terraform", 'min_tls_version = "TLS1_0"', 'min_tls_version = "TLS1_2"', "TF-008"),
+    (
+        "terraform",
+        "enable_log_file_validation = false",
+        "enable_log_file_validation = true",
+        "TF-009",
+    ),
+    ("terraform", 'cidr_blocks = ["0.0.0.0/0"]', 'cidr_blocks = ["10.0.0.0/8"]', "CFG-004"),
 ]
 
 

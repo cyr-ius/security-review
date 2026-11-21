@@ -288,6 +288,16 @@
                     @if (canDelete()) {
                       <button
                         type="button"
+                        class="btn btn-sm btn-outline-secondary action-button me-1"
+                        [disabled]="renaming() || deleting() !== null"
+                        [attr.aria-label]="'projects.rename' | t: { project: project.project }"
+                        [attr.title]="'projects.rename' | t: { project: project.project }"
+                        (click)="openRename(project.project)"
+                      >
+                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                      </button>
+                      <button
+                        type="button"
                         class="btn btn-sm btn-outline-danger action-button"
                         [disabled]="deleting() !== null"
                         [attr.aria-label]="'projects.delete' | t: { project: project.project }"
@@ -366,6 +376,65 @@
         >
           <i class="bi bi-plus-lg" aria-hidden="true"></i>
           {{ 'projects.create' | t }}
+        </button>
+      </div>
+    </form>
+  </dialog>
+}
+
+@if (canDelete()) {
+  <dialog
+    #renameDialog
+    class="project-dialog shadow"
+    aria-labelledby="rename-dialog-title"
+    (close)="renameProjectName.set(null)"
+  >
+    <form class="card" (submit)="renameProject($event)" novalidate>
+      <div class="card-header d-flex align-items-center">
+        <h2 id="rename-dialog-title" class="h6 mb-0 text-break">
+          {{ 'projects.renameTitle' | t: { project: renameProjectName() ?? '' } }}
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary ms-auto"
+          [attr.aria-label]="'common.closeForm' | t"
+          (click)="closeRename()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <label for="rename-project" class="form-label small mb-1 fw-semibold">{{
+          'projects.renameName' | t
+        }}</label>
+        <input
+          id="rename-project"
+          type="text"
+          class="form-control form-control-sm"
+          autocomplete="off"
+          aria-describedby="rename-project-help"
+          [formField]="renameForm.name"
+        />
+        <div id="rename-project-help" class="form-text">{{ 'projects.renameHelp' | t }}</div>
+        @if (renameError(); as message) {
+          <div class="alert alert-danger py-2 mt-2 mb-0" role="alert">{{ message | t }}</div>
+        }
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="closeRename()">
+          {{ 'common.cancel' | t }}
+        </button>
+        <button
+          type="submit"
+          class="btn btn-sm btn-primary"
+          [disabled]="renaming() || renameForm().invalid()"
+        >
+          @if (renaming()) {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          } @else {
+            <i class="bi bi-pencil" aria-hidden="true"></i>
+          }
+          {{ 'projects.renameSubmit' | t }}
         </button>
       </div>
     </form>

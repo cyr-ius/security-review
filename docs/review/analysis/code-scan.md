@@ -31,6 +31,8 @@ export SECREVIEW_CI_TOKEN=...   # ci token restricted to the project (or admin t
 security-review-ci scan-code . --project portal                               # text summary, exit code 0/1/2
 security-review-ci scan-code . --project portal --format json -o scan.json    # for the codebase-review prompt
 security-review-ci scan-code . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-ci scan-code . --project portal --format github             # annotations of a GitHub pull request
+security-review-ci scan-code . --project portal --format gitlab -o gl-code-quality-report.json  # GitLab Code Quality (merge request)
 security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
@@ -45,8 +47,8 @@ The client chooses the files; the Controller server never reads its own disk.
 - Files come from `git ls-files` (tracked + untracked not ignored: `.gitignore` is honored).
   Outside a git repository, or with `--no-git`, the tree is walked, skipping `node_modules`,
   `.venv`, `dist`, `build`, `target`, `obj`, etc.
-- The language is inferred from the name: `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.ts`,
-  `.js`, `.html` (Angular templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
+- The language is inferred from the name: `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.php`, `.rb`/`.erb`/`.rake`,
+  `.kt`/`.kts`, `AndroidManifest.xml` and `network_security_config*.xml`, `.tf`/`.tfvars`, `.ts`, `.js`, `.html` (Angular templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, and the files that steer an AI assistant (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
   `*.mdc`, `*.instructions.md`, `*.prompt.md`, `*.md` under `.claude/`, `.cursor/`, `.windsurf/`
@@ -114,7 +116,7 @@ for the dependencies: `start_codebase_scan` with `scope` `deps`, else `security-
 
 With the HTTP MCP server and the [delegation of `scan_code`](opengrep.md#fragment-scans-scan_code)
 turned on (`SECREVIEW_SCANCODE_DELEGATED`, or the switch of the
-[**Activity**](../../usage/index.md#activity) page, which covers both tools), the agent scans the whole repository on the Controller server **without reading the
+[**Activity**](../../usage/activity.md) page, which covers both tools), the agent scans the whole repository on the Controller server **without reading the
 files** and without the developer installing anything or creating a `ci` token:
 
 1. the agent calls `start_codebase_scan` with the project; the MCP server relays its token (an

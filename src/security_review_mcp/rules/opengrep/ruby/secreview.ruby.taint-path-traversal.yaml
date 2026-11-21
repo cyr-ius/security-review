@@ -1,0 +1,73 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ruby.taint-path-traversal
+    message: >-
+      Request data reaches a file path (read, write, delete, send_file). Keep only the file name (File.basename) and check that the expanded path stays under the expected directory.
+    languages: [ruby]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: params
+          - pattern: cookies
+          - patterns:
+              - pattern: request.$ATTR
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(params|parameters|query_parameters|request_parameters|path_parameters|headers|body|raw_post|query_string|cookies|referer|referrer|user_agent|fullpath|original_url|url)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $X.to_i
+          - pattern: $X.to_f
+          - pattern: Integer(...)
+          - pattern: Float(...)
+          # A record found in the database (User.find_by(name: params[:name]).avatar) is not
+          # request data
+          - patterns:
+              - pattern: $MODEL.$FIND(...)
+              - metavariable-regex:
+                  metavariable: $FIND
+                  regex: ^(find|find_by|find_by!|find_or_create_by|first|last|take)$
+          - pattern: File.basename(...)
+    pattern-propagators:
+      # A value appended to a string or an array taints it (join...)
+      - pattern: $TO << $FROM
+        from: $FROM
+        to: $TO
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.concat($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.prepend($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: File.$IO($PATH, ...)
+              - pattern: IO.$IO($PATH, ...)
+              - pattern: FileUtils.$IO($PATH, ...)
+          - metavariable-regex:
+              metavariable: $IO
+              regex: ^(read|open|write|binread|binwrite|readlines|foreach|new|delete|unlink|rm|rm_f|rm_rf|cp|mv|copy_file|remove_file)$
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern-either:
+              - pattern: send_file($PATH, ...)
+              - pattern: open($PATH, ...)
+          - focus-metavariable: $PATH

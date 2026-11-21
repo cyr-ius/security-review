@@ -11,7 +11,7 @@ run: the built-in pattern rules and the default OpenGrep rules.
 | Engine | Analysis | Role |
 |---|---|---|
 | [Built-in rules](../review/rules.md) (always enabled) | Line-by-line patterns (regular expressions) | Leads: weak algorithms, risky calls, secrets, configuration. Broad, with false positives |
-| [OpenGrep rules](../review/analysis/opengrep.md#default-rules) (`-opengrep` image) | Syntax tree, and data flow for the 60 taint rules | Static analysis (SAST): a value read from the request is followed to a dangerous call, a sanitizer on the way stops it |
+| [OpenGrep rules](../review/analysis/opengrep.md#default-rules) (`-opengrep` image) | Syntax tree, and data flow for the 77 taint rules | Static analysis (SAST): a value read from the request is followed to a dangerous call, a sanitizer on the way stops it |
 
 The taint analysis follows a value **within a file**: through variables, string building, lists
 and dictionaries, and through the functions of the file (`--taint-intrafile`,
@@ -123,6 +123,43 @@ a new alert there must be a real issue, otherwise the rule is corrected. The cor
 WebGoat, Spring PetClinic, Django, Flask, Express, OWASP Juice Shop, eShopOnWeb, Gitea and a
 Rust (Axum, SQLx) application, plus non-web Python projects (httpie, black, pip, uvicorn), on
 which command line arguments and the environment are not sources.
+
+### PHP, Ruby, Kotlin, Android and Terraform
+
+These families have no OWASP Benchmark: each one is measured on a deliberately vulnerable
+application (what is detected) and on a maintained real application (what is noise), with the
+built-in rules (the families of the language, plus `CFG-*` for Terraform).
+
+| Language | Vulnerable application | Alerts | Real application | Alerts |
+|---|---|---|---|---|
+| PHP | DVWA | 41 | BookStack (Laravel) | 0 `PHP-*` |
+| Ruby, Rails | RailsGoat | 18 | Lobsters | 18 |
+| Kotlin, Android | AndroGoat | 14 | Now in Android | 2 (`allowBackup`) |
+| Terraform | TerraGoat | 29 | terraform-aws-eks | 6 |
+
+Measured on 2026-11-21 with the rules of the commit that adds them. The first run found false
+positives on the real applications, now corrected and covered by a test: MySQL identifiers in
+backticks read as shell commands (`PHP-001`, `RB-001`), `raw` on a fixed string (`RB-005`), a
+string hash key read as a SQL fragment (`RB-002`), and a comment ending in `from IRSA` read as a
+Dockerfile `FROM` (`CFG-003`). The remaining alerts on the real applications are leads to check:
+`raw` with an interpolated user name, a command run through a shell, `0.0.0.0/0` in an egress rule
+(`CFG-004` does not tell ingress from egress), backups allowed.
+
+A line-by-line rule does not follow a value. The OpenGrep taint rules of PHP and Ruby do, within a
+file:
+
+| Application | OpenGrep alerts | Detail |
+|---|---|---|
+| DVWA | 38 | Command 9, SQL 8, XSS 6, redirect 3, `eval` 2, path 10 |
+| BookStack | 3 | A redirect guarded by a same-origin check, two `unlink` |
+| RailsGoat | 9 | Every known flow: SQL, `Marshal.load`, `constantize`, `send_file`, redirects, `html_safe` |
+| Lobsters | 2 | A duration interpolated into SQL, a `send_file` |
+
+The first run on the real applications found false positives, corrected and covered by a test: a
+Laravel `$request->query()` read as a database query, `php://input` read as a path, redirects to a
+URL built by the application (`$page->getUrl()`, `redirect_to @post`, `user_path(params[:id])`,
+a relative path), Active Record `or()` and records found with `find_by`. A flow that crosses files
+is still missed: DVWA builds its XSS in one file and prints it from another.
 
 ## Method
 

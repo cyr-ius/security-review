@@ -153,6 +153,13 @@ def render() -> str:
         [(tokens["expiring_soon"], None)],
     )
     lines += _family(
+        "secreview_acceptances_expiring_soon",
+        "gauge",
+        "Accepted risks and false positives whose decision expires within "
+        f"{services.DISMISSAL_EXPIRY_WARNING.days} days (they count as open then).",
+        [(services.expiring_dismissal_count(), None)],
+    )
+    lines += _family(
         "secreview_project_enrollments_pending",
         "gauge",
         "Projects requested by an enrollment, waiting for an administrator.",

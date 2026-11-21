@@ -167,6 +167,11 @@ Each example stores the token as a secret of the platform, never in the file, an
 
     Pin each action on the SHA of a commit in production.
 
+    The upload of a SARIF log needs GitHub Advanced Security on a private repository. Without
+    it, `security-review-ci scan-code . --project "$PROJECT" --format github` prints
+    annotations that GitHub shows on the lines of the pull request (written on the standard
+    output of the step, run from the root of the repository).
+
 === "GitLab CI"
 
     ```yaml
@@ -180,7 +185,8 @@ Each example stores the token as a secret of the platform, never in the file, an
       script:
         - pip install security-review-ci==X.Y.Z
         - security-review-ci scan-code . --project "$CI_PROJECT_NAME" --save
-            --branch "$CI_COMMIT_REF_NAME" --commit "$CI_COMMIT_SHA" || [ $? -eq 1 ]
+            --branch "$CI_COMMIT_REF_NAME" --commit "$CI_COMMIT_SHA"
+            --format gitlab -o gl-code-quality-report.json || [ $? -eq 1 ]
         - security-review-ci scan-deps uv.lock --project "$CI_PROJECT_NAME" --save --require-database
             --branch "$CI_COMMIT_REF_NAME" --commit "$CI_COMMIT_SHA" || [ $? -eq 1 ]
         - security-review-ci sarif --project "$CI_PROJECT_NAME" -o security.sarif
@@ -188,9 +194,12 @@ Each example stores the token as a secret of the platform, never in the file, an
       artifacts:
         when: always
         paths: [security.sarif]
+        reports:
+          codequality: gl-code-quality-report.json
     ```
 
-    GitLab does not read SARIF natively: the log is kept as an artifact.
+    GitLab does not read SARIF natively: the log is kept as an artifact. The Code Quality
+    report of `--format gitlab` shows the matches of `scan-code` in the merge request.
 
 === "Jenkins"
 

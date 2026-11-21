@@ -45,6 +45,16 @@
   color: var(--bs-success-text-emphasis);
 }
 
+.connector-logo.logo-github {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-emphasis-color);
+}
+
+.connector-logo.logo-gitlab {
+  background: var(--bs-warning-bg-subtle);
+  color: var(--bs-warning-text-emphasis);
+}
+
 .min-w-0 {
   min-inline-size: 0;
 }

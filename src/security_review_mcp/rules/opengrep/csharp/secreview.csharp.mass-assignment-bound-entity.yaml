@@ -1,0 +1,47 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.mass-assignment-bound-entity
+    message: >-
+      An object bound from the request is saved as it is (Add, Update or Attach of the
+      action parameter, TryUpdateModelAsync without the list of properties): a client can
+      set every property of the entity, such as IsAdmin, Role or OwnerId (overposting). Bind
+      a model that lists the allowed properties and copy them to the entity, or pass the
+      allowed properties to TryUpdateModelAsync.
+    languages: [csharp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  public $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+              - pattern-inside: |
+                  public async $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+          - metavariable-regex:
+              metavariable: $ATTR
+              regex: ^(FromBody|FromForm|Bind)$
+          - metavariable-regex:
+              metavariable: $TYPE
+              # A number, a string, a GUID or a date is not an entity
+              regex: ^(?!(int|long|short|byte|uint|ulong|ushort|bool|decimal|double|float|string|Guid|DateTime|DateTimeOffset|DateOnly|TimeOnly)\??$)
+          - pattern-either:
+              - pattern: $DB.$METHOD2($PARAM)
+              - pattern: $DB.$SET.$METHOD2($PARAM)
+              - pattern: await $DB.$METHOD2($PARAM)
+              - pattern: await $DB.$SET.$METHOD2($PARAM)
+              - pattern: $DB.Entry($PARAM).CurrentValues.SetValues(...)
+              - pattern: $DB.Entry(...).CurrentValues.SetValues($PARAM)
+          - metavariable-regex:
+              metavariable: $METHOD2
+              regex: ^(Add|AddAsync|Update|Attach)$
+      # TryUpdateModelAsync(model) or (model, prefix): every property of the model can be set
+      - pattern: TryUpdateModelAsync($MODEL)
+      - pattern: TryUpdateModelAsync<$T>($MODEL)
+      - pattern: TryUpdateModelAsync($MODEL, $PREFIX)
+      - pattern: TryUpdateModelAsync<$T>($MODEL, $PREFIX)

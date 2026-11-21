@@ -312,6 +312,7 @@ export type AuditAction =
   | 'user.groups_changed'
   | 'project.created'
   | 'project.deleted'
+  | 'project.renamed'
   | 'project.joined'
   | 'project.autojoin_changed'
   | 'user.roles_changed'
@@ -367,6 +368,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.groups_changed',
   'project.created',
   'project.deleted',
+  'project.renamed',
   'project.joined',
   'project.autojoin_changed',
   'user.roles_changed',
@@ -729,6 +731,17 @@ export interface ProjectDeleted {
   tokens_changed: number;
 }
 
+/** POST /api/v1/projects/{project}/rename */
+export interface ProjectRenamed {
+  project: string;
+  previous_name: string;
+  reports: number;
+  findings: number;
+  tokens_changed: number;
+  /** Claims of the OIDC mappings that now give the new name. */
+  mappings_changed: string[];
+}
+
 /** GET /api/v1/reports */
 export interface ReportSummary {
   report_id: number;
@@ -928,6 +941,8 @@ export interface ProjectFindingPage {
 /** An accepted risk of GET /api/v1/risk-acceptances (an expired one counts as open again). */
 export interface RiskAcceptance extends ProjectFinding {
   expired: boolean;
+  /** True when the acceptance expires within 14 days: the finding will block the gate again. */
+  expiring_soon: boolean;
   comments_total: number;
 }
 
@@ -1083,6 +1098,15 @@ export interface AppSettings {
     value: string | null;
     env: string;
     /** SECREVIEW_REPORT_LANGUAGE is set: it takes precedence over the stored value. */
+    env_set: boolean;
+    effective: string;
+  };
+  /** Lowest severity of the findings the agent must fix ('' or null: no instruction). */
+  fix_min_severity: {
+    /** Set in the web interface; ignored when env_set. */
+    value: string | null;
+    env: string;
+    /** SECREVIEW_FIX_MIN_SEVERITY is set: it takes precedence over the stored value. */
     env_set: boolean;
     effective: string;
   };

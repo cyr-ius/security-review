@@ -1,0 +1,91 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-argument-injection
+    message: >-
+      Request data is passed as an argument of exec.Command: a value that starts with "-"
+      becomes an option of the program (git --upload-pack, ssh -oProxyCommand, curl -o, tar
+      --checkpoint-action...), which runs commands or writes files. Quoting does not help.
+      Put "--" before the values, refuse a value that starts with "-", or pass it as the
+      value of a long option ("--branch=" + value).
+    languages: [go]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-88: Improper Neutralization of Argument Delimiters in a Command ('Argument Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).FormValue(...)"
+          - pattern: "($REQ : *http.Request).PostFormValue(...)"
+          - pattern: "($REQ : *http.Request).PathValue(...)"
+          - pattern: "($REQ : *http.Request).URL.Query()"
+          - pattern: "($REQ : *http.Request).URL.RawQuery"
+          - pattern: "($REQ : *http.Request).URL.Path"
+          - pattern: "($REQ : *http.Request).Form"
+          - pattern: "($REQ : *http.Request).PostForm"
+          - pattern: "($REQ : *http.Request).Header"
+          - pattern: "($REQ : *http.Request).Body"
+          - pattern: "($REQ : *http.Request).Cookie(...)"
+          - pattern: mux.Vars(...)
+          - pattern: chi.URLParam(...)
+          - patterns:
+              - pattern: "($CTX : *gin.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|DefaultQuery|Param|PostForm|DefaultPostForm|GetHeader|GetQuery|GetPostForm|QueryArray|FormFile|Cookie)$
+          - patterns:
+              - pattern: "($CTX : echo.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+          # Fiber v2 (*fiber.Ctx) and v3 (fiber.Ctx)
+          - patterns:
+              - pattern-either:
+                  - pattern: "($CTX : *fiber.Ctx).$METHOD(...)"
+                  - pattern: "($CTX : fiber.Ctx).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|Queries|Params|AllParams|FormValue|Body|BodyRaw|Get|GetReqHeaders|Cookies|OriginalURL)$
+    pattern-propagators:
+      # A value written to a strings.Builder or a bytes.Buffer taints what is built
+      - pattern: $TO.WriteString($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteByte($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteRune($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprintf(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprint(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: exec.Command($PROG, ..., $ARG, ...)
+              - pattern: exec.CommandContext($CTX, $PROG, ..., $ARG, ...)
+          - pattern-not: exec.Command($PROG, ..., "--", ..., $ARG, ...)
+          - pattern-not: exec.CommandContext($CTX, $PROG, ..., "--", ..., $ARG, ...)
+          - metavariable-regex:
+              metavariable: $PROG
+              regex: '^["''`](?:[^"''`]*/)?(git|hg|svn|ssh|scp|sftp|rsync|curl|wget|tar|zip|unzip|7z|7za|find|xargs|sed|awk|gawk|ffmpeg|convert|magick|gs|wkhtmltopdf|soffice|libreoffice|chromium|google-chrome|openssl|gpg|psql|mysql|mysqldump|pg_dump|docker|kubectl|helm|sudo|env|npm|npx|pip|man|less)["''`]$'
+          - metavariable-regex:
+              metavariable: $ARG
+              regex: "^(?!&?(?:format!\\()?(?:f|\\$|@)?[\"'`][^\"'`{#$\\\\])"
+          - focus-metavariable: $ARG
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: strconv.Atoi(...)
+          - pattern: strconv.ParseInt(...)
+          - pattern: uuid.Parse(...)

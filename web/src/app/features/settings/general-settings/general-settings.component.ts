@@ -6,7 +6,7 @@ import { msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
-import { AppSettings, ProxyUpdate } from '../../../core/models/api.models';
+import { AppSettings, ProxyUpdate, SEVERITIES, Severity } from '../../../core/models/api.models';
 import { SettingsPage } from '../settings-page';
 
 /** How the report language is chosen in the form (without SECREVIEW_REPORT_LANGUAGE). */
@@ -19,6 +19,11 @@ const LANGUAGE_PATTERN = /^[\p{L} \-_()]{0,40}$/u;
 interface LanguageFormModel {
   mode: LanguageMode;
   language: string;
+}
+
+/** Fields of the severity to fix form ('' gives no instruction). */
+interface FixFormModel {
+  severity: Severity | '';
 }
 
 /** Longest URL accepted by the server (config.CONTROLLER_URL_MAX_CHARS). */
@@ -82,11 +87,12 @@ interface ProxyFormModel {
 type ProxyField = 'url' | 'no_proxy';
 
 /**
- * Administrator page: general settings. The language of the review reports, the public URL of
+ * Administrator page: general settings. The language of the review reports, the lowest severity of
+ * the findings the agent must fix, the public URL of
  * the controller (the MCP server gives its web interface to the agents without a valid token,
  * the connectors link to it, the Activity page may delegate scan_code to it) and the proxy of the
  * outgoing connections of the controller (OSV download and OIDC provider).
- * SECREVIEW_REPORT_LANGUAGE, SECREVIEW_PUBLIC_URL,
+ * SECREVIEW_REPORT_LANGUAGE, SECREVIEW_FIX_MIN_SEVERITY, SECREVIEW_PUBLIC_URL,
  * HTTPS_PROXY / HTTP_PROXY and NO_PROXY, when set, take precedence: their field then only shows
  * them.
  */
@@ -140,6 +146,48 @@ export class GeneralSettingsComponent extends SettingsPage {
   async deleteStoredLanguage(): Promise<void> {
     await this.run(
       () => firstValueFrom(this.api.setReportLanguage(null)),
+      msg('settings.storedDeleted'),
+    );
+  }
+
+  /** Filled with the stored severity each time it is loaded, then edited by the form. */
+  readonly fixModel = linkedSignal<FixFormModel>(() => ({
+    severity: (this.settings.value()?.fix_min_severity.value ?? '') as Severity | '',
+  }));
+  readonly fixForm = form(this.fixModel);
+
+  /** "High or above"..., or the absence of instruction. */
+  private fixLabel(severity: Severity | '' | undefined): string {
+    return severity
+      ? this.i18n.translate('settings.fixOrAbove', {
+          severity: this.i18n.translate(`severity.${severity}`),
+        })
+      : this.i18n.translate('settings.fixNone');
+  }
+
+  /** Choices of the form, from the most to the least severe. */
+  readonly fixOptions = computed(() =>
+    SEVERITIES.map((severity) => ({ severity, label: this.fixLabel(severity) })),
+  );
+
+  /** The severity to fix in force, as shown above the form. */
+  readonly fixApplied = computed(() =>
+    this.fixLabel(this.settings.value()?.fix_min_severity.effective as Severity | ''),
+  );
+
+  async saveFixSeverity(event: Event): Promise<void> {
+    event.preventDefault();
+    const { severity } = this.fixModel();
+    await this.run(
+      () => firstValueFrom(this.api.setFixSeverity(severity || null)),
+      msg('settings.fixSaved'),
+    );
+  }
+
+  /** Delete the stored value that SECREVIEW_FIX_MIN_SEVERITY hides. */
+  async deleteStoredFixSeverity(): Promise<void> {
+    await this.run(
+      () => firstValueFrom(this.api.setFixSeverity(null)),
       msg('settings.storedDeleted'),
     );
   }

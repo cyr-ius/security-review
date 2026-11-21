@@ -1,0 +1,62 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.php.taint-mass-assignment
+    message: >-
+      The whole request body is passed to a model (create, fill, update, forceFill...): a
+      client can set fields it should not control, such as is_admin, role or owner_id (mass
+      assignment). Pass $request->validated() or $request->only([...]) with the allowed
+      fields; forceFill and forceCreate also bypass $fillable.
+    languages: [php]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $_POST
+          - pattern: $_REQUEST
+          - pattern: json_decode(file_get_contents("php://input"), ...)
+          # Laravel and Symfony: every field of the request, not one of them
+          - patterns:
+              - pattern-either:
+                  - pattern: $REQ->all()
+                  - pattern: $REQ->input()
+                  - pattern: $REQ->post()
+                  - pattern: $REQ->json()->all()
+                  - pattern: $REQ->request->all()
+                  - pattern: $REQ->toArray()
+                  - pattern: $REQ->getPayload()->all()
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^\$(request|req)$
+          - pattern: request()->all()
+          - pattern: request()->input()
+          - pattern: Request::all()
+          - pattern: Request::input()
+    pattern-propagators:
+      # A value added to an array taints it (implode...)
+      - pattern: array_push($TO, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: array_unshift($TO, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $MODEL::create($DATA, ...)
+              - pattern: $MODEL::forceCreate($DATA, ...)
+              - pattern: $MODEL::make($DATA)
+              - pattern: $MODEL::updateOrCreate($KEYS, $DATA)
+              - pattern: $MODEL::firstOrCreate($KEYS, $DATA)
+              - pattern: $MODEL::query()->create($DATA, ...)
+              - pattern: $RECORD->fill($DATA)
+              - pattern: $RECORD->forceFill($DATA)
+              - pattern: $RECORD->update($DATA, ...)
+              - pattern: $RECORD->$RELATION()->create($DATA, ...)
+          - focus-metavariable: $DATA

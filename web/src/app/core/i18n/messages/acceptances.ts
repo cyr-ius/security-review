@@ -13,6 +13,9 @@ export const acceptances = defineMessages({
     'acceptances.state': 'Acceptance',
     'acceptances.active': 'Active',
     'acceptances.expired': 'Expired',
+    'acceptances.expiringSoon': 'Expires soon',
+    'acceptances.expiringSoonHelp':
+      'Expires within 14 days: renew it, or the finding blocks the gate again.',
     'acceptances.finding': 'Finding',
     'acceptances.approver': 'Approved by',
     'acceptances.acceptedOn': 'Accepted on',
@@ -48,6 +51,9 @@ export const acceptances = defineMessages({
     'acceptances.state': 'Acceptation',
     'acceptances.active': 'Active',
     'acceptances.expired': 'Expirée',
+    'acceptances.expiringSoon': 'Expire bientôt',
+    'acceptances.expiringSoonHelp':
+      'Expire dans moins de 14 jours : renouvelez-la, sinon le finding bloque de nouveau le gate.',
     'acceptances.finding': 'Finding',
     'acceptances.approver': 'Approuvée par',
     'acceptances.acceptedOn': 'Acceptée le',
@@ -84,6 +90,9 @@ export const acceptances = defineMessages({
     'acceptances.state': 'Aceptación',
     'acceptances.active': 'Activa',
     'acceptances.expired': 'Caducada',
+    'acceptances.expiringSoon': 'Caduca pronto',
+    'acceptances.expiringSoonHelp':
+      'Caduca en menos de 14 días: renuévela, o el hallazgo vuelve a bloquear el gate.',
     'acceptances.finding': 'Hallazgo',
     'acceptances.approver': 'Aprobada por',
     'acceptances.acceptedOn': 'Aceptada el',

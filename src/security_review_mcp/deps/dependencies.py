@@ -1,7 +1,7 @@
 """Parse dependency manifests and lockfiles, and run offline hygiene checks.
 
 Supported files: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock, uv.lock (PyPI);
-package.json, package-lock.json, npm-shrinkwrap.json, yarn.lock (npm);
+package.json, package-lock.json, npm-shrinkwrap.json, yarn.lock, pnpm-lock.yaml (npm);
 pom.xml, build.gradle, build.gradle.kts (Maven);
 go.mod (Go); Cargo.lock, Cargo.toml (crates.io);
 packages.lock.json, *.csproj / *.fsproj / *.vbproj, Directory.Packages.props,
@@ -36,6 +36,7 @@ SUPPORTED_FILES = (
     "package-lock.json",
     "npm-shrinkwrap.json",
     "yarn.lock",
+    "pnpm-lock.yaml",
     "pom.xml",
     "build.gradle",
     "build.gradle.kts",
@@ -162,8 +163,8 @@ class _Builder:
             self.parsed.notes.append(
                 f"{unresolved} dependency version(s) are ranges or managed elsewhere and cannot be "
                 "checked against advisories: scan the lockfile (package-lock.json, poetry.lock, "
-                "Pipfile.lock, uv.lock, yarn.lock, Cargo.lock, packages.lock.json) or a "
-                "CycloneDX SBOM (bom.json) instead."
+                "Pipfile.lock, uv.lock, yarn.lock, pnpm-lock.yaml, Cargo.lock, "
+                "packages.lock.json) or a CycloneDX SBOM (bom.json) instead."
             )
         return self.parsed
 
@@ -530,6 +531,76 @@ def parse_yarn_lock(content: str) -> Parsed:
             continue
         resolved = _YARN_RESOLVED_RE.match(line)
         if resolved and _is_insecure_url(resolved.group(1)):
+            builder.issue("DEP-004", f"{name} is downloaded over HTTP", number, name)
+    return builder.finish()
+
+
+_PNPM_LOCK_VERSION_RE = re.compile(r"""^lockfileVersion:\s*['"]?(\d+)""")
+_PNPM_TARBALL_RE = re.compile(r"""\btarball:\s*['"]?([^,}'"\s]+)""")
+_PNPM_VERSION_RE = re.compile(r"\d+\.\d+\.\d+[\w.+-]*")
+_PNPM_KEY_END_RE = re.compile(r":\s*(?:\{\})?$")  # "key:" or "key: {}"
+
+
+def _pnpm_package_key(key: str, lock_version: int) -> tuple[str, str | None]:
+    """Split a key of the ``packages`` section into a name and a registry version.
+
+    ``/lodash/4.17.21_peer@1.0.0`` (v5), ``/lodash@4.17.21(peer@1.0.0)`` (v6) and
+    ``lodash@4.17.21`` (v9) give ``("lodash", "4.17.21")``. A package that does not come from
+    the registry (git, tarball URL, local path) gives its key and None.
+    """
+    registry = key.startswith("/") or lock_version >= 9
+    path = key.lstrip("/").split("(", 1)[0]
+    if lock_version < 6:
+        parts = path.split("/")
+        size = 3 if path.startswith("@") else 2
+        if not registry or len(parts) != size:
+            return key, None
+        name, version = "/".join(parts[:-1]), parts[-1].split("_", 1)[0]
+    else:
+        at = path.find("@", 1)
+        if not registry or at <= 0:
+            return key, None
+        name, version = path[:at], path[at + 1 :]
+    return (name, version) if _PNPM_VERSION_RE.fullmatch(version) else (key, None)
+
+
+def parse_pnpm_lock(content: str) -> Parsed:
+    """Parse a pnpm-lock.yaml file (lockfile v5, v6 and v9) without a YAML library.
+
+    Only the ``packages`` section is read: it lists every resolved package, transitive
+    included, once (the ``snapshots`` of v9 repeat them with their peers).
+    """
+    builder = _Builder("pnpm-lock.yaml", "npm", True)
+    lock_version = 9
+    section = ""
+    current: Component | None = None
+    name: str | None = None
+    for number, line in enumerate(content.splitlines(), start=1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line.startswith(" "):
+            section = line.split(":", 1)[0].strip()
+            if version := _PNPM_LOCK_VERSION_RE.match(line):
+                lock_version = int(version.group(1))
+            continue
+        if section != "packages":
+            continue
+        if not line.startswith("   "):  # a package key, indented by two spaces
+            key = _PNPM_KEY_END_RE.sub("", line.strip()).strip("'\"")
+            name, version = _pnpm_package_key(key, lock_version)
+            current = None
+            if version is not None:
+                current = builder.component(name, version, line=number)
+            else:
+                builder.issue("DEP-003", f"{name[:80]} is not a registry package", number, name)
+            continue
+        if name is None:
+            continue
+        stripped = line.strip()
+        if stripped == "dev: true" and current is not None:
+            current.dev = True
+        tarball = _PNPM_TARBALL_RE.search(stripped)
+        if tarball and _is_insecure_url(tarball.group(1)):
             builder.issue("DEP-004", f"{name} is downloaded over HTTP", number, name)
     return builder.finish()
 
@@ -1085,6 +1156,7 @@ _PARSERS = {
     "package-lock.json": parse_package_lock,
     "npm-shrinkwrap.json": parse_package_lock,
     "yarn.lock": parse_yarn_lock,
+    "pnpm-lock.yaml": parse_pnpm_lock,
     "pom.xml": parse_pom,
     "build.gradle": parse_gradle,
     "build.gradle.kts": parse_gradle,

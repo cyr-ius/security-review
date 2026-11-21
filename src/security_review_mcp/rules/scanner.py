@@ -33,6 +33,11 @@ SUPPORTED_LANGUAGES: tuple[str, ...] = (
     "go",
     "csharp",
     "rust",
+    "php",
+    "ruby",
+    "kotlin",
+    "android",
+    "terraform",
     "config",
     "yaml",
     "docker",
@@ -51,6 +56,13 @@ _LANGUAGE_ALIASES = {
     "dotnet": "csharp",
     ".net": "csharp",
     "rs": "rust",
+    "rb": "ruby",
+    "rails": "ruby",
+    "kt": "kotlin",
+    "kts": "kotlin",
+    "androidmanifest": "android",
+    "tf": "terraform",
+    "hcl": "terraform",
     "yml": "yaml",
     "dockerfile": "docker",
     "properties": "config",
@@ -67,6 +79,7 @@ _LANGUAGE_ALIASES = {
 LANGUAGE_PARENTS: dict[str, tuple[str, ...]] = {
     "gitlab-ci": ("yaml", "config"),
     "jenkins": ("config",),
+    "terraform": ("config",),
 }
 
 MAX_LINE_CHARS = 2000  # longer lines are truncated before matching (bounds regex cost)

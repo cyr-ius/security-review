@@ -1,5 +1,6 @@
 """Tests for the security gate (service and MCP tool) and the shipped example pack."""
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,32 @@ def test_gate_unblocks_when_findings_are_triaged(triage):
         assert services.evaluate_gate("shop")["passed"] is False
         triage(report.findings[0].id, status)
         assert services.evaluate_gate("shop")["passed"] is True
+
+
+def test_gate_warns_of_the_decisions_that_will_block_it_again(triage):
+    """A decision at or above the threshold that expires within 14 days is counted, while the
+    gate still passes; one further away, or below the threshold, is not."""
+    saved = services.save_report(
+        "shop", "summary", [finding(Severity.CRITICAL), finding(Severity.LOW)]
+    )
+    critical, low = services.get_report(saved["report_id"]).findings
+    triage(critical.id, FindingStatus.ACCEPTED)  # expires in 30 days
+    triage(low.id, FindingStatus.ACCEPTED)
+    assert services.evaluate_gate("shop")["expiring_soon"] == 0
+    soon = datetime.now(UTC) + timedelta(days=3)
+    for item in (critical, low):
+        services.update_finding_status(
+            item.id, FindingStatus.ACCEPTED, "alice", "Renewed until the release", soon
+        )
+
+    result = services.evaluate_gate("shop")
+
+    assert (result["passed"], result["expiring_soon"], result["expiry_warning_days"]) == (
+        True,
+        1,
+        14,
+    )
+    assert services.evaluate_gate("shop", Severity.LOW)["expiring_soon"] == 2
 
 
 def test_gate_can_target_one_report():

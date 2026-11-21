@@ -7,18 +7,20 @@ To understand when the rules, the checklists and the standards apply, and how to
 
 | Prompt | Use | Arguments |
 |---|---|---|
-| `security-review` | General review of Python, Java, Go, C#, Rust, TypeScript/Node.js or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
-| `api-security-review` | REST API (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
-| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
-| `codebase-review` | Review of the **whole repository** (not only a diff); [how it works and its cost](../review/analysis/code-scan.md#what-codebase-review-does) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
-| `dependency-review` | Manifests and lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
+| `security-review` | General review of Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `api-security-review` | REST API (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `codebase-review` | Review of the **whole repository** (not only a diff); [how it works and its cost](../review/analysis/code-scan.md#what-codebase-review-does) | `languages`, `scan_results`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `dependency-review` | Manifests and lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language`, `fix_min_severity` |
 | `triage-report` | Re-qualify the findings of a stored report | `report_id`, `context`, `report_language` |
 | `development-standards` | Gives the assistant the [development standards](../review/standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
 
 If `code` is empty, the prompt asks the agent to read the files of its workspace. Every review
 prompt starts by calling `request_project` (the agent stops when the project is only
-requested) and ends with the instruction to call `save_security_report` once;
-`development-standards` saves nothing.
+requested) and ends with the instruction to call `save_security_report` once. Saving the
+report is **required**: the review is not done until the tool has returned a report id, even
+when nothing was found, and the agent passes `branch` and `commit_sha` when it knows them, so
+your `AGENTS.md` does not need to repeat it. `development-standards` saves nothing.
 
 Each review prompt embeds the checklists of its domain (by language for `security-review` and
 `codebase-review`, aliases such as `py` or `ts` accepted), the `*` (every language) and `company`
@@ -53,11 +55,31 @@ work whatever the language.
 The value only accepts letters, spaces, `-`, `_` and parentheses (40 characters at most), so
 that it cannot carry instructions; otherwise the prompt is refused.
 
+### Findings to fix
+
+`fix_min_severity` tells the agent which findings to fix in the code once the report is saved:
+every confirmed finding of that severity or above (`critical`, `high`, `medium`, `low` or
+`info`; `high` means critical and high), most severe first, with a test when the project has
+tests, then a `propose_finding_status` with status `fixed` for each one (a person still approves
+it). The less severe findings stay in the report without a code change, unless the user asks.
+Without this argument, the prompt uses
+[`SECREVIEW_FIX_MIN_SEVERITY`](configuration.md#mcp-server) when it is set, else the severity
+chosen by an administrator on the [**General**](../usage/index.md#pages) page; if none is set,
+the prompt gives no instruction and the agent fixes only what the user asks. This replaces a
+rule such as "fix the critical and high findings" written in the `AGENTS.md` of each repository.
+
+As for the language, an agent that reviews without a prompt gets the configured severity in the
+results of `get_review_checklist` ("Findings to fix" section) and of `scan_code`
+(`fix_min_severity` field, `null` without instruction). Any other value is refused. These tools
+always give the configured severity: during a review started with a prompt, the "Findings to
+fix" section of the prompt takes precedence, including a severity given with the
+`fix_min_severity` argument.
+
 ## Tools
 
 | Tool | Role |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` and internal domains |
+| `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin`, `terraform`, `api`, `config`, `cicd`, `dependencies` and internal domains |
 | `scan_code` | Quick line-by-line pattern scan (leads to check, **not** a full SAST; data flows are followed by OpenGrep during a scan of the codebase, or by `scan_code` when it is [delegated to the Controller server](../review/analysis/opengrep.md#fragment-scans-scan_code)). Masked excerpts, invisible characters shown as `<U+XXXX>` |
 | `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `save_security_report` | **Stores the report and its findings in the database** |

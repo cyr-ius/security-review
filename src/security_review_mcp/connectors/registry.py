@@ -22,12 +22,19 @@ from .api import (
     Connector,
     ConnectorField,
 )
+from .github import GitHubConnector
+from .gitlab import GitLabConnector
 from .jira import JiraConnector
 from .servicenow import ServiceNowConnector
 
 logger = logging.getLogger(__name__)
 
-BUILTINS: tuple[type[Connector], ...] = (JiraConnector, ServiceNowConnector)
+BUILTINS: tuple[type[Connector], ...] = (
+    JiraConnector,
+    ServiceNowConnector,
+    GitHubConnector,
+    GitLabConnector,
+)
 # Field names the controller gives to every connector
 RESERVED_FIELDS = frozenset({URL_FIELD, "destination"})
 MAX_PLUGINS = 20

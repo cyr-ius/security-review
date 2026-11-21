@@ -46,7 +46,9 @@ language: the agent picks the standards and the checklists from the files it cha
    and walk through the `dependencies` checklist.
 4. Call `save_security_report` once: project `<project-name>`,
    `review_type` `security-review`, branch and commit, `checklist_results` and `scan_rules` filled in.
-5. Fix the `critical` and `high` findings before finishing.
+5. Fix the findings of the severity given by `get_review_checklist` or `scan_code`
+   (`fix_min_severity`); if none is given, the `critical` and `high` ones. Then propose them
+   as `fixed`.
 6. Never change a status. Use `propose_finding_status` with a reason.
 
 If the `security-review` server does not answer, say so. Never claim the review was done.
@@ -55,6 +57,10 @@ If the `security-review` server does not answer, say so. Never claim the review 
 - Add your test commands and local exceptions here.
 - In case of conflict with the standards of the server, this file wins.
 ```
+
+Step 5 follows the [findings to fix](../reference/prompts-tools.md#findings-to-fix) set once
+for all the repositories on the **General** page (or `SECREVIEW_FIX_MIN_SEVERITY`): change the
+severity there rather than in each `AGENTS.md`.
 
 ## Other hosts
 

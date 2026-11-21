@@ -11,7 +11,7 @@ tournent : les règles par motifs intégrées et les règles OpenGrep par défau
 | Moteur | Analyse | Rôle |
 |---|---|---|
 | [Règles intégrées](../review/rules.md) (toujours actives) | Motifs ligne par ligne (expressions régulières) | Pistes : algorithmes faibles, appels risqués, secrets, configuration. Larges, avec des faux positifs |
-| [Règles OpenGrep](../review/analysis/opengrep.md#regles-par-defaut) (image `-opengrep`) | Arbre syntaxique, et flux de données pour les 60 règles de propagation (taint) | Analyse statique (SAST) : une valeur lue dans la requête est suivie jusqu'à un appel dangereux, un assainissement en chemin l'arrête |
+| [Règles OpenGrep](../review/analysis/opengrep.md#regles-par-defaut) (image `-opengrep`) | Arbre syntaxique, et flux de données pour les 77 règles de propagation (taint) | Analyse statique (SAST) : une valeur lue dans la requête est suivie jusqu'à un appel dangereux, un assainissement en chemin l'arrête |
 
 L'analyse de propagation suit une valeur **dans un fichier** : à travers les variables, la
 construction de chaînes, les listes et les dictionnaires, et à travers les fonctions du fichier
@@ -128,6 +128,45 @@ corrigée. Le corpus couvre WebGoat, Spring PetClinic, Django, Flask, Express, O
 eShopOnWeb, Gitea et une application Rust (Axum, SQLx), plus des projets Python hors web
 (httpie, black, pip, uvicorn), sur lesquels les arguments de la ligne de commande et
 l'environnement ne sont pas des sources.
+
+### PHP, Ruby, Kotlin, Android et Terraform
+
+Ces familles n'ont pas d'OWASP Benchmark : chacune est mesurée sur une application volontairement
+vulnérable (ce qui est détecté) et sur une application réelle maintenue (ce qui est du bruit),
+avec les règles intégrées (les familles du langage, plus `CFG-*` pour Terraform).
+
+| Langage | Application vulnérable | Alertes | Application réelle | Alertes |
+|---|---|---|---|---|
+| PHP | DVWA | 41 | BookStack (Laravel) | 0 `PHP-*` |
+| Ruby, Rails | RailsGoat | 18 | Lobsters | 18 |
+| Kotlin, Android | AndroGoat | 14 | Now in Android | 2 (`allowBackup`) |
+| Terraform | TerraGoat | 29 | terraform-aws-eks | 6 |
+
+Mesuré le 2026-11-21 avec les règles du commit qui les ajoute. Une première passe a trouvé des
+faux positifs sur les applications réelles, désormais corrigés et couverts par un test :
+identifiants MySQL entre backticks lus comme des commandes shell (`PHP-001`, `RB-001`), `raw` sur
+une chaîne fixe (`RB-005`), clé de hash sous forme de chaîne lue comme un fragment SQL (`RB-002`),
+et commentaire finissant par `from IRSA` lu comme un `FROM` de Dockerfile (`CFG-003`). Les
+alertes restantes sur les applications réelles sont des pistes à vérifier : `raw` avec un nom
+d'utilisateur interpolé, commande lancée par un shell, `0.0.0.0/0` dans une règle de sortie
+(`CFG-004` ne distingue pas l'entrée de la sortie), sauvegardes autorisées.
+
+Une règle ligne par ligne ne suit pas une valeur. Les règles OpenGrep de propagation de PHP et Ruby
+le font, au sein d'un fichier :
+
+| Application | Alertes OpenGrep | Détail |
+|---|---|---|
+| DVWA | 38 | Commande 9, SQL 8, XSS 6, redirection 3, `eval` 2, chemin 10 |
+| BookStack | 3 | Une redirection protégée par un contrôle de même origine, deux `unlink` |
+| RailsGoat | 9 | Tous les flux connus : SQL, `Marshal.load`, `constantize`, `send_file`, redirections, `html_safe` |
+| Lobsters | 2 | Une durée interpolée dans du SQL, un `send_file` |
+
+La première passe sur les applications réelles a trouvé des faux positifs, corrigés et couverts
+par un test : `$request->query()` de Laravel lu comme une requête de base, `php://input` lu comme
+un chemin, redirections vers une URL construite par l'application (`$page->getUrl()`,
+`redirect_to @post`, `user_path(params[:id])`, chemin relatif), `or()` d'Active Record et
+enregistrements trouvés par `find_by`. Un flux qui traverse plusieurs fichiers reste manqué : DVWA
+construit son XSS dans un fichier et l'affiche depuis un autre.
 
 ## Méthode
 

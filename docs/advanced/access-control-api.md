@@ -166,6 +166,30 @@ curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/js
 # {"project": "mobile-app", "autojoin_blocked": true}
 ```
 
+### Renaming a project
+
+`POST /api/v1/projects/{project}/rename` renames a project (`projects.delete`), from a session of
+the web interface only: a token never renames a project. The new `name` is normalized; a name
+already known gives `409`, an unknown project `404`. The renaming runs in one transaction:
+
+- its reports, and the fingerprints of their findings and of their connector exports, recomputed
+  so that a later report under the new name finds the same issues and keeps their triage;
+- its connector destinations, OpenGrep rule proposals, scan tickets and pending requests;
+- the project in the OIDC mappings and in the tokens; its members keep their permissions.
+
+A name that an OIDC mapping already gives (a project not created yet) is refused with `409`:
+the renaming would open the project to the users of that mapping, which takes `users.manage`.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects/mobile-app/rename -d '{"name": "mobile"}'
+# {"project": "mobile", "previous_name": "mobile-app", "reports": 3, "findings": 12, "tokens_changed": 1, "mappings_changed": []}
+```
+
+The audit log keeps the events of the old name and records `project.renamed`; the tokens and the
+OIDC mappings changed have their own events (`token.projects_changed`, `oidc.mappings_changed`).
+The SARIF fingerprints of the findings change with the name.
+
 ### Deleting a project
 
 `DELETE /api/v1/projects/{project}` deletes a project, from a session of the web interface only:

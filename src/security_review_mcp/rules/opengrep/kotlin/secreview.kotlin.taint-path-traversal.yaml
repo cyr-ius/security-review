@@ -1,0 +1,131 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.kotlin.taint-path-traversal
+    message: >-
+      Request data is used as a file path: "../" reaches files outside the intended directory. Keep
+      the file name only (File(name).name) and check that the resolved path stays in the base
+      directory.
+    languages: [kotlin]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          # Spring: parameters bound from the request by an annotation
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN $PARAM: $TYPE, ...) = $BODY
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN(...) $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN(...) $PARAM: $TYPE, ...) = $BODY
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable)$
+              - pattern: $PARAM
+          # Spring binds a String parameter of a handler without annotation too
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$MAPPING(...)
+                      fun $METHOD(..., $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      @$MAPPING(...)
+                      fun $METHOD(..., $PARAM: $TYPE, ...) = $BODY
+                  - pattern-inside: |
+                      @$MAPPING
+                      fun $METHOD(..., $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      @$MAPPING
+                      fun $METHOD(..., $PARAM: $TYPE, ...) = $BODY
+              - metavariable-regex:
+                  metavariable: $MAPPING
+                  regex: ^(Get|Post|Put|Patch|Delete|Request)Mapping$
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(String\??|List<String>\??|Array<String>\??)$
+              - pattern: $PARAM
+          # Ktor: the call of a route handler
+          - pattern: call.parameters
+          - pattern: call.request.queryParameters
+          - pattern: call.request.headers
+          - pattern: call.request.cookies
+          - pattern: call.request.uri
+          - pattern: call.receiveText()
+          - pattern: call.receiveParameters()
+          - pattern: call.receive<$T>()
+          # Servlets (Kotlin calls the getters or reads them as properties)
+          - patterns:
+              - pattern-either:
+                  - pattern: $REQ.$GETTER(...)
+                  - pattern: $REQ.$GETTER
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req|httpRequest|servletRequest)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getPathInfo|getPart|queryString|inputStream|reader|requestURI|pathInfo|parameterMap|cookies)$
+          # Android: what another application sends to an exported component
+          - patterns:
+              - pattern-either:
+                  - pattern: $INTENT.$EXTRA(...)
+                  - pattern: $INTENT?.$EXTRA(...)
+              - metavariable-regex:
+                  metavariable: $EXTRA
+                  regex: ^(getStringExtra|getStringArrayExtra|getStringArrayListExtra|getCharSequenceExtra|getBundleExtra)$
+          - pattern: intent.data
+          - pattern: intent.dataString
+          - pattern: intent.extras
+          - patterns:
+              - pattern-either:
+                  - pattern: $URI.getQueryParameter(...)
+                  - pattern: $URI?.getQueryParameter(...)
+                  - pattern: $URI.lastPathSegment
+                  - pattern: $URI?.lastPathSegment
+    pattern-propagators:
+      # A value appended to a StringBuilder or added to a collection taints it
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put($KEY, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: File($PATH)
+              - pattern: File($PARENT, $PATH)
+              - pattern: Paths.get($PATH, ...)
+              - pattern: Path.of($PATH, ...)
+              - pattern: FileInputStream($PATH)
+              - pattern: FileOutputStream($PATH, ...)
+              - pattern: FileReader($PATH, ...)
+              - pattern: FileWriter($PATH, ...)
+              - pattern: $DIR.resolve($PATH)
+              - pattern: FileSystemResource($PATH)
+              - pattern: $CONTEXT.openFileOutput($PATH, ...)
+              - pattern: $CONTEXT.openFileInput($PATH)
+          - focus-metavariable: $PATH
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: File($X).name
+          - pattern: $X.fileName
+          - pattern: FilenameUtils.getName(...)
+          - pattern: StringUtils.cleanPath(...)
+          - pattern: $VALUE.toInt()
+          - pattern: $VALUE.toIntOrNull()
+          - pattern: $VALUE.toLong()
+          - pattern: $VALUE.toLongOrNull()
+          - pattern: UUID.fromString(...)

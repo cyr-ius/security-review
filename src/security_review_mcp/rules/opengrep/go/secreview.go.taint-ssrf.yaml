@@ -40,6 +40,34 @@ rules:
               - metavariable-regex:
                   metavariable: $METHOD
                   regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+          # Fiber v2 (*fiber.Ctx) and v3 (fiber.Ctx)
+          - patterns:
+              - pattern-either:
+                  - pattern: "($CTX : *fiber.Ctx).$METHOD(...)"
+                  - pattern: "($CTX : fiber.Ctx).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|Queries|Params|AllParams|FormValue|Body|BodyRaw|Get|GetReqHeaders|Cookies|OriginalURL)$
+    pattern-propagators:
+      # A value written to a strings.Builder or a bytes.Buffer taints what is built
+      - pattern: $TO.WriteString($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteByte($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteRune($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprintf(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprint(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -52,3 +80,7 @@ rules:
               - pattern: "($CLIENT : *http.Client).Get($URL)"
               - pattern: "($CLIENT : *http.Client).Post($URL, ...)"
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: url.PathEscape(...)
+          - pattern: url.QueryEscape(...)

@@ -56,12 +56,12 @@
             </div>
           }
           <div class="col-12 form-text">
-            {{ 'sso.callbackHelp' | t }} <code>{{ current.callback_path }}</code
-            >{{ 'sso.cafileHelp' | t }} <code>SECREVIEW_OIDC_CAFILE</code> ({{
-              current.cafile ?? ('sso.systemCerts' | t)
+            {{ 'sso.callbackHelp' | t }} <code>{{ current.callback_path }}</code>{{
+              'sso.cafileHelp' | t
+            }}
+            <code>SECREVIEW_OIDC_CAFILE</code> ({{ current.cafile ?? ('sso.systemCerts' | t)
             }}{{ 'sso.variableOnly' | t }}
-            <a routerLink="/settings/general">{{ 'layout.general' | t }}</a
-            >.
+            <a routerLink="/settings/general">{{ 'layout.general' | t }}</a>.
           </div>
         </div>
 

@@ -1,0 +1,238 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.python.taint-regex-injection
+    message: >-
+      Request data is compiled as a regular expression: a crafted pattern can hang the worker with
+      catastrophic backtracking (ReDoS) or change what the check accepts. Escape the value with
+      re.escape() or compare strings without a regular expression.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-1333: Inefficient Regular Expression Complexity"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.$ATTR
+          # aiohttp, Azure Functions, Tornado
+          - patterns:
+              - pattern: $REQ.get_json(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  # self.request: Django class-based views, Tornado handlers
+                  regex: ^(self\.)?(request|req)$
+          - patterns:
+              - pattern: self.$GET(...)
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(get_argument|get_arguments|get_body_argument|get_body_arguments|get_query_argument|get_query_arguments|get_cookie)$
+          # Remote data outside a web framework: sockets, websockets, serverless events.
+          # Local data (command line, standard input, environment) is left out on purpose: a
+          # command line tool acting on what its own user asks crosses no trust boundary.
+          - pattern: $SOCKET.recv(...)
+          - pattern: $SOCKET.recvfrom(...)
+          - pattern: await $WEBSOCKET.recv()
+          - pattern: await $WEBSOCKET.receive_text()
+          - pattern: await $WEBSOCKET.receive_json()
+          - patterns:
+              - pattern-inside: |
+                  def $HANDLER(event, context): ...
+              - pattern: event
+          - patterns:
+              - pattern: $REQ.$ATTR
+              - metavariable-regex:
+                  metavariable: $REQ
+                  # self.request: Django class-based views, Tornado handlers
+                  regex: ^(self\.)?(request|req)$
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  # url, path and full_path are left out: a client request object (requests) has them too
+                  regex: ^(GET|POST|COOKIES|FILES|META|body|headers|cookies|query_params|path_params|args|form|values|json|data|query_string|environ|query|forms|params|matchdict|match_info|json_body|route_params|files)$
+          - patterns:
+              - pattern: await $REQ.$METHOD()
+              - metavariable-regex:
+                  metavariable: $REQ
+                  # self.request: Django class-based views, Tornado handlers
+                  regex: ^(self\.)?(request|req)$
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(json|form|body|post|text|read)$
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: str = $DEFAULT, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: Annotated[str, ...], ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: Annotated[str, ...], ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern: $P
+          # Route parameters declared without a type: Flask "<name>" segments, FastAPI query
+          # parameters (a dependency, "= Depends(...)", is not request data)
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P, ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern-not-inside: |
+                  def $F(..., $P: $TYPE, ...): ...
+              - pattern-not-inside: |
+                  async def $F(..., $P: $TYPE, ...): ...
+              - pattern-not-inside: |
+                  def $F(..., $P = $DEPENDS(...), ...): ...
+              - pattern-not-inside: |
+                  async def $F(..., $P = $DEPENDS(...), ...): ...
+              - metavariable-regex:
+                  metavariable: $P
+                  regex: ^(?!(self|cls|request|req|websocket)$)
+              - pattern: $P
+          # Request bodies parsed into a model (FastAPI and Pydantic), with no default. A typed
+          # parameter is often a dependency alias (CurrentUser = Annotated[User, Depends(...)]):
+          # it counts only for a model declared in the file, a type named like a request schema
+          # (ItemCreate, UserIn...) or Annotated[Item, Body()]
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: $TYPE, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: $TYPE, ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern-not-inside: |
+                  def $F(..., $P: $TYPE = $DEFAULT, ...): ...
+              - pattern-not-inside: |
+                  async def $F(..., $P: $TYPE = $DEFAULT, ...): ...
+              - pattern-inside: |
+                  class $TYPE(..., BaseModel, ...):
+                    ...
+                  ...
+              - pattern: $P
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: $TYPE, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: $TYPE, ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern-not-inside: |
+                  def $F(..., $P: $TYPE = $DEFAULT, ...): ...
+              - pattern-not-inside: |
+                  async def $F(..., $P: $TYPE = $DEFAULT, ...): ...
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^((list|List|Optional)\[)?[A-Z]\w*(In|Create|Update|Write|Patch|Request|Body|Payload|Input|Form|Schema|Params|Query|Filter|Command|Dto|DTO)\]?( *\| *None)?$|^Annotated\[\w+, *(Body|Form|File|Query|Path|Header|Cookie)\(
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  # Framework objects, not request data
+                  regex: ^(?!.*\b(Request|Response|WebSocket|BackgroundTasks|HTTPConnection|SecurityScopes)\b)
+              - pattern: $P
+          # Django views: the URL parameters after "request" (function views, then the HTTP
+          # methods of class-based views and Django REST framework view sets)
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      def $F(request, ..., $P, ...): ...
+                  - pattern-inside: |
+                      async def $F(request, ..., $P, ...): ...
+                  - patterns:
+                      - pattern-either:
+                          - pattern-inside: |
+                              def $F(self, request, ..., $P, ...): ...
+                          - pattern-inside: |
+                              async def $F(self, request, ..., $P, ...): ...
+                      - metavariable-regex:
+                          metavariable: $F
+                          regex: ^(get|post|put|patch|delete|retrieve|update|partial_update|destroy|list|create)$
+              - pattern-not-inside: |
+                  def $F(..., $P: $TYPE, ...): ...
+              - pattern-not-inside: |
+                  async def $F(..., $P: $TYPE, ...): ...
+              - metavariable-regex:
+                  metavariable: $P
+                  # Middleware, admin and template helpers take framework objects after "request"
+                  regex: ^(?!(view|view_func|view_args|view_kwargs|callback|obj|exception|response|template_name|template|context|extra_context|form|formset|queryset|serializer|user|instance|model_admin)$)
+              - pattern: $P
+          # URL parameters of a Django class-based view
+          - patterns:
+              - pattern-inside: |
+                  class $VIEW(..., $BASE, ...):
+                    ...
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: (View|ViewSet|APIView)$
+              - pattern: self.kwargs
+    pattern-propagators:
+      # A request value added to a list or a dict taints the container (argument lists, kwargs)
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      # A request value stored in a container (configparser, cache, set, dict) taints it
+      - pattern: $TO.set(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.update($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.setdefault($KEY, $FROM)
+        from: $FROM
+        to: $TO
+      # A value written to a text buffer (io.StringIO) taints what is read back
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: re.$FUNC($PATTERN, ...)
+              - pattern: regex.$FUNC($PATTERN, ...)
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(compile|match|fullmatch|search|findall|finditer|sub|subn|split)$
+          - focus-metavariable: $PATTERN
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: re.escape(...)
+          - pattern: regex.escape(...)

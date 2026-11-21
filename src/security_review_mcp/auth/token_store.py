@@ -870,6 +870,42 @@ def forget_project(session: Session, project: str, actor: str | None = None) -> 
     return counts
 
 
+def rename_project(session: Session, project: str, new_name: str, actor: str | None = None) -> int:
+    """Make every token of ``project`` reach ``new_name`` instead, in ``session``; return the
+    number of tokens changed. Each change is audited."""
+    ids = set(
+        session.exec(select(ApiTokenProject.token_id).where(ApiTokenProject.project == project))
+    ) | set(session.exec(select(ApiToken.id).where(ApiToken.project == project)))
+    if not ids:
+        return 0
+    rows = session.exec(select(ApiToken).where(col(ApiToken.id).in_(ids))).all()
+    for row in rows:
+        links = _links(session, [row.id])[row.id]
+        before = _public(row, links)
+        reached = {link.project for link in links}
+        for link in links:
+            if link.project != project:
+                continue
+            if new_name in reached:
+                session.delete(link)
+            else:
+                link.project = new_name
+                session.add(link)
+        if row.project == project:
+            row.project = new_name
+            session.add(row)
+        session.flush()
+        _audit_token(
+            session,
+            AuditAction.TOKEN_PROJECTS_CHANGED,
+            actor,
+            _public(row, _links(session, [row.id])[row.id]),
+            previous_projects=before["projects"],
+        )
+    session.flush()
+    return len(rows)
+
+
 # ── Personal api tokens (web users) ──────────────────────────────────────────
 
 

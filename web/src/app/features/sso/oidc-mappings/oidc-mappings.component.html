@@ -11,8 +11,9 @@
       </div>
     }
     <p class="text-body-secondary small">
-      {{ 'mappings.claimBefore' | t }} <code>{{ data.roles_claim }}</code
-      >{{ 'mappings.claimAfter' | t }}
+      {{ 'mappings.claimBefore' | t }} <code>{{ data.roles_claim }}</code>{{
+        'mappings.claimAfter' | t
+      }}
       @if (data.admin_groups.length) {
         {{ 'mappings.adminGroups' | t: { groups: data.admin_groups.join(', ') } }}
       }

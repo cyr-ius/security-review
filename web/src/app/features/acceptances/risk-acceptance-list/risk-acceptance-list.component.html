@@ -141,6 +141,14 @@
                         <i class="bi bi-hourglass-bottom" aria-hidden="true"></i>
                         {{ 'acceptances.expired' | t }}
                       </span>
+                    } @else if (row.expiring_soon) {
+                      <span
+                        class="badge text-bg-info ms-1"
+                        [title]="'acceptances.expiringSoonHelp' | t"
+                      >
+                        <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                        {{ 'acceptances.expiringSoon' | t }}
+                      </span>
                     }
                   } @else {
                     <span class="text-body-secondary">{{ 'acceptances.noExpiry' | t }}</span>

@@ -31,6 +31,8 @@ export SECREVIEW_CI_TOKEN=...   # jeton ci limité au projet (ou jeton admin)
 security-review-ci scan-code . --project portal                               # résumé texte, code de sortie 0/1/2
 security-review-ci scan-code . --project portal --format json -o scan.json    # pour le prompt codebase-review
 security-review-ci scan-code . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-ci scan-code . --project portal --format github             # annotations d'une pull request GitHub
+security-review-ci scan-code . --project portal --format gitlab -o gl-code-quality-report.json  # Code Quality GitLab (merge request)
 security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
@@ -45,8 +47,8 @@ Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre 
 - Les fichiers viennent de `git ls-files` (suivis + non suivis non ignorés : `.gitignore` est
   respecté). Hors dépôt git, ou avec `--no-git`, l'arborescence est parcourue en ignorant
   `node_modules`, `.venv`, `dist`, `build`, `target`, `obj`, etc.
-- Le langage est déduit du nom : `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.ts`, `.js`,
-  `.html` (templates Angular),
+- Le langage est déduit du nom : `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.php`, `.rb`/`.erb`/`.rake`,
+  `.kt`/`.kts`, `AndroidManifest.xml` et `network_security_config*.xml`, `.tf`/`.tfvars`, `.ts`, `.js`, `.html` (templates Angular),
   `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, et les fichiers qui pilotent un assistant IA (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
@@ -118,7 +120,7 @@ pour les dépendances : `start_codebase_scan` avec `scope` `deps`, sinon `securi
 
 Avec le serveur MCP HTTP et la [délégation de `scan_code`](opengrep.md#scans-de-fragments-scan_code)
 activée (`SECREVIEW_SCANCODE_DELEGATED`, ou l'interrupteur de la page
-[**Activité**](../../usage/index.md#activite), qui couvre les deux outils), l'agent fait scanner tout le dépôt par le serveur Controller **sans lire les fichiers**,
+[**Activité**](../../usage/activity.md), qui couvre les deux outils), l'agent fait scanner tout le dépôt par le serveur Controller **sans lire les fichiers**,
 sans que le développeur installe quoi que ce soit ni crée de jeton `ci` :
 
 1. l'agent appelle `start_codebase_scan` avec le projet ; le serveur MCP relaie son jeton (accès
