@@ -126,6 +126,35 @@ as wiki markup (links, images loaded from another site).
 The account only needs the right to create records in the table (the `itil` role for
 `incident`).
 
+## GitHub
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_GITHUB_URL` | — | Address of the GitHub API, `https://` only: `https://api.github.com`, or `https://<host>/api/v3` for GitHub Enterprise Server |
+| `SECREVIEW_GITHUB_TOKEN` | — | Fine-grained personal access token (*Issues: read and write* on the repositories used) or classic token (`repo` scope), sent as a bearer token |
+
+The destination of a project is a repository, `owner/repository`. **Test** reads the rate limit
+of the token (`GET /rate_limit`), which GitHub refuses for an invalid token. The link of an issue
+is built from the address of the API (`https://github.com/...` for `api.github.com`).
+
+GitHub issues have no confidential flag: send the findings to a private repository.
+
+## GitLab
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_GITLAB_URL` | — | Address of GitLab, `https://` only (`https://gitlab.com`) |
+| `SECREVIEW_GITLAB_TOKEN` | — | Personal, group or project access token with the `api` scope, sent in the `PRIVATE-TOKEN` header |
+| `SECREVIEW_GITLAB_CONFIDENTIAL` | `true` | `false` creates issues visible to whoever reads the project |
+
+The destination of a project is its numeric ID: its path would be sent encoded (`%2F`), which the
+HTTP client of the connectors refuses. **Test** reads the user of the token (`GET /api/v4/user`).
+The link of an issue must be on the configured address.
+
+For GitHub and GitLab, the texts of the report are put in code spans and code blocks whose fence
+is longer than any in the text: written by an agent, they never mention anyone, load an image,
+add a link nor, in GitLab, run a quick action. The link to the report is the only active link.
+
 ## Third-party connectors
 
 A connector published by a Python package (entry point of the group

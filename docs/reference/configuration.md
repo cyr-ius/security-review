@@ -171,6 +171,8 @@ Read by `security-review-controller` only.
 | `SECREVIEW_CONNECTORS_PLUGINS` | — | [Third-party connectors](../usage/connectors/third-party.md) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
 | `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../advanced/connectors.md#jira); when set, takes precedence over the **Connectors** page |
 | `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../advanced/connectors.md#servicenow); when set, takes precedence over the **Connectors** page |
+| `SECREVIEW_GITHUB_URL`, `SECREVIEW_GITHUB_TOKEN` | — | [GitHub connection](../advanced/connectors.md#github); when set, takes precedence over the **Connectors** page |
+| `SECREVIEW_GITLAB_URL`, `SECREVIEW_GITLAB_TOKEN`, `SECREVIEW_GITLAB_CONFIDENTIAL` (`true`) | — | [GitLab connection](../advanced/connectors.md#gitlab); when set, takes precedence over the **Connectors** page |
 | `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../usage/connectors/third-party.md) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Pipeline scan limits

@@ -129,6 +129,37 @@ jamais interprétés comme du balisage wiki (liens, images chargées depuis un a
 Le compte n'a besoin que du droit de créer des enregistrements dans la table (le rôle `itil`
 pour `incident`).
 
+## GitHub
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_GITHUB_URL` | — | Adresse de l'API GitHub, `https://` uniquement : `https://api.github.com`, ou `https://<hôte>/api/v3` pour GitHub Enterprise Server |
+| `SECREVIEW_GITHUB_TOKEN` | — | Jeton d'accès personnel à granularité fine (*Issues : lecture et écriture* sur les dépôts utilisés) ou jeton classique (scope `repo`), envoyé comme jeton Bearer |
+
+La destination d'un projet est un dépôt, `propriétaire/dépôt`. **Tester** lit la limite de débit
+du jeton (`GET /rate_limit`), que GitHub refuse pour un jeton invalide. Le lien d'une issue est
+construit à partir de l'adresse de l'API (`https://github.com/...` pour `api.github.com`).
+
+Les issues GitHub n'ont pas d'indicateur de confidentialité : envoyez les findings vers un dépôt
+privé.
+
+## GitLab
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SECREVIEW_GITLAB_URL` | — | Adresse de GitLab, `https://` uniquement (`https://gitlab.com`) |
+| `SECREVIEW_GITLAB_TOKEN` | — | Jeton d'accès personnel, de groupe ou de projet avec le scope `api`, envoyé dans l'en-tête `PRIVATE-TOKEN` |
+| `SECREVIEW_GITLAB_CONFIDENTIAL` | `true` | `false` crée des tickets visibles par quiconque lit le projet |
+
+La destination d'un projet est son ID numérique : son chemin serait envoyé encodé (`%2F`), ce que
+le client HTTP des connecteurs refuse. **Tester** lit l'utilisateur du jeton
+(`GET /api/v4/user`). Le lien d'un ticket doit être sur l'adresse configurée.
+
+Pour GitHub et GitLab, les textes du rapport sont placés dans des portions et des blocs de code
+dont le délimiteur est plus long que tout délimiteur du texte : écrits par un agent, ils ne
+mentionnent jamais personne, ne chargent aucune image, n'ajoutent aucun lien et, dans GitLab,
+n'exécutent aucune commande rapide. Le lien vers le rapport est le seul lien actif.
+
 ## Connecteurs tiers
 
 Un connecteur publié par un paquet Python (point d'entrée du groupe

@@ -143,9 +143,10 @@
   is replaced), and the page only gets a short error code. Once a
   connector is switched on on the **Connectors** page (every one off by default, all locked
   off by `SECREVIEW_CONNECTORS_ENABLED=false`), the Controller server sends the findings through it
-  (tickets in the configured Jira and ServiceNow, records of a third-party connector): HTTPS
+  (tickets in the configured Jira, ServiceNow, GitHub and GitLab, records of a third-party connector): HTTPS
   only, through the outgoing proxy, **no redirect**, answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
-  never read as wiki markup; the secrets entered on the **Connectors** page are stored in clear
+  never read as wiki markup, in GitHub and GitLab never read as Markdown (mentions, images, links,
+  quick actions); the secrets entered on the **Connectors** page are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
   is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
   URL through the client of the Controller server, see [connectors](../advanced/connectors.md#security). With

@@ -1,13 +1,15 @@
 # Connectors
 
-A **connector** sends the findings to another tool of your teams: a ticket in **Jira** or
-**ServiceNow**, an entry in a vulnerability register, an item in an internal tracker... What the
+A **connector** sends the findings to another tool of your teams: a ticket in **Jira**,
+**ServiceNow**, **GitHub** or **GitLab**, an entry in a vulnerability register, an item in an internal tracker... What the
 connector creates in that tool is the **record** of the finding.
 
 | Connector | Record | Page |
 |---|---|---|
 | Jira (Cloud or Data Center) | Issue | [Jira](jira.md) |
 | ServiceNow | Incident (or a record of another table) | [ServiceNow](servicenow.md) |
+| GitHub (github.com or Enterprise Server) | Issue | [GitHub](github.md) |
+| GitLab (gitlab.com or self-managed) | Confidential issue | [GitLab](gitlab.md) |
 | Third party | Whatever the connector creates | [Third-party connectors](third-party.md) |
 
 The variables, the guarantees and the REST API are in

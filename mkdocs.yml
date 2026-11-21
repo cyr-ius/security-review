@@ -192,6 +192,8 @@ nav:
           - Overview: usage/connectors/index.md
           - Jira: usage/connectors/jira.md
           - ServiceNow: usage/connectors/servicenow.md
+          - GitHub: usage/connectors/github.md
+          - GitLab: usage/connectors/gitlab.md
           - Third-party connectors: usage/connectors/third-party.md
   - Advanced:
       - Architecture:

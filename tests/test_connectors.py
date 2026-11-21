@@ -3,6 +3,7 @@
 import base64
 import io
 import json
+import re
 import urllib.error
 import urllib.request
 from datetime import timedelta
@@ -149,6 +150,71 @@ def test_a_finding_becomes_a_jira_issue_reused_by_its_next_occurrence(remote, ji
         ("user:ann", True),
         ("user:ann", False),
     ]
+
+
+TRAP = "@security-team ![x](https://evil.example/x.png) ~~~\n/close\n```"
+
+
+@pytest.mark.parametrize(
+    ("kind", "url", "destination", "answer", "endpoint", "auth", "key", "link"),
+    [
+        (
+            "github",
+            "https://api.github.com",
+            "acme/shop",
+            {"number": 12, "html_url": "https://evil.example/x"},
+            "https://api.github.com/repos/acme/shop/issues",
+            ("Authorization", "Bearer forge-token-not-real"),
+            "acme/shop#12",
+            "https://github.com/acme/shop/issues/12",
+        ),
+        (
+            "gitlab",
+            "https://gitlab.acme.example",
+            "42",
+            {
+                "iid": 7,
+                "web_url": "https://gitlab.acme.example/acme/shop/-/issues/7",
+                "references": {"full": "acme/shop#7"},
+            },
+            "https://gitlab.acme.example/api/v4/projects/42/issues",
+            ("Private-token", "forge-token-not-real"),
+            "acme/shop#7",
+            "https://gitlab.acme.example/acme/shop/-/issues/7",
+        ),
+    ],
+)
+def test_a_finding_becomes_a_forge_issue_whose_texts_stay_inert(
+    remote, kind, url, destination, answer, endpoint, auth, key, link
+):
+    connector = registry.get(kind)
+    connections.set_connection(
+        connector, {"url": url, "token": "forge-token-not-real"}, "user:root"
+    )
+    connections.set_enabled(connector, True, "user:root", make_settings())
+    set_target("shop", connector, destination, None, "user:root")
+    finding = save_finding(
+        evidence=f'password = "Sup3rS3cretValue!" {TRAP}', rule_id="@security-team `x` /close"
+    )
+    opener = remote(answer)
+
+    export = send_finding(finding, connector, "user:ann", make_settings())
+
+    assert (export.external_key, export.url) == (key, link)
+    (request,) = opener.requests
+    assert request.full_url == endpoint and request.get_header(auth[0]) == auth[1]
+    body = json.loads(request.data)
+    assert body["title"] == "[HIGH] shop: SQL injection"
+    text = body.get("body") or body["description"]
+    assert "Sup3rS3cretValue" not in text
+    assert "<https://secreview.acme.example/ui/reports/" in text
+    # Outside the code spans and blocks, the agent's texts are gone: no mention, image, quick
+    # action nor fence that would close a block early
+    outside = re.sub(r"(?ms)^(~{3,})text\n.*?^\1$", "", text)
+    outside = re.sub(r"(`+) .*? \1", "", outside)
+    assert not any(mark in outside for mark in ("@security-team", "![x]", "/close", "```"))
+    if kind == "gitlab":
+        assert body["confidential"] is True
 
 
 def test_a_refused_export_keeps_a_short_reason_without_secret(remote, jira, caplog):
@@ -373,7 +439,7 @@ def plugins(monkeypatch):
 
 
 def test_a_third_party_connector_is_loaded_only_when_allowed(plugins, remote):
-    assert set(registry.connectors(make_settings())) == {"jira", "servicenow"}
+    assert set(registry.connectors(make_settings())) == {"jira", "servicenow", "github", "gitlab"}
     settings = make_settings(connectors_plugins="acme")
     acme = registry.get("acme", settings)
     assert not registry.is_builtin(acme)

@@ -15,6 +15,10 @@ export const connectors = defineMessages({
     'connectors.about.jira': 'Create a Jira issue for each finding, in the project of your choice.',
     'connectors.about.servicenow':
       'Open a ServiceNow incident for each finding, assigned to the group of your choice.',
+    'connectors.about.github':
+      'Open a GitHub issue for each finding, in the repository of your choice.',
+    'connectors.about.gitlab':
+      'Open a confidential GitLab issue for each finding, in the project of your choice.',
     'connectors.about.plugin': 'Third-party connector allowed by SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.state.on': 'Active',
     'connectors.state.off': 'Inactive',
@@ -65,6 +69,10 @@ export const connectors = defineMessages({
       'Crée un ticket Jira pour chaque finding, dans le projet de votre choix.',
     'connectors.about.servicenow':
       'Ouvre un incident ServiceNow pour chaque finding, assigné au groupe de votre choix.',
+    'connectors.about.github':
+      'Ouvre une issue GitHub pour chaque finding, dans le dépôt de votre choix.',
+    'connectors.about.gitlab':
+      'Ouvre un ticket GitLab confidentiel pour chaque finding, dans le projet de votre choix.',
     'connectors.about.plugin': 'Connecteur tiers autorisé par SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.state.on': 'Actif',
     'connectors.state.off': 'Inactif',
@@ -115,6 +123,10 @@ export const connectors = defineMessages({
       'Crea una incidencia de Jira por cada hallazgo, en el proyecto que elija.',
     'connectors.about.servicenow':
       'Abre un incidente de ServiceNow por cada hallazgo, asignado al grupo que elija.',
+    'connectors.about.github':
+      'Abre una issue de GitHub por cada hallazgo, en el repositorio que elija.',
+    'connectors.about.gitlab':
+      'Abre una incidencia confidencial de GitLab por cada hallazgo, en el proyecto que elija.',
     'connectors.about.plugin': 'Conector de terceros autorizado por SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.state.on': 'Activo',
     'connectors.state.off': 'Inactivo',

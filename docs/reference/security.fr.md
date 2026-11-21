@@ -150,9 +150,10 @@
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Une fois
   un connecteur activé dans la page **Connecteurs** (tous désactivés par défaut, tous verrouillés
   par `SECREVIEW_CONNECTORS_ENABLED=false`), le serveur Controller envoie les findings par ce connecteur
-  (tickets dans les Jira et ServiceNow configurés, enregistrements d'un connecteur tiers) :
+  (tickets dans les Jira, ServiceNow, GitHub et GitLab configurés, enregistrements d'un connecteur tiers) :
   HTTPS uniquement, par le proxy sortant, **aucune redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
-  nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki ; les secrets saisis
+  nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki, dans GitHub et GitLab
+  jamais interprétés comme Markdown (mentions, images, liens, commandes rapides) ; les secrets saisis
   dans la page **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
   leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme et
   ne joint que son URL configurée par le client du serveur Controller, voir

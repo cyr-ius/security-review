@@ -2039,6 +2039,8 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     assert {c["kind"]: c["enabled"] for c in switched.json()["connectors"]} == {
         "jira": True,
         "servicenow": False,
+        "github": False,
+        "gitlab": False,
     }
     # An unknown system is not found
     assert (

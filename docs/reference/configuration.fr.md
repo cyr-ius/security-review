@@ -172,6 +172,8 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_CONNECTORS_PLUGINS` | — | [Connecteurs tiers](../usage/connectors/third-party.md) autorisés, par nom de point d'entrée, séparés par des virgules ; un connecteur installé mais non listé n'est jamais chargé |
 | `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Connexion Jira](../advanced/connectors.md#jira) ; définies, elles sont prioritaires sur la page **Connecteurs** |
 | `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [Connexion ServiceNow](../advanced/connectors.md#servicenow) ; définies, elles sont prioritaires sur la page **Connecteurs** |
+| `SECREVIEW_GITHUB_URL`, `SECREVIEW_GITHUB_TOKEN` | — | [Connexion GitHub](../advanced/connectors.md#github) ; définies, elles sont prioritaires sur la page **Connecteurs** |
+| `SECREVIEW_GITLAB_URL`, `SECREVIEW_GITLAB_TOKEN`, `SECREVIEW_GITLAB_CONFIDENTIAL` (`true`) | — | [Connexion GitLab](../advanced/connectors.md#gitlab) ; définies, elles sont prioritaires sur la page **Connecteurs** |
 | `SECREVIEW_<TYPE>_<CHAMP>` | — | Champ de la connexion d'un [connecteur tiers](../usage/connectors/third-party.md) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Limites des scans de pipeline
