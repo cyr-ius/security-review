@@ -462,6 +462,49 @@ def test_scan_code_writes_a_sarif_log(controller, ci_token, monkeypatch, capsys,
     assert "written to" in capsys.readouterr().err
 
 
+def test_scan_code_writes_a_gitlab_code_quality_report(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    make_tree(tmp_path / "repo")
+    output = tmp_path / "gl-code-quality-report.json"
+    argv = ["scan-code", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
+    argv += ["--format", "gitlab", "-o", str(output)]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 1
+    issues = json.loads(output.read_text(encoding="utf-8"))
+    views = [i for i in issues if i["location"]["path"] == "app/views.py"]
+    assert views and {i["categories"][0] for i in issues} == {"Security"}
+    assert {i["severity"] for i in issues} <= {"blocker", "critical", "major", "minor", "info"}
+    assert len({i["fingerprint"] for i in issues}) == len(issues)
+
+
+def test_github_annotations_never_start_another_workflow_command():
+    """A file name or a title from the scanned repository cannot inject a command."""
+    result = {
+        "files": [
+            {
+                "file": "app/x.py\n::add-mask::secret,line=1",
+                "matches": [
+                    {
+                        "rule_id": "PY-001",
+                        "title": "eval: 100%\r\n::stop-commands::t",
+                        "severity": "high",
+                        "line": 3,
+                        "advice": "Use \x1b[31mast.literal_eval",
+                    }
+                ],
+            }
+        ]
+    }
+
+    (line,) = ci_client.github_annotations(result).splitlines()
+    assert line.startswith("::error file=app/x.py%0A%3A%3Aadd-mask%3A%3Asecret%2Cline=1,line=3,")
+    # One line (a command only starts a line), no separator in the properties, newlines escaped
+    properties, _, message = line.removeprefix("::error ").partition("::")
+    assert "::" not in properties and line.isprintable()
+    assert message.startswith("[HIGH] eval: 100%25%0D%0A::stop-commands")
+
+
 def test_scan_code_of_another_project_is_refused(
     controller, ci_token, monkeypatch, capsys, tmp_path
 ):

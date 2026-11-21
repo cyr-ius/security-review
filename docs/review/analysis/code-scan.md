@@ -31,6 +31,8 @@ export SECREVIEW_CI_TOKEN=...   # ci token restricted to the project (or admin t
 security-review-ci scan-code . --project portal                               # text summary, exit code 0/1/2
 security-review-ci scan-code . --project portal --format json -o scan.json    # for the codebase-review prompt
 security-review-ci scan-code . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-ci scan-code . --project portal --format github             # annotations of a GitHub pull request
+security-review-ci scan-code . --project portal --format gitlab -o gl-code-quality-report.json  # GitLab Code Quality (merge request)
 security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 

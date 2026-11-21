@@ -29,6 +29,7 @@ written anywhere.
 
 import argparse
 import fnmatch
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -675,6 +676,76 @@ def warn_unchecked(results: list[dict]) -> list[str]:
     return skipped
 
 
+# Annotation level of a severity in GitHub Actions, and severity of GitLab Code Quality
+GITHUB_LEVELS = {
+    "critical": "error",
+    "high": "error",
+    "medium": "warning",
+    "low": "notice",
+    "info": "notice",
+}
+CODE_QUALITY_SEVERITIES = {
+    "critical": "blocker",
+    "high": "critical",
+    "medium": "major",
+    "low": "minor",
+    "info": "info",
+}
+
+
+def _github_escape(value: object, prop: bool = False) -> str:
+    """Escape a value of a GitHub workflow command, then drop the other control characters: a
+    file name or a title never starts another command (``::add-mask::``...)."""
+    text = str(value).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    if prop:
+        text = text.replace(":", "%3A").replace(",", "%2C")
+    return _clean(text)
+
+
+def github_annotations(result: dict) -> str:
+    """Workflow commands of GitHub Actions, one per match: shown on the lines of a pull request
+    (no GitHub Advanced Security needed, unlike a SARIF upload)."""
+    lines = []
+    for entry in result["files"]:
+        for match in entry["matches"]:
+            level = GITHUB_LEVELS.get(match["severity"], "warning")
+            title = f"{match['rule_id']} {match['title']}"
+            props = (
+                f"file={_github_escape(entry['file'], True)},line={int(match['line'])},"
+                f"title={_github_escape(title, True)}"
+            )
+            message = f"[{match['severity'].upper()}] {match['title']}"
+            if match.get("advice"):
+                message += f": {match['advice']}"
+            lines.append(f"::{level} {props}::{_github_escape(message)}")
+    return "\n".join(lines)
+
+
+def code_quality_report(result: dict) -> list[dict]:
+    """GitLab Code Quality report, one issue per match: shown in the merge request. The
+    fingerprint ignores the line number, so that an issue keeps it when lines move above."""
+    issues: list[dict] = []
+    seen: dict[str, int] = {}
+    for entry in result["files"]:
+        for match in entry["matches"]:
+            identity = "\0".join((match["rule_id"], entry["file"], match.get("excerpt") or ""))
+            seen[identity] = seen.get(identity, 0) + 1
+            fingerprint = hashlib.sha256(f"{identity}\0{seen[identity]}".encode()).hexdigest()
+            description = match["title"] + (f": {match['advice']}" if match.get("advice") else "")
+            issues.append(
+                {
+                    "type": "issue",
+                    "check_name": match["rule_id"],
+                    "description": description,
+                    "categories": ["Security"],
+                    "severity": CODE_QUALITY_SEVERITIES.get(match["severity"], "major"),
+                    "fingerprint": fingerprint,
+                    "location": {"path": entry["file"], "lines": {"begin": int(match["line"])}},
+                }
+            )
+    return issues
+
+
 def _write_output(text: str, output: str | None, message: str) -> None:
     """Print ``text`` or write it to ``output`` (then print ``message`` on stderr)."""
     if not output:
@@ -1006,10 +1077,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     code.add_argument(
         "--format",
-        choices=["text", "json", "sarif", "summary"],
+        choices=["text", "json", "sarif", "summary", "github", "gitlab"],
         default="text",
-        help="text (every match), json, sarif, or summary (counts, top files and rules: for an "
-        "AI agent)",
+        help="text (every match), json, sarif, summary (counts, top files and rules: for an "
+        "AI agent), github (annotations of a GitHub Actions step) or gitlab (Code Quality "
+        "report of a merge request)",
     )
     code.add_argument("--output", "-o", help="file to write (default: standard output)")
     _add_report_options(code)
@@ -1119,11 +1191,17 @@ def _scan_code(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
         printer(result, args.fail_on)
         print_saved_line(result, args.project)
         return code
+    message = f"{result['matches_count']} match(es) written to {args.output}"
+    if args.format == "github":
+        _write_output(github_annotations(result), args.output, message)
+        return code
+    if args.format == "gitlab":
+        _write_output(json.dumps(code_quality_report(result), indent=2), args.output, message)
+        return code
     log = result.pop("sarif", None)
     document = log if args.format == "sarif" else result
     if not isinstance(document, dict):
         raise ValueError("Unexpected answer of scan/code: no SARIF log")
-    message = f"{result['matches_count']} match(es) written to {args.output}"
     _write_output(json.dumps(document, indent=2), args.output, message)
     return code
 
