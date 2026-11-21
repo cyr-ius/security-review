@@ -17,7 +17,7 @@ uv run pytest tests/test_web_api.py                     # tests de l'API REST
 | Fichier | Rôle |
 |---|---|
 | `__init__.py` | `create_app` : assemblage des routeurs sous `/api/v1`, fichiers statiques de `/ui` |
-| `schemas.py` | Modèles de requête et de réponse de chaque route |
+| `schemas/` | Modèles de requête et de réponse de chaque route, un module par domaine (`findings`, `scans`, `access`...), tous réexportés par le paquet |
 | `deps.py` | Identité de l'appelant, permissions (`require`), périmètre des projets |
 | `*_routes.py` | Un routeur par domaine (`report`, `rule`, `token`, `access`, `connector`…) |
 
@@ -33,7 +33,7 @@ async def project_tokens(identity: TokensManager) -> list[ProjectToken]:
 ```
 
 - **Modèle de réponse** : chaque route JSON déclare son type de retour avec un modèle de
-  `schemas.py`, jamais `-> dict`. FastAPI le documente dans OpenAPI et retire tout champ non
+  `schemas/`, jamais `-> dict`. FastAPI le documente dans OpenAPI et retire tout champ non
   déclaré (aucune empreinte ni secret ne fuit par erreur) ;
   `test_openapi_documents_the_response_of_every_json_route` échoue sur un `dict` brut.
 - **Permissions** : l'identité vient d'une dépendance de `deps.py`, en général un alias

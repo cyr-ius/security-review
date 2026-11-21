@@ -137,7 +137,7 @@ l'utiliser.
 | Export et tendances | `reports/sarif.py`, `reports/trends.py` |
 | Connecteurs : envoi des findings vers des systèmes externes (tickets, registre de vulnérabilités...), manuel et automatique par le contrôleur : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_CONNECTORS_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `connectors/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/connector_routes.py`, exemple `examples/connector/` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; connexion OAuth des clients MCP (serveur d'autorisation du contrôleur, routes du SDK MCP, page de consentement : `web_api/oauth_routes.py`) : `auth/oauth_server.py`, jetons vérifiés par `auth/token_store.py` ; permissions, rôles des utilisateurs (droits site uniquement) et projets avec leurs droits par projet, correspondances OIDC du claim, membres d'un projet, demandes de projet (`request_project`) : paquet `auth/access_control/` (`core`, `roles`, `users`, `members`, `projects`, `oidc_mappings` ; `__init__` réexporte tout, les tests patchent une limite dans le sous-module qui la lit) ; projets connus (table `Project`, créée aussi par le serveur MCP) : `storage/projects.py` |
-| Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
+| Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas/` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, page « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
 
@@ -181,7 +181,7 @@ cas de conflit, il prévaut.
 
 ### API REST et interface web
 
-- Chaque route JSON du contrôleur déclare son modèle de réponse dans `web_api/schemas.py` (jamais
+- Chaque route JSON du contrôleur déclare son modèle de réponse dans `web_api/schemas/` (module de son domaine) (jamais
   `-> dict`) : il documente l'API et filtre les champs non déclarés. Un test le vérifie sur le
   schéma OpenAPI.
 - Angular, en plus du standard `angular` : formulaires de saisie en Signal Forms (obligatoire),

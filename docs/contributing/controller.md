@@ -17,7 +17,7 @@ uv run pytest tests/test_web_api.py                     # REST API tests
 | File | Role |
 |---|---|
 | `__init__.py` | `create_app`: assembly of the routers under `/api/v1`, static files of `/ui` |
-| `schemas.py` | Request and response models of every route |
+| `schemas/` | Request and response models of every route, one module per domain (`findings`, `scans`, `access`...), all re-exported by the package |
 | `deps.py` | Identity of the caller, permissions (`require`), project scope |
 | `*_routes.py` | One router per domain (`report`, `rule`, `token`, `access`, `connector`…) |
 
@@ -32,7 +32,7 @@ async def project_tokens(identity: TokensManager) -> list[ProjectToken]:
     return [token for token in tokens if _reaches(identity, token["projects"])]
 ```
 
-- **Response model**: every JSON route declares its return type with a model of `schemas.py`,
+- **Response model**: every JSON route declares its return type with a model of `schemas/`,
   never `-> dict`. FastAPI documents it in OpenAPI and drops any field that is not declared
   (no hash nor secret leaks by mistake);
   `test_openapi_documents_the_response_of_every_json_route` fails on a bare `dict`.

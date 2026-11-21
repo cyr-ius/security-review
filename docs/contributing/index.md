@@ -169,7 +169,7 @@ src/security_review_mcp/
 │                  # connections, transport (HTTP client), core (sending), jira, servicenow
 └── web_api/       # Controller server: REST API /api/v1 and files of the application (/ui)
     ├── __init__.py    # create_app, static files of /ui, assembly of the routers
-    ├── schemas.py     # request and response models of every route
+    ├── schemas/       # request and response models of every route, one module per domain
     ├── deps.py        # identity of the caller, permissions, project scope
     └── *_routes.py    # one router per domain (auth, account, report, ci, rule, token, admin, access)
 tests/             # pytest (scanner, services, end-to-end MCP client)
