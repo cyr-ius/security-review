@@ -42,6 +42,27 @@ public class ReportsController : ControllerBase
         return Ok();
     }
 
+    [HttpPost("clone")]
+    public IActionResult Clone([FromQuery] string branch)
+    {
+        // ruleid: secreview.csharp.taint-argument-injection
+        Process.Start("git", new[] { "clone", "--branch", branch, "https://example.com/repo" });
+        // ok: secreview.csharp.taint-argument-injection
+        Process.Start("git", new[] { "clone", "--branch", "main", "https://example.com/repo" });
+        // ok: secreview.csharp.taint-argument-injection
+        Process.Start("git", new[] { "clone", "--", branch, "https://example.com/repo" });
+        return Ok();
+    }
+
+    [HttpGet("view")]
+    public IActionResult View([FromQuery] string name)
+    {
+        // ruleid: secreview.csharp.taint-view-injection
+        return View(name);
+        // ok: secreview.csharp.taint-view-injection
+        return View("Pages/Home");
+    }
+
     [HttpGet("files/{name}")]
     public IActionResult Download([FromRoute] string name)
     {

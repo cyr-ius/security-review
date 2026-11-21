@@ -25,6 +25,15 @@ async fn ping(Query(params): Query<Ping>) {
     Command::new("ping").arg("-c").arg("1").arg(&params.host).status().unwrap();
 }
 
+async fn clone(Query(params): Query<CloneParams>) {
+    // ruleid: secreview.rust.taint-argument-injection
+    Command::new("git").arg("clone").arg("--branch").arg(&params.branch).arg("https://example.com/repo").status().unwrap();
+    // ok: secreview.rust.taint-argument-injection
+    Command::new("git").arg("clone").arg("--branch").arg("main").arg("https://example.com/repo").status().unwrap();
+    // ok: secreview.rust.taint-argument-injection
+    Command::new("git").arg("clone").arg("--").arg(&params.branch).arg("https://example.com/repo").status().unwrap();
+}
+
 async fn tool(Path(tool): Path<String>) {
     // ruleid: secreview.rust.taint-command
     Command::new(&tool).status().unwrap();

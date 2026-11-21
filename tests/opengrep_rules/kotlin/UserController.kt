@@ -61,4 +61,14 @@ class UserController(private val jdbc: JdbcTemplate, private val rest: RestTempl
         // ruleid: secreview.kotlin.taint-open-redirect
         return "redirect:" + next
     }
+
+    @PostMapping("/clone")
+    fun clone(@RequestParam branch: String) {
+        // ruleid: secreview.kotlin.taint-argument-injection
+        ProcessBuilder("git", "clone", "--branch", branch, "https://example.com/repo").start()
+        // ok: secreview.kotlin.taint-argument-injection
+        ProcessBuilder("git", "clone", "--branch", "main", "https://example.com/repo").start()
+        // ok: secreview.kotlin.taint-argument-injection
+        ProcessBuilder("git", "clone", "--", branch, "https://example.com/repo").start()
+    }
 }

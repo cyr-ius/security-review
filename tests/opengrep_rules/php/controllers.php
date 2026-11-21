@@ -36,6 +36,16 @@ function command() {
     call_user_func('strtoupper', $handler);
 }
 
+function cloneRepository() {
+    $branch = $_POST['branch'];
+    // ruleid: secreview.php.taint-argument-injection
+    proc_open(['git', 'clone', '--branch', $branch, 'https://example.com/repo'], [], $pipes);
+    // ok: secreview.php.taint-argument-injection
+    proc_open(['git', 'clone', '--branch', 'main', 'https://example.com/repo'], [], $pipes);
+    // ok: secreview.php.taint-argument-injection
+    proc_open(['git', 'clone', '--', $branch, 'https://example.com/repo'], [], $pipes);
+}
+
 function files($request) {
     $page = $_GET['page'];
     // ruleid: secreview.php.taint-file-inclusion

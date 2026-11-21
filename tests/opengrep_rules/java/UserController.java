@@ -73,6 +73,17 @@ public class UserController {
         Runtime.getRuntime().exec(new String[] {"uptime"});
     }
 
+    @PostMapping("/clone")
+    public void clone(HttpServletRequest request) throws Exception {
+        String branch = request.getParameter("branch");
+        // ruleid: secreview.java.taint-argument-injection
+        new ProcessBuilder("git", "clone", "--branch", branch, "https://example.com/repo").start();
+        // ok: secreview.java.taint-argument-injection
+        new ProcessBuilder("git", "clone", "--branch", "main", "https://example.com/repo").start();
+        // ok: secreview.java.taint-argument-injection
+        new ProcessBuilder("git", "clone", "--", branch, "https://example.com/repo").start();
+    }
+
     @GetMapping("/files/{name}")
     public byte[] file(@PathVariable String name) throws Exception {
         // ruleid: secreview.java.taint-path-traversal

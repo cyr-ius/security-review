@@ -1,0 +1,80 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-unsafe-reflection
+    message: >-
+      Request data names the method or the field reached by reflection (MethodByName,
+      FieldByName): an attacker calls any exported method of the value. Map the value to the
+      allowed functions with a map.
+    languages: [go]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-470: Use of Externally-Controlled Input to Select Classes or Code ('Unsafe Reflection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).FormValue(...)"
+          - pattern: "($REQ : *http.Request).PostFormValue(...)"
+          - pattern: "($REQ : *http.Request).PathValue(...)"
+          - pattern: "($REQ : *http.Request).URL.Query()"
+          - pattern: "($REQ : *http.Request).URL.RawQuery"
+          - pattern: "($REQ : *http.Request).URL.Path"
+          - pattern: "($REQ : *http.Request).Form"
+          - pattern: "($REQ : *http.Request).PostForm"
+          - pattern: "($REQ : *http.Request).Header"
+          - pattern: "($REQ : *http.Request).Body"
+          - pattern: "($REQ : *http.Request).Cookie(...)"
+          - pattern: mux.Vars(...)
+          - pattern: chi.URLParam(...)
+          - patterns:
+              - pattern: "($CTX : *gin.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|DefaultQuery|Param|PostForm|DefaultPostForm|GetHeader|GetQuery|GetPostForm|QueryArray|FormFile|Cookie)$
+          - patterns:
+              - pattern: "($CTX : echo.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+          # Fiber v2 (*fiber.Ctx) and v3 (fiber.Ctx)
+          - patterns:
+              - pattern-either:
+                  - pattern: "($CTX : *fiber.Ctx).$METHOD(...)"
+                  - pattern: "($CTX : fiber.Ctx).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|Queries|Params|AllParams|FormValue|Body|BodyRaw|Get|GetReqHeaders|Cookies|OriginalURL)$
+    pattern-propagators:
+      # A value written to a strings.Builder or a bytes.Buffer taints what is built
+      - pattern: $TO.WriteString($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteByte($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteRune($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprintf(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprint(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $VALUE.MethodByName($NAME)
+              - pattern: $VALUE.FieldByName($NAME)
+          - focus-metavariable: $NAME
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: strconv.Atoi(...)
+          - pattern: strconv.ParseInt(...)

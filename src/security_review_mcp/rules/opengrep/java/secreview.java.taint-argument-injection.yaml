@@ -1,0 +1,123 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-argument-injection
+    message: >-
+      Request data is passed as an argument of a program run without a shell
+      (ProcessBuilder, an array given to Runtime.exec): a value that starts with "-" becomes
+      an option of the program (git --upload-pack, ssh -oProxyCommand, curl -o, tar
+      --checkpoint-action...), which runs commands or writes files. Quoting does not help.
+      Put "--" before the values, refuse a value that starts with "-", or pass it as the
+      value of a long option ("--branch=" + value).
+    languages: [java]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-88: Improper Neutralization of Argument Delimiters in a Command ('Argument Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          # Spring binds a handler parameter without annotation too: a simple type from the
+          # query string or the form, an object (form, DTO) as an implicit @ModelAttribute
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$MAPPING(...)
+                      $RET $METHOD(..., $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$MAPPING
+                      $RET $METHOD(..., $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $MAPPING
+                  regex: ^(Get|Post|Put|Patch|Delete|Request)Mapping$
+              # An annotated parameter is either request data (above) or not (@AuthenticationPrincipal)
+              - pattern-not-inside: |
+                  $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - pattern-not-inside: |
+                  $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(String|String\[\]|List<String>|Optional<String>|[A-Z]\w*(Form|Dto|DTO|Request|Command|Params|Criteria|Filter))$
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  # Framework objects, whose getters are the sources below
+                  regex: ^(?!(HttpServletRequest|ServletRequest|WebRequest|NativeWebRequest|ServerHttpRequest|ServerRequest|RequestEntity|MultipartHttpServletRequest)$)
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-propagators:
+      # A value appended to a StringBuilder or a writer taints what is built
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.append($FROM, ...)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
+      # A value added to a collection taints it (String.join, a query builder...)
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.addAll($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put($KEY, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new ProcessBuilder($PROG, ..., $ARG, ...)
+              - pattern: new ProcessBuilder(List.of($PROG, ..., $ARG, ...))
+              - pattern: new ProcessBuilder(Arrays.asList($PROG, ..., $ARG, ...))
+              - pattern: (ProcessBuilder $PB).command($PROG, ..., $ARG, ...)
+              - pattern: $RT.exec(new String[] {$PROG, ..., $ARG, ...}, ...)
+          - pattern-not: new ProcessBuilder($PROG, ..., "--", ..., $ARG, ...)
+          - pattern-not: new ProcessBuilder(List.of($PROG, ..., "--", ..., $ARG, ...))
+          - pattern-not: new ProcessBuilder(Arrays.asList($PROG, ..., "--", ..., $ARG, ...))
+          - pattern-not: (ProcessBuilder $PB).command($PROG, ..., "--", ..., $ARG, ...)
+          - pattern-not: $RT.exec(new String[] {$PROG, ..., "--", ..., $ARG, ...}, ...)
+          - metavariable-regex:
+              metavariable: $PROG
+              regex: '^["''`](?:[^"''`]*/)?(git|hg|svn|ssh|scp|sftp|rsync|curl|wget|tar|zip|unzip|7z|7za|find|xargs|sed|awk|gawk|ffmpeg|convert|magick|gs|wkhtmltopdf|soffice|libreoffice|chromium|google-chrome|openssl|gpg|psql|mysql|mysqldump|pg_dump|docker|kubectl|helm|sudo|env|npm|npx|pip|man|less)["''`]$'
+          - metavariable-regex:
+              metavariable: $ARG
+              regex: "^(?!&?(?:format!\\()?(?:f|\\$|@)?[\"'`][^\"'`{#$\\\\])"
+          - focus-metavariable: $ARG
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Integer.parseInt(...)
+          - pattern: Integer.valueOf(...)
+          - pattern: Long.parseLong(...)
+          - pattern: Long.valueOf(...)
+          - pattern: UUID.fromString(...)

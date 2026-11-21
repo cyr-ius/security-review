@@ -25,6 +25,24 @@ class UsersController < ApplicationController
     system("convert #{Shellwords.escape(file)} out.png")
   end
 
+  def clone
+    branch = params[:branch]
+    # ruleid: secreview.ruby.taint-argument-injection
+    system("git", "clone", "--branch", branch, "https://example.com/repo")
+    # ok: secreview.ruby.taint-argument-injection
+    system("git", "clone", "--branch", "main", "https://example.com/repo")
+    # ok: secreview.ruby.taint-argument-injection
+    system("git", "clone", "--", branch, "https://example.com/repo")
+  end
+
+  def view
+    name = params[:name]
+    # ruleid: secreview.ruby.taint-view-injection
+    render(template: name)
+    # ok: secreview.ruby.taint-view-injection
+    render(template: "pages/home")
+  end
+
   def dispatch
     # ruleid: secreview.ruby.taint-code-eval
     current_user.public_send(params[:action_name])

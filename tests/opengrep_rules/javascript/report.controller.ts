@@ -25,6 +25,25 @@ export class ReportController {
     exec(`convert report.pdf report.${body.format}`);
   }
 
+  @Get('clone')
+  clone(@Query('branch') branch: string) {
+    const cp = require('node:child_process');
+    // ruleid: secreview.js.taint-argument-injection
+    cp.execFile('git', ['clone', '--branch', branch, 'https://example.com/repo']);
+    // ok: secreview.js.taint-argument-injection
+    cp.execFile('git', ['clone', '--branch', 'main', 'https://example.com/repo']);
+    // ok: secreview.js.taint-argument-injection
+    cp.execFile('git', ['clone', '--', branch, 'https://example.com/repo']);
+  }
+
+  @Get('view')
+  view(@Query('name') name: string, @Res() res: any) {
+    // ruleid: secreview.js.taint-view-injection
+    res.render(name);
+    // ok: secreview.js.taint-view-injection
+    res.render('pages/home');
+  }
+
   internal(format: string) {
     // ok: secreview.js.taint-command
     exec(`convert report.pdf report.${format}`);

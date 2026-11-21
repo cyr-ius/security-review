@@ -43,6 +43,16 @@ func ping(w http.ResponseWriter, r *http.Request) {
 	exec.Command("ping", "-c", "1", host).Run()
 }
 
+func clone(w http.ResponseWriter, r *http.Request) {
+	branch := r.FormValue("branch")
+	// ruleid: secreview.go.taint-argument-injection
+	exec.Command("git", "clone", "--branch", branch, "https://example.com/repo").Run()
+	// ok: secreview.go.taint-argument-injection
+	exec.Command("git", "clone", "--branch", "main", "https://example.com/repo").Run()
+	// ok: secreview.go.taint-argument-injection
+	exec.Command("git", "clone", "--", branch, "https://example.com/repo").Run()
+}
+
 func download(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("file")
 	// ruleid: secreview.go.taint-path-traversal
