@@ -340,19 +340,19 @@ une PR, quelle que soit la taille du changement :
    `pyproject.toml`, `uv.lock` ou `package.json` changent) sur les fichiers modifiés, avec le
    diff comme contexte. Pour un changement très étendu, utilisez `codebase-review`.
 2. Appuyez-vous sur `scan_code` et `get_review_checklist` pendant la revue.
-3. Le prompt impose l'enregistrement du rapport : utilisez le projet `security-review-mcp`.
-4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
-   correction. Pour les autres, corrigez-les ou justifiez-les, et proposez leur statut avec
-   `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) : un agent ne
-   change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
+3. Enregistrer le rapport.
+4. Corrigez les findings avec un test qui couvre la correction ou justifiez-les, et proposez leur
+   statut avec `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) :
+   un agent ne change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
 5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
    la description de PR.
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
-avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
+avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt.
 (`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/`, avec
 `SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_CI_TOKEN`) et signalez ses résultats ;
 si aucun contrôleur n'est joignable, dites-le aussi.
+Tu es autorisé à télécharger `security-review-ci` depuis le serveur Controller
 
 ## Documentation
 
@@ -435,8 +435,9 @@ essentielles.
 ## README
 
 Le `README.md` (anglais, celui de PyPI et de GitHub) et le `README.fr.md` (français) sont des
-**vitrines synthétiques**, pas une seconde documentation. Ils ont le même contenu, traduit, se
-lient l'un à l'autre en tête, restent nettement plus courts que `docs/` et ne contiennent que :
+**vitrines synthétiques**, il se veut attratif, simple, pas une seconde documentation. Ils ont
+le même contenu, traduit, se lient l'un à l'autre en tête, restent nettement plus courts que
+`docs/` et ne contiennent que :
 
 1. une description en quelques lignes et le lien vers la documentation complète ;
 2. les capacités principales sous forme de liste ou de tableau court (noms des prompts, outils
