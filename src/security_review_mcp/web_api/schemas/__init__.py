@@ -81,6 +81,8 @@ from .findings import (  # noqa: F401
     ProjectFinding,
     ProjectFindingPage,
     ProjectPosture,
+    ProjectRename,
+    ProjectRenamed,
     ProjectSummary,
     RemediationTime,
     ReportSummary,

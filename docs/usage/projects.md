@@ -50,6 +50,20 @@ With the `projects.create` permission, the **New project** button shows on the *
 page. Creating a project adds it to your projects with its reading and writing: you read it at
 once, and your agent can save its reviews there.
 
+## Renaming a project
+
+With the `projects.delete` permission, a pencil button shows on each row of the **Projects**
+page. The new name is normalized as any project name and must not be known yet, nor given by an
+OIDC mapping. Everything that
+refers to the project follows the new name: its reports, its findings **and their triage**
+(a later report under the new name keeps the decisions taken), its members, the OIDC mappings,
+the tokens and the connector destinations.
+
+Pipelines and agents that send reports under the old name must use the new one: the tokens no
+longer reach the old name. The audit log keeps the events of the old name and records
+`project.renamed`. An operator may also rename a project with
+[`security-review-controller project rename`](../reference/cli.md#security-review-controller).
+
 ## Deleting a project
 
 With the `projects.delete` permission, a trash button shows on each row of the **Projects**

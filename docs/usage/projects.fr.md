@@ -50,6 +50,19 @@ Si vous avez la permission `projects.create`, le bouton **Nouveau projet** appar
 **Projets**. Créer un projet l'ajoute à vos projets avec sa lecture et son écriture : vous le
 lisez aussitôt, et votre agent peut y enregistrer ses revues.
 
+## Renommage d'un projet
+
+Avec la permission `projects.delete`, un bouton crayon apparaît sur chaque ligne de la page
+**Projets**. Le nouveau nom est normalisé comme tout nom de projet et ne doit pas être déjà
+connu, ni donné par une correspondance OIDC. Tout ce qui se rapporte au projet suit le nouveau nom : ses rapports, ses findings **et
+leur triage** (un rapport suivant sous le nouveau nom garde les décisions prises), ses membres,
+les correspondances OIDC, les jetons et les destinations des connecteurs.
+
+Les pipelines et les agents qui envoient des rapports sous l'ancien nom doivent utiliser le
+nouveau : les jetons n'atteignent plus l'ancien nom. Le journal d'audit garde les événements de
+l'ancien nom et enregistre `project.renamed`. Un opérateur peut aussi renommer un projet avec
+[`security-review-controller project rename`](../reference/cli.md#security-review-controller).
+
 ## Suppression d'un projet
 
 Avec la permission `projects.delete`, un bouton corbeille apparaît sur chaque ligne de la page

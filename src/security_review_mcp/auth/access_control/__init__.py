@@ -41,6 +41,8 @@ users.
 - A user with ``projects.delete`` may delete a project and everything that refers to it (see
   delete_project): its reports, findings and comments, the project of the users, of the mappings
   and of the tokens (a token left without project is revoked). The audit log keeps its events.
+  The same permission renames a project (see rename_project): every reference follows the new
+  name, and the fingerprints of its findings are recomputed so that their triage carries on.
 - No permission gives the personal ``mcp`` and ``ci`` tokens: every web user may create them
   while SECREVIEW_PERSONAL_TOKENS_ENABLED is true (see token_store). They read the projects of
   ``reports.read`` and write only to those of ``reports.write``.
@@ -141,6 +143,7 @@ from .projects import (  # noqa: F401
     pending_project_count,
     project_exists,
     reject_enrollment,
+    rename_project,
     request_project,
     set_autojoin_blocked,
 )

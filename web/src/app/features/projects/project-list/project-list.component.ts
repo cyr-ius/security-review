@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import {
   PendingProject,
+  ProjectRenamed,
   ProjectSummary,
   SEVERITIES,
   SEVERITY_RANK,
@@ -63,6 +64,8 @@ export class ProjectListComponent {
   private readonly auth = inject(AuthService);
   /** Modal dialog hosting the creation form. */
   private readonly createDialog = viewChild<ElementRef<HTMLDialogElement>>('createDialog');
+  /** Modal dialog hosting the rename form. */
+  private readonly renameDialog = viewChild<ElementRef<HTMLDialogElement>>('renameDialog');
   /** Modal dialog hosting the members of one project. */
   private readonly membersDialog = viewChild<ElementRef<HTMLDialogElement>>('membersDialog');
 
@@ -73,15 +76,25 @@ export class ProjectListComponent {
     required(path.project);
     maxLength(path.project, MAX_PROJECT_CHARS);
   });
-  /** A user with projects.delete may delete a project and everything that refers to it. */
+  /** Project being renamed in the modal, and its new name. */
+  readonly renameProjectName = signal<string | null>(null);
+  readonly rename = signal({ name: '' });
+  readonly renameForm = form(this.rename, (path) => {
+    required(path.name);
+    maxLength(path.name, MAX_PROJECT_CHARS);
+  });
+  readonly renaming = signal(false);
+  readonly renameError = signal<Message | null>(null);
+  /** A user with projects.delete may delete or rename a project and everything that refers
+   * to it. */
   readonly canDelete = computed(() => this.auth.can('projects.delete'));
   /** Giving access to an existing project also takes users.manage, as giving a role does. */
   readonly canGrantAccess = computed(() => this.auth.can('users.manage'));
   /** A user with users.manage sees and changes the members of a project and their permissions,
    * and blocks or allows again its autojoin (projects.create alone never does). */
   readonly canManageMembers = computed(() => this.auth.can('users.manage'));
-  /** The row actions: the members and blocking the autojoin (users.manage), deleting
-   * (projects.delete). */
+  /** The row actions: the members and blocking the autojoin (users.manage), renaming and
+   * deleting (projects.delete). */
   readonly hasActions = computed(() => this.canManageMembers() || this.canDelete());
   /** Project whose members are shown in the modal. */
   readonly membersProject = signal<string | null>(null);
@@ -325,6 +338,58 @@ export class ProjectListComponent {
       );
     } finally {
       this.switchingAutojoin.set(null);
+    }
+  }
+
+  /** Opens the rename modal of a project, its current name filled in. */
+  openRename(project: string): void {
+    this.renameProjectName.set(project);
+    this.rename.set({ name: project });
+    this.renameError.set(null);
+    const dialog = this.renameDialog()?.nativeElement;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }
+
+  closeRename(): void {
+    this.renameDialog()?.nativeElement.close();
+  }
+
+  /** Rename the project of the modal; the session then reads it under its new name. */
+  async renameProject(event: Event): Promise<void> {
+    event.preventDefault();
+    const project = this.renameProjectName();
+    const name = this.rename().name.trim();
+    if (!project || this.renameForm().invalid() || !name || this.renaming()) {
+      return;
+    }
+    this.renaming.set(true);
+    this.renameError.set(null);
+    this.notice.set(null);
+    this.error.set(null);
+    try {
+      const renamed: ProjectRenamed = await firstValueFrom(this.api.renameProject(project, name));
+      this.closeRename();
+      this.notice.set(
+        msg('projects.renamed', {
+          previous: renamed.previous_name,
+          project: renamed.project,
+          reports: renamed.reports,
+          findings: renamed.findings,
+          tokens: renamed.tokens_changed,
+        }),
+      );
+      this.auth.setIdentity(await firstValueFrom(this.api.me()));
+      this.projects.reload();
+    } catch (error: unknown) {
+      this.renameError.set(
+        error instanceof HttpErrorResponse && typeof error.error?.detail === 'string'
+          ? serverDetail(error.error.detail)
+          : msg('projects.renameFailed'),
+      );
+    } finally {
+      this.renaming.set(false);
     }
   }
 

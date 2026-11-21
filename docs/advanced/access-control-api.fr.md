@@ -170,6 +170,36 @@ curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/js
 # {"project": "mobile-app", "autojoin_blocked": true}
 ```
 
+### Renommage d'un projet
+
+`POST /api/v1/projects/{project}/rename` renomme un projet (`projects.delete`), depuis une
+session de l'interface web uniquement : un jeton ne renomme jamais un projet. Le nouveau `name`
+est normalisé ; un nom déjà connu donne `409`, un projet inconnu `404`. Le renommage se fait en
+une transaction :
+
+- ses rapports, et les empreintes de leurs findings et de leurs envois par les connecteurs,
+  recalculées pour qu'un rapport suivant sous le nouveau nom retrouve les mêmes problèmes et
+  garde leur triage ;
+- ses destinations de connecteurs, propositions de règles OpenGrep, tickets de scan et demandes
+  en attente ;
+- le projet dans les correspondances OIDC et dans les jetons ; ses membres gardent leurs
+  permissions.
+
+Un nom qu'une correspondance OIDC donne déjà (projet pas encore créé) est refusé avec `409` : le
+renommage ouvrirait le projet aux utilisateurs de cette correspondance, ce qui demande
+`users.manage`.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects/mobile-app/rename -d '{"name": "mobile"}'
+# {"project": "mobile", "previous_name": "mobile-app", "reports": 3, "findings": 12, "tokens_changed": 1, "mappings_changed": []}
+```
+
+Le journal d'audit garde les événements de l'ancien nom et enregistre `project.renamed` ; les
+jetons et les correspondances OIDC modifiés ont leurs propres événements
+(`token.projects_changed`, `oidc.mappings_changed`). Les empreintes SARIF des findings changent
+avec le nom.
+
 ### Suppression d'un projet
 
 `DELETE /api/v1/projects/{project}` supprime un projet, depuis une session de l'interface web

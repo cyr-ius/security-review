@@ -28,7 +28,7 @@ gardent un rôle fixe ([jetons](tokens.md)).
 | `users.manage` | Gérer les utilisateurs et leurs rôles, les rôles, les correspondances OIDC et la connexion OIDC | |
 | `audit.read` | Lire le journal d'audit | |
 | `projects.create` | [Créer un projet](projects.md#creation-dun-projet) et valider les projets demandés par les agents | |
-| `projects.delete` | [Supprimer un projet](projects.md#suppression-dun-projet) | |
+| `projects.delete` | [Supprimer un projet](projects.md#suppression-dun-projet) ou [le renommer](projects.md#renommage-dun-projet) | |
 | `projects.autojoin` | [Rejoindre un projet existant](projects.md#rejoindre-un-projet) aussitôt, avec `reports.read` et `reports.write`, quand l'agent le demande, sauf si [son adhésion automatique est bloquée](projects.md#blocage-de-ladhesion-automatique) | |
 
 Une permission marquée **par projet** se donne avec un projet (ou avec tous les projets), jamais

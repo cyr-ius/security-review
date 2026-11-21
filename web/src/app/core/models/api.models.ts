@@ -312,6 +312,7 @@ export type AuditAction =
   | 'user.groups_changed'
   | 'project.created'
   | 'project.deleted'
+  | 'project.renamed'
   | 'project.joined'
   | 'project.autojoin_changed'
   | 'user.roles_changed'
@@ -367,6 +368,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.groups_changed',
   'project.created',
   'project.deleted',
+  'project.renamed',
   'project.joined',
   'project.autojoin_changed',
   'user.roles_changed',
@@ -727,6 +729,17 @@ export interface ProjectDeleted {
   mappings_changed: string[];
   tokens_revoked: number;
   tokens_changed: number;
+}
+
+/** POST /api/v1/projects/{project}/rename */
+export interface ProjectRenamed {
+  project: string;
+  previous_name: string;
+  reports: number;
+  findings: number;
+  tokens_changed: number;
+  /** Claims of the OIDC mappings that now give the new name. */
+  mappings_changed: string[];
 }
 
 /** GET /api/v1/reports */

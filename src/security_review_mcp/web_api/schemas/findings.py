@@ -53,6 +53,24 @@ class ProjectCreate(BaseModel):
     project: ProjectName
 
 
+class ProjectRename(BaseModel):
+    """New name of a project (POST /projects/{project}/rename), normalized."""
+
+    name: ProjectName
+
+
+class ProjectRenamed(BaseModel):
+    """What the renaming of a project changed (POST /projects/{project}/rename)."""
+
+    project: str
+    previous_name: str
+    reports: int
+    findings: int
+    tokens_changed: int
+    # Claims of the OIDC mappings that now give the new name
+    mappings_changed: list[str]
+
+
 class ProjectDeleted(BaseModel):
     """What the deletion of a project removed (DELETE /projects/{project})."""
 

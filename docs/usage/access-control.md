@@ -28,7 +28,7 @@ machines keep a fixed role ([tokens](tokens.md)).
 | `users.manage` | Manage the users and their roles, the roles, the OIDC mappings and the OIDC login | |
 | `audit.read` | Read the audit log | |
 | `projects.create` | [Create a project](projects.md#creating-a-project) and approve the projects requested by the agents | |
-| `projects.delete` | [Delete a project](projects.md#deleting-a-project) | |
+| `projects.delete` | [Delete a project](projects.md#deleting-a-project) or [rename it](projects.md#renaming-a-project) | |
 | `projects.autojoin` | [Join an existing project](projects.md#joining-a-project) at once, with `reports.read` and `reports.write`, when the agent requests it, unless [its autojoin is blocked](projects.md#blocking-the-autojoin) | |
 
 A permission marked **per project** is given with a project (or with every project), never by a

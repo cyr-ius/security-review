@@ -1260,6 +1260,29 @@ def test_deleting_a_project_needs_the_permission_and_a_web_session(accounts, sec
     assert accounts.delete("/api/v1/projects/shop-api", headers=admin).status_code == 404
 
 
+def test_renaming_a_project_needs_the_permission_and_a_web_session(accounts, secured, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    make_user("ann", USER_PASSWORD, "reader")
+    url = "/api/v1/projects/shop-api/rename"
+    reader = session_headers(accounts, "ann")
+    response = accounts.post(url, json={"name": "shop"}, headers=reader)
+    assert response.status_code == 403
+    assert "projects.delete" in response.json()["detail"]
+    # An admin token holds every permission, but a token never renames a project
+    assert secured.post(url, json={"name": "shop"}, headers=auth("admin")).status_code == 403
+
+    admin = session_headers(accounts, "root")
+    assert accounts.post(url, json={"name": "Billing"}, headers=admin).status_code == 409
+    response = accounts.post(url, json={"name": "Shop"}, headers=admin)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["project"] == "shop"
+    assert response.json()["previous_name"] == "shop-api"
+    listed = accounts.get("/api/v1/projects", headers=admin).json()
+    assert sorted(item["project"] for item in listed) == ["billing", "shop"]
+    assert accounts.post(url, json={"name": "web"}, headers=admin).status_code == 404
+
+
 def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     crm_report = services.save_report("crm", "Review", [make_finding(Severity.HIGH)])

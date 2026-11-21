@@ -42,6 +42,7 @@ import {
   PersonalTokenRole,
   Preferences,
   ProjectDeleted,
+  ProjectRenamed,
   ProjectFinding,
   ProjectFindingPage,
   ProjectFindingQuery,
@@ -401,6 +402,14 @@ export class ApiService {
     return this.http.put<ProjectAutojoin>(
       `${API_URL}/projects/${encodeURIComponent(project)}/autojoin`,
       { blocked },
+    );
+  }
+
+  /** POST /api/v1/projects/{project}/rename: the project and its references (projects.delete). */
+  renameProject(project: string, name: string): Observable<ProjectRenamed> {
+    return this.http.post<ProjectRenamed>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/rename`,
+      { name },
     );
   }
 

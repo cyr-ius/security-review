@@ -53,6 +53,15 @@ export const projects = defineMessages({
     'projects.deleted':
       'Project {project} deleted: {reports} report(s), {findings} finding(s), {tokens} token(s) revoked.',
     'projects.deleteFailed': 'Could not delete the project.',
+    'projects.rename': 'Rename project {project}',
+    'projects.renameTitle': 'Rename project {project}',
+    'projects.renameName': 'New name',
+    'projects.renameHelp':
+      'The name is normalized (lowercase, repository name). Reports, findings and their triage, members, OIDC mappings, tokens and connector destinations follow the new name. Pipelines and agents that send reports under the old name must use the new one.',
+    'projects.renameSubmit': 'Rename',
+    'projects.renamed':
+      'Project {previous} renamed to {project}: {reports} report(s), {findings} finding(s), {tokens} token(s) updated.',
+    'projects.renameFailed': 'Could not rename the project.',
     'projects.autojoinBlocked': 'Autojoin blocked',
     'projects.autojoinBlockedHelp':
       'The users allowed to join projects wait for an approval to join this project.',
@@ -171,6 +180,15 @@ export const projects = defineMessages({
     'projects.deleted':
       'Projet {project} supprimé : {reports} rapport(s), {findings} finding(s), {tokens} jeton(s) révoqué(s).',
     'projects.deleteFailed': 'Impossible de supprimer le projet.',
+    'projects.rename': 'Renommer le projet {project}',
+    'projects.renameTitle': 'Renommer le projet {project}',
+    'projects.renameName': 'Nouveau nom',
+    'projects.renameHelp':
+      'Le nom est normalisé (minuscules, nom du dépôt). Les rapports, les findings et leur triage, les membres, les correspondances OIDC, les jetons et les destinations des connecteurs suivent le nouveau nom. Les pipelines et les agents qui envoient des rapports sous l’ancien nom doivent utiliser le nouveau.',
+    'projects.renameSubmit': 'Renommer',
+    'projects.renamed':
+      'Projet {previous} renommé en {project} : {reports} rapport(s), {findings} finding(s), {tokens} jeton(s) mis à jour.',
+    'projects.renameFailed': 'Impossible de renommer le projet.',
     'projects.autojoinBlocked': 'Adhésion automatique bloquée',
     'projects.autojoinBlockedHelp':
       'Les utilisateurs autorisés à rejoindre des projets attendent une validation pour rejoindre ce projet.',
@@ -290,6 +308,15 @@ export const projects = defineMessages({
     'projects.deleted':
       'Proyecto {project} eliminado: {reports} informe(s), {findings} hallazgo(s), {tokens} token(s) revocado(s).',
     'projects.deleteFailed': 'No se pudo eliminar el proyecto.',
+    'projects.rename': 'Cambiar el nombre del proyecto {project}',
+    'projects.renameTitle': 'Cambiar el nombre del proyecto {project}',
+    'projects.renameName': 'Nuevo nombre',
+    'projects.renameHelp':
+      'El nombre se normaliza (minúsculas, nombre del repositorio). Los informes, los hallazgos y su clasificación, los miembros, las correspondencias OIDC, los tokens y los destinos de los conectores siguen el nuevo nombre. Los pipelines y los agentes que envían informes con el nombre anterior deben usar el nuevo.',
+    'projects.renameSubmit': 'Cambiar el nombre',
+    'projects.renamed':
+      'Proyecto {previous} renombrado a {project}: {reports} informe(s), {findings} hallazgo(s), {tokens} token(s) actualizado(s).',
+    'projects.renameFailed': 'No se pudo cambiar el nombre del proyecto.',
     'projects.autojoinBlocked': 'Adhesión automática bloqueada',
     'projects.autojoinBlockedHelp':
       'Los usuarios autorizados a unirse a proyectos esperan una aprobación para unirse a este proyecto.',

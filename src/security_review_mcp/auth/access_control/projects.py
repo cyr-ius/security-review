@@ -5,13 +5,14 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, or_, select
 
 from ... import app_settings
 from ...config import get_settings
 from ...observability import audit
+from ...reports.sarif import issue_fingerprint
 from ...reports.services import NotFoundError
 from ...storage import projects as project_store
 from ...storage.database import session_scope
@@ -24,6 +25,7 @@ from ...storage.models import (
     OpenGrepRuleProposal,
     Project,
     ProjectEnrollment,
+    ScanTicket,
     SecurityReport,
     UserProject,
     WebUser,
@@ -32,6 +34,7 @@ from ...storage.models import (
 )
 from ..rate_limit import RateLimit
 from ..token_store import forget_project
+from ..token_store import rename_project as rename_token_project
 from . import core, users
 from .core import (
     REVIEW_PERMISSIONS,
@@ -246,6 +249,139 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
             {key: value for key, value in deleted.items() if key != "project"},
         )
         return deleted
+
+
+def _rename_findings(session: Session, project: str, new_name: str) -> int:
+    """Recompute the fingerprints of the findings of ``project`` (reports already renamed to
+    ``new_name``) and of their exports: a fingerprint holds the project name, and a later report
+    must find the same issues (see sarif.issue_fingerprint). Return the number of findings."""
+    reports = select(SecurityReport.id).where(SecurityReport.project == new_name)
+    digests: dict[int, str] = {}
+    for finding in session.exec(select(Finding).where(col(Finding.report_id).in_(reports))):
+        digest = issue_fingerprint(new_name, finding)
+        digests[finding.id] = digest  # type: ignore[index]
+        if finding.fingerprint is not None:
+            finding.fingerprint = digest
+            session.add(finding)
+    for export in session.exec(select(FindingExport).where(FindingExport.project == project)):
+        export.project = new_name
+        export.fingerprint = digests.get(export.finding_id, export.fingerprint)
+        session.add(export)
+    return len(digests)
+
+
+def _rename_mappings(session: Session, project: str, new_name: str, actor: str | None) -> list[str]:
+    """Make the OIDC mappings of ``project`` give ``new_name`` instead (none names it, see
+    rename_project). Return the claims changed, audited."""
+    changed: list[str] = []
+    for mapping in session.exec(select(OidcRoleMapping)).all():
+        items = json.loads(mapping.projects)
+        if not any(item["project"] == project for item in items):
+            continue
+        for item in items:
+            if item["project"] == project:
+                item["project"] = new_name
+        mapping.projects = json.dumps(items)
+        session.add(mapping)
+        changed.append(mapping.claim)
+    if changed:
+        audit.record(
+            session,
+            audit.AuditAction.OIDC_MAPPINGS_CHANGED,
+            actor,
+            "project",
+            new_name,
+            new_name,
+            {"claims": sorted(changed), "reason": "project renamed", "previous_name": project},
+        )
+    return sorted(changed)
+
+
+def rename_project(project: str, new_name: str, actor: str | None = None) -> dict[str, Any]:
+    """Rename ``project`` to ``new_name`` (normalized) with everything that refers to it
+    (``projects.delete``), in one transaction: its reports, the fingerprints of its findings
+    and of their exports (see _rename_findings), its connector destinations, OpenGrep rule
+    proposals, scan tickets and pending requests, the tokens (see token_store.rename_project)
+    and the OIDC mappings. Its members keep their permissions (they refer to the project by
+    id). The audit log keeps the events of the old name and records ``project.renamed``.
+
+    A name that an OIDC mapping already gives (a project not known yet) is refused: renaming
+    would open the project to the users of that mapping, a grant that takes ``users.manage``.
+
+    Raises:
+        ValueError: Invalid name, same name, ``new_name`` already known or given by an OIDC
+            mapping.
+        NotFoundError: If the project is not known (see project_exists).
+    """
+    cleaned, renamed = (
+        clean_projects([Permission.REPORTS_READ], [name])[0] for name in (project, new_name)
+    )
+    if renamed == cleaned:
+        raise ValueError(f"Project '{cleaned}' already has this name")
+    try:
+        with session_scope() as session:
+            row = session.exec(
+                select(Project).where(Project.name == cleaned).with_for_update()
+            ).first()
+            if row is None:
+                raise NotFoundError(f"Project '{cleaned}' not found")
+            if project_exists(session, renamed):
+                raise ValueError(f"Project '{renamed}' already exists")
+            mapped = sorted(
+                mapping.claim
+                for mapping in session.exec(select(OidcRoleMapping)).all()
+                if any(item["project"] == renamed for item in json.loads(mapping.projects))
+            )
+            if mapped:
+                raise ValueError(f"Project '{renamed}' already exists in the OIDC mappings")
+            row.name = renamed
+            session.add(row)
+            reports = session.exec(
+                update(SecurityReport)
+                .where(col(SecurityReport.project) == cleaned)
+                .values(project=renamed)
+            ).rowcount
+            findings = _rename_findings(session, cleaned, renamed)
+            for model in (ConnectorTarget, OpenGrepRuleProposal, ScanTicket):
+                session.exec(
+                    update(model).where(col(model.project) == cleaned).values(project=renamed)  # type: ignore[attr-defined]
+                )
+            # A user who also requested the new name keeps that request only
+            for pending in session.exec(
+                select(ProjectEnrollment).where(ProjectEnrollment.project == cleaned)
+            ).all():
+                duplicate = session.exec(
+                    select(ProjectEnrollment.id).where(
+                        ProjectEnrollment.project == renamed,
+                        ProjectEnrollment.requested_by_user_id == pending.requested_by_user_id,
+                    )
+                ).first()
+                if duplicate is not None:
+                    session.delete(pending)
+                else:
+                    pending.project = renamed
+                    session.add(pending)
+            result: dict[str, Any] = {
+                "project": renamed,
+                "previous_name": cleaned,
+                "reports": reports,
+                "findings": findings,
+                "tokens_changed": rename_token_project(session, cleaned, renamed, actor),
+                "mappings_changed": _rename_mappings(session, cleaned, renamed, actor),
+            }
+            audit.record(
+                session,
+                audit.AuditAction.PROJECT_RENAMED,
+                actor,
+                "project",
+                renamed,
+                renamed,
+                {key: value for key, value in result.items() if key != "project"},
+            )
+            return result
+    except IntegrityError:
+        # The new name was created meanwhile (unique name): nothing was renamed
+        raise ValueError(f"Project '{renamed}' already exists") from None
 
 
 # ── Autojoin ─────────────────────────────────────────────────────────────────

@@ -499,6 +499,93 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
         access_control.delete_project("shop")
 
 
+def test_renaming_a_project_moves_every_reference_and_keeps_the_triage():
+    from security_review_mcp.auth import token_store
+    from security_review_mcp.connectors import registry, set_target
+    from security_review_mcp.reports import services
+    from security_review_mcp.reports.sarif import issue_fingerprint
+    from security_review_mcp.storage.models import (
+        ConnectorTarget,
+        ExportState,
+        Finding,
+        FindingCreate,
+        FindingExport,
+        FindingStatus,
+        Severity,
+    )
+
+    finding = FindingCreate(
+        title="SQL injection", severity=Severity.HIGH, description="Query", file_path="app.py"
+    )
+    shop = services.save_report("shop", "Review", [finding])
+    shop_finding = services.get_report(shop["report_id"]).findings[0]
+    services.update_finding_status(
+        shop_finding.id, FindingStatus.FALSE_POSITIVE, "ann", "Dead code, never called"
+    )
+    set_target("shop", registry.get("jira"), "SEC", None, "user:root")
+    with session_scope() as session:
+        session.add(
+            FindingExport(
+                finding_id=shop_finding.id,
+                kind="jira",
+                project="shop",
+                fingerprint=issue_fingerprint("shop", finding),
+                state=ExportState.SENT,
+                external_key="SEC-1",
+            )
+        )
+    make_user("alice", PASSWORD, "triager", ["shop", "crm"])
+    map_claim("leads", "triager", ["shop", "crm"])
+    # A name already given by a mapping would open the project to its users: refused
+    map_claim("web-team", "reader", ["shop-web"])
+    with pytest.raises(ValueError, match="already exists in the OIDC mappings"):
+        access_control.rename_project("shop", "shop-web")
+    token_store.create_token("ci-shop", Role.CI, projects=["shop", "crm"])
+
+    renamed = access_control.rename_project("Shop", "acme/Shop-API.git", "user:root")
+
+    assert renamed == {
+        "project": "shop-api",
+        "previous_name": "shop",
+        "reports": 1,
+        "findings": 1,
+        "tokens_changed": 1,
+        "mappings_changed": ["leads"],
+    }
+    assert [item["project"] for item in services.list_projects(set())] == ["shop-api"]
+    with session_scope() as session:
+        assert not access_control.project_exists(session, "shop")
+        assert session.exec(select(ConnectorTarget.project)).all() == ["shop-api"]
+        (export,) = session.exec(select(FindingExport)).all()
+        assert export.project == "shop-api"
+        renamed_digest = export.fingerprint
+    assert web_users.find_user("alice")["permissions"]["reports.read"] == ["crm", "shop-api"]
+    mappings = access_control.list_oidc_mappings()
+    assert [(m["claim"], [p["project"] for p in m["projects"]]) for m in mappings] == [
+        ("leads", ["crm", "shop-api"]),
+        ("web-team", ["shop-web"]),
+    ]
+    (token,) = token_store.list_tokens()
+    assert sorted(token["projects"]) == ["crm", "shop-api"]
+    # A later report under the new name finds the same issue: its decision carries on and its
+    # record is the one already sent
+    again = services.save_report("shop-api", "Review", [finding])
+    carried = services.get_report(again["report_id"]).findings[0]
+    assert carried.status == FindingStatus.FALSE_POSITIVE
+    with session_scope() as session:
+        assert session.get(Finding, carried.id).fingerprint == renamed_digest
+    assert renamed_digest == issue_fingerprint("shop-api", finding)
+    (event,) = audit.list_events(action="project.renamed")["events"]
+    assert (event["actor"], event["project"]) == ("user:root", "shop-api")
+    assert event["details"]["previous_name"] == "shop"
+    # Neither an unknown project nor a name already known is renamed
+    with pytest.raises(NotFoundError):
+        access_control.rename_project("shop", "shop-mobile")
+    services.save_report("crm", "Review", [finding])
+    with pytest.raises(ValueError, match="'crm' already exists"):
+        access_control.rename_project("shop-api", "CRM")
+
+
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 

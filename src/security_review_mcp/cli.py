@@ -458,13 +458,15 @@ def role_command(argv: list[str]) -> int:
 
 
 def project_command(argv: list[str]) -> int:
-    """Run ``security-review-controller project``: handle the projects requested by enrollment."""
+    """Run ``security-review-controller project``: handle the projects requested by enrollment,
+    rename a project."""
     parser = argparse.ArgumentParser(
         prog="security-review-controller project",
         description="List, approve or reject the projects requested by an enrollment: a new "
         "project, or the access to an existing one (existing: true). An approval adds the "
         "requesting user the reading of the project, created when new; a request "
-        "nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.",
+        "nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted. Rename a "
+        "project with everything that refers to it.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("list", help="list the pending projects (requester, address, expiry)")
@@ -472,6 +474,9 @@ def project_command(argv: list[str]) -> int:
     approver.add_argument("id", type=int, help="id of the pending project (see list)")
     rejecter = actions.add_parser("reject", help="delete a pending project request")
     rejecter.add_argument("id", type=int, help="id of the pending project (see list)")
+    renamer = actions.add_parser("rename", help="rename a project and everything that refers to it")
+    renamer.add_argument("project", help="current name of the project")
+    renamer.add_argument("new_name", help="new name (normalized; must not be known yet)")
     args = parser.parse_args(argv)
     try:
         init_db()
@@ -481,6 +486,8 @@ def project_command(argv: list[str]) -> int:
             result = access_control.approve_enrollment(
                 args.id, audit.CLI_ACTOR, may_grant_access=True
             )
+        elif args.action == "rename":
+            result = access_control.rename_project(args.project, args.new_name, audit.CLI_ACTOR)
         else:
             result = access_control.reject_enrollment(args.id, audit.CLI_ACTOR)
     except (ValueError, NotFoundError) as exc:

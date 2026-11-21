@@ -60,6 +60,8 @@ from .schemas import (
     ProjectFinding,
     ProjectFindingPage,
     ProjectPosture,
+    ProjectRename,
+    ProjectRenamed,
     ProjectSummary,
     ReportSummary,
     RiskAcceptancePage,
@@ -218,6 +220,36 @@ async def set_project_autojoin(
         identity.client,
     )
     return ProjectAutojoin.model_validate(changed)
+
+
+@router.post("/projects/{project}/rename")
+async def rename_project(
+    request: Request,
+    project: Annotated[ProjectName, Path()],
+    body: ProjectRename,
+    identity: ProjectDeleter,
+) -> ProjectRenamed:
+    """Rename a project with everything that refers to it (``projects.delete``, logged-in web
+    user only): its reports and findings (whose triage carries on), its members, the project in
+    the OIDC mappings and in the tokens. A name already known is refused (409)."""
+    web_user_id(request)
+    try:
+        renamed = await run_in_threadpool(
+            access_control.rename_project, project, body.name, actor_of(identity)
+        )
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except ValueError as exc:
+        if "already exists" in str(exc):
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+        raise unprocessable(exc) from exc
+    logger.info(
+        "Project %s renamed to %s by %s",
+        renamed["previous_name"],
+        renamed["project"],
+        identity.client,
+    )
+    return ProjectRenamed.model_validate(renamed)
 
 
 @router.delete("/projects/{project}")

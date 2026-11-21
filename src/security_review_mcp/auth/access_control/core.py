@@ -54,7 +54,8 @@ class Permission(StrEnum):
     AUDIT_READ = "audit.read"
     # Create a new project, read by its creator (see create_project)
     PROJECTS_CREATE = "projects.create"
-    # Delete a project with its reports, findings and references (see delete_project)
+    # Delete a project with its reports, findings and references (see delete_project), or
+    # rename it (see rename_project)
     PROJECTS_DELETE = "projects.delete"
     # Join an existing project, to review it, when the MCP agent requests it (see request_project)
     PROJECTS_AUTOJOIN = "projects.autojoin"
