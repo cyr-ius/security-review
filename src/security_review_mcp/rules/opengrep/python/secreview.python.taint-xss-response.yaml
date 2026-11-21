@@ -99,8 +99,30 @@ rules:
                   metavariable: $P
                   regex: ^(?!(self|cls|request|req|websocket)$)
               - pattern: $P
-          # Request bodies parsed into a model (FastAPI and Pydantic): "item: Item", with no
-          # default, or "Annotated[Item, Body()]"
+          # Request bodies parsed into a model (FastAPI and Pydantic), with no default. A typed
+          # parameter is often a dependency alias (CurrentUser = Annotated[User, Depends(...)]):
+          # it counts only for a model declared in the file, a type named like a request schema
+          # (ItemCreate, UserIn...) or Annotated[Item, Body()]
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      def $F(..., $P: $TYPE, ...): ...
+                  - pattern-inside: |
+                      @$APP.$ROUTE(...)
+                      async def $F(..., $P: $TYPE, ...): ...
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(get|post|put|patch|delete|route|api_route|websocket)$
+              - pattern-not-inside: |
+                  def $F(..., $P: $TYPE = $DEFAULT, ...): ...
+              - pattern-not-inside: |
+                  async def $F(..., $P: $TYPE = $DEFAULT, ...): ...
+              - pattern-inside: |
+                  class $TYPE(..., BaseModel, ...):
+                    ...
+                  ...
+              - pattern: $P
           - patterns:
               - pattern-either:
                   - pattern-inside: |
@@ -118,11 +140,11 @@ rules:
                   async def $F(..., $P: $TYPE = $DEFAULT, ...): ...
               - metavariable-regex:
                   metavariable: $TYPE
-                  regex: ^((list|List|Optional)\[)?[A-Z]\w*\]?( *\| *None)?$|^Annotated\[\w+, *(Body|Form|File|Query|Path|Header|Cookie)\(
+                  regex: ^((list|List|Optional)\[)?[A-Z]\w*(In|Create|Update|Write|Patch|Request|Body|Payload|Input|Form|Schema|Params|Query|Filter|Command|Dto|DTO)\]?( *\| *None)?$|^Annotated\[\w+, *(Body|Form|File|Query|Path|Header|Cookie)\(
               - metavariable-regex:
                   metavariable: $TYPE
-                  # Framework objects and dependencies, not request data
-                  regex: ^(?!.*\b(Request|Response|WebSocket|BackgroundTasks|HTTPConnection|SecurityScopes|Session|AsyncSession|Connection|Engine|int|float|bool|UUID|date|datetime)\b)
+                  # Framework objects, not request data
+                  regex: ^(?!.*\b(Request|Response|WebSocket|BackgroundTasks|HTTPConnection|SecurityScopes)\b)
               - pattern: $P
           # Django views: the URL parameters after "request" (function views, then the HTTP
           # methods of class-based views and Django REST framework view sets)

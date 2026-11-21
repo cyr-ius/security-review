@@ -66,3 +66,11 @@ class Client:
     def run(self, cursor):
         # ok: secreview.python.taint-sql
         cursor.execute("SELECT " + self.kwargs["column"])
+
+
+@api.post("/tokens")
+def create_token(body: TokenCreate, identity: UsersManager, db=Depends(get_db)):
+    # ok: secreview.python.taint-sql
+    db.execute(f"SELECT * FROM tokens WHERE owner = '{identity.client}'")
+    # ruleid: secreview.python.taint-sql
+    db.execute(f"SELECT * FROM tokens WHERE label = '{body.name}'")
