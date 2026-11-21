@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import zipfile
 from typing import Annotated
+from urllib.parse import urlencode
 
 import httpx
 import jwt
@@ -115,6 +116,18 @@ def go(next_url: str):
 def home():
     # ok: secreview.python.taint-open-redirect
     return redirect("/dashboard")
+
+
+@api.get("/back")
+def back(error: str):
+    # ok: secreview.python.taint-open-redirect
+    return RedirectResponse("/login?" + urlencode({"error": error}))
+
+
+@api.get("/forward")
+def forward(target: str):
+    # ruleid: secreview.python.taint-open-redirect
+    return RedirectResponse(urlencode({target: ""}, safe="/:"))
 
 
 @app.get("/hello")
