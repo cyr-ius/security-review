@@ -250,8 +250,7 @@ def _access(role: str | None) -> tuple[list[int], list[str]]:
 
 def map_claim(claim: str, role: str | None = None, projects: list[str] | None = None) -> None:
     """Add an OIDC mapping: the value ``claim`` of the roles claim gives ``role`` (see _access)
-    on every project, or on ``projects`` (a project not known yet is ignored until it is
-    created)."""
+    on every project, or on ``projects`` (a project not known yet is created)."""
     from security_review_mcp.auth import access_control
 
     current = [

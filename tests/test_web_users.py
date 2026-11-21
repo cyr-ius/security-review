@@ -370,10 +370,10 @@ def test_sso_login_creates_the_user_when_auto_creation_is_enabled(database):
 
 def test_sso_login_never_creates_a_user_without_a_permission():
     signer = oidc.SessionSigner(SECRET)
-    # A mapping on projects not known yet gives no permission either
-    map_claim("devs", "reader", ["not-yet"])
+    # A value of the claim that no mapping names gives no permission either
+    map_claim("devs", "reader", ["shop"])
     with pytest.raises(oidc.OidcError) as exc:
-        login(signer, identity("alice", "sub-1", "devs"), oidc_auto_create_users=True)
+        login(signer, identity("alice", "sub-1", "staff"), oidc_auto_create_users=True)
     assert exc.value.code == "forbidden"
     assert web_users.list_users() == []
 

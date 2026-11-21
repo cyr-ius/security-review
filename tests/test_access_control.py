@@ -281,10 +281,13 @@ def test_oidc_mappings_give_their_roles_and_projects_to_the_claims_of_the_last_l
             session, alice["id"], {"devs", "unknown"}, _settings()
         )
     assert kept == ["devs"]
-    # A project not known yet is ignored, until it is created
-    assert grants_of(alice["id"]) == {"reports.read": frozenset({"shop"})}
-    known_projects("not-yet")
+    # A project not known yet is created by the mapping: no holder of projects.create may take
+    # its name first and read what the mapped team saves there
     assert grants_of(alice["id"]) == {"reports.read": frozenset({"not-yet", "shop"})}
+    (created,) = audit.list_events(action="project.created")["events"]
+    assert (created["target_id"], created["details"]) == ("not-yet", {"oidc_claim": "devs"})
+    with pytest.raises(ValueError, match="already exists"):
+        access_control.create_project(alice["id"], "not-yet")
     # A change of the mappings applies at once
     auditor = access_control.create_role("Auditor", ["audit.read"])
     access_control.set_oidc_mappings(
@@ -536,9 +539,9 @@ def test_renaming_a_project_moves_every_reference_and_keeps_the_triage():
         )
     make_user("alice", PASSWORD, "triager", ["shop", "crm"])
     map_claim("leads", "triager", ["shop", "crm"])
-    # A name already given by a mapping would open the project to its users: refused
+    # A name already given by a mapping (created with it) would open the project to its users
     map_claim("web-team", "reader", ["shop-web"])
-    with pytest.raises(ValueError, match="already exists in the OIDC mappings"):
+    with pytest.raises(ValueError, match="already exists"):
         access_control.rename_project("shop", "shop-web")
     token_store.create_token("ci-shop", Role.CI, projects=["shop", "crm"])
 

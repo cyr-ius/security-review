@@ -64,8 +64,8 @@ Exemple : le fournisseur envoie `["payments-team", "staff"]` ; une correspondanc
 correspondance ne nomme `staff`. L'utilisateur lit et trie alors `billing`, et garde les projets
 donnés au compte.
 
-Un projet pas encore créé est ignoré jusqu'à sa création, jamais créé par le fournisseur
-d'identité. Chaque valeur des **Groupes administration** reçoit une correspondance vers `admin`,
+Un projet nommé par une correspondance est créé à son enregistrement, pour que personne d'autre ne
+le crée avant avec **Créer des projets** ; le fournisseur d'identité n'en crée jamais. Chaque valeur des **Groupes administration** reçoit une correspondance vers `admin`,
 avec la lecture, l'écriture et le triage de tous les projets, à chaque connexion d'un utilisateur qui la
 porte tant qu'aucune correspondance ne la nomme : une correspondance modifiée ensuite est
 conservée, une correspondance supprimée revient. Pour retirer durablement `admin` à un groupe,
@@ -104,4 +104,4 @@ pour que personne ne reste bloqué si le fournisseur est mal configuré
 - **Supprimer un compte OIDC** l'empêche d'être recréé à sa prochaine connexion, même avec la
   création automatique ; **Autoriser à nouveau** lève cette interdiction.
 - **Un utilisateur dont les rôles, projets et correspondances ne donnent aucune permission** ne
-  peut pas se connecter : un projet pas encore créé ne donne rien.
+  peut pas se connecter : une valeur du claim qu'aucune correspondance ne nomme ne donne rien.

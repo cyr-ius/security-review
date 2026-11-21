@@ -10,6 +10,7 @@ from sqlmodel import Session, col, func, select
 
 from ...config import Settings
 from ...observability import audit
+from ...storage import projects as project_store
 from ...storage.database import session_scope
 from ...storage.models import (
     AccessRole,
@@ -90,12 +91,12 @@ def set_oidc_mappings(
 ) -> list[dict[str, Any]]:
     """Replace the OIDC mappings: ``mappings`` holds (claim value, role ids, per-project
     permissions on every project, (project, per-project permissions) pairs). A project not known
-    yet is kept and ignored until it is created. The change applies at once to the OIDC users
-    (their claims of the last login); a change that removes the last holder of ``users.manage``
-    is refused. With ``expected_version`` (oidc_mappings_version of the mappings the caller
-    read), a change made since then is not undone: the replacement is refused. A caller that is
-    not an ``administrator`` keeps the roles with a protected permission of each claim as they
-    are: it changes everything else.
+    yet is created, so that no holder of ``projects.create`` takes its name first. The change
+    applies at once to the OIDC users (their claims of the last login); a change that removes
+    the last holder of ``users.manage`` is refused. With ``expected_version``
+    (oidc_mappings_version of the mappings the caller read), a change made since then is not
+    undone: the replacement is refused. A caller that is not an ``administrator`` keeps the
+    roles with a protected permission of each claim as they are: it changes everything else.
 
     Raises:
         NotFoundError: Unknown role.
@@ -159,6 +160,22 @@ def set_oidc_mappings(
                 )
             )
         session.flush()
+        # A project a mapping names is created now: left unknown, its name could be taken first
+        # by any holder of projects.create, who would then read what the mapped team saves there
+        for claim, (_, _, projects) in cleaned.items():
+            for item in projects:
+                if project_store.project_exists(session, item["project"]):
+                    continue
+                project_store.ensure_project(session, item["project"], actor)
+                audit.record(
+                    session,
+                    audit.AuditAction.PROJECT_CREATED,
+                    actor,
+                    "project",
+                    item["project"],
+                    item["project"],
+                    {"oidc_claim": claim},
+                )
         # The claims no mapping names any more give nothing: forget them
         session.exec(
             delete(UserOidcClaim).where(  # type: ignore[arg-type]

@@ -59,7 +59,8 @@ Example: the provider sends `["payments-team", "staff"]`; a mapping gives `payme
 project `billing` with **Read the reports** and **Triage the findings**, and no mapping names
 `staff`. The user then reads and triages `billing`, and keeps the projects given to the account.
 
-A project not created yet is ignored until it is, never created by the identity provider. Each
+A project a mapping names is created when the mapping is saved, so that nobody else creates it
+first with **Create projects**; the identity provider never creates one. Each
 value of the **Administration groups** gets a mapping to `admin`, with the reading, the writing and
 the triage of every project, at each login of a user who holds it while no mapping names it: a
 mapping changed afterwards is kept, a deleted one comes back. To withdraw `admin` from a group
@@ -96,5 +97,5 @@ provider is misconfigured ([OIDC only](../advanced/oidc.md#oidc-only)).
   included.
 - **Deleting an OIDC account** prevents it from being created again at its next login, even
   with automatic creation; **Allow again** lifts this.
-- **A user whose roles, projects and mappings give no permission** cannot log in: a project not
-  created yet gives nothing.
+- **A user whose roles, projects and mappings give no permission** cannot log in: a value of the
+  claim that no mapping names gives nothing.
