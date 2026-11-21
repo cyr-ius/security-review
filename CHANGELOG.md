@@ -1,5 +1,46 @@
 # Changelog
 
+## [12.7.0](https://github.com/cyr-ius/security-review/compare/v12.6.0...v12.7.0) (2026-11-21)
+
+
+### Features
+
+* **ci:** annotate pull requests from scan-code ([0e2febf](https://github.com/cyr-ius/security-review/commit/0e2febfafbe2644eecd494736add23164215c019))
+* **connectors:** add built-in GitHub and GitLab connectors ([0ce9560](https://github.com/cyr-ius/security-review/commit/0ce95600ff188a977ff0dd004e80b03206aecf96))
+* **deps:** parse pnpm-lock.yaml lockfiles ([119c93e](https://github.com/cyr-ius/security-review/commit/119c93e54cd8ce97dae8564b530f930ab2664beb))
+* **opengrep:** add argument injection, view injection, PHP/Ruby template injection and unsafe reflection taint rules ([edbd26d](https://github.com/cyr-ius/security-review/commit/edbd26d21ffffb7c5c0a9ca49aadd20e45775c63))
+* **opengrep:** add Dockerfile, TypeScript and FastAPI rules ([4db362c](https://github.com/cyr-ius/security-review/commit/4db362ce7c7ec23ab64261a6774cfc543a8f2651))
+* **opengrep:** add Host header poisoning and mail header injection rules ([8389f28](https://github.com/cyr-ius/security-review/commit/8389f28b9740331e9b9b146c6ca77c124d1b6c20))
+* **opengrep:** add Kotlin taint rules for Spring, Ktor and Android ([2465101](https://github.com/cyr-ius/security-review/commit/246510196cb7e3113b9550b5392cc3be67390dbd))
+* **opengrep:** add log injection, ReDoS, format string and header injection rules ([304ce6f](https://github.com/cyr-ius/security-review/commit/304ce6f19ae3300e60c45405799544d42864723e))
+* **opengrep:** add mass assignment, Kotlin, PHP, Ruby, Dynamic LINQ and zip slip rules ([675d4ae](https://github.com/cyr-ius/security-review/commit/675d4ae44b1ca62c7d9ffaa14d56e74676eb18ef))
+* **opengrep:** add NoSQL, LDAP, XPath, scripting and template taint rules ([300854a](https://github.com/cyr-ius/security-review/commit/300854ac137c6c41c052519a1ce17407f9def73c))
+* **opengrep:** add PHP and Ruby taint rules ([fe00752](https://github.com/cyr-ius/security-review/commit/fe00752266986ffaf490a8f15d49e908ff8921b1))
+* **opengrep:** follow request data from framework-bound parameters ([d3f6a12](https://github.com/cyr-ius/security-review/commit/d3f6a122e9b7f800c49d68d59248f21ed3464f20))
+* **projects:** rename a project with everything that refers to it ([4ee7d8a](https://github.com/cyr-ius/security-review/commit/4ee7d8af1d12a5be244463806b7e2ea992337cd8))
+* **prompts:** require the review report to be saved ([0aa8a03](https://github.com/cyr-ius/security-review/commit/0aa8a032ee8acd2940404d0ec0145d0d74e45e3c))
+* **prompts:** tell the agent which findings to fix ([184bded](https://github.com/cyr-ius/security-review/commit/184bdedfd0cb851e0880ad1ba33c97e1585899eb))
+* **rules:** add PHP, Ruby, Kotlin and Terraform rules and checklists ([6dc66d3](https://github.com/cyr-ius/security-review/commit/6dc66d3da33191005ca37e5eb2bcf452e34a05e5))
+* **rules:** scan Android manifests and fix noisy rules found on real code ([ebb2461](https://github.com/cyr-ius/security-review/commit/ebb2461ddf674ed7be1c0ff1c8c8c89f62bde196))
+* **scan:** report a weakness once when the rules and OpenGrep both find it ([b733d5d](https://github.com/cyr-ius/security-review/commit/b733d5dd3f786326f3665e485e48ab6669718aac))
+* **triage:** warn before an accepted risk blocks the gate again ([28c8545](https://github.com/cyr-ius/security-review/commit/28c854546a827b87d8866d812ce7d54a48b3ffef))
+
+
+### Bug Fixes
+
+* **auth:** create the projects an OIDC mapping names ([16d6e7f](https://github.com/cyr-ius/security-review/commit/16d6e7ffe73cd38cfec72cd8c2f66e619a27cb41))
+* **logging:** keep each log message on one line ([3cb4de4](https://github.com/cyr-ius/security-review/commit/3cb4de4b6b4054448acb4477a8cf2f2d316fb422))
+* **opengrep:** follow request data through builders and collections ([19b99b4](https://github.com/cyr-ius/security-review/commit/19b99b4af83b61796c282549f2374e831341010e))
+* **opengrep:** recognize the escapes that make request data safe for its sink ([ad99b16](https://github.com/cyr-ius/security-review/commit/ad99b16ab6bab592926f5045fda1991bf730a2de))
+* **opengrep:** stop taking FastAPI dependency aliases for request models ([fa0c57c](https://github.com/cyr-ius/security-review/commit/fa0c57c52a14a00246ab8a218ab0af204892fbd8))
+* **opengrep:** treat urlencode as a sanitizer of the Python open redirect rule ([d13b82e](https://github.com/cyr-ius/security-review/commit/d13b82e4f835f6a7f970cf87df675a7b7ca434c0))
+* **server:** let the review prompt's fix severity take precedence over the tools ([a55e5c3](https://github.com/cyr-ius/security-review/commit/a55e5c3b95137dc7c69981cdb5f6ce16c4e93b48))
+
+
+### Documentation
+
+* **readme:** rewrite the README for first-time readers ([2547fdf](https://github.com/cyr-ius/security-review/commit/2547fdfe4d1ff1ed2ccd4d0d14f9d267e7323a24))
+
 ## [12.6.0](https://github.com/cyr-ius/security-review/compare/v12.5.0...v12.6.0) (2026-11-14)
 
 
