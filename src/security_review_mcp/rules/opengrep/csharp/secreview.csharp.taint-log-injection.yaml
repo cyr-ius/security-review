@@ -72,6 +72,33 @@ rules:
                   metavariable: $MAP
                   regex: ^Map(Get|Post|Put|Patch|Delete|Methods)$
               - pattern: $PARAM
+    pattern-propagators:
+      # A value appended to a StringBuilder or a writer taints what is built
+      - pattern: $TO.Append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AppendLine($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AppendFormat(..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      # A value added to a collection taints it (string.Join...)
+      - pattern: $TO.Add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.AddRange($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Add($KEY, $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern: $LOGGER.$METHOD(...)

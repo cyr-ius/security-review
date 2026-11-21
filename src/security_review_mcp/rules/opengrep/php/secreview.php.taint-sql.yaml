@@ -50,6 +50,14 @@ rules:
           - pattern: $PDO->quote(...)
           - pattern: mysqli_real_escape_string(...)
           - pattern: $DB->real_escape_string(...)
+    pattern-propagators:
+      # A value added to an array taints it (implode...)
+      - pattern: array_push($TO, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: array_unshift($TO, $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

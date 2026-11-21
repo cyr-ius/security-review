@@ -87,6 +87,17 @@ rules:
                   # Connection life cycle events carry no message
                   regex: ^(?!["'](connection|connect|disconnect|disconnecting|open|close|error|ping|pong|upgrade)["']$)
               - pattern: $DATA
+    pattern-propagators:
+      # A value added to an array or a set taints it (join, spread...)
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

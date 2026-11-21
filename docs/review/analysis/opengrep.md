@@ -116,8 +116,9 @@ what a line-by-line pattern cannot see:
   Gin, Echo, Fiber), including the parameters a framework fills in for the handler (Flask
   `<name>` segments, Django URL parameters, FastAPI query parameters and Pydantic models declared
   in the file or named like a request schema, such as `ItemCreate` or `UserIn`, Spring
-  parameters without annotation), a socket, a websocket or an AWS Lambda event is followed through variables and
-  string building until it reaches a dangerous call (SQL, command, file path, outgoing URL,
+  parameters without annotation), a socket, a websocket or an AWS Lambda event is followed through variables,
+  string building, builders and collections (`StringBuilder.append`, `strings.Builder`,
+  `list.add`, `push`, `<<`...) until it reaches a dangerous call (SQL, command, file path, outgoing URL,
   redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
   `secure_filename`, `path.basename`, `html.EscapeString`...) stops it. Local data (command line
   arguments, standard input, environment variables) is not a source: a command line tool that

@@ -121,7 +121,9 @@ avec ce qu'un motif ligne par ligne ne voit pas :
   paramètres d'URL de Django, paramètres de requête de FastAPI et modèles Pydantic déclarés dans
   le fichier ou nommés comme un schéma de requête, tels `ItemCreate` ou `UserIn`, paramètres
   Spring sans annotation), sur une socket, une websocket ou dans un événement AWS
-  Lambda est suivie à travers les variables et la construction de chaînes jusqu'à un appel
+  Lambda est suivie à travers les variables, la construction de chaînes, les constructeurs de
+  chaînes et les collections (`StringBuilder.append`, `strings.Builder`, `list.add`, `push`,
+  `<<`...) jusqu'à un appel
   dangereux (SQL, commande, chemin de fichier, URL sortante, redirection, template, HTML,
   désérialisation). Un assainissement en chemin (`int()`, `secure_filename`, `path.basename`,
   `html.EscapeString`...) l'arrête. Les données locales (arguments de la ligne de commande,

@@ -38,6 +38,26 @@ rules:
           - pattern: Shellwords.escape(...)
           - pattern: Shellwords.shellescape(...)
           - pattern: $X.shellescape
+    pattern-propagators:
+      # A value appended to a string or an array taints it (join...)
+      - pattern: $TO << $FROM
+        from: $FROM
+        to: $TO
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.concat($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.prepend($FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           # A single string is run by a shell; separate arguments are not

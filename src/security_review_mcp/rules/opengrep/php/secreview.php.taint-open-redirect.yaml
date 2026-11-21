@@ -52,6 +52,14 @@ rules:
               - metavariable-regex:
                   metavariable: $OBJ
                   regex: ^(?!\$(request|req)\b)
+    pattern-propagators:
+      # A value added to an array taints it (implode...)
+      - pattern: array_push($TO, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: array_unshift($TO, $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

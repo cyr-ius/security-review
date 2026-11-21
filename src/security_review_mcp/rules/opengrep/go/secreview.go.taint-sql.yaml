@@ -48,6 +48,26 @@ rules:
               - metavariable-regex:
                   metavariable: $METHOD
                   regex: ^(Query|Queries|Params|AllParams|FormValue|Body|BodyRaw|Get|GetReqHeaders|Cookies|OriginalURL)$
+    pattern-propagators:
+      # A value written to a strings.Builder or a bytes.Buffer taints what is built
+      - pattern: $TO.WriteString($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteByte($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteRune($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprintf(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprint(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

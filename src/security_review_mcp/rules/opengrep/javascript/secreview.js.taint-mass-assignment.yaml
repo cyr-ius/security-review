@@ -23,6 +23,17 @@ rules:
               regex: ^(req|request|ctx\.request)$
           - pattern-not-inside: $REQ.body.$FIELD
           - pattern-not-inside: $REQ.body[$FIELD]
+    pattern-propagators:
+      # A value added to an array or a set taints it (join, spread...)
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:

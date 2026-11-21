@@ -65,6 +65,33 @@ rules:
               - metavariable-regex:
                   metavariable: $GETTER
                   regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-propagators:
+      # A value appended to a StringBuilder or a writer taints what is built
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.append($FROM, ...)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.write($FROM)
+        from: $FROM
+        to: $TO
+      # A value added to a collection taints it (String.join, a query builder...)
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.addAll($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put($KEY, $FROM)
+        from: $FROM
+        to: $TO
     pattern-sinks:
       - patterns:
           - pattern-either:
