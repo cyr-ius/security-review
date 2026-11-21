@@ -16,52 +16,51 @@
 [documentation::badge]: https://img.shields.io/badge/Documentation-MkDocs-green?logo=materialformkdocs
 [documentation::web]: https://cyr-ius.github.io/security-review/
 
-**MCP server for AI-assisted security code review**: your AI assistant (VS Code / Copilot,
-Claude) or a CI/CD agent reviews the code for vulnerabilities and misconfigurations. It provides review prompts, checklists, a
-pattern scan, taint analysis with OpenGrep on the Controller server, an offline dependency analysis
-and a report database (SQLite or PostgreSQL) usable in pipelines.
+**Security Review is an MCP server for AI-assisted security code review.** It turns your AI
+assistant (GitHub Copilot, Claude, Codex...) into a security reviewer that follows your rules,
+and keeps every finding until a person decides what to do with it.
 
-📖 **Full documentation: <https://cyr-ius.github.io/security-review/>**
+📖 **Full documentation: <https://cyr-ius.github.io/security-review/>** · 🇫🇷 [Version française](README.fr.md)
 
-🇫🇷 [Version française](README.fr.md)
+## Why
 
-## Capabilities
+AI assistants write and review code fast, but on their own they forget checks, invent their
+own criteria and leave no trace. Security Review gives them:
+
+- **a method**: review prompts and checklists by technology, the same for the whole team;
+- **tools**: a scan of the code and the dependencies, run by the server;
+- **a memory**: every review is saved, every finding is tracked until it is fixed or accepted;
+- **a safeguard**: an agent never closes a finding, a person does, in the web interface.
+
+## How it works
+
+1. In your editor, you ask the assistant for a review: *"run a security review of my changes"*.
+2. The assistant follows the `security-review` prompt, scans the code and checks the checklist.
+3. It saves its report on the server, with each finding (file, line, severity, fix).
+4. Your team triages the findings in the web interface: fixed, accepted risk, false positive.
+5. In CI/CD, the **gate** blocks the merge while serious findings stay open.
+
+## What you get
 
 | | |
 |---|---|
-| **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report`, `development-standards` |
-| **Tools** | checklists, `scan_code`, `scan_dependencies`, [`start_codebase_scan`](https://cyr-ius.github.io/security-review/review/analysis/code-scan/#scan-started-by-the-agent-start_codebase_scan) (the agent has the whole repository, code and dependencies, scanned by the Controller server without reading it nor needing a `ci` token), saving and reading of reports with their [checklist coverage](https://cyr-ius.github.io/security-review/reference/prompts-tools/#review-coverage) (grouped by a [normalized project name](https://cyr-ius.github.io/security-review/reference/prompts-tools/#project-name)), [status proposals](https://cyr-ius.github.io/security-review/reference/prompts-tools/#status-of-a-finding) (`propose_finding_status`: an agent never closes a finding; in local mode, [`decide_finding_status`](https://cyr-ius.github.io/security-review/reference/prompts-tools/#decision-of-the-developer-in-local-mode) applies the decision of the developer once confirmed in the host), [OpenGrep rule proposals](https://cyr-ius.github.io/security-review/review/analysis/opengrep/#rules-proposed-by-agents) (`propose_opengrep_rule`, installed once a person approves them), project posture and gate, SARIF export, [Markdown findings report](https://cyr-ius.github.io/security-review/getting-started/stdio/#findings-report-security_reportmd) (`SECURITY_REPORT.md`), trends, rule management |
-| **CLI** | `security-review-mcp` (MCP server: `serve`, `local` for the local mode) and `security-review-controller` (`serve`, `db`, `advisories`, `rules`, `opengrep`, `token`, `user`, `audit`), exit codes 0 / 1 / 2 |
-| **Pipelines** | [`security-review-ci`](https://cyr-ius.github.io/security-review/advanced/architecture/ci/) (`gate`, `sarif`, `trend`, [`scan-code`](https://cyr-ius.github.io/security-review/review/analysis/code-scan/), [`scan-deps`](https://cyr-ius.github.io/security-review/review/analysis/dependencies/#scan-in-a-pipeline-security-review-ci-scan-deps), which store their reports through the API): lightweight client of the REST API for Jenkins, GitLab or GitHub, with a `ci` token restricted to the selected projects, no database driver, [installed alone](https://cyr-ius.github.io/security-review/advanced/architecture/ci/#installation) without Python (`uv tool install security-review-ci`, or [from the Controller server](https://cyr-ius.github.io/security-review/advanced/architecture/ci/#from-the-controller-server) without PyPI); on a workstation (commit hook), with a [personal `ci` token](https://cyr-ius.github.io/security-review/review/analysis/dependencies/#scan-from-a-workstation-commit-hook) |
-| **Rules** | More than 250 rules and more than 140 checklist items: Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript / Node.js backend, Angular, Docker, Kubernetes, Terraform, configuration, GitLab CI, Jenkins, Spring, FastAPI, [prompt injection aimed at AI assistants](https://cyr-ius.github.io/security-review/review/rules/#default-rules-by-platform) (hidden characters, injected instructions; [read guard](https://cyr-ius.github.io/security-review/review/analysis/read-guard/) `security-review-ci guard`, a hook for Claude Code, Copilot or Codex), copied into the database at first start, plus your own [rules](https://cyr-ius.github.io/security-review/review/rules/) and [checklists](https://cyr-ius.github.io/security-review/review/checklists/) (TOML import/export from the CLI or the web interface); [OpenGrep](https://cyr-ius.github.io/security-review/review/analysis/opengrep/) YAML rules run by `scan-code` (binary included in the `-opengrep` Docker image), with [211 default rules](https://cyr-ius.github.io/security-review/review/analysis/opengrep/#default-rules) (taint analysis from the request to SQL, commands, files, URLs...) installed at start-up by the `-opengrep` image or by `security-review-controller opengrep install` |
-| **Development standards** | [conventions by technology](https://cyr-ius.github.io/security-review/review/standards/) managed in the web interface (TOML import/export) and handed to the AI assistant before it codes (prompt, `get_development_standards` / `list_development_standards` tools, resources) |
-| **Vulnerabilities** | manifests, lockfiles and [CycloneDX SBOMs](https://cyr-ius.github.io/security-review/review/analysis/dependencies/#cyclonedx-sbom-transitive-dependencies) checked against an OSV database (PyPI, npm, Maven, Go, crates.io, NuGet) imported offline or [updated every day by the Controller server](https://cyr-ius.github.io/security-review/review/analysis/dependencies/#automatic-update-by-the-controller-server), optional proxy |
-| **Transport** | HTTP (shared mode) or stdio (local mode), with Bearer tokens stored in the database (`token` CLI) with [expiry and rotation](https://cyr-ius.github.io/security-review/advanced/bearer-tokens/#expiry-and-rotation-of-tokens), and [TLS](https://cyr-ius.github.io/security-review/advanced/tls/) (optionally mutual) |
-| **Audit and metrics** | [audit log](https://cyr-ius.github.io/security-review/usage/audit-metrics/) of triage decisions, tokens and project requests, and [Prometheus metrics](https://cyr-ius.github.io/security-review/reference/metrics/) on `/metrics` (`metrics` token) |
-| **Connectors** | [findings sent to other tools](https://cyr-ius.github.io/security-review/usage/connectors/): Jira, ServiceNow, GitHub and GitLab built in, [third-party connectors](https://cyr-ius.github.io/security-review/usage/connectors/third-party/) for any other system (vulnerability register, GRC...); each connector switched on in the web interface, by hand or automatically above a severity threshold, one record per issue |
-| **Deployment** | MCP server and Controller server (REST API, web interface) [separated](https://cyr-ius.github.io/security-review/advanced/architecture/) on a shared database, Alembic migrations, Docker Compose and Kubernetes examples; one [Docker image](https://cyr-ius.github.io/security-review/advanced/deployment/docker/#choosing-the-process) started with `controller` or `mcp` (HTTP or stdio with `SECREVIEW_TRANSPORT`); optional [scan engines](https://cyr-ius.github.io/security-review/advanced/architecture/scan-engine/) (`security-review-scan-engine`) that take the code scans off the Controller server, enrolled with it and without database access |
-| **Enrollment** | an MCP client without a token is [told to create a personal MCP token](https://cyr-ius.github.io/security-review/advanced/architecture/mcp-server/#enrollment-personal-token-and-project-requests) in the web interface; then the `request_project` MCP tool creates the project of the review, or requests it (or the access to an existing project) for an administrator to approve, which gives the user access to it; a refused token gets a `401` that says how to get a new one |
-| **OAuth login** | optional, turned on from the web interface: the MCP host needs no token, it [signs in through the browser](https://cyr-ius.github.io/security-review/advanced/mcp-oauth/) (OAuth 2.1 with PKCE, the Controller server as authorization server) and acts as a personal MCP token of the user |
-| **Web interface** | in English, French or Spanish: dashboard, [triage by a person](https://cyr-ius.github.io/security-review/usage/triage/) (approver of the accepted risks and false positives, reason and expiry of the accepted risks, [several findings at once](https://cyr-ius.github.io/security-review/usage/triage/#several-findings-at-once)), [risk acceptances](https://cyr-ius.github.io/security-review/usage/triage/#risk-acceptances) to renew or remove, with append-only comments, [per-project list of open findings](https://cyr-ius.github.io/security-review/usage/#pages) for an expert review, management of [rules, checklists, tokens (per project or for all projects), general settings (report language, findings to fix, Controller server address), outgoing proxy (OSV and OIDC) and OSV updates](https://cyr-ius.github.io/security-review/usage/), local or OIDC [user accounts](https://cyr-ius.github.io/security-review/usage/user-accounts/), the only ones to open the interface (tokens are for machines: MCP agents, pipelines, scripts; personal or role [API tokens](https://cyr-ius.github.io/security-review/usage/tokens/#api-tokens) for the REST API and Swagger, [personal MCP tokens](https://cyr-ius.github.io/security-review/usage/tokens/#personal-mcp-and-ci-tokens) on the projects of the user, unless `SECREVIEW_PERSONAL_TOKENS_ENABLED=false`; initial `admin` account in the logs), optional [OpenID Connect OIDC login](https://cyr-ius.github.io/security-review/usage/sso/), [configurable in the interface](https://cyr-ius.github.io/security-review/usage/sso/#configuring-oidc-in-the-interface), with accounts created on the fly, and [roles and permissions](https://cyr-ius.github.io/security-review/usage/access-control/) (roles on the whole server and projects of each account with their own per-project permissions, project search and multiple selection, and [OIDC mappings](https://cyr-ius.github.io/security-review/usage/sso/#oidc-mappings) of the identity provider groups) |
-
-Details: [how a review works](https://cyr-ius.github.io/security-review/review/) (rules, checklists, standards, `AGENTS.md`),
-[prompts and tools](https://cyr-ius.github.io/security-review/reference/prompts-tools/),
-[whole codebase analysis](https://cyr-ius.github.io/security-review/review/analysis/code-scan/),
-[dependencies](https://cyr-ius.github.io/security-review/review/analysis/dependencies/),
-[gate](https://cyr-ius.github.io/security-review/review/gate/),
-[SARIF](https://cyr-ius.github.io/security-review/advanced/reports/sarif/),
-[trends](https://cyr-ius.github.io/security-review/advanced/architecture/ci/#trend-report).
+| 🔍 **Detection** | 250+ rules and 140+ checklist items for about twenty languages and platforms (Python, Java, Go, C#, TypeScript, Docker, Kubernetes, Terraform, CI...), and 211 [OpenGrep](https://cyr-ius.github.io/security-review/review/analysis/opengrep/) taint rules |
+| 📦 **Dependencies** | manifests, lockfiles and SBOMs checked against the [OSV database](https://cyr-ius.github.io/security-review/review/analysis/dependencies/), offline |
+| 🛡️ **Prompt injection** | [detection of hidden instructions](https://cyr-ius.github.io/security-review/review/analysis/read-guard/) aimed at AI assistants in the files they read |
+| 📐 **Your standards** | your own [rules](https://cyr-ius.github.io/security-review/review/rules/), [checklists](https://cyr-ius.github.io/security-review/review/checklists/) and [development standards](https://cyr-ius.github.io/security-review/review/standards/), given to the assistant before it codes |
+| 🖥️ **Web interface** | dashboard, [triage](https://cyr-ius.github.io/security-review/usage/triage/), projects, accounts and [roles](https://cyr-ius.github.io/security-review/usage/access-control/), [OIDC login](https://cyr-ius.github.io/security-review/usage/sso/); in English, French or Spanish |
+| 🚦 **CI/CD** | [`security-review-ci`](https://cyr-ius.github.io/security-review/advanced/architecture/ci/) client: [gate](https://cyr-ius.github.io/security-review/review/gate/), [SARIF](https://cyr-ius.github.io/security-review/advanced/reports/sarif/), trends, scan of the whole repository |
+| 🔗 **Connectors** | findings sent to [Jira, ServiceNow, GitHub, GitLab](https://cyr-ius.github.io/security-review/usage/connectors/) or your own tool |
+| 🔐 **Security** | [tokens](https://cyr-ius.github.io/security-review/usage/tokens/) with expiry, [OAuth login](https://cyr-ius.github.io/security-review/advanced/mcp-oauth/) of MCP clients, [TLS](https://cyr-ius.github.io/security-review/advanced/tls/), [audit log and Prometheus metrics](https://cyr-ius.github.io/security-review/usage/audit-metrics/) |
 
 ## Quick start
 
-The product runs as **four services**: the **MCP server** (`security-review-mcp`), used by the
-agents, the **Controller server** (`security-review-controller`), used by people (web interface,
-REST API, tokens and accounts), on one shared database, the pipeline client
-(`security-review-ci`) and optional scan engines (`security-review-scan-engine`). See
-[four services, four roles](https://cyr-ius.github.io/security-review/services/).
+The product has two main parts sharing one database: the **MCP server**, used by the AI
+assistants, and the **Controller server**, used by people (web interface, REST API). See
+[the services and their roles](https://cyr-ius.github.io/security-review/services/).
 
-In an empty folder, this block starts PostgreSQL, the Controller server and the MCP server
-with Docker Compose and resets the password of the `admin` account:
+In an empty folder, start PostgreSQL, the Controller server and the MCP server with Docker
+Compose, then get the password of the `admin` account:
 
 ```bash
 mkdir secreview && cd secreview
@@ -72,14 +71,14 @@ docker compose exec controller security-review-controller user reset-password ad
 # web interface: http://127.0.0.1:8080/ui/   MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 
-Log in to the web interface as `admin`. On the **General** page, enter `http://127.0.0.1:8080`
-as **Public URL of the Controller server**; on the **Tokens** page, enter
-`http://127.0.0.1:8000/mcp` as **MCP endpoint** and turn on **Enable OAuth login**
-([OAuth login of MCP clients](https://cyr-ius.github.io/security-review/advanced/mcp-oauth/)). Declare the server in
-`.mcp.json` at the root of the repository (VS Code, GitHub Copilot, Claude Code), without a
-token: at the first connection, the host opens the browser to sign in. These `127.0.0.1` URLs
-in plain HTTP are for a test on the same machine, but the ports are open on every interface: for
-the team, enable HTTPS.
+Then:
+
+1. Log in to <http://127.0.0.1:8080/ui/> as `admin`.
+2. On the **General** page, enter `http://127.0.0.1:8080` as **Public URL of the Controller server**.
+3. On the **Tokens** page, enter `http://127.0.0.1:8000/mcp` as **MCP endpoint** and turn on
+   **Enable OAuth login**.
+4. Declare the server in `.mcp.json` at the root of your repository (VS Code, GitHub Copilot,
+   Claude Code). No token needed: at the first connection, the host opens the browser to sign in.
 
 ```json
 {
@@ -92,23 +91,32 @@ the team, enable HTTPS.
 }
 ```
 
-Step by step: [deploying the server](https://cyr-ius.github.io/security-review/getting-started/deploy/),
-[connecting the host](https://cyr-ius.github.io/security-review/getting-started/host/) (VS Code, Claude, enrollment).
-Other cases: [without containers](https://cyr-ius.github.io/security-review/advanced/deployment/manual-install/),
-[offline installation](https://cyr-ius.github.io/security-review/advanced/deployment/installation/),
-[local mode (stdio)](https://cyr-ius.github.io/security-review/getting-started/stdio/),
-[Bearer tokens](https://cyr-ius.github.io/security-review/advanced/bearer-tokens/), [TLS](https://cyr-ius.github.io/security-review/advanced/tls/),
-[Docker images](https://cyr-ius.github.io/security-review/advanced/deployment/docker/#published-images) (`ghcr.io/cyr-ius/security-review`, `docker.io/cyrius44/security-review`) and [Docker Compose with PostgreSQL](https://cyr-ius.github.io/security-review/advanced/deployment/docker/#docker-compose-with-postgresql),
-[architecture and Kubernetes](https://cyr-ius.github.io/security-review/advanced/architecture/),
-[`SECREVIEW_*` variables](https://cyr-ius.github.io/security-review/reference/configuration/).
+> [!WARNING]
+> These plain HTTP URLs are for a test on your own machine, but the ports are open on every
+> interface. For a team, [enable HTTPS](https://cyr-ius.github.io/security-review/advanced/tls/).
+
+Next steps: [deploying the server](https://cyr-ius.github.io/security-review/getting-started/deploy/) ·
+[connecting the host](https://cyr-ius.github.io/security-review/getting-started/host/) ·
+[local mode, without a server](https://cyr-ius.github.io/security-review/getting-started/stdio/) ·
+[without containers](https://cyr-ius.github.io/security-review/advanced/deployment/manual-install/) ·
+[Docker images](https://cyr-ius.github.io/security-review/advanced/deployment/docker/#published-images) ·
+[architecture and Kubernetes](https://cyr-ius.github.io/security-review/advanced/architecture/) ·
+[configuration](https://cyr-ius.github.io/security-review/reference/configuration/)
+
+## At a glance
+
+| | |
+|---|---|
+| **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report`, `development-standards` |
+| **Main tools** | `scan_code`, `scan_dependencies`, `start_codebase_scan`, `get_review_checklist`, `save_security_report`, `propose_finding_status`, `check_project_gate`, `export_sarif`, `export_findings_report` ([full list](https://cyr-ius.github.io/security-review/reference/prompts-tools/)) |
+| **Commands** | `security-review-mcp` (MCP server), `security-review-controller` (Controller server and administration), `security-review-ci` (pipelines), `security-review-scan-engine` (optional [scan engines](https://cyr-ius.github.io/security-review/advanced/architecture/scan-engine/)) — [CLI reference](https://cyr-ius.github.io/security-review/reference/cli/) |
 
 ## Limits
 
-With the OpenGrep engine (`-opengrep` image), the scan is a static analysis (SAST) that follows the data flow within a file, across its functions
-([OWASP Benchmark results](https://cyr-ius.github.io/security-review/advanced/detection-benchmark/)); without it, the pattern scan
-only produces leads, with false positives. Neither follows a flow from one file to another: the AI review and a human review
-cover the rest. It is not a full SCA analysis. See
-[security and limits](https://cyr-ius.github.io/security-review/reference/security/).
+With OpenGrep (`-opengrep` Docker image), the scan follows the data flow within a file
+([OWASP Benchmark results](https://cyr-ius.github.io/security-review/reference/detection-benchmark/));
+without it, the pattern scan only gives leads. Neither follows a flow from
+one file to another: the AI review covers the rest. See [security and limits](https://cyr-ius.github.io/security-review/reference/security/).
 
 ## Contributing
 
@@ -116,8 +124,8 @@ cover the rest. It is not a full SCA analysis. See
 uv sync --extra dev && uv run pytest && uv run ruff check .
 ```
 
-Development happens on `dev`; a version (`vX.Y.Z` tag on `master`) is created by Release Please.
-See the [contribution guide](https://cyr-ius.github.io/security-review/contributing/) and
+Development happens on `dev`; versions are created by Release Please. See the
+[contribution guide](https://cyr-ius.github.io/security-review/contributing/) and
 [`AGENTS.md`](AGENTS.md) (instructions for AI agents).
 
 ## Security and license
