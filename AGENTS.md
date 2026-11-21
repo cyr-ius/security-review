@@ -335,17 +335,19 @@ est connecté et répond** (ses prompts et outils apparaissent dans votre sessio
 sécurité des changements est **systématique** avant de déclarer une tâche terminée ou d'ouvrir
 une PR, quelle que soit la taille du changement :
 
-1. Lancez le prompt `security-review` (ou `api-security-review` pour l'API REST,
-   `configuration-review` pour Dockerfile / workflows / YAML, `dependency-review` si
-   `pyproject.toml`, `uv.lock` ou `package.json` changent) sur les fichiers modifiés, avec le
-   diff comme contexte. Pour un changement très étendu, utilisez `codebase-review`.
-2. Appuyez-vous sur `scan_code` et `get_review_checklist` pendant la revue.
-3. Enregistrer le rapport.
-4. Corrigez les findings avec un test qui couvre la correction ou justifiez-les, et proposez leur
-   statut avec `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) :
-   un agent ne change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
-5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
-   la description de PR.
+1. Appelez `scan_code` sur chaque fichier modifié. Vérifiez chaque piste dans le code.
+2. Appelez `list_checklists`, puis `get_review_checklist` pour :
+   - le langage de chaque fichier modifié et `*` ;
+   - `api` si des routes ou des endpoints changent ;
+   - `config` si un Dockerfile, un fichier YAML ou de configuration change ;
+   - `cicd` si un pipeline CI/CD change.
+3. Si un manifeste, un lockfile ou un SBOM change, appelez `scan_dependencies` sur chacun
+   et parcourez la checklist `dependencies`.
+4. Appelez `save_security_report` une seule fois : projet `<nom-du-projet>`,
+   `review_type` `security-review`, branche et commit, `checklist_results` et `scan_rules` remplis.
+5. Corrigez les findings de la sévérité donnée par `get_review_checklist` ou `scan_code`
+   (`fix_min_severity`). Proposez-les ensuite comme `fixed`.
+6. Ne changez jamais un statut. Utilisez `propose_finding_status` avec un motif.
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt.
