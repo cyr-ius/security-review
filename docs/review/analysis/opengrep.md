@@ -92,6 +92,16 @@ same report and SARIF export as built-in findings. OpenGrep rule IDs are prefixe
 `OPENGREP:` (`OPENGREP:secreview.python.taint-sql`). OpenGrep skips the paths of its default
 ignore list (test directories such as `tests/`, `node_modules/`...).
 
+A weakness is reported once. A built-in rule match on the same line as an OpenGrep match, with
+the same CWE, is dropped: OpenGrep, which follows the data flow, is the more precise of the two
+(`PY-005` disappears behind `OPENGREP:secreview.python.taint-sql`). Close CWEs count as the same:
+CWE-94 and CWE-95 (code injection), CWE-326, CWE-327 and CWE-328 (weak cryptography). A rule
+match with another CWE stays, as do all the rule matches when OpenGrep does not run. The
+OpenGrep match takes the severity of the rule it replaces when it is higher, so that the gate
+blocks as before. The
+OpenGrep matches of a file are kept first, so that the built-in rules never push them out of
+the 200 matches kept per file.
+
 ## Default rules
 
 Security Review ships 147 OpenGrep rules written for the project (Apache-2.0 license, like the

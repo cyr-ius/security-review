@@ -13,8 +13,53 @@ from ..config import get_settings
 from ..rules import registry
 from . import opengrep
 
-# Matches kept per file (rules first, then OpenGrep)
+# Matches kept per file (OpenGrep first, then the rules it does not repeat)
 MAX_MATCHES_PER_FILE = 200
+
+# CWEs that name the same weakness when a rule and an OpenGrep rule report the same line:
+# code injection (94, 95), weak cryptography (326 key size, 327 algorithm, 328 hash)
+_SAME_WEAKNESS = {"CWE-94": "CWE-95", "CWE-326": "CWE-327", "CWE-328": "CWE-327"}
+
+# Severities from the least to the most critical
+_SEVERITY_RANK = {name: rank for rank, name in enumerate(("info", "low", "medium", "high"))}
+_SEVERITY_RANK["critical"] = len(_SEVERITY_RANK)
+
+
+def _weakness(match: dict) -> tuple[int, str] | None:
+    """Line and CWE (one of its family) of a match; None without a CWE."""
+    cwe = match.get("cwe")
+    if not cwe:
+        return None
+    return match["line"], _SAME_WEAKNESS.get(cwe, cwe)
+
+
+def _merge(rule_matches: list[dict], opengrep_matches: list[dict]) -> tuple[list[dict], bool]:
+    """Merge the matches of both engines of a file, without reporting a weakness twice.
+
+    A rule match on the line and with the CWE of an OpenGrep match is dropped: OpenGrep, which
+    follows the data flow, is the more precise of the two, and its matches are kept first so
+    that the rules never push them out of MAX_MATCHES_PER_FILE. The OpenGrep match takes the
+    severity of the rule when it is higher, so that the merge never lets a finding pass a gate.
+
+    Returns:
+        The matches, ordered by line, and whether some were cut.
+    """
+    same: dict[tuple[int, str], list[dict]] = {}
+    for match in opengrep_matches:
+        if (key := _weakness(match)) is not None:
+            same.setdefault(key, []).append(match)
+    kept = []
+    for match in rule_matches:
+        repeated = same.get(_weakness(match), [])
+        for kept_match in repeated:
+            kept_match["severity"] = max(
+                kept_match["severity"], match["severity"], key=lambda s: _SEVERITY_RANK.get(s, 0)
+            )
+        if not repeated:
+            kept.append(match)
+    merged = (opengrep_matches + kept)[:MAX_MATCHES_PER_FILE]
+    truncated = len(opengrep_matches) + len(kept) > MAX_MATCHES_PER_FILE
+    return sorted(merged, key=lambda m: m["line"]), truncated
 
 
 @dataclass(frozen=True)
@@ -30,6 +75,8 @@ def scan(
     sources: Sequence[Source], fragment: bool = False, opengrep_rules_dir: Path | None = None
 ) -> dict:
     """Scan ``sources`` with the active rules, then OpenGrep when it is enabled.
+
+    A rule match that repeats an OpenGrep match (same line, same weakness) is dropped.
 
     OpenGrep runs the rules of ``opengrep_rules_dir``, a copy of the rules of the database
     (see engines.opengrep_snapshots), and none without it.
@@ -74,7 +121,6 @@ def scan(
             entry = by_path.get(path)
             if entry is None:
                 continue
-            remaining = max(0, MAX_MATCHES_PER_FILE - len(entry["matches"]))
-            entry["matches"].extend(matches[:remaining])
-            entry["truncated"] = entry["truncated"] or len(matches) > remaining
+            entry["matches"], truncated = _merge(entry["matches"], matches)
+            entry["truncated"] = entry["truncated"] or truncated
     return {"files": files, "engines": engines}

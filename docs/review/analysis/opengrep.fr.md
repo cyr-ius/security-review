@@ -94,6 +94,17 @@ SARIF que les résultats du scanner natif. Les identifiants des règles OpenGrep
 `OPENGREP:` (`OPENGREP:secreview.python.taint-sql`). OpenGrep ignore les chemins de sa liste
 d'exclusion par défaut (répertoires de tests comme `tests/`, `node_modules/`...).
 
+Une faiblesse n'est signalée qu'une fois. Un résultat d'une règle native sur la même ligne qu'un
+résultat OpenGrep, avec la même CWE, est retiré : OpenGrep, qui suit le flux de données, est le
+plus précis des deux (`PY-005` s'efface derrière `OPENGREP:secreview.python.taint-sql`). Des CWE
+proches comptent comme la même : CWE-94 et CWE-95 (injection de code), CWE-326, CWE-327 et
+CWE-328 (cryptographie faible). Un résultat de règle avec une autre CWE reste, comme tous les
+résultats des règles quand OpenGrep ne tourne pas. Le résultat OpenGrep prend la sévérité de la
+règle qu'il remplace quand elle est plus haute : le gate bloque comme avant. Les résultats
+OpenGrep d'un fichier sont
+gardés en premier : les règles natives ne les font jamais sortir des 200 résultats conservés
+par fichier.
+
 ## Règles par défaut
 
 Security Review fournit 147 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
