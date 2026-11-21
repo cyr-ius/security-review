@@ -138,7 +138,13 @@ src/security_review_mcp/
 │   ├── advisory_sync.py   # OSV download by the Controller server (proxy, daily update, history)
 │   └── versions.py        # version comparison
 ├── auth/          # identity and access
-│   ├── access_control.py  # permissions, roles of the web accounts, OIDC mappings, project requests
+│   ├── access_control/    # permissions, roles of the web accounts, OIDC mappings, project requests
+│   │   ├── core.py        #   permissions, limits, grants, validation (patch the limits here in tests)
+│   │   ├── roles.py       #   roles and the roles of the role tokens
+│   │   ├── users.py       #   roles and projects of a user
+│   │   ├── members.py     #   members of a project
+│   │   ├── projects.py    #   projects, autojoin, project requests
+│   │   └── oidc_mappings.py  # OIDC mappings and claims synced at login
 │   ├── token_store.py     # Bearer tokens in the database: creation, expiry, rotation, revocation
 │   ├── web_users.py       # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 │   ├── oidc.py            # OpenID Connect OIDC login to the web interface (Controller server)

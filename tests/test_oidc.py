@@ -475,7 +475,7 @@ def test_sso_user_of_another_name_does_not_apply(controller, provider, claims, e
 
 
 def test_login_granting_too_many_projects_is_refused(controller, provider, monkeypatch):
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 1)
     known_projects("a", "b")
     map_claim("team-a", "reader", ["a"])
     map_claim("team-b", "reader", ["b"])

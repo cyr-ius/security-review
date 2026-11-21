@@ -4,7 +4,7 @@ Le serveur Controller (`security-review-controller`) sert l'API REST `/api/v1`, 
 `/ui/`, les migrations et les commandes d'administration. C'est une application FastAPI
 construite par `web_api.create_app`, enveloppée par `http_server` (jetons Bearer, sessions,
 TLS). Comme dans le serveur MCP, les routes restent minces : la logique métier est dans les
-modules (`reports/services.py`, `auth/access_control.py`, `auth/token_store.py`…).
+modules (`reports/services.py`, `auth/access_control/`, `auth/token_store.py`…).
 
 ```bash
 uv run security-review-controller db upgrade            # migre la base

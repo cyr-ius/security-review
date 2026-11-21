@@ -138,7 +138,13 @@ src/security_review_mcp/
 │   ├── advisory_sync.py   # téléchargement OSV par le serveur Controller (proxy, mise à jour quotidienne, historique)
 │   └── versions.py        # comparaison de versions
 ├── auth/          # identité et accès
-│   ├── access_control.py  # permissions, rôles des comptes web, correspondances OIDC, demandes de projet
+│   ├── access_control/    # permissions, rôles des comptes web, correspondances OIDC, demandes de projet
+│   │   ├── core.py        #   permissions, limites, droits, validation (les tests patchent les limites ici)
+│   │   ├── roles.py       #   rôles et rôles des jetons de rôle
+│   │   ├── users.py       #   rôles et projets d'un utilisateur
+│   │   ├── members.py     #   membres d'un projet
+│   │   ├── projects.py    #   projets, adhésion automatique, demandes de projet
+│   │   └── oidc_mappings.py  # correspondances OIDC et claims synchronisés à la connexion
 │   ├── token_store.py     # jetons Bearer en base : création, expiration, renouvellement, révocation
 │   ├── web_users.py       # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
 │   ├── oidc.py            # connexion OIDC OpenID Connect à l'interface web (serveur Controller)

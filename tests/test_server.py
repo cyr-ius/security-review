@@ -1030,10 +1030,10 @@ def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
     assert json.loads(erin.call("request_project", {"project": "extranet"})[1])["status"] == (
         "created"
     )
-    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 1)
+    monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 1)
     is_error, text = erin.call("request_project", {"project": "wiki"})
     assert is_error and "retry later" in text
-    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 5)
+    monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 5)
 
     # Without it: a new project and an existing one get the same answer, and no review is saved
     alice = McpOverHttp(http_app, personal_token("alice"))

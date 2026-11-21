@@ -53,7 +53,7 @@ def test_combine_reaches_every_project_when_one_binding_does():
 
 
 def test_combine_bounds_the_projects_of_a_permission(monkeypatch):
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 2)
     with pytest.raises(ValueError, match="more than 2 projects"):
         access_control.combine([({"reports.read"}, ["a", "b", "c"])])
 
@@ -145,7 +145,7 @@ def test_duplicate_roles_and_the_role_limit_are_refused(monkeypatch):
         access_control.create_role("Auditor", ["rules.manage"])
     with pytest.raises(ValueError, match="already exists"):
         access_control.create_role("admin", ["rules.manage"])
-    monkeypatch.setattr(access_control, "MAX_ROLES", 2)
+    monkeypatch.setattr(access_control.core, "MAX_ROLES", 2)
     with pytest.raises(ValueError, match="At most 2 roles"):
         access_control.create_role("Other", ["audit.read"])
 
@@ -220,7 +220,7 @@ def test_the_projects_of_a_user_are_replaced_bounded_and_checked(monkeypatch):
         set_projects(("shop", []))
     with pytest.raises(ValueError, match="not a per-project permission"):
         set_projects(("shop", ["audit.read"]))
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 1)
     with pytest.raises(ValueError, match="at most 1 projects"):
         set_projects(("shop", ["reports.read"]), ("crm", ["reports.read"]))
     (event,) = audit.list_events(action="user.projects_changed")["events"][:1]
@@ -612,8 +612,8 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
     from security_review_mcp.reports import services
     from security_review_mcp.storage.models import ProjectEnrollment, utcnow
 
-    monkeypatch.setattr(access_control, "MAX_PENDING_PROJECTS", 2)
-    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 3)
+    monkeypatch.setattr(access_control.projects, "MAX_PENDING_PROJECTS", 2)
+    monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 3)
     access_control.request_project("first", "u1")
     access_control.request_project("second", "u2")
 
@@ -655,7 +655,7 @@ def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monke
     waits for an approval as the others do on a project whose autojoin is blocked."""
     from security_review_mcp.reports import services
 
-    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 10)
+    monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 10)
     role = access_control.create_role("Joiner", [Permission.PROJECTS_AUTOJOIN])
     joe = web_users.create_user("joe", PASSWORD)
     for project in ("shop", "crm", "vault"):
@@ -689,7 +689,7 @@ def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monke
     with pytest.raises(NotFoundError):
         access_control.set_autojoin_blocked("unknown", True)
     # Never beyond the projects one session may reach
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 2)
     with pytest.raises(ValueError, match="already reads 2 projects"):
         access_control.request_project("crm", "joe")
     assert grants_of(joe["id"])["reports.read"] == frozenset({"shop", "vault"})
@@ -705,14 +705,14 @@ def test_an_autojoin_counts_the_projects_once_added_with_those_of_the_oidc_mappi
     map_claim("devs", "reader", ["mapped"])
     with session_scope() as session:
         access_control.sync_oidc_claims(session, joe["id"], {"devs"}, _settings())
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 2)
+    monkeypatch.setattr(access_control.core, "MAX_SESSION_PROJECTS", 2)
     add = access_control.add_user_project
 
     def concurrent_join(session, user_id, project, actor=None):
         add(session, user_id, "crm", actor)
         add(session, user_id, project, actor)
 
-    monkeypatch.setattr(access_control, "add_user_project", concurrent_join)
+    monkeypatch.setattr(access_control.users, "add_user_project", concurrent_join)
 
     with pytest.raises(ValueError, match="already reads 2 projects"):
         access_control.request_project("shop", "joe")
@@ -724,7 +724,7 @@ def test_replacing_the_projects_of_a_user_removes_a_project_joined_meanwhile(mon
     is replaced too, never left beyond MAX_SESSION_PROJECTS."""
     known_projects("crm", "shop")
     joe = web_users.create_user("joe", PASSWORD)
-    lock = access_control._lock_user
+    lock = access_control.users._lock_user
     joined = []
 
     def join_then_lock(session, user_id):
@@ -733,7 +733,7 @@ def test_replacing_the_projects_of_a_user_removes_a_project_joined_meanwhile(mon
             access_control.add_user_project(session, user_id, "crm")
         lock(session, user_id)
 
-    monkeypatch.setattr(access_control, "_lock_user", join_then_lock)
+    monkeypatch.setattr(access_control.users, "_lock_user", join_then_lock)
     with session_scope() as session:
         access_control.set_user_projects(session, joe["id"], [("shop", ["reports.read"])])
 
