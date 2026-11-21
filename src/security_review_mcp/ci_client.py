@@ -476,6 +476,7 @@ DEPENDENCY_FILE_NAMES = frozenset(
         "package-lock.json",
         "npm-shrinkwrap.json",
         "yarn.lock",
+        "pnpm-lock.yaml",
         "pom.xml",
         "build.gradle",
         "build.gradle.kts",
