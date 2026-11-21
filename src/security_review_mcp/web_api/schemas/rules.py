@@ -177,6 +177,37 @@ class StandardCatalog(BaseModel):
     standards: list[StandardSummary]
 
 
+# OpenGrep YAML rules managed by an administrator (see opengrep_routes)
+
+
+class OpenGrepRuleWrite(BaseModel):
+    """One YAML rule file submitted by an administrator."""
+
+    id: str = Field(min_length=3, max_length=80, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]+$")
+    content: str = Field(min_length=1, max_length=262144)
+
+
+class OpenGrepRuleFile(BaseModel):
+    """A stored YAML rule file."""
+
+    id: str
+    content: str
+    updated_at: str
+
+
+class OpenGrepRuleCatalog(BaseModel):
+    """The YAML rules available to OpenGrep."""
+
+    rules: list[OpenGrepRuleFile]
+
+
+class OpenGrepRuleValidation(BaseModel):
+    """Validation result from the OpenGrep CLI."""
+
+    valid: bool
+    message: str
+
+
 class OpenGrepRuleProposalPublic(BaseModel):
     """An OpenGrep rule proposed by an agent during a review (see opengrep_proposals)."""
 
