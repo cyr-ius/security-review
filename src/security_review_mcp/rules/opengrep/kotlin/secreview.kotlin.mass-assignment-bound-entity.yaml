@@ -1,0 +1,39 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.kotlin.mass-assignment-bound-entity
+    message: >-
+      An object bound from the request (@RequestBody, @ModelAttribute) is saved as it is: a
+      client can set every field of the entity, such as role, enabled or the id of another
+      record (mass assignment). Bind a DTO that lists the allowed fields and copy them to
+      the entity, or use @JsonIgnore / @InitBinder setAllowedFields for the fields the
+      client must not set.
+    languages: [kotlin]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              fun $METHOD(..., @$ANN $PARAM: $TYPE, ...): $RET { ... }
+          - pattern-inside: |
+              fun $METHOD(..., @$ANN $PARAM: $TYPE, ...) { ... }
+          - pattern-inside: |
+              fun $METHOD(..., @$ANN $PARAM: $TYPE, ...) = $BODY
+          - pattern-inside: |
+              fun $METHOD(..., @$ANN(...) $PARAM: $TYPE, ...): $RET { ... }
+          - pattern-inside: |
+              fun $METHOD(..., @$ANN(...) $PARAM: $TYPE, ...) { ... }
+      - metavariable-regex:
+          metavariable: $ANN
+          regex: ^(RequestBody|ModelAttribute)$
+      - pattern-either:
+          - pattern: $REPO.save($PARAM)
+          - pattern: $REPO.saveAndFlush($PARAM)
+          - pattern: $REPO.saveAll($PARAM)
+          - pattern: $EM.persist($PARAM)
+          - pattern: $EM.merge($PARAM)

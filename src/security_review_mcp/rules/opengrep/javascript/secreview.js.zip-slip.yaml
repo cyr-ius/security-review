@@ -1,0 +1,35 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.js.zip-slip
+    message: >-
+      The name of an archive entry is joined to a directory without checking the result: an
+      entry named ../../app/config writes outside the target directory (zip slip). Resolve
+      the path and check that it starts with the target directory before writing.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: path.join($DIR, $ENTRY.$FIELD)
+          - pattern: path.resolve($DIR, $ENTRY.$FIELD)
+          - pattern: path.join($DIR, $ENTRY.$FIELD, ...)
+      - metavariable-regex:
+          metavariable: $ENTRY
+          regex: (?i).*(entry|header).*
+      - metavariable-regex:
+          metavariable: $FIELD
+          regex: ^(path|entryName|fileName|name|filename)$
+      - pattern-not-inside: |
+          const $TARGET = <... path.$JOIN($DIR, $ENTRY.$FIELD, ...) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          const $TARGET = <... path.$JOIN($DIR, $ENTRY.$FIELD, ...) ...>;
+          ...
+          if (<... $X.startsWith(...) ...>) $STMT;

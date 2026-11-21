@@ -1,0 +1,126 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.kotlin.taint-expression-injection
+    message: >-
+      Request data is evaluated as an expression (SpEL, OGNL, MVEL, JEXL): expression
+      languages can call arbitrary methods and run code. Never evaluate user input; use a
+      SimpleEvaluationContext with fixed expressions if evaluation is required.
+    languages: [kotlin]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-917: Improper Neutralization of Special Elements used in an Expression Language Statement ('Expression Language Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          # Spring: parameters bound from the request by an annotation
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN $PARAM: $TYPE, ...) = $BODY
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN(...) $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      fun $METHOD(..., @$ANN(...) $PARAM: $TYPE, ...) = $BODY
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable)$
+              - pattern: $PARAM
+          # Spring binds a String parameter of a handler without annotation too
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$MAPPING(...)
+                      fun $METHOD(..., $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      @$MAPPING(...)
+                      fun $METHOD(..., $PARAM: $TYPE, ...) = $BODY
+                  - pattern-inside: |
+                      @$MAPPING
+                      fun $METHOD(..., $PARAM: $TYPE, ...) { ... }
+                  - pattern-inside: |
+                      @$MAPPING
+                      fun $METHOD(..., $PARAM: $TYPE, ...) = $BODY
+              - metavariable-regex:
+                  metavariable: $MAPPING
+                  regex: ^(Get|Post|Put|Patch|Delete|Request)Mapping$
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(String\??|List<String>\??|Array<String>\??)$
+              - pattern: $PARAM
+          # Ktor: the call of a route handler
+          - pattern: call.parameters
+          - pattern: call.request.queryParameters
+          - pattern: call.request.headers
+          - pattern: call.request.cookies
+          - pattern: call.request.uri
+          - pattern: call.receiveText()
+          - pattern: call.receiveParameters()
+          - pattern: call.receive<$T>()
+          # Servlets (Kotlin calls the getters or reads them as properties)
+          - patterns:
+              - pattern-either:
+                  - pattern: $REQ.$GETTER(...)
+                  - pattern: $REQ.$GETTER
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^(request|req|httpRequest|servletRequest)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getHeader|getHeaders|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getPathInfo|getPart|queryString|inputStream|reader|requestURI|pathInfo|parameterMap|cookies)$
+          # Android: what another application sends to an exported component
+          - patterns:
+              - pattern-either:
+                  - pattern: $INTENT.$EXTRA(...)
+                  - pattern: $INTENT?.$EXTRA(...)
+              - metavariable-regex:
+                  metavariable: $EXTRA
+                  regex: ^(getStringExtra|getStringArrayExtra|getStringArrayListExtra|getCharSequenceExtra|getBundleExtra)$
+          - pattern: intent.data
+          - pattern: intent.dataString
+          - pattern: intent.extras
+          - patterns:
+              - pattern-either:
+                  - pattern: $URI.getQueryParameter(...)
+                  - pattern: $URI?.getQueryParameter(...)
+                  - pattern: $URI.lastPathSegment
+                  - pattern: $URI?.lastPathSegment
+    pattern-propagators:
+      # A value appended to a StringBuilder or added to a collection taints it
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put($KEY, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: SpelExpressionParser().parseExpression($EXPR, ...)
+              - pattern: Ognl.getValue($EXPR, ...)
+              - pattern: Ognl.parseExpression($EXPR)
+              - pattern: MVEL.eval($EXPR, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern: $PARSER.parseExpression($EXPR, ...)
+                      - pattern: $PARSER.createExpression($EXPR)
+                  - metavariable-regex:
+                      metavariable: $PARSER
+                      regex: (?i).*(parser|jexl).*
+          - focus-metavariable: $EXPR
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $VALUE.toInt()
+          - pattern: $VALUE.toIntOrNull()
+          - pattern: $VALUE.toLong()
+          - pattern: $VALUE.toLongOrNull()
+          - pattern: UUID.fromString(...)

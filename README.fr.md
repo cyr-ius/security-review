@@ -45,7 +45,7 @@ leur apporte :
 
 | | |
 |---|---|
-| 🔍 **Détection** | plus de 250 règles et 140 items de checklist pour une vingtaine de langages et plateformes (Python, Java, Go, C#, TypeScript, Docker, Kubernetes, Terraform, CI...), et 235 règles de propagation [OpenGrep](https://cyr-ius.github.io/security-review/fr/review/analysis/opengrep/) |
+| 🔍 **Détection** | plus de 250 règles et 140 items de checklist pour une vingtaine de langages et plateformes (Python, Java, Go, C#, TypeScript, Docker, Kubernetes, Terraform, CI...), et 264 règles de propagation [OpenGrep](https://cyr-ius.github.io/security-review/fr/review/analysis/opengrep/) |
 | 📦 **Dépendances** | manifestes, lockfiles et SBOM comparés à la [base OSV](https://cyr-ius.github.io/security-review/fr/review/analysis/dependencies/), hors ligne |
 | 🛡️ **Injection de prompt** | [détection des instructions cachées](https://cyr-ius.github.io/security-review/fr/review/analysis/read-guard/) visant les assistants IA dans les fichiers qu'ils lisent |
 | 📐 **Vos normes** | vos propres [règles](https://cyr-ius.github.io/security-review/fr/review/rules/), [checklists](https://cyr-ius.github.io/security-review/fr/review/checklists/) et [normes de développement](https://cyr-ius.github.io/security-review/fr/review/standards/), transmises à l'assistant avant qu'il code |

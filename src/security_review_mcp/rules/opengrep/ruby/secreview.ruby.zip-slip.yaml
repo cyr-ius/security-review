@@ -1,0 +1,41 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ruby.zip-slip
+    message: >-
+      The name of an archive entry is joined to a directory without checking the result: an
+      entry named ../../app/config writes outside the target directory (zip slip). Resolve
+      the path and check that it starts with the target directory before writing.
+    languages: [ruby]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: File.join($DIR, $ENTRY.name)
+          - pattern: File.join($DIR, $ENTRY.full_name)
+          - pattern: File.expand_path($ENTRY.name, $DIR)
+          - pattern: File.expand_path($ENTRY.full_name, $DIR)
+      - metavariable-regex:
+          metavariable: $ENTRY
+          regex: (?i).*entry.*
+      - pattern-not-inside: |
+          $TARGET = <... $ENTRY.$NAME ...>
+          ...
+          raise $ERROR unless <... $X.start_with?(...) ...>
+          ...
+      - pattern-not-inside: |
+          $TARGET = <... $ENTRY.$NAME ...>
+          ...
+          next unless <... $X.start_with?(...) ...>
+          ...
+      - pattern-not-inside: |
+          $TARGET = <... $ENTRY.$NAME ...>
+          ...
+          if <... $X.start_with?(...) ...>
+            ...
+          end

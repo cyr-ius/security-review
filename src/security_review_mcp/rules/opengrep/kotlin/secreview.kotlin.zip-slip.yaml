@@ -1,0 +1,79 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.kotlin.zip-slip
+    message: >-
+      The name of an archive entry is joined to a directory and written without checking the
+      result: an entry named ../../app/config overwrites files outside the target directory
+      (zip slip). Resolve the path with canonicalPath / normalize() and check that it starts
+      with the target directory before writing.
+    languages: [kotlin]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern-either:
+          - pattern: File($DIR, $ENTRY.name)
+          - pattern: $DIR.resolve($ENTRY.name)
+          - pattern: Paths.get($DIR, $ENTRY.name)
+          - pattern: File($DIR, $ENTRY.getName())
+          - pattern: $DIR.resolve($ENTRY.getName())
+      - metavariable-regex:
+          metavariable: $ENTRY
+          regex: (?i).*entry.*
+      - pattern-not-inside: |
+          val $TARGET = <... File($DIR, $ENTRY.name) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          val $TARGET = <... File($DIR, $ENTRY.name) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC
+      - pattern-not-inside: |
+          val $TARGET = <... File($DIR, $ENTRY.name) ...>
+          ...
+          require(<... $X.startsWith(...) ...>)
+          ...
+      - pattern-not-inside: |
+          val $TARGET = <... $DIR.resolve($ENTRY.name) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          val $TARGET = <... $DIR.resolve($ENTRY.name) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC
+      - pattern-not-inside: |
+          val $TARGET = <... $DIR.resolve($ENTRY.name) ...>
+          ...
+          require(<... $X.startsWith(...) ...>)
+          ...
+      - pattern-not-inside: |
+          val $TARGET = <... File($DIR, $ENTRY.getName()) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          val $TARGET = <... File($DIR, $ENTRY.getName()) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC
+      - pattern-not-inside: |
+          val $TARGET = <... File($DIR, $ENTRY.getName()) ...>
+          ...
+          require(<... $X.startsWith(...) ...>)
+          ...
+      - pattern-not-inside: |
+          val $TARGET = <... $DIR.resolve($ENTRY.getName()) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) { ... }
+      - pattern-not-inside: |
+          val $TARGET = <... $DIR.resolve($ENTRY.getName()) ...>
+          ...
+          if (<... $X.startsWith(...) ...>) throw $EXC
+      - pattern-not-inside: |
+          val $TARGET = <... $DIR.resolve($ENTRY.getName()) ...>
+          ...
+          require(<... $X.startsWith(...) ...>)
+          ...

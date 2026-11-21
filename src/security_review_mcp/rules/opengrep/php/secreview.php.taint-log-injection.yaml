@@ -1,0 +1,80 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.php.taint-log-injection
+    message: >-
+      Request data is written to the log as it is: a line break forges log entries that look
+      legitimate and can mislead an investigation (log injection). Remove the line breaks
+      (str_replace(["\r", "\n"], ' ', $value)) or log the value in a structured field.
+    languages: [php]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-117: Improper Output Neutralization for Logs"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          # Superglobals (plain PHP)
+          - pattern: $_GET
+          - pattern: $_POST
+          - pattern: $_REQUEST
+          - pattern: $_COOKIE
+          - pattern: $_FILES
+          - pattern: file_get_contents("php://input")
+          - pattern: getallheaders()
+          # Laravel: $request->input('x'), request('x'), Request::input('x')
+          - patterns:
+              - pattern: $REQ->$GET(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^\$(request|req)$
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(input|query|post|get|cookie|header|all|json|file|route|string|integer|only|except)$
+          - pattern: request(...)
+          - pattern: request()->$GET(...)
+          - pattern: Request::$GET(...)
+          # Symfony: $request->query->get('x'), $request->request->all()...
+          - patterns:
+              - pattern: $REQ->$BAG->$GET(...)
+              - metavariable-regex:
+                  metavariable: $BAG
+                  regex: ^(query|request|cookies|headers|files|attributes)$
+    pattern-propagators:
+      # A value added to an array taints it (implode...)
+      - pattern: array_push($TO, $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: array_unshift($TO, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Log::$LEVEL($MESSAGE, ...)
+              - pattern: $LOGGER->$LEVEL($MESSAGE, ...)
+              - pattern: logger()->$LEVEL($MESSAGE, ...)
+          - metavariable-regex:
+              metavariable: $LEVEL
+              regex: ^(debug|info|notice|warning|error|critical|alert|emergency|log)$
+          - focus-metavariable: $MESSAGE
+      - patterns:
+          - pattern-either:
+              - pattern: error_log($MESSAGE, ...)
+              - pattern: syslog($PRIORITY, $MESSAGE)
+              - pattern: logger($MESSAGE, ...)
+          - focus-metavariable: $MESSAGE
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: intval(...)
+          - pattern: json_encode(...)
+          - patterns:
+              - pattern-either:
+                  - pattern: str_replace($CHARS, ...)
+                  - pattern: preg_replace($CHARS, ...)
+              - metavariable-regex:
+                  metavariable: $CHARS
+                  regex: .*(\\[rn]|[\r\n])

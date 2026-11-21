@@ -158,6 +158,9 @@ def test_bundled_rules_match_their_test_cases(tmp_path):
 _OWN_SOURCES = {
     "secreview.js.taint-dom-xss": "browser data: location, referrer, the Angular route",
     "secreview.js.taint-mass-assignment": "a whole request body, not one of its fields",
+    "secreview.kotlin.taint-intent-redirection": "an intent sent by another application",
+    "secreview.php.taint-mass-assignment": "a whole request body, not one of its fields",
+    "secreview.ruby.taint-mass-assignment": "parameters without strong parameters",
     "secreview.js.taint-nosql-injection": "labels: a request object can carry an operator",
     "secreview.python.taint-mass-assignment": "a whole request body, not one of its fields",
     "secreview.python.taint-nosql-injection": "labels: a request object can carry an operator",
@@ -168,7 +171,7 @@ _OWN_SOURCES = {
     # The host of the request only: the other request data is expected in an e-mail
     **{
         f"secreview.{prefix}.taint-host-header": "the Host header of the request"
-        for prefix in ("csharp", "go", "java", "js", "php", "python", "ruby")
+        for prefix in ("csharp", "go", "java", "js", "kotlin", "php", "python", "ruby")
     },
 }
 

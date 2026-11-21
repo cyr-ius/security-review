@@ -1,0 +1,54 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.kotlin.taint-intent-redirection
+    message: >-
+      An intent received from another application is started as it is (startActivity,
+      startService, sendBroadcast of a getParcelableExtra intent): the caller reaches the
+      non-exported components of this application, with its permissions (intent
+      redirection). Build a new intent with an explicit, allowed component, or check the
+      component and the package of the received intent.
+    languages: [kotlin]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-926: Improper Export of Android Application Components"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: intent.getParcelableExtra(...)
+          - pattern: intent.getParcelableExtra<$T>(...)
+          - pattern: $INTENT.getParcelableExtra(...)
+          - pattern: $INTENT.getParcelableExtra<$T>(...)
+          - pattern: IntentCompat.getParcelableExtra(...)
+          - pattern: intent.extras?.getParcelable(...)
+          - pattern: intent.extras?.getParcelable<$T>(...)
+          - pattern: Intent.parseUri(...)
+    pattern-propagators:
+      # A value appended to a StringBuilder or added to a collection taints it
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.add($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.put($KEY, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: startActivity($INTENT, ...)
+              - pattern: startActivityForResult($INTENT, ...)
+              - pattern: startService($INTENT)
+              - pattern: startForegroundService($INTENT)
+              - pattern: sendBroadcast($INTENT, ...)
+              - pattern: bindService($INTENT, ...)
+              - pattern: setResult($CODE, $INTENT)
+              - pattern: $CONTEXT.startActivity($INTENT, ...)
+              - pattern: $CONTEXT.startService($INTENT)
+              - pattern: $CONTEXT.sendBroadcast($INTENT, ...)
+          - focus-metavariable: $INTENT

@@ -44,7 +44,7 @@ own criteria and leave no trace. Security Review gives them:
 
 | | |
 |---|---|
-| 🔍 **Detection** | 250+ rules and 140+ checklist items for about twenty languages and platforms (Python, Java, Go, C#, TypeScript, Docker, Kubernetes, Terraform, CI...), and 235 [OpenGrep](https://cyr-ius.github.io/security-review/review/analysis/opengrep/) taint rules |
+| 🔍 **Detection** | 250+ rules and 140+ checklist items for about twenty languages and platforms (Python, Java, Go, C#, TypeScript, Docker, Kubernetes, Terraform, CI...), and 264 [OpenGrep](https://cyr-ius.github.io/security-review/review/analysis/opengrep/) taint rules |
 | 📦 **Dependencies** | manifests, lockfiles and SBOMs checked against the [OSV database](https://cyr-ius.github.io/security-review/review/analysis/dependencies/), offline |
 | 🛡️ **Prompt injection** | [detection of hidden instructions](https://cyr-ius.github.io/security-review/review/analysis/read-guard/) aimed at AI assistants in the files they read |
 | 📐 **Your standards** | your own [rules](https://cyr-ius.github.io/security-review/review/rules/), [checklists](https://cyr-ius.github.io/security-review/review/checklists/) and [development standards](https://cyr-ius.github.io/security-review/review/standards/), given to the assistant before it codes |
