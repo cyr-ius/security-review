@@ -935,6 +935,22 @@ ADDITIONAL_RULES = [
         "if (crypto.timingSafeEqual(received, expected)) {",
         "TS-015",
     ),
+    # False positives found on real projects (lobsters, BookStack, terraform-aws-eks)
+    ("php", "$out = `ls -l $dir`;", '$q = "SELECT * FROM `users` WHERE id = $id";', "PHP-001"),
+    (
+        "ruby",
+        "out = `convert #{file} out.png`",
+        "avg(length(`#{column.name}`)) avg_length,",
+        "RB-001",
+    ),
+    (
+        "ruby",
+        '<%= raw("Hi #{@user.name}") %>',
+        r'<%= raw("<a href=\"/threads\">Your Threads</a>") %>',
+        "RB-005",
+    ),
+    ("ruby", 'User.where("id = #{params[:id]}")', 'scope.where("#{type}_id": nil)', "RB-002"),
+    ("yaml", "image: nginx:latest", "# this role is different from IRSA", "CFG-003"),
     # FastAPI / Starlette
     (
         "python",
@@ -1126,6 +1142,21 @@ ADDITIONAL_RULES = [
         "val message = Json.decodeFromString<Message>(text)",
         "KT-010",
     ),
+    # Android manifest and network security configuration
+    (
+        "android",
+        '<application android:debuggable="true">',
+        '<application android:label="Shop">',
+        "KT-011",
+    ),
+    ("android", 'android:allowBackup="true"', 'android:allowBackup="false"', "KT-012"),
+    (
+        "android",
+        '<base-config cleartextTrafficPermitted="true">',
+        '<base-config cleartextTrafficPermitted="false">',
+        "KT-013",
+    ),
+    ("android", '<certificates src="user" />', '<certificates src="system" />', "KT-014"),
     ("terraform", 'ipv6_cidr_blocks = ["::/0"]', 'ipv6_cidr_blocks = ["2001:db8::/64"]', "TF-001"),
     ("terraform", "restrict_public_buckets = false", "restrict_public_buckets = true", "TF-002"),
     ("terraform", "publicly_accessible = true", "publicly_accessible = false", "TF-003"),

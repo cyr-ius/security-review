@@ -124,6 +124,7 @@ _LANGUAGE_DOMAINS = {
     "php": ("php",),
     "ruby": ("ruby",),
     "kotlin": ("kotlin", "java"),
+    "android": ("kotlin",),
     "terraform": ("terraform", "config"),
     "config": ("config",),
     "yaml": ("config",),

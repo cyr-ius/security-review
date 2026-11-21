@@ -127,6 +127,7 @@ _FRAGMENT_NAMES = {
     "php": "fragment.php",
     "ruby": "fragment.rb",
     "kotlin": "Fragment.kt",
+    "android": "AndroidManifest.xml",
     "terraform": "fragment.tf",
     "config": "fragment.conf",
     "yaml": "fragment.yaml",

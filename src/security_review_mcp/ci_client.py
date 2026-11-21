@@ -328,6 +328,10 @@ def detect_language(path: str) -> str | None:
         return "gitlab-ci"
     if lower == ".env" or lower.startswith(".env."):
         return "config"
+    if lower == "androidmanifest.xml" or (
+        lower.startswith("network_security_config") and lower.endswith(".xml")
+    ):
+        return "android"
     if (
         lower in _AGENT_INSTRUCTION_NAMES
         or lower.endswith((".mdc", ".instructions.md", ".prompt.md"))

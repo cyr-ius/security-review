@@ -124,6 +124,31 @@ WebGoat, Spring PetClinic, Django, Flask, Express, OWASP Juice Shop, eShopOnWeb,
 Rust (Axum, SQLx) application, plus non-web Python projects (httpie, black, pip, uvicorn), on
 which command line arguments and the environment are not sources.
 
+### PHP, Ruby, Kotlin, Android and Terraform
+
+These families have no OWASP Benchmark: each one is measured on a deliberately vulnerable
+application (what is detected) and on a maintained real application (what is noise), with the
+built-in rules (the families of the language, plus `CFG-*` for Terraform).
+
+| Language | Vulnerable application | Alerts | Real application | Alerts |
+|---|---|---|---|---|
+| PHP | DVWA | 41 | BookStack (Laravel) | 0 `PHP-*` |
+| Ruby, Rails | RailsGoat | 18 | Lobsters | 18 |
+| Kotlin, Android | AndroGoat | 14 | Now in Android | 2 (`allowBackup`) |
+| Terraform | TerraGoat | 29 | terraform-aws-eks | 6 |
+
+Measured on 2026-11-21 with the rules of the commit that adds them. The first run found false
+positives on the real applications, now corrected and covered by a test: MySQL identifiers in
+backticks read as shell commands (`PHP-001`, `RB-001`), `raw` on a fixed string (`RB-005`), a
+string hash key read as a SQL fragment (`RB-002`), and a comment ending in `from IRSA` read as a
+Dockerfile `FROM` (`CFG-003`). The remaining alerts on the real applications are leads to check:
+`raw` with an interpolated user name, a command run through a shell, `0.0.0.0/0` in an egress rule
+(`CFG-004` does not tell ingress from egress), backups allowed.
+
+A line-by-line rule does not follow a value: DVWA's reflected XSS (`$html .= ... $_GET['name']`)
+and file inclusion (`$file = $_GET['page']`, then `include($file)`) are not flagged. These flows
+are left to the review until OpenGrep taint rules cover PHP and Ruby.
+
 ## Method
 
 1. Scan the source of the benchmark with the default OpenGrep rules of the language

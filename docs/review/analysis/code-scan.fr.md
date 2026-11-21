@@ -48,7 +48,7 @@ Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre 
   respecté). Hors dépôt git, ou avec `--no-git`, l'arborescence est parcourue en ignorant
   `node_modules`, `.venv`, `dist`, `build`, `target`, `obj`, etc.
 - Le langage est déduit du nom : `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.php`, `.rb`/`.erb`/`.rake`,
-  `.kt`/`.kts`, `.tf`/`.tfvars`, `.ts`, `.js`, `.html` (templates Angular),
+  `.kt`/`.kts`, `AndroidManifest.xml` et `network_security_config*.xml`, `.tf`/`.tfvars`, `.ts`, `.js`, `.html` (templates Angular),
   `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, et les fichiers qui pilotent un assistant IA (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,

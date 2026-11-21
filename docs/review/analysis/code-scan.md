@@ -48,7 +48,7 @@ The client chooses the files; the Controller server never reads its own disk.
   Outside a git repository, or with `--no-git`, the tree is walked, skipping `node_modules`,
   `.venv`, `dist`, `build`, `target`, `obj`, etc.
 - The language is inferred from the name: `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.php`, `.rb`/`.erb`/`.rake`,
-  `.kt`/`.kts`, `.tf`/`.tfvars`, `.ts`, `.js`, `.html` (Angular templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
+  `.kt`/`.kts`, `AndroidManifest.xml` and `network_security_config*.xml`, `.tf`/`.tfvars`, `.ts`, `.js`, `.html` (Angular templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, and the files that steer an AI assistant (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
   `*.mdc`, `*.instructions.md`, `*.prompt.md`, `*.md` under `.claude/`, `.cursor/`, `.windsurf/`

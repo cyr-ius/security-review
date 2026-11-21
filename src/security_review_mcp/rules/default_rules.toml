@@ -305,7 +305,7 @@ title = "Container image uses :latest"
 severity = "low"
 cwe = "CWE-1357"
 languages = ["config", "docker", "yaml"]
-pattern = '(^|\s)(image\s*:|FROM)\s+[\w./-]+(:latest)?\s*$'
+pattern = '(^|\s)(image\s*:|(?-i:FROM))\s+[\w./-]+(:latest)?\s*$'
 advice = "Pin images by version or, better, by digest."
 
 [[rules]]
@@ -1982,7 +1982,8 @@ title = "OS command built from a variable (PHP)"
 severity = "high"
 cwe = "CWE-78"
 languages = ["php"]
-pattern = '''(?<![\w>$:])(system|exec|shell_exec|passthru|popen|proc_open|pcntl_exec)\s*\([^;]*\$\w|`[^`\n]*\$\w'''
+# A backtick expression only where a value starts (=, (, return, echo): not a MySQL identifier
+pattern = '''(?<![\w>$:])(system|exec|shell_exec|passthru|popen|proc_open|pcntl_exec)\s*\([^;]*\$\w|(=|\(|\breturn\b|\becho\b|\bprint\b)\s*`[^`'"\n]*\$\w[^`'"\n]*`'''
 advice = "Avoid the shell: pass a fixed program with escapeshellarg() on each argument, or use a library API."
 
 [[rules]]
@@ -2101,7 +2102,8 @@ title = "OS command built with interpolation (Ruby)"
 severity = "high"
 cwe = "CWE-78"
 languages = ["ruby"]
-pattern = '''\b(system|exec|spawn)\s*\(?\s*"[^"\n]*#\{|\b(IO\.popen|Open3\.\w+)\s*\(\s*"[^"\n]*#\{|`[^`\n]*#\{|%x[\{\(\[][^\n]*#\{'''
+# A backtick command where a value starts, with a space in it: not a MySQL identifier (`#{column}`)
+pattern = '''\b(system|exec|spawn)\s*\(?\s*"[^"\n]*#\{|\b(IO\.popen|Open3\.\w+)\s*\(\s*"[^"\n]*#\{|(^|[=(,]|\breturn\b|\bputs\b)\s*`(?=[^`\n]*\s)[^`\n]*#\{[^`\n]*`|%x[\{\(\[][^\n]*#\{'''
 advice = "Pass the program and each argument separately: system(\"convert\", input, output)."
 
 [[rules]]
@@ -2110,7 +2112,7 @@ title = "SQL fragment built with interpolation (Rails)"
 severity = "high"
 cwe = "CWE-89"
 languages = ["ruby"]
-pattern = '''\.(where|not|find_by_sql|order|reorder|group|having|joins|select|pluck|from|lock|exists\?|execute|exec_query|select_all|select_value)\s*\(\s*"[^"\n]*#\{'''
+pattern = '''\.(where|not|find_by_sql|order|reorder|group|having|joins|select|pluck|from|lock|exists\?|execute|exec_query|select_all|select_value)\s*\(\s*"[^"\n]*#\{[^"\n]*"(?!\s*:)'''
 advice = "Use placeholders (where(\"name = ?\", name)) or hash conditions (where(name: name))."
 
 [[rules]]
@@ -2137,7 +2139,8 @@ title = "Output marked as safe HTML (Rails)"
 severity = "medium"
 cwe = "CWE-79"
 languages = ["ruby"]
-pattern = '''\.html_safe\b|(?<![\w.])raw\s*\(|<%==|\bcontent_tag\b[^\n]*escape:\s*false'''
+# raw on a plain literal without interpolation is fixed markup
+pattern = '''\.html_safe\b|(?<![\w.])raw\s*\((?!\s*("(?:[^"\\#\n]|\\.)*"|'[^'\n]*')\s*\))|<%==|\bcontent_tag\b[^\n]*escape:\s*false'''
 advice = "Let Rails escape the output; for trusted markup use sanitize with an allow list of tags."
 
 [[rules]]
@@ -2294,6 +2297,44 @@ cwe = "CWE-502"
 languages = ["kotlin"]
 pattern = '''\bObjectInputStream\s*\('''
 advice = "Exchange data as JSON (kotlinx.serialization); with Java serialization, set an ObjectInputFilter allow list."
+
+# Android manifest and network security configuration (language "android")
+
+[[rules]]
+id = "KT-011"
+title = "Debuggable application (Android manifest)"
+severity = "high"
+cwe = "CWE-489"
+languages = ["android"]
+pattern = '''\bandroid:debuggable\s*=\s*"true"'''
+advice = "Remove android:debuggable: the build type sets it, and a debuggable release lets anyone attach a debugger and read the app data."
+
+[[rules]]
+id = "KT-012"
+title = "Application data included in backups (Android manifest)"
+severity = "low"
+cwe = "CWE-530"
+languages = ["android"]
+pattern = '''\bandroid:allowBackup\s*=\s*"true"'''
+advice = "Set allowBackup=\"false\", or exclude tokens and keys with dataExtractionRules / fullBackupContent."
+
+[[rules]]
+id = "KT-013"
+title = "Clear-text traffic allowed (Android)"
+severity = "medium"
+cwe = "CWE-319"
+languages = ["android"]
+pattern = '''\bandroid:usesCleartextTraffic\s*=\s*"true"|\bcleartextTrafficPermitted\s*=\s*"true"'''
+advice = "Use HTTPS only; allow clear text for a named development domain in the network security config if needed."
+
+[[rules]]
+id = "KT-014"
+title = "User-installed certificates trusted (Android)"
+severity = "medium"
+cwe = "CWE-295"
+languages = ["android"]
+pattern = '''<certificates\s+src\s*=\s*"user"'''
+advice = "Trust only the system certificates in release builds; keep user CAs in a debug-overrides block."
 
 # ── Terraform ────────────────────────────────────────────────────────────────
 # Terraform also gets the config rules (0.0.0.0/0, public bucket ACL, passwords...).

@@ -129,6 +129,33 @@ eShopOnWeb, Gitea et une application Rust (Axum, SQLx), plus des projets Python 
 (httpie, black, pip, uvicorn), sur lesquels les arguments de la ligne de commande et
 l'environnement ne sont pas des sources.
 
+### PHP, Ruby, Kotlin, Android et Terraform
+
+Ces familles n'ont pas d'OWASP Benchmark : chacune est mesurée sur une application volontairement
+vulnérable (ce qui est détecté) et sur une application réelle maintenue (ce qui est du bruit),
+avec les règles intégrées (les familles du langage, plus `CFG-*` pour Terraform).
+
+| Langage | Application vulnérable | Alertes | Application réelle | Alertes |
+|---|---|---|---|---|
+| PHP | DVWA | 41 | BookStack (Laravel) | 0 `PHP-*` |
+| Ruby, Rails | RailsGoat | 18 | Lobsters | 18 |
+| Kotlin, Android | AndroGoat | 14 | Now in Android | 2 (`allowBackup`) |
+| Terraform | TerraGoat | 29 | terraform-aws-eks | 6 |
+
+Mesuré le 2026-11-21 avec les règles du commit qui les ajoute. Une première passe a trouvé des
+faux positifs sur les applications réelles, désormais corrigés et couverts par un test :
+identifiants MySQL entre backticks lus comme des commandes shell (`PHP-001`, `RB-001`), `raw` sur
+une chaîne fixe (`RB-005`), clé de hash sous forme de chaîne lue comme un fragment SQL (`RB-002`),
+et commentaire finissant par `from IRSA` lu comme un `FROM` de Dockerfile (`CFG-003`). Les
+alertes restantes sur les applications réelles sont des pistes à vérifier : `raw` avec un nom
+d'utilisateur interpolé, commande lancée par un shell, `0.0.0.0/0` dans une règle de sortie
+(`CFG-004` ne distingue pas l'entrée de la sortie), sauvegardes autorisées.
+
+Une règle ligne par ligne ne suit pas une valeur : le XSS réfléchi de DVWA
+(`$html .= ... $_GET['name']`) et l'inclusion de fichier (`$file = $_GET['page']`, puis
+`include($file)`) ne sont pas signalés. Ces flux restent à la revue tant que des règles OpenGrep de
+propagation ne couvrent pas PHP et Ruby.
+
 ## Méthode
 
 1. Scanner le code du benchmark avec les règles OpenGrep par défaut du langage
