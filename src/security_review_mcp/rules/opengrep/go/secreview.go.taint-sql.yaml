@@ -40,6 +40,14 @@ rules:
               - metavariable-regex:
                   metavariable: $METHOD
                   regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+          # Fiber v2 (*fiber.Ctx) and v3 (fiber.Ctx)
+          - patterns:
+              - pattern-either:
+                  - pattern: "($CTX : *fiber.Ctx).$METHOD(...)"
+                  - pattern: "($CTX : fiber.Ctx).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|Queries|Params|AllParams|FormValue|Body|BodyRaw|Get|GetReqHeaders|Cookies|OriginalURL)$
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -54,6 +62,10 @@ rules:
               - pattern: $DB.Raw($QUERY, ...)
               - pattern: $DB.Select($DEST, $QUERY, ...)
               - pattern: $DB.Get($DEST, $QUERY, ...)
+          # c.Query("name") reads the request (a source), it does not run SQL
+          - pattern-not: "($CTX : *gin.Context).$METHOD(...)"
+          - pattern-not: "($CTX : *fiber.Ctx).$METHOD(...)"
+          - pattern-not: "($CTX : fiber.Ctx).$METHOD(...)"
           - focus-metavariable: $QUERY
     pattern-sanitizers:
       - pattern-either:

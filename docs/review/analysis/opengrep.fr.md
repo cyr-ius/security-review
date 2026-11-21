@@ -114,9 +114,12 @@ leur usage dans un produit comme celui-ci. Elles complètent les [règles intég
 avec ce qu'un motif ligne par ligne ne voit pas :
 
 - **analyse de propagation (taint)** : une valeur lue dans la requête (Flask, Django, FastAPI,
-  aiohttp, Tornado, Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS,
-  superglobales PHP, Laravel, Symfony, Rails,
-  ASP.NET Core, `net/http`, Gin, Echo), sur une socket, une websocket ou dans un événement AWS
+  aiohttp, Tornado, Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS, Koa,
+  Hono, superglobales PHP, Laravel, Symfony, Rails,
+  contrôleurs et Minimal APIs ASP.NET Core, `net/http`, Gin, Echo, Fiber), y compris les
+  paramètres que le framework remplit pour le gestionnaire (segments `<name>` de Flask,
+  paramètres d'URL de Django, paramètres de requête et modèles Pydantic de FastAPI, paramètres
+  Spring sans annotation), sur une socket, une websocket ou dans un événement AWS
   Lambda est suivie à travers les variables et la construction de chaînes jusqu'à un appel
   dangereux (SQL, commande, chemin de fichier, URL sortante, redirection, template, HTML,
   désérialisation). Un assainissement en chemin (`int()`, `secure_filename`, `path.basename`,

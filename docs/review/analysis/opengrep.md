@@ -111,9 +111,11 @@ their use in a product like this one. They complement the [built-in rules](../ru
 what a line-by-line pattern cannot see:
 
 - **taint analysis**: a value read from the request (Flask, Django, FastAPI, aiohttp, Tornado,
-  Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS, ASP.NET Core, PHP
-  superglobals, Laravel, Symfony, Rails, `net/http`,
-  Gin, Echo), a socket, a websocket or an AWS Lambda event is followed through variables and
+  Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS, Koa, Hono, ASP.NET Core
+  controllers and Minimal APIs, PHP superglobals, Laravel, Symfony, Rails, `net/http`,
+  Gin, Echo, Fiber), including the parameters a framework fills in for the handler (Flask
+  `<name>` segments, Django URL parameters, FastAPI query parameters and Pydantic models, Spring
+  parameters without annotation), a socket, a websocket or an AWS Lambda event is followed through variables and
   string building until it reaches a dangerous call (SQL, command, file path, outgoing URL,
   redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
   `secure_filename`, `path.basename`, `html.EscapeString`...) stops it. Local data (command line

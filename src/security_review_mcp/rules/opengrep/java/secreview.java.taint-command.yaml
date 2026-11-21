@@ -26,6 +26,32 @@ rules:
                   metavariable: $ANN
                   regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
               - pattern: $PARAM
+          # Spring binds a handler parameter without annotation too: a simple type from the
+          # query string or the form, an object (form, DTO) as an implicit @ModelAttribute
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$MAPPING(...)
+                      $RET $METHOD(..., $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$MAPPING
+                      $RET $METHOD(..., $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $MAPPING
+                  regex: ^(Get|Post|Put|Patch|Delete|Request)Mapping$
+              # An annotated parameter is either request data (above) or not (@AuthenticationPrincipal)
+              - pattern-not-inside: |
+                  $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - pattern-not-inside: |
+                  $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(String|String\[\]|List<String>|Optional<String>|[A-Z]\w*(Form|Dto|DTO|Request|Command|Params|Criteria|Filter))$
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  # Framework objects, whose getters are the sources below
+                  regex: ^(?!(HttpServletRequest|ServletRequest|WebRequest|NativeWebRequest|ServerHttpRequest|ServerRequest|RequestEntity|MultipartHttpServletRequest)$)
+              - pattern: $PARAM
           - patterns:
               - pattern-either:
                   - pattern: (HttpServletRequest $REQ).$GETTER(...)

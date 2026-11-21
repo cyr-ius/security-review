@@ -40,6 +40,14 @@ rules:
               - metavariable-regex:
                   metavariable: $METHOD
                   regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+          # Fiber v2 (*fiber.Ctx) and v3 (fiber.Ctx)
+          - patterns:
+              - pattern-either:
+                  - pattern: "($CTX : *fiber.Ctx).$METHOD(...)"
+                  - pattern: "($CTX : fiber.Ctx).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|Queries|Params|AllParams|FormValue|Body|BodyRaw|Get|GetReqHeaders|Cookies|OriginalURL)$
     pattern-sinks:
       - patterns:
           - pattern-either:

@@ -48,6 +48,45 @@ rules:
                   metavariable: $ROUTE
                   regex: ^(Get|Post|Put|Patch|Delete|All|Head|Options)$
               - pattern: $PARAM
+          # Koa: the request fields exposed on the context (ctx.body is the response, left out)
+          - patterns:
+              - pattern: ctx.$FIELD
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(query|params|querystring|search|headers|header|cookies|url|originalUrl|href|path|hostname)$
+          - pattern: ctx.get(...)
+          # Hono: c.req.query(), c.req.param(), await c.req.json()...
+          - patterns:
+              - pattern: $CTX.req.$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $CTX
+                  regex: ^(c|ctx|context)$
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(query|queries|param|header|json|text|parseBody|formData)$
+          # AWS Lambda behind API Gateway or a function URL
+          - patterns:
+              - pattern: event.$FIELD
+              - metavariable-regex:
+                  metavariable: $FIELD
+                  regex: ^(body|queryStringParameters|multiValueQueryStringParameters|pathParameters|headers|multiValueHeaders|cookies|rawPath|rawQueryString)$
+          # Messages received on a socket (socket.io, ws): the first argument of the handler
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $SOCKET.on($EVENT, ($DATA, ...) => { ... })
+                  - pattern-inside: |
+                      $SOCKET.on($EVENT, async ($DATA, ...) => { ... })
+                  - pattern-inside: |
+                      $SOCKET.on($EVENT, function ($DATA, ...) { ... })
+              - metavariable-regex:
+                  metavariable: $SOCKET
+                  regex: ^(socket|sock|ws|client|conn|connection)$
+              - metavariable-regex:
+                  metavariable: $EVENT
+                  # Connection life cycle events carry no message
+                  regex: ^(?!["'](connection|connect|disconnect|disconnecting|open|close|error|ping|pong|upgrade)["']$)
+              - pattern: $DATA
     pattern-sinks:
       - patterns:
           - pattern-either:
