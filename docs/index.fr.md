@@ -41,7 +41,7 @@ trie et en assure le suivi.
   connexion sortante, les secrets sont masqués avant stockage, et il s'installe hors ligne. Il
   est open source (licence Apache 2.0). Voir [Sécurité et limites](reference/security.md).
 - **Une large couverture.** Des règles pour Python (FastAPI), Java (Spring), TypeScript /
-  Node.js, Angular, Go, C#, Rust, les fichiers de configuration et les pipelines CI (GitLab CI,
+  Node.js, Angular, Go, C#, Rust, PHP, Ruby, Kotlin, Terraform, les fichiers de configuration et les pipelines CI (GitLab CI,
   Jenkins...), ainsi que la détection d'instructions cachées destinées aux assistants IA.
 
 ## Comment ça marche, en trois étapes

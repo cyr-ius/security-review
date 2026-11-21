@@ -17,7 +17,8 @@ premier démarrage, pour ces domaines :
 | Domaine | Exemples de points |
 |---|---|
 | `*` | Points valables pour tous les langages : divulgation d'informations par les sorties, les journaux, les erreurs ou les réponses d'API ; secrets absents des journaux (jetons, mots de passe, URL avec identifiants) et masqués avant stockage et dans les extraits renvoyés |
-| `python`, `java`, `go`, `csharp`, `rust` | Pièges du langage et des frameworks |
+| `python`, `java`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin` | Pièges du langage et des frameworks |
+| `terraform` | Exposition réseau, IAM, chiffrement du stockage, secrets dans les variables et l'état, journaux d'audit |
 | `angular`, `node` | Front-end, et backend TypeScript et JavaScript |
 | `api` | Validation des jetons OAuth/OIDC, webhooks, flux métier sensibles, désynchronisation HTTP, injection CRLF, upload de fichiers |
 | `config` | Durcissement Kubernetes, RBAC, en-têtes du proxy, WAF, connexions chiffrées vers les services (LDAPS...), instructions des assistants IA |
@@ -38,7 +39,7 @@ revue, quel que soit le langage :
 
 | Prompt | Checklists intégrées |
 |---|---|
-| `security-review` | Celles de `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` et `node` pour `typescript` et `javascript`, `config` et `cicd` pour les pipelines), puis `api`, plus `dependencies` quand le code cite un fichier de dépendances |
+| `security-review` | Celles de `language` (`python`, `java`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin` avec `java`, `terraform` avec `config`, `angular` et `node` pour `typescript` et `javascript`, `config` et `cicd` pour les pipelines), puis `api`, plus `dependencies` quand le code cite un fichier de dépendances |
 | `codebase-review` | Celles de `languages`, puis `api`, `config` et `cicd` |
 | `api-security-review` | `api`, plus `dependencies` quand le code cite un fichier de dépendances |
 | `configuration-review` | `config`, plus `cicd` quand les fichiers ressemblent à un pipeline et `dependencies` quand ils citent un fichier de dépendances |

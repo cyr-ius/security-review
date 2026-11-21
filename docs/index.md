@@ -37,7 +37,7 @@ recorded in one place, where your security team reads it, triages it and follows
   connection, secrets are masked before being stored, and it installs offline. It is open
   source (Apache 2.0 license). See [Security and limits](reference/security.md).
 - **A broad coverage.** Rules for Python (FastAPI), Java (Spring), TypeScript / Node.js,
-  Angular, Go, C#, Rust, configuration files and CI pipelines (GitLab CI, Jenkins...), plus the
+  Angular, Go, C#, Rust, PHP, Ruby, Kotlin, Terraform, configuration files and CI pipelines (GitLab CI, Jenkins...), plus the
   detection of hidden instructions aimed at AI assistants.
 
 ## How it works, in three steps

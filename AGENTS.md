@@ -279,7 +279,7 @@ un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (e
 ### Règles de scan
 
 Identifiants `PRÉFIXE-NNN` par famille : `PY`, `JV`, `NG` (Angular), `CFG`, `GEN`, `GL`
-(GitLab CI), `JK` (Jenkins), `CI`, `SP` (Spring), `FA` (FastAPI), `GO` (Go), `CS` (C#), `RS` (Rust), `TS` (backend
+(GitLab CI), `JK` (Jenkins), `CI`, `SP` (Spring), `FA` (FastAPI), `GO` (Go), `CS` (C#), `RS` (Rust), `PHP` (PHP), `RB` (Ruby, Rails), `KT` (Kotlin, Android), `TF` (Terraform), `TS` (backend
 TypeScript / Node.js), `DEP` (hygiène des
 dépendances), `AI` (texte caché ou instructions adressées à un assistant IA). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.

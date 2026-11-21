@@ -119,7 +119,7 @@ The prompts are available to the developer through the agent of their IDE.
 | Prompt | What it does |
 |---|---|
 | `development-standards` | Gives the agent the development standards of its stack, before it writes code |
-| `security-review` | General review of the code (Python, Java, Go, C#, Rust, TypeScript/Node.js, Angular) |
+| `security-review` | General review of the code (Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js, Angular) |
 | `api-security-review`, `configuration-review` | Review of a REST API (OWASP API Top 10), or of a configuration (Dockerfile, CI/CD, YAML...) |
 | `dependency-review` | Review of the manifests and lockfiles (supply chain) |
 | `codebase-review` | Review of the whole repository, not only a diff |

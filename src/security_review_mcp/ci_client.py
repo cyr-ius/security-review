@@ -272,6 +272,15 @@ _EXTENSIONS = {
     ".cshtml": "csharp",  # Razor views (Html.Raw...)
     ".razor": "csharp",
     ".rs": "rust",
+    ".php": "php",
+    ".phtml": "php",
+    ".rb": "ruby",
+    ".rake": "ruby",
+    ".erb": "ruby",  # Rails views (raw, html_safe...)
+    ".kt": "kotlin",
+    ".kts": "kotlin",
+    ".tf": "terraform",
+    ".tfvars": "terraform",
     ".html": "angular",  # Angular templates ([innerHTML], bypassSecurityTrust...)
     ".yml": "yaml",
     ".yaml": "yaml",

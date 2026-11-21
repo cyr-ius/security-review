@@ -7,7 +7,7 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](../review/
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale de code Python, Java, Go, C#, Rust, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
+| `security-review` | Revue générale de code Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) ; [fonctionnement et coût](../review/analysis/code-scan.md#ce-que-fait-codebase-review) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
@@ -59,7 +59,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 
 | Outil | Rôle |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
+| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin`, `terraform`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
 | `scan_code` | Scan rapide par motifs ligne par ligne (pistes à vérifier, **pas** un SAST complet ; les flux de données sont suivis par OpenGrep lors d'un scan du dépôt, ou par `scan_code` quand il est [délégué au serveur Controller](../review/analysis/opengrep.md#scans-de-fragments-scan_code)). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
 | `start_codebase_scan` | Donne à l'agent les commandes qui font scanner **tout le dépôt** par le serveur Controller (`security-review-ci` lancé avec `uvx`, ticket à usage unique), sans que l'agent lise les fichiers ni que le développeur crée de jeton `ci` ; `scope` `deps` ne donne que le scan des dépendances (prompt `dependency-review`) ; serveur MCP HTTP avec la délégation de `scan_code` uniquement ([scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
