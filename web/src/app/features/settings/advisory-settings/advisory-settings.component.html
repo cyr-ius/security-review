@@ -286,8 +286,9 @@
                     <td>
                       @for (item of outcome(update); track item.name) {
                         <div [class.text-danger]="item.failed" class="update-error">
-                          <strong>{{ item.name }}</strong
-                          >{{ 'settings.colonValue' | t: { value: item.text } }}
+                          <strong>{{ item.name }}</strong>{{
+                            'settings.colonValue' | t: { value: item.text }
+                          }}
                         </div>
                       }
                     </td>

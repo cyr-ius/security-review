@@ -114,20 +114,21 @@
         <div class="card-header fw-semibold">{{ 'project.overPeriod' | t }}</div>
         <ul class="list-group list-group-flush">
           <li class="list-group-item d-flex justify-content-between">
-            <span>{{ 'project.newFindings' | t }}</span
-            ><strong>{{ data.summary.new_findings }}</strong>
+            <span>{{ 'project.newFindings' | t }}</span><strong>{{
+              data.summary.new_findings
+            }}</strong>
           </li>
           <li class="list-group-item d-flex justify-content-between">
-            <span>{{ 'trend.fixed' | t }}</span
-            ><strong>{{ data.summary.fixed_findings }}</strong>
+            <span>{{ 'trend.fixed' | t }}</span><strong>{{ data.summary.fixed_findings }}</strong>
           </li>
           <li class="list-group-item d-flex justify-content-between">
             <span>{{ 'project.dismissed' | t }}</span>
             <strong>{{ data.summary.dismissed_findings }}</strong>
           </li>
           <li class="list-group-item d-flex justify-content-between">
-            <span>{{ 'project.riskScore' | t }}</span
-            ><strong>{{ data.summary.risk_score_now }}</strong>
+            <span>{{ 'project.riskScore' | t }}</span><strong>{{
+              data.summary.risk_score_now
+            }}</strong>
           </li>
         </ul>
 
