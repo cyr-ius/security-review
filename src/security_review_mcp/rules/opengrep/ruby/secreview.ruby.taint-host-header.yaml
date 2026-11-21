@@ -1,0 +1,64 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ruby.taint-host-header
+    message: >-
+      The host name of the request (Host or X-Forwarded-Host header) is written into an e-mail: an
+      attacker who requests a password reset for a victim with a forged Host header receives the
+      reset token when the victim clicks the link. Build the links of e-mails from a configured base
+      URL, or check the host against an allow-list (Rails: set config.hosts, and default_url_options
+      for the mailers).
+    languages: [ruby]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-640: Weak Password Recovery Mechanism for Forgotten Password"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: request.$ATTR
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(host|host_with_port|base_url|original_url|url|domain)$
+          - patterns:
+              - pattern: request.headers[$KEY]
+              - metavariable-regex:
+                  metavariable: $KEY
+                  regex: (?i)^["'](host|x-forwarded-host)["']$
+    pattern-propagators:
+      # A value appended to a string or an array taints it (join...)
+      - pattern: $TO << $FROM
+        from: $FROM
+        to: $TO
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.append($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.concat($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.unshift($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.prepend($FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - pattern-either:
+          - patterns:
+              - pattern: $MAILER.$ACTION(...).$DELIVER
+              - metavariable-regex:
+                  metavariable: $DELIVER
+                  regex: ^(deliver_now|deliver_later|deliver|deliver_now!)$
+          - patterns:
+              - pattern: $MAILER.with(...).$ACTION.$DELIVER
+              - metavariable-regex:
+                  metavariable: $DELIVER
+                  regex: ^(deliver_now|deliver_later|deliver|deliver_now!)$
+          - pattern: Mail.new(...)

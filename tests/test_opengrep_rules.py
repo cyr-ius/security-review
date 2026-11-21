@@ -165,6 +165,11 @@ _OWN_SOURCES = {
     "secreview.python.taint-trust-boundary": "a socket or a serverless event has no session",
     "secreview.python.taint-xss-markup": "a socket or a serverless event renders no HTML",
     "secreview.python.taint-xss-response": "a socket or a serverless event renders no HTML",
+    # The host of the request only: the other request data is expected in an e-mail
+    **{
+        f"secreview.{prefix}.taint-host-header": "the Host header of the request"
+        for prefix in ("csharp", "go", "java", "js", "php", "python", "ruby")
+    },
 }
 
 

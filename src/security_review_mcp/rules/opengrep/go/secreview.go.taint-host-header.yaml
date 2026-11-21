@@ -1,0 +1,51 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-host-header
+    message: >-
+      The host name of the request (Host or X-Forwarded-Host header) is written into an e-mail: an
+      attacker who requests a password reset for a victim with a forged Host header receives the
+      reset token when the victim clicks the link. Build the links of e-mails from a configured base
+      URL, or check the host against an allow-list.
+    languages: [go]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-640: Weak Password Recovery Mechanism for Forgotten Password"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).Host"
+          - patterns:
+              - pattern: "($REQ : *http.Request).Header.Get($KEY)"
+              - metavariable-regex:
+                  metavariable: $KEY
+                  regex: (?i)^"(host|x-forwarded-host)"$
+    pattern-propagators:
+      # A value written to a strings.Builder or a bytes.Buffer taints what is built
+      - pattern: $TO.WriteString($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.Write($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteByte($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.WriteRune($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprintf(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+      - pattern: fmt.Fprint(&$TO, ..., $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - pattern-either:
+          - pattern: smtp.SendMail(...)
+          - pattern: $MESSAGE.SetBody(...)
+          - pattern: $MESSAGE.AddAlternative(...)
