@@ -27,6 +27,10 @@ rules:
               - metavariable-regex:
                   metavariable: $ATTR
                   regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              # A number, a boolean, a GUID or a date cannot carry an injection
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(?!(int|long|short|byte|uint|ulong|ushort|bool|decimal|double|float|Guid|DateTime|DateTimeOffset|DateOnly|TimeOnly)\??$)
               - pattern: $PARAM
           - patterns:
               - pattern-inside: |

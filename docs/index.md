@@ -74,7 +74,7 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 !!! warning "What the static analysis covers"
     With the [OpenGrep engine](review/analysis/opengrep.md) (`-opengrep` image), Security Review
     runs a **static analysis (SAST)** that follows the data flow within a file, across its
-    functions: 190 rules, 96
+    functions: 201 rules, 107
     of them taint rules, on Java, Kotlin, Python, JavaScript/TypeScript, C#, Go, Rust, PHP and Ruby,
     [measured on the OWASP Benchmark](reference/detection-benchmark.md). Without it, the pattern
     scan only produces **leads**, with false positives. Neither follows a flow from one file to

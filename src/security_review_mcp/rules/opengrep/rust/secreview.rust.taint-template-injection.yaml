@@ -1,0 +1,61 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.rust.taint-template-injection
+    message: >-
+      Request data is compiled as a template (tera, handlebars, minijinja): a template reads the
+      server context or calls its functions (SSTI). Use a fixed template and pass the value in its
+      context.
+    languages: [rust]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1336: Improper Neutralization of Special Elements Used in a Template Engine"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  fn $F(..., $ARG: $EXTRACTOR<$T>, ...) { ... }
+              - pattern: $ARG
+              - metavariable-regex:
+                  metavariable: $EXTRACTOR
+                  regex: ^((axum::extract::|web::)?(Query|Path|Json|Form))$
+              # An integer, boolean or UUID extractor cannot carry SQL
+              - metavariable-regex:
+                  metavariable: $T
+                  regex: ^(?!(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|bool|Uuid|uuid::Uuid)$)
+          - pattern: "($REQ : HttpRequest).query_string()"
+          - pattern: "($REQ : HttpRequest).match_info()"
+    pattern-propagators:
+      # A value pushed to a String or a Vec taints it (join...)
+      - pattern: $TO.push_str($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.push($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.extend($FROM)
+        from: $FROM
+        to: $TO
+      - pattern: $TO.insert($INDEX, $FROM)
+        from: $FROM
+        to: $TO
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Tera::one_off($TEMPLATE, ...)
+              - pattern: $TERA.render_str($TEMPLATE, ...)
+              - pattern: $TERA.add_raw_template($NAME, $TEMPLATE)
+              - pattern: $HANDLEBARS.render_template($TEMPLATE, ...)
+              - pattern: $HANDLEBARS.register_template_string($NAME, $TEMPLATE)
+              - pattern: $ENV.template_from_str($TEMPLATE)
+              - pattern: $ENV.add_template($NAME, $TEMPLATE)
+          - focus-metavariable: $TEMPLATE
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $VALUE.parse::<$T>()
+          - pattern: Uuid::parse_str(...)
