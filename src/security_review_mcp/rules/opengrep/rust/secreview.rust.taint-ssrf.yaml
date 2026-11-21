@@ -61,3 +61,7 @@ rules:
               - pattern: ureq::get($URL)
               - pattern: ureq::post($URL)
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: urlencoding::encode(...)
+          - pattern: encode(...)

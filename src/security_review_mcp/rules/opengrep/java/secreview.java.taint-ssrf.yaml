@@ -104,3 +104,10 @@ rules:
               - pattern: new HttpGet($URL)
               - pattern: new HttpPost($URL)
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: URLEncoder.encode(...)
+          - pattern: java.net.URLEncoder.encode(...)
+          - pattern: UriUtils.encode(...)
+          - pattern: UriUtils.encodePathSegment(...)
+          - pattern: UriUtils.encodeQueryParam(...)

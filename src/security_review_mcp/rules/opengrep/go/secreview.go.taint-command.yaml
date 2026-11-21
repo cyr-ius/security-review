@@ -81,3 +81,6 @@ rules:
                       metavariable: $SHELL
                       regex: ^"(sh|bash|/bin/sh|/bin/bash|cmd|cmd\.exe|powershell)"$
           - focus-metavariable: $CMD
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: shellescape.Quote(...)

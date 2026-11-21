@@ -119,10 +119,15 @@ what a line-by-line pattern cannot see:
   parameters without annotation), a socket, a websocket, an AWS Lambda event or an Android intent is followed through variables,
   string building, builders and collections (`StringBuilder.append`, `strings.Builder`,
   `list.add`, `push`, `<<`...) until it reaches a dangerous call (SQL, command, file path, outgoing URL,
-  redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
-  `secure_filename`, `path.basename`, `html.EscapeString`...) stops it. Local data (command line
+  redirect, template, HTML, deserialization). A sanitizer on the way stops it: a
+  number (`int()`), a file name (`secure_filename`, `path.basename`), an escape for the sink
+  (`html.EscapeString`, `shlex.quote`, an SQL identifier quoted by the driver, a value encoded
+  in a URL whose host is fixed). A check in an `if` (`url.startswith("/")`, `Url.IsLocalUrl`)
+  is not seen as one: the value stays reported. Local data (command line
   arguments, standard input, environment variables) is not a source: a command line tool that
-  acts on what its own user asks crosses no trust boundary. The value is followed within a
+  acts on what its own user asks crosses no trust boundary. Nor is a value read back from the
+  database, a file or a cache: a value stored by a request and used by a later one (second-order
+  injection) is not followed, and is left to the review. The value is followed within a
   file, across its functions (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), but not from one file to
   another ([detection benchmark](../../reference/detection-benchmark.md));
 - **structure**: an option that is missing (an XML factory without

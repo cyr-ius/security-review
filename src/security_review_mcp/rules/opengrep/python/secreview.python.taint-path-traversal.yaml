@@ -263,3 +263,5 @@ rules:
           - pattern: werkzeug.utils.secure_filename(...)
           - pattern: flask.safe_join(...)
           - pattern: werkzeug.security.safe_join(...)
+          - pattern: pathlib.Path(...).name
+          - pattern: Path(...).name

@@ -251,3 +251,8 @@ rules:
               metavariable: $METHOD
               regex: ^(get|post|put|patch|delete|head|options|stream|request)$
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: urllib.parse.quote(...)
+          - pattern: urllib.parse.quote_plus(...)
+          - pattern: urllib.parse.urlencode(...)

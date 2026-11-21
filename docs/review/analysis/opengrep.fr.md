@@ -125,11 +125,17 @@ avec ce qu'un motif ligne par ligne ne voit pas :
   chaînes et les collections (`StringBuilder.append`, `strings.Builder`, `list.add`, `push`,
   `<<`...) jusqu'à un appel
   dangereux (SQL, commande, chemin de fichier, URL sortante, redirection, template, HTML,
-  désérialisation). Un assainissement en chemin (`int()`, `secure_filename`, `path.basename`,
-  `html.EscapeString`...) l'arrête. Les données locales (arguments de la ligne de commande,
+  désérialisation). Un assainissement en chemin l'arrête : un
+  nombre (`int()`), un nom de fichier (`secure_filename`, `path.basename`), un échappement
+  propre au sink (`html.EscapeString`, `shlex.quote`, un identifiant SQL mis entre guillemets
+  par le pilote, une valeur encodée dans une URL dont l'hôte est fixe). Une vérification dans un
+  `if` (`url.startswith("/")`, `Url.IsLocalUrl`) n'en est pas un : la valeur reste signalée. Les
+  données locales (arguments de la ligne de commande,
   entrée standard, variables d'environnement) ne sont pas des sources : un outil en ligne de
   commande qui agit sur ce que demande sa propre utilisatrice ne franchit aucune frontière de
-  confiance. La valeur est suivie dans un fichier, d'une fonction à l'autre
+  confiance. Une valeur relue dans la base, un fichier ou un cache n'en est pas une non plus :
+  une valeur enregistrée par une requête puis utilisée par une autre (injection de second ordre)
+  n'est pas suivie, elle relève de la revue. La valeur est suivie dans un fichier, d'une fonction à l'autre
   (`SECREVIEW_OPENGREP_TAINT_INTRAFILE`), mais pas d'un fichier à l'autre ([mesure de la détection](../../reference/detection-benchmark.md)) ;
 - **structure** : une option absente (une fabrique XML sans `disallow-doctype-decl`, une archive
   extraite sans filtre, un serveur HTTP sans délais, un Dockerfile sans `USER`) ou une

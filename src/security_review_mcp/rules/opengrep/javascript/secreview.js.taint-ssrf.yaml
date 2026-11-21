@@ -122,3 +122,4 @@ rules:
           - pattern: encodeURIComponent(...)
           - pattern: parseInt(...)
           - pattern: Number(...)
+          - pattern: querystring.escape(...)

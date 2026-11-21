@@ -93,3 +93,5 @@ rules:
           - pattern: strconv.ParseInt(...)
           - pattern: strconv.ParseUint(...)
           - pattern: uuid.Parse(...)
+          - pattern: pq.QuoteIdentifier(...)
+          - pattern: pq.QuoteLiteral(...)

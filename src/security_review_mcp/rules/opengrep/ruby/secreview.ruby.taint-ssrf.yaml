@@ -35,6 +35,10 @@ rules:
               - metavariable-regex:
                   metavariable: $FIND
                   regex: ^(find|find_by|find_by!|find_or_create_by|first|last|take)$
+          - pattern: CGI.escape(...)
+          - pattern: ERB::Util.url_encode(...)
+          - pattern: URI.encode_www_form_component(...)
+          - pattern: URI.encode_www_form(...)
     pattern-propagators:
       # A value appended to a string or an array taints it (join...)
       - pattern: $TO << $FROM

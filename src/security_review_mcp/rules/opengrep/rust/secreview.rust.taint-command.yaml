@@ -62,3 +62,8 @@ rules:
                       metavariable: $FLAG
                       regex: ^"(-c|/C|/c|-Command)"$
           - focus-metavariable: $CMD
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: shell_escape::escape(...)
+          - pattern: shlex::try_quote(...)
+          - pattern: shlex::quote(...)

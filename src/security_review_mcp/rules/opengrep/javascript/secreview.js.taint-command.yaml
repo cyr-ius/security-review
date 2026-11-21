@@ -127,3 +127,7 @@ rules:
               metavariable: $FN
               regex: ^(exec|execSync)$
           - focus-metavariable: $CMD
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: shellQuote.quote(...)
+          - pattern: shellescape(...)

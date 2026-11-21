@@ -117,3 +117,5 @@ rules:
     pattern-sanitizers:
       - pattern-either:
           - pattern: Uri.EscapeDataString(...)
+          - pattern: HttpUtility.UrlEncode(...)
+          - pattern: WebUtility.UrlEncode(...)

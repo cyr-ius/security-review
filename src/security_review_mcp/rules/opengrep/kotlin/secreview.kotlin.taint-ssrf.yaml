@@ -127,3 +127,9 @@ rules:
                       metavariable: $VERB
                       regex: ^(get|post|put|patch|delete|head|request)$
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: URLEncoder.encode(...)
+          - pattern: UriUtils.encode(...)
+          - pattern: UriUtils.encodePathSegment(...)
+          - pattern: UriUtils.encodeQueryParam(...)

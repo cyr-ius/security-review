@@ -47,6 +47,9 @@ rules:
           - pattern: floatval(...)
           - pattern: (int) $X
           - pattern: (float) $X
+          - pattern: urlencode(...)
+          - pattern: rawurlencode(...)
+          - pattern: http_build_query(...)
     pattern-propagators:
       # A value added to an array taints it (implode...)
       - pattern: array_push($TO, $FROM)

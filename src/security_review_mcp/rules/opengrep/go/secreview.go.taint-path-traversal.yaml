@@ -86,3 +86,5 @@ rules:
       - pattern-either:
           - pattern: filepath.Base(...)
           - pattern: path.Base(...)
+          - pattern: 'filepath.Clean("/" + $X)'
+          - pattern: 'path.Clean("/" + $X)'

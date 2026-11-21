@@ -80,3 +80,7 @@ rules:
               - pattern: "($CLIENT : *http.Client).Get($URL)"
               - pattern: "($CLIENT : *http.Client).Post($URL, ...)"
           - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: url.PathEscape(...)
+          - pattern: url.QueryEscape(...)
