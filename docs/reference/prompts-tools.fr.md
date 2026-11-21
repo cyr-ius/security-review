@@ -7,11 +7,11 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](../review/
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale de code Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
-| `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
-| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
-| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) ; [fonctionnement et coût](../review/analysis/code-scan.md#ce-que-fait-codebase-review) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
-| `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
+| `security-review` | Revue générale de code Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) ; [fonctionnement et coût](../review/analysis/code-scan.md#ce-que-fait-codebase-review) | `languages`, `scan_results`, `context`, `focus`, `report_language`, `fix_min_severity` |
+| `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language`, `fix_min_severity` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
 | `development-standards` | Donne à l'assistant les [normes de développement](../review/standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
@@ -57,6 +57,24 @@ le gate, l'export SARIF et les tendances fonctionnent quelle que soit la langue.
 
 La valeur n'accepte que des lettres, espaces, `-`, `_` et parenthèses (40 caractères au plus),
 pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refusé.
+
+### Findings à corriger
+
+`fix_min_severity` indique à l'agent les findings à corriger dans le code une fois le rapport
+enregistré : chaque finding confirmé de cette sévérité ou plus (`critical`, `high`, `medium`,
+`low` ou `info` ; `high` signifie critiques et hauts), du plus grave au moins grave, avec un test
+quand le projet en a, puis un `propose_finding_status` au statut `fixed` pour chacun (une
+personne le valide toujours). Les findings moins graves restent dans le rapport sans changement
+du code, sauf demande de l'utilisateur. Sans cet argument, le prompt reprend
+[`SECREVIEW_FIX_MIN_SEVERITY`](configuration.md#serveur-mcp) quand elle est définie, sinon la
+sévérité choisie par un administrateur dans la page [**Général**](../usage/index.md#pages) ; si
+aucune n'est définie, le prompt ne donne aucune consigne et l'agent ne corrige que ce que
+l'utilisateur demande. Cela remplace une règle comme « corrige les findings critiques et hauts »
+écrite dans le `AGENTS.md` de chaque dépôt.
+
+Comme pour la langue, un agent qui fait la revue sans prompt reçoit la sévérité configurée dans
+les résultats de `get_review_checklist` (section « Findings to fix ») et de `scan_code` (champ
+`fix_min_severity`, `null` sans consigne). Toute autre valeur est refusée.
 
 ## Outils
 

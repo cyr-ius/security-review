@@ -18,6 +18,14 @@ class ReportLanguageUpdate(BaseModel):
     value: str | None = Field(default=None, max_length=REPORT_LANGUAGE_MAX_CHARS)
 
 
+class FixSeverityUpdate(BaseModel):
+    """Body of PUT /settings/fix-severity: lowest severity of the findings the agent must fix,
+    "" for no instruction, null removes the stored value. Refused (422) when
+    SECREVIEW_FIX_MIN_SEVERITY is set: the variable takes precedence."""
+
+    value: Literal["", "critical", "high", "medium", "low", "info"] | None = None
+
+
 class ControllerUrlUpdate(BaseModel):
     """Body of PUT /settings/controller-url: public root URL of the controller, whose web
     interface (/ui) the MCP server gives to the clients without a valid token; null or ""
@@ -55,6 +63,16 @@ class ProxyUpdate(BaseModel):
 class ReportLanguageSetting(BaseModel):
     """Language of the reports: stored value, variable, whether the variable is set (it then
     takes precedence over the stored value), effective value."""
+
+    value: str | None
+    env: str
+    env_set: bool
+    effective: str
+
+
+class FixSeveritySetting(BaseModel):
+    """Lowest severity the agent must fix: stored value, variable, whether the variable is set (it
+    then takes precedence over the stored value), effective value ("": no instruction)."""
 
     value: str | None
     env: str
@@ -224,6 +242,7 @@ class AppSettings(BaseModel):
     """Settings of the web interface, their variables and their effective values."""
 
     report_language: ReportLanguageSetting
+    fix_min_severity: FixSeveritySetting
     controller_url: ControllerUrlSetting
     mcp_scan_delegation: McpScanDelegationSetting
     proxy: ProxySettings

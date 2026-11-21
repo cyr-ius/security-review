@@ -9,7 +9,7 @@ ci-dessous selon le processus qui les lit : [les deux](#les-deux-processus), le
 [clients](#clients).
 
 Certains réglages se définissent aussi dans l'[interface web](../usage/index.md#pages) :
-langue des rapports, proxy sortant, connexion OIDC et serveur syslog du journal d'audit. **Une variable définie est toujours
+langue des rapports, findings à corriger, proxy sortant, connexion OIDC et serveur syslog du journal d'audit. **Une variable définie est toujours
 prioritaire** sur la valeur de l'interface, qui ne s'applique que si la variable n'est pas
 définie (la page verrouille alors le champ).
 
@@ -56,6 +56,7 @@ Lues par `security-review-mcp` uniquement.
 | `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` ou `http` (mode partagé), ou `stdio` (mode local), sans tenir compte de la casse ; mode de la commande `mcp` de l'[image Docker](../advanced/deployment/docker.md#choisir-le-processus) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/bearer-tokens.md)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans la page [**Langue des rapports**](../usage/index.md#pages) |
+| `SECREVIEW_FIX_MIN_SEVERITY` | — | Sévérité minimale des [findings à corriger](prompts-tools.md#findings-a-corriger) dans le code après une revue (`critical`, `high`, `medium`, `low`, `info`), donnée par les prompts de revue, `get_review_checklist` et `scan_code` quand l'argument `fix_min_severity` est absent ; vide : aucune consigne. Définie (même vide), elle est prioritaire sur la sévérité choisie dans la page [**Général**](../usage/index.md#pages) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code`, et de chaque texte d'un rapport (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |
 | `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Obsolète : définissez plutôt [`SECREVIEW_SCANCODE_DELEGATED`](#interface-web-et-sessions) sur le serveur Controller. Encore lue, avec un avertissement : URL racine du serveur Controller à qui `scan_code` délègue son scan ; prioritaire sur la délégation enregistrée par le serveur Controller. Le serveur Controller ne répond que si sa propre délégation est activée (`SECREVIEW_SCANCODE_DELEGATED` ou l'interface web) : sinon, `scan_code` revient aux règles du serveur MCP |

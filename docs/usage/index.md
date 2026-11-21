@@ -97,7 +97,7 @@ together. The changes go to the form, which still saves or cancels them.
 
 | Page | What for |
 |---|---|
-| **General** | Report language, Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
+| **General** | Report language, findings the agent must fix (from which severity), Controller server address and outgoing proxy (OSV download and OIDC login); while the address is unknown, a banner at the top of every page links to it |
 | **Activity** | What runs now, the delegation of `scan_code` and `start_codebase_scan` to the Controller server, and the scan engines with their revocation (`settings.manage`): see [Activity](#activity) |
 | **Users** | One tab each: **Accounts**, with their roles and their projects ([user accounts](user-accounts.md)), **Roles** ([roles and permissions](access-control.md)) and **OIDC sign-in**, the company login ([OIDC login](sso.md)) (`users.manage`) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |

@@ -1926,6 +1926,27 @@ def test_admin_sets_the_report_language(client):
     assert reset["report_language"]["value"] is None
 
 
+def test_admin_sets_the_fix_severity(client, monkeypatch):
+    url = "/api/v1/settings/fix-severity"
+    response = client.put(url, json={"value": "high"})
+
+    assert response.status_code == 200
+    assert response.json()["fix_min_severity"]["effective"] == "high"
+    assert app_settings.fix_min_severity() == "high"
+    assert client.put(url, json={"value": "urgent"}).status_code == 422
+    monkeypatch.setattr(get_settings(), "fix_min_severity", "critical")
+    refused = client.put(url, json={"value": "low"})
+    assert refused.status_code == 422
+    assert "SECREVIEW_FIX_MIN_SEVERITY is set" in refused.json()["detail"]
+    reset = client.put(url, json={"value": None}).json()
+    assert reset["fix_min_severity"] == {
+        "value": None,
+        "env": "critical",
+        "env_set": True,
+        "effective": "critical",
+    }
+
+
 def test_admin_sets_the_controller_url(client):
     url = "/api/v1/settings/controller-url"
     response = client.put(url, json={"value": "https://sr.example"})

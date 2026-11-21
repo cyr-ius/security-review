@@ -1101,6 +1101,15 @@ export interface AppSettings {
     env_set: boolean;
     effective: string;
   };
+  /** Lowest severity of the findings the agent must fix ('' or null: no instruction). */
+  fix_min_severity: {
+    /** Set in the web interface; ignored when env_set. */
+    value: string | null;
+    env: string;
+    /** SECREVIEW_FIX_MIN_SEVERITY is set: it takes precedence over the stored value. */
+    env_set: boolean;
+    effective: string;
+  };
   /** Public root URL of the controller; its web interface is given to the agents without a token. */
   controller_url: {
     /** Stored: set here, or copied from SECREVIEW_PUBLIC_URL by the controller at start. */

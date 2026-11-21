@@ -163,6 +163,8 @@ from .settings import (  # noqa: F401
     AuditSyslogUpdate,
     ControllerUrlSetting,
     ControllerUrlUpdate,
+    FixSeveritySetting,
+    FixSeverityUpdate,
     McpScanDelegationSetting,
     McpScanDelegationUpdate,
     OidcSettings,

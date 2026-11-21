@@ -78,11 +78,11 @@ review, which the agent then follows. Every argument is an optional string.
 
 | Prompt | Arguments | Returns |
 |---|---|---|
-| `security-review` | `language` (one or more, comma separated: `python, angular`; aliases `py`, `ts` accepted), `code`, `context`, `focus`, `report_language` | Review of the code with the checklists of the languages |
-| `api-security-review` | `framework` (`FastAPI`, `Spring Boot`, `Express`…), `code`, `context`, `focus`, `report_language` | Review of a REST API against the OWASP API Security Top 10 |
-| `configuration-review` | `config_type` (`Dockerfile`, `GitLab CI`, `Jenkinsfile`…), `content`, `context`, `focus`, `report_language` | Review of Docker, CI/CD, Spring, YAML or properties files |
-| `codebase-review` | `languages`, `scan_results` (JSON output of `security-review-ci scan-code . --project <name> --format json`), `context`, `focus`, `report_language` | Review of the whole repository, from the scan results ([files read, rules, checklists, token consumption](../../review/analysis/code-scan.md#what-codebase-review-does)) |
-| `dependency-review` | `ecosystem` (`PyPI`, `npm`, `Maven`, `Go`, `crates.io`, `NuGet`; empty: all), `files`, `context`, `report_language` | Review of manifests and lockfiles |
+| `security-review` | `language` (one or more, comma separated: `python, angular`; aliases `py`, `ts` accepted), `code`, `context`, `focus`, `report_language`, `fix_min_severity` | Review of the code with the checklists of the languages |
+| `api-security-review` | `framework` (`FastAPI`, `Spring Boot`, `Express`…), `code`, `context`, `focus`, `report_language`, `fix_min_severity` | Review of a REST API against the OWASP API Security Top 10 |
+| `configuration-review` | `config_type` (`Dockerfile`, `GitLab CI`, `Jenkinsfile`…), `content`, `context`, `focus`, `report_language`, `fix_min_severity` | Review of Docker, CI/CD, Spring, YAML or properties files |
+| `codebase-review` | `languages`, `scan_results` (JSON output of `security-review-ci scan-code . --project <name> --format json`), `context`, `focus`, `report_language`, `fix_min_severity` | Review of the whole repository, from the scan results ([files read, rules, checklists, token consumption](../../review/analysis/code-scan.md#what-codebase-review-does)) |
+| `dependency-review` | `ecosystem` (`PyPI`, `npm`, `Maven`, `Go`, `crates.io`, `NuGet`; empty: all), `files`, `context`, `report_language`, `fix_min_severity` | Review of manifests and lockfiles |
 | `triage-report` | `report_id` (required, integer), `context`, `report_language` | Re-assessment of the findings of a stored report, embedded in Markdown without its author |
 | `development-standards` | `technologies`, `files` (comma or newline separated), `task`, `context` | The [development standards](../../review/standards.md) of the stack (the catalog when both lists are empty); saves nothing |
 
@@ -93,8 +93,11 @@ review, which the agent then follows. Every argument is an optional string.
 - `report_language`: letters, spaces, `-`, `_` and parentheses, 40 characters at most;
   without it, `SECREVIEW_REPORT_LANGUAGE`, else the **General** page
   ([report language](../../reference/prompts-tools.md#report-language)).
+- `fix_min_severity`: `critical`, `high`, `medium`, `low` or `info` (any case); without it,
+  `SECREVIEW_FIX_MIN_SEVERITY`, else the **General** page
+  ([findings to fix](../../reference/prompts-tools.md#findings-to-fix)).
 - An invalid argument returns the MCP error `INVALID_PARAMS` with its reason: refused
-  `report_language`, `scan_results` or `task` + `context` beyond
+  `report_language` or `fix_min_severity`, `scan_results` or `task` + `context` beyond
   `SECREVIEW_MAX_CONTENT_CHARS`, report outside the projects of the token, unknown standard.
 
 ### Tools
@@ -109,8 +112,8 @@ error is hidden from it.
 | Tool | Type | Parameters | Returns |
 |---|---|---|---|
 | `list_checklists` | read-only | none | Domains (built-in and internal) with their number of items |
-| `get_review_checklist` | read-only | `domain` | The checklist in Markdown, followed by the report language when one is configured |
-| `scan_code` | read-only | `content` (at most `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (rule, line, masked excerpt), `suppressed` (lines marked `secreview:ignore`), counts, `engines` (`rules`, `opengrep` when [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)), `controller_error`, `report_language`; leads to check, not a full SAST |
+| `get_review_checklist` | read-only | `domain` | The checklist in Markdown, followed by the report language and the findings to fix when they are configured |
+| `scan_code` | read-only | `content` (at most `SECREVIEW_MAX_CONTENT_CHARS`), `language` (`python`, `java`, `typescript`, `javascript`, `angular`, `go`…) | `matches` (rule, line, masked excerpt), `suppressed` (lines marked `secreview:ignore`), counts, `engines` (`rules`, `opengrep` when [delegated to the Controller server](../../review/analysis/opengrep.md#fragment-scans-scan_code)), `controller_error`, `report_language`, `fix_min_severity`; leads to check, not a full SAST |
 | `start_codebase_scan` | write | `project`, `scope` (`all` by default, `code` or `deps`) | `scan_code_command` and `scan_deps_command` (according to `scope`) (`security-review-ci` run with `uvx`, single-use ticket on stdin), `expires_at`; needs the delegation of `scan_code` ([scan started by the agent](../../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `list_rules` | read-only | `language` (optional) | Active rules, `disabled_rules`, `load_errors` of the internal rules |
 | `reload_rules` | write | none | Reads the rules of the database again at once (otherwise within 5 seconds); refused to a token restricted to projects |

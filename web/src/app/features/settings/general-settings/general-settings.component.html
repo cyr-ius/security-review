@@ -111,6 +111,69 @@
       }
     </div>
   </section>
+  <section id="fix-severity" class="card setting-card mb-4" aria-labelledby="fix-title">
+    <div class="card-body">
+      <h2 id="fix-title" class="h5">
+        <i class="bi bi-wrench-adjustable me-2" aria-hidden="true"></i>{{ 'settings.fixTitle' | t }}
+      </h2>
+      <p class="text-body-secondary small">
+        {{ 'settings.fixHelpBefore' | t }} <code>fix_min_severity</code
+        >{{ 'settings.fixHelpAfter' | t }}
+      </p>
+      <p class="mb-3">
+        {{ 'settings.fixApplied' | t }} <strong>{{ fixApplied() }}</strong>
+      </p>
+      @if (current.fix_min_severity.env_set) {
+        <div class="alert alert-info py-2 mb-0" role="status">
+          <span class="badge text-bg-secondary">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            {{ 'settings.variable' | t }}
+          </span>
+          <span class="ms-1">
+            {{ 'settings.fixLockedHelp' | t: { variable: 'SECREVIEW_FIX_MIN_SEVERITY' } }}
+          </span>
+          @if (current.fix_min_severity.value !== null) {
+            <span class="text-body-secondary ms-1">{{ 'settings.fixStoredIgnored' | t }}</span>
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+              [disabled]="busy()"
+              [attr.aria-label]="
+                'settings.fixDeleteStored' | t: { variable: 'SECREVIEW_FIX_MIN_SEVERITY' }
+              "
+              (click)="deleteStoredFixSeverity()"
+            >
+              {{ 'common.delete' | t }}
+            </button>
+          }
+        </div>
+      } @else {
+        <form class="row g-2 align-items-end" (submit)="saveFixSeverity($event)" novalidate>
+          <div class="col-md-5">
+            <label for="fix-severity-value" class="form-label small mb-1">{{
+              'settings.fixLabel' | t
+            }}</label>
+            <select
+              id="fix-severity-value"
+              class="form-select form-select-sm"
+              [formField]="fixForm.severity"
+            >
+              <option value="">{{ 'settings.fixNone' | t }}</option>
+              @for (option of fixOptions(); track option.severity) {
+                <option [value]="option.severity">{{ option.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-3">
+            <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy()">
+              <i class="bi bi-check-lg" aria-hidden="true"></i>
+              {{ 'common.save' | t }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </section>
   <section
     id="controller-url"
     class="card setting-card mb-4"

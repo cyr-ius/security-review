@@ -35,6 +35,19 @@ def check_report_language(value: str) -> str:
     return language
 
 
+# Severities from the most to the least severe, as accepted by SECREVIEW_FIX_MIN_SEVERITY
+FIX_SEVERITIES = ("critical", "high", "medium", "low", "info")
+
+
+def check_fix_min_severity(value: str) -> str:
+    """Return the lowest severity the agent must fix (lower case), "" for none, or raise
+    ValueError if it is not a severity."""
+    severity = value.strip().lower()
+    if severity and severity not in FIX_SEVERITIES:
+        raise ValueError(f"fix severity must be one of: {', '.join(FIX_SEVERITIES)}")
+    return severity
+
+
 # Bound of the public URL of the controller (SECREVIEW_PUBLIC_URL or web interface)
 CONTROLLER_URL_MAX_CHARS = 500
 # Shortest secret shared by the controller and the scan engines (SECREVIEW_SCAN_ENGINE_TOKEN)
@@ -456,6 +469,12 @@ class Settings(BaseSettings):
     # prompts overrides it. Severities, categories, statuses and rule ids stay in English.
     # When the variable is not set, an administrator can choose it in the web interface.
     report_language: str = ""
+    # Lowest severity of the findings the agent must fix in the code after a review (critical,
+    # high, medium, low or info): the review prompts, get_review_checklist and scan_code tell it.
+    # Empty: no instruction, the agent fixes only what the user asks. The `fix_min_severity`
+    # argument of the review prompts overrides it. When the variable is not set, an administrator
+    # can choose it in the web interface.
+    fix_min_severity: str = ""
 
     # Controller only: delete the reports without any finding (clean reviews) older than
     # empty_report_retention_days, checked at start then every day. The latest report of each
@@ -770,6 +789,12 @@ class Settings(BaseSettings):
     def _check_report_language(cls, value: str) -> str:
         """Reject a report language that is not a plain language name or code."""
         return check_report_language(value)
+
+    @field_validator("fix_min_severity")
+    @classmethod
+    def _check_fix_min_severity(cls, value: str) -> str:
+        """Reject a fix severity that is not a severity."""
+        return check_fix_min_severity(value)
 
 
 def secret_value(secret: SecretStr | None) -> str | None:

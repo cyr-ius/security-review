@@ -693,6 +693,11 @@ export class ApiService {
     return this.http.put<AppSettings>(`${API_URL}/settings/report-language`, { value });
   }
 
+  /** Lowest severity to fix; '' gives no instruction, null restores SECREVIEW_FIX_MIN_SEVERITY. */
+  setFixSeverity(value: string | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/fix-severity`, { value });
+  }
+
   /** null (or '') removes the stored URL of the controller. */
   setControllerUrl(value: string | null): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/controller-url`, { value });
