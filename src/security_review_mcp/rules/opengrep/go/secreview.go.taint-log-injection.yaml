@@ -1,0 +1,73 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.go.taint-log-injection
+    message: >-
+      Request data is written to the standard log as-is: a line break in it forges log entries that
+      mislead an investigation or a log parser. Log it with %q or strconv.Quote, or use log/slog,
+      whose handlers quote the values.
+    languages: [go]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-117: Improper Output Neutralization for Logs"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      confidence: LOW
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: "($REQ : *http.Request).FormValue(...)"
+          - pattern: "($REQ : *http.Request).PostFormValue(...)"
+          - pattern: "($REQ : *http.Request).PathValue(...)"
+          - pattern: "($REQ : *http.Request).URL.Query()"
+          - pattern: "($REQ : *http.Request).URL.RawQuery"
+          - pattern: "($REQ : *http.Request).URL.Path"
+          - pattern: "($REQ : *http.Request).Form"
+          - pattern: "($REQ : *http.Request).PostForm"
+          - pattern: "($REQ : *http.Request).Header"
+          - pattern: "($REQ : *http.Request).Body"
+          - pattern: "($REQ : *http.Request).Cookie(...)"
+          - pattern: mux.Vars(...)
+          - pattern: chi.URLParam(...)
+          - patterns:
+              - pattern: "($CTX : *gin.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|DefaultQuery|Param|PostForm|DefaultPostForm|GetHeader|GetQuery|GetPostForm|QueryArray|FormFile|Cookie)$
+          - patterns:
+              - pattern: "($CTX : echo.Context).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(QueryParam|Param|FormValue|QueryParams|FormParams|Cookie)$
+          # Fiber v2 (*fiber.Ctx) and v3 (fiber.Ctx)
+          - patterns:
+              - pattern-either:
+                  - pattern: "($CTX : *fiber.Ctx).$METHOD(...)"
+                  - pattern: "($CTX : fiber.Ctx).$METHOD(...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Query|Queries|Params|AllParams|FormValue|Body|BodyRaw|Get|GetReqHeaders|Cookies|OriginalURL)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: log.$FUNC(...)
+              - pattern: "($LOGGER : *log.Logger).$FUNC(...)"
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(Print|Printf|Println|Fatal|Fatalf|Fatalln|Panic|Panicf|Panicln)$
+          # %q quotes the value, line breaks included
+          - pattern-not: log.$FUNC("=~/%q/", ...)
+          - pattern-not: '($LOGGER : *log.Logger).$FUNC("=~/%q/", ...)'
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: strconv.Quote(...)
+          - pattern: strconv.Atoi(...)
+          - patterns:
+              - pattern: strings.$REPLACE($VALUE, $CHARS, ...)
+              - metavariable-regex:
+                  metavariable: $REPLACE
+                  regex: ^(Replace|ReplaceAll)$
+              - metavariable-regex:
+                  metavariable: $CHARS
+                  regex: .*(\\[rn]|[\r\n])

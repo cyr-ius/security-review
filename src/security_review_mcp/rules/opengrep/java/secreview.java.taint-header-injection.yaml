@@ -1,0 +1,107 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.java.taint-header-injection
+    message: >-
+      Request data is written to a response header: depending on the servlet container, a CR or LF
+      in it splits the response (forged headers, cache poisoning, XSS). Remove the line breaks or
+      encode the value (URLEncoder) before setting the header.
+    languages: [java]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-113: Improper Neutralization of CRLF Sequences in HTTP Headers ('HTTP Request/Response Splitting')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ANN
+                  regex: ^(RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute|RequestPart|MatrixVariable|QueryParam|PathParam|FormParam|HeaderParam|CookieParam)$
+              - pattern: $PARAM
+          # Spring binds a handler parameter without annotation too: a simple type from the
+          # query string or the form, an object (form, DTO) as an implicit @ModelAttribute
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      @$MAPPING(...)
+                      $RET $METHOD(..., $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      @$MAPPING
+                      $RET $METHOD(..., $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $MAPPING
+                  regex: ^(Get|Post|Put|Patch|Delete|Request)Mapping$
+              # An annotated parameter is either request data (above) or not (@AuthenticationPrincipal)
+              - pattern-not-inside: |
+                  $RET $METHOD(..., @$ANN $TYPE $PARAM, ...) { ... }
+              - pattern-not-inside: |
+                  $RET $METHOD(..., @$ANN(...) $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(String|String\[\]|List<String>|Optional<String>|[A-Z]\w*(Form|Dto|DTO|Request|Command|Params|Criteria|Filter))$
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  # Framework objects, whose getters are the sources below
+                  regex: ^(?!(HttpServletRequest|ServletRequest|WebRequest|NativeWebRequest|ServerHttpRequest|ServerRequest|RequestEntity|MultipartHttpServletRequest)$)
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: (HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GETTER(...)
+                  - pattern: (ServletRequest $REQ).$GETTER(...)
+                  - pattern: (javax.servlet.ServletRequest $REQ).$GETTER(...)
+                  - pattern: (jakarta.servlet.ServletRequest $REQ).$GETTER(...)
+              - metavariable-regex:
+                  metavariable: $GETTER
+                  regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getRequestURI|getRequestURL|getPathInfo|getPart|getParts)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletResponse $RESPONSE).$SET($NAME, $VALUE)
+              - pattern: (javax.servlet.http.HttpServletResponse $RESPONSE).$SET($NAME, $VALUE)
+              - pattern: (jakarta.servlet.http.HttpServletResponse $RESPONSE).$SET($NAME, $VALUE)
+              - pattern: (HttpHeaders $HEADERS).$SET($NAME, $VALUE)
+              - pattern: ResponseEntity.$STATUS(...).header($NAME, $VALUE)
+          - metavariable-regex:
+              metavariable: $SET
+              regex: ^(addHeader|setHeader|add|set)$
+          - focus-metavariable: $VALUE
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletResponse $RESPONSE).$SET($NAME, $VALUE)
+              - pattern: (javax.servlet.http.HttpServletResponse $RESPONSE).$SET($NAME, $VALUE)
+              - pattern: (jakarta.servlet.http.HttpServletResponse $RESPONSE).$SET($NAME, $VALUE)
+              - pattern: (HttpHeaders $HEADERS).$SET($NAME, $VALUE)
+              - pattern: ResponseEntity.$STATUS(...).header($NAME, $VALUE)
+          - metavariable-regex:
+              metavariable: $SET
+              regex: ^(addHeader|setHeader|add|set)$
+          - focus-metavariable: $NAME
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: URLEncoder.encode(...)
+          - pattern: java.net.URLEncoder.encode(...)
+          - pattern: Integer.parseInt(...)
+          - pattern: Long.parseLong(...)
+          - patterns:
+              - pattern-either:
+                  - pattern: $VALUE.replace($CHARS, ...)
+              - metavariable-regex:
+                  metavariable: $CHARS
+                  regex: .*(\\[rn]|[\r\n])
+          - patterns:
+              - pattern-either:
+                  - pattern: $VALUE.replaceAll($CHARS, ...)
+              - metavariable-regex:
+                  metavariable: $CHARS
+                  regex: .*(\\[rn]|[\r\n])

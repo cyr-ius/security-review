@@ -1,0 +1,97 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.csharp.taint-regex-injection
+    message: >-
+      Request data is used as a regular expression without a match timeout: a crafted pattern can
+      hang the request with catastrophic backtracking (ReDoS) or change what the check accepts.
+      Escape it with Regex.Escape(), or pass a matchTimeout or RegexOptions.NonBacktracking.
+    languages: [csharp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-1333: Inefficient Regular Expression Complexity"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR] $TYPE $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      $RET $METHOD(..., [$ATTR(...)] $TYPE $PARAM, ...) { ... }
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  class $CONTROLLER : $BASE { ... }
+              - metavariable-regex:
+                  metavariable: $BASE
+                  regex: ^(Controller|ControllerBase|ApiController)$
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public async $RET $METHOD(..., string $PARAM, ...) { ... }
+              - pattern: $PARAM
+          - patterns:
+              - pattern-either:
+                  - pattern: Request.$COLLECTION[...]
+                  - pattern: HttpContext.Request.$COLLECTION[...]
+                  - pattern: $CTX.Request.$COLLECTION[...]
+              - metavariable-regex:
+                  metavariable: $COLLECTION
+                  regex: ^(Query|Form|Headers|Cookies|RouteValues)$
+          - pattern: Request.Body
+          - pattern: Request.QueryString
+          # Minimal API handlers: the string parameters and the [From...] parameters of the lambda
+          - patterns:
+              - pattern-either:
+                  - patterns:
+                      - pattern-either:
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., $TYPE $PARAM, ...) => { ... })
+                      - metavariable-regex:
+                          metavariable: $TYPE
+                          regex: ^string\??$
+                  - patterns:
+                      - pattern-either:
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR] $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR] $TYPE $PARAM, ...) => { ... })
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR(...)] $TYPE $PARAM, ...) => $BODY)
+                          - pattern-inside: $APP.$MAP($ROUTE, (..., [$ATTR(...)] $TYPE $PARAM, ...) => { ... })
+                      - metavariable-regex:
+                          metavariable: $ATTR
+                          regex: ^(FromQuery|FromRoute|FromBody|FromForm|FromHeader)$
+              - metavariable-regex:
+                  metavariable: $MAP
+                  regex: ^Map(Get|Post|Put|Patch|Delete|Methods)$
+              - pattern: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              # The overloads without a matchTimeout argument
+              - pattern: new Regex($PATTERN)
+              - pattern: new Regex($PATTERN, $OPTIONS)
+              - patterns:
+                  - pattern-either:
+                      - pattern: Regex.$CHECK($INPUT, $PATTERN)
+                      - pattern: Regex.$CHECK($INPUT, $PATTERN, $OPTIONS)
+                  - metavariable-regex:
+                      metavariable: $CHECK
+                      regex: ^(IsMatch|Match|Matches|Split|Count)$
+              - pattern: Regex.Replace($INPUT, $PATTERN, $REPLACEMENT)
+              - pattern: Regex.Replace($INPUT, $PATTERN, $REPLACEMENT, $OPTIONS)
+          # NonBacktracking runs in linear time
+          - pattern-not: new Regex($PATTERN, <... RegexOptions.NonBacktracking ...>)
+          - pattern-not: Regex.$CHECK($INPUT, $PATTERN, <... RegexOptions.NonBacktracking ...>)
+          - pattern-not: Regex.Replace($INPUT, $PATTERN, $REPLACEMENT, <... RegexOptions.NonBacktracking ...>)
+          - focus-metavariable: $PATTERN
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Regex.Escape(...)
