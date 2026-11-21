@@ -138,9 +138,10 @@ class ProjectFindingPage(BaseModel):
 
 class RiskAcceptance(ProjectFinding):
     """An accepted risk: the finding, the context of its report, whether the acceptance has
-    expired (the finding counts as open again) and its number of comments."""
+    expired (the finding counts as open again) or expires soon, and its number of comments."""
 
     expired: bool
+    expiring_soon: bool
     comments_total: int
 
 
@@ -269,3 +270,6 @@ class GateResult(BaseModel):
     passed: bool
     blocking_findings: int
     open_findings_by_severity: dict[str, int]
+    # Decisions at or above fail_on that expire within expiry_warning_days: they block again then
+    expiring_soon: int
+    expiry_warning_days: int

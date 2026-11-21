@@ -22,7 +22,13 @@ from ...storage.models import (
     utcnow,
 )
 from ...storage.project_names import normalize_project
-from .core import NotFoundError, _current, _status_is
+from .core import (
+    DISMISSAL_EXPIRY_WARNING,
+    NotFoundError,
+    _current,
+    _expiring_dismissal,
+    _status_is,
+)
 from .findings import list_project_findings, project_posture
 from .scope import check_project_scope
 
@@ -209,6 +215,8 @@ def evaluate_gate(
     or equal to ``fail_on``. A triager unblocks it by marking findings ``fixed``, ``accepted``
     or ``false_positive``; an expired acceptance or false positive blocks again. For the whole
     project, an issue reported again by a later report counts once (its latest occurrence).
+    ``expiring_soon`` counts the decisions at or above ``fail_on`` that expire within
+    DISMISSAL_EXPIRY_WARNING: the findings that will block again unless decided anew.
 
     Args:
         project: Project name.
@@ -237,6 +245,23 @@ def evaluate_gate(
         else:
             statement = statement.where(_current())
         rows = session.exec(statement.group_by(Finding.severity)).all()  # type: ignore[arg-type]
+        ranked = [s for s in Severity if SEVERITY_RANK[s] >= threshold]
+        expiring = (
+            select(func.count())
+            .select_from(Finding)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(
+                SecurityReport.project == project,
+                _expiring_dismissal(utcnow()),
+                col(Finding.severity).in_(ranked),
+            )
+        )
+        expiring = (
+            expiring.where(Finding.report_id == report_id)
+            if report_id is not None
+            else expiring.where(_current())
+        )
+        expiring_soon = session.exec(expiring).one()
 
     open_by_severity = {severity.value: 0 for severity in Severity}
     for severity, number in rows:
@@ -253,6 +278,8 @@ def evaluate_gate(
         "passed": blocking == 0,
         "blocking_findings": blocking,
         "open_findings_by_severity": open_by_severity,
+        "expiring_soon": expiring_soon,
+        "expiry_warning_days": DISMISSAL_EXPIRY_WARNING.days,
     }
 
 

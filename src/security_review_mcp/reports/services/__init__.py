@@ -6,6 +6,7 @@ The package is split by domain and re-exports the names its callers use.
 from ...config import get_settings  # noqa: F401
 from ...storage.models import utcnow  # noqa: F401
 from .core import (  # noqa: F401
+    DISMISSAL_EXPIRY_WARNING,
     MIN_STATUS_REASON_CHARS,
     NotFoundError,
     _status_is,
@@ -43,6 +44,7 @@ from .scope import (  # noqa: F401
 from .triage import (  # noqa: F401
     MAX_BULK_FINDINGS,
     clear_finding_proposal,
+    expiring_dismissal_count,
     finding_status_counts,
     logger,
     needs_formal_acceptance,

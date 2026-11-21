@@ -53,6 +53,7 @@ def test_metrics_count_findings_tokens_and_users(triage):
         "secreview_finding_proposals_pending 1",
         'secreview_tokens{role="mcp",state="active"} 2',
         "secreview_tokens_expiring_soon 1",
+        "secreview_acceptances_expiring_soon 0",
         "secreview_project_enrollments_pending 1",
         'secreview_web_users{auth_source="local"} 1',
         "secreview_advisories 0",

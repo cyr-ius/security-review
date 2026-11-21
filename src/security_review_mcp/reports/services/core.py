@@ -2,7 +2,7 @@
 
 import re
 from collections.abc import Collection
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import ColumnElement, and_, or_
 from sqlmodel import col
@@ -44,6 +44,22 @@ def _expired_dismissal(now: datetime) -> ColumnElement[bool]:
         col(Finding.status).in_(DISMISSED_STATUSES),
         col(Finding.status_expires_at).is_not(None),
         col(Finding.status_expires_at) <= now,
+    )
+
+
+# A decision (acceptance, false positive) that expires within this delay is "expiring soon": the
+# gate, the accepted risks and the metrics warn before the finding blocks again
+DISMISSAL_EXPIRY_WARNING = timedelta(days=14)
+
+
+def _expiring_dismissal(now: datetime) -> ColumnElement[bool]:
+    """SQL condition: an accepted or false-positive finding whose decision is still in force but
+    expires within DISMISSAL_EXPIRY_WARNING."""
+    return and_(
+        col(Finding.status).in_(DISMISSED_STATUSES),
+        col(Finding.status_expires_at).is_not(None),
+        col(Finding.status_expires_at) > now,
+        col(Finding.status_expires_at) <= now + DISMISSAL_EXPIRY_WARNING,
     )
 
 

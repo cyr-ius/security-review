@@ -75,7 +75,8 @@ the escalation. To close a finding judged less serious, accept the risk.
 ## Risk acceptances
 
 The **Risk acceptances** page lists the accepted risks, expired ones included, nearest
-expiry first: this is where you renew them, before or after their end.
+expiry first: this is where you renew them, before or after their end. An acceptance that
+expires within 14 days shows **Expires soon**.
 
 - **Comments**: the history of the acceptance, oldest first. The reason is the first comment.
   A comment **can be neither edited nor deleted**, and stays with the finding even when the

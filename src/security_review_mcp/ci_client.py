@@ -1274,6 +1274,14 @@ def main(argv: list[str] | None = None, fetch: Fetch | None = None) -> int:
             if not isinstance(result.get("passed"), bool):
                 raise ValueError("Unexpected answer of gate: no 'passed' field")
             print(json.dumps(result, indent=2))
+            expiring = result.get("expiring_soon")
+            if isinstance(expiring, int) and expiring > 0:
+                days = result.get("expiry_warning_days")
+                print(
+                    f"warning: {expiring} accepted or false-positive finding(s) expire within "
+                    f"{_clean(days)} days and will block the gate again",
+                    file=sys.stderr,
+                )
             return EXIT_PASSED if result["passed"] else EXIT_BLOCKED
         if args.command == "sarif":
             log = _json(body, "sarif")

@@ -21,7 +21,10 @@ Un finding sort du blocage quand une personne le passe à `fixed`, `accepted` ou
 `false_positive` dans l'[interface web](../usage/triage.md) : la
 décision reste tracée en base avec son motif et son approbateur. Un agent peut seulement
 proposer un statut (`propose_finding_status`), ce qui ne débloque pas la gate. Une acceptation
-ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau. Une
+ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau. Quatorze jours avant, la
+gate prévient : `expiring_soon` compte les décisions au-dessus du seuil qui expirent dans les
+`expiry_warning_days` (14) jours, et `security-review-ci gate` affiche un avertissement sur la
+sortie d'erreur, sans changer son code de sortie. Une
 décision est reprise sur le même problème signalé par un rapport ultérieur
 ([finding signalé de nouveau](../usage/triage.md#finding-signale-de-nouveau)) : la gate du rapport
 suivant ne bloque pas sur un risque accepté. Le code de sortie de `scan-code` et `scan-deps`, en

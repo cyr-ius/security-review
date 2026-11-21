@@ -21,11 +21,20 @@ from ...storage.models import (
     ReviewType,
     SecurityReport,
     Severity,
+    as_utc,
     effective_status,
     utcnow,
 )
 from ...storage.project_names import normalize_project
-from .core import NotFoundError, _check_current, _current, _status_is, _values, compute_risk_level
+from .core import (
+    DISMISSAL_EXPIRY_WARNING,
+    NotFoundError,
+    _check_current,
+    _current,
+    _status_is,
+    _values,
+    compute_risk_level,
+)
 from .persistence import _contains_pattern
 
 logger = logging.getLogger("security_review_mcp.services")
@@ -239,7 +248,8 @@ def list_risk_acceptances(
     """List the accepted risks of a project (or of every project), expired ones included.
 
     Nearest expiry first, the acceptances without expiry date last. Each acceptance carries the
-    context of its report, ``expired`` (it counts as open again) and its number of comments.
+    context of its report, ``expired`` (it counts as open again), ``expiring_soon`` (it expires
+    within DISMISSAL_EXPIRY_WARNING) and its number of comments.
     ``limit`` is capped by SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every acceptance, for
     paging.
     ``projects`` (the scope of a restricted caller) keeps only the acceptances of these projects.
@@ -288,6 +298,8 @@ def list_risk_acceptances(
                 "report_created_at": report.created_at,
                 "expired": effective_status(finding.status, finding.status_expires_at, now)
                 == FindingStatus.OPEN,
+                "expiring_soon": finding.status_expires_at is not None
+                and now < as_utc(finding.status_expires_at) <= now + DISMISSAL_EXPIRY_WARNING,
                 "comments_total": comment_count,
             }
             for finding, report, comment_count in rows

@@ -34,6 +34,7 @@ scrape_configs:
 | `secreview_finding_proposals_pending` | | Agent proposals waiting for a person |
 | `secreview_tokens` | `role`, `state` | Tokens by role and state (`active`, `expired`) |
 | `secreview_tokens_expiring_soon` | | Active tokens that expire within 14 days |
+| `secreview_acceptances_expiring_soon` | | Accepted risks and false positives whose decision expires within 14 days (the findings count as open then) |
 | `secreview_project_enrollments_pending` | | Projects requested by the MCP agents of users, waiting for an approval |
 | `secreview_web_users` | `auth_source` | Web accounts (`local`, `oidc`) |
 | `secreview_advisories` | | Advisories in the database |
@@ -47,6 +48,7 @@ escaped, so a project name cannot add lines to the answer. `SECREVIEW_METRICS_EN
 turns the endpoint off (`404`).
 
 Examples of alerts: `secreview_tokens_expiring_soon > 0`,
+`secreview_acceptances_expiring_soon > 0`,
 `secreview_open_findings{severity="critical"} > 0`,
 `time() - secreview_advisory_last_update_timestamp_seconds > 2 * 86400`,
 `rate(secreview_auth_rejections_total{reason="invalid_token"}[5m]) > 1`.

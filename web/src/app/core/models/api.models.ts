@@ -928,6 +928,8 @@ export interface ProjectFindingPage {
 /** An accepted risk of GET /api/v1/risk-acceptances (an expired one counts as open again). */
 export interface RiskAcceptance extends ProjectFinding {
   expired: boolean;
+  /** True when the acceptance expires within 14 days: the finding will block the gate again. */
+  expiring_soon: boolean;
   comments_total: number;
 }
 

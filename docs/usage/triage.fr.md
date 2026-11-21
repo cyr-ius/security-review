@@ -81,7 +81,7 @@ annuler la hausse. Pour clore un finding jugé moins grave, acceptez le risque.
 
 La page **Acceptations de risque** liste les risques acceptés, y compris expirés, de
 l'expiration la plus proche à la plus lointaine : c'est là qu'on les renouvelle, avant ou après
-leur fin.
+leur fin. Une acceptation qui expire dans les 14 jours affiche **Expire bientôt**.
 
 - **Commentaires** : l'historique de l'acceptation, du plus ancien au plus récent. Le motif est
   le premier commentaire. Un commentaire **ne peut être ni modifié ni supprimé**, et reste

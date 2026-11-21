@@ -25,7 +25,14 @@ from ...storage.models import (
     effective_status,
     utcnow,
 )
-from .core import MIN_STATUS_REASON_CHARS, NotFoundError, _check_current, _current, _status_is
+from .core import (
+    MIN_STATUS_REASON_CHARS,
+    NotFoundError,
+    _check_current,
+    _current,
+    _expiring_dismissal,
+    _status_is,
+)
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -384,6 +391,17 @@ def clear_finding_proposal(finding_id: int, actor: str | None = None) -> Finding
         session.flush()
         logger.info("Proposal rejected for finding %s", finding_id)
         return FindingPublic.model_validate(finding, from_attributes=True)
+
+
+def expiring_dismissal_count() -> int:
+    """Count the decisions (acceptances, false positives) in force that expire within
+    DISMISSAL_EXPIRY_WARNING, over every project."""
+    with session_scope() as session:
+        return session.exec(
+            select(func.count())
+            .select_from(Finding)
+            .where(_expiring_dismissal(utcnow()), _current())
+        ).one()
 
 
 def finding_status_counts() -> dict[str, int]:
