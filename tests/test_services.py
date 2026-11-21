@@ -565,11 +565,15 @@ def test_prune_uses_the_setting_and_zero_disables_it(monkeypatch):
     age_report(old, 40)
 
     monkeypatch.setattr(
-        services, "get_settings", lambda: Settings(_env_file=None, empty_report_retention_days=0)
+        services.persistence,
+        "get_settings",
+        lambda: Settings(_env_file=None, empty_report_retention_days=0),
     )
     assert services.prune_empty_reports() == {"retention_days": 0, "deleted": 0}
     monkeypatch.setattr(
-        services, "get_settings", lambda: Settings(_env_file=None, empty_report_retention_days=30)
+        services.persistence,
+        "get_settings",
+        lambda: Settings(_env_file=None, empty_report_retention_days=30),
     )
     assert services.prune_empty_reports() == {"retention_days": 30, "deleted": 1}
     assert old not in stored_report_ids()

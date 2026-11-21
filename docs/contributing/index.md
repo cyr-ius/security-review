@@ -119,7 +119,13 @@ src/security_review_mcp/
 │   ├── retention.py       # daily purge of the reports without findings and of the old audit events
 │   └── project_names.py   # normalization of the project names (every input)
 ├── reports/       # security reports
-│   ├── services.py        # persistence logic of the reports
+│   ├── services/          # persistence logic of the reports, re-exported by the package
+│   │   ├── core.py        #   errors, risk level, status filters and checks
+│   │   ├── persistence.py #   saving, reading and pruning of the reports
+│   │   ├── triage.py      #   status decisions, severity, agent proposals
+│   │   ├── findings.py    #   projects, findings, risk acceptances, comments
+│   │   ├── exports.py     #   Markdown renderings, gate, SARIF items
+│   │   └── scope.py       #   project scope of a caller
 │   ├── coverage.py        # checks the checklist results and scan rules declared with a report
 │   ├── sarif.py           # SARIF 2.1.0 export
 │   └── trends.py          # trend report

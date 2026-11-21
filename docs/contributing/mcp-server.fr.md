@@ -3,7 +3,7 @@
 Le serveur MCP (`security-review-mcp`) expose les prompts, outils et ressources utilisés par
 l'hôte. Il partage la base avec le serveur Controller mais ne l'appelle jamais. Son code est dans
 `server.py` (déclarations), `prompts.py` (texte des prompts) et les modules métier
-(`reports/services.py`, `rules/`, `deps/`…) : `server.py` reste une couche mince qui valide les
+(`reports/services/`, `rules/`, `deps/`…) : `server.py` reste une couche mince qui valide les
 entrées et appelle ces modules.
 
 ```bash
