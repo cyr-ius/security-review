@@ -72,6 +72,9 @@
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-log.md)).
+- **Application logs**: each message stays on one line, its line breaks written as escapes
+  (`\n`, `\r`...): a value sent by a client, such as a token label or a user name, cannot forge
+  a log entry. Only a traceback keeps its lines.
 - **Metrics**: `/metrics` exists on the Controller server only (the MCP server keeps `/mcp`
   and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token

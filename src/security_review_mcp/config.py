@@ -783,10 +783,27 @@ def get_settings() -> Settings:
     return Settings()
 
 
+# Characters that end a line for a log reader (str.splitlines), written as escapes
+_LINE_BREAKS = str.maketrans(
+    {
+        char: char.encode("unicode_escape").decode("ascii")
+        for char in "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"
+    }
+)
+
+
+class LineSafeFormatter(logging.Formatter):
+    """Keep each log message on one line: request data cannot forge log entries (CWE-117).
+
+    Only the message is escaped: a traceback keeps its lines.
+    """
+
+    def formatMessage(self, record: logging.LogRecord) -> str:  # noqa: N802 (logging API)
+        return super().formatMessage(record).translate(_LINE_BREAKS)
+
+
 def configure_logging(level: str) -> None:
     """Send the logs to stderr: stdout is reserved for the MCP protocol with stdio."""
-    logging.basicConfig(
-        level=level.upper(),
-        stream=sys.stderr,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(LineSafeFormatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    logging.basicConfig(level=level.upper(), handlers=[handler])

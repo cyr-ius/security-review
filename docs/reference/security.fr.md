@@ -77,6 +77,10 @@
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
   `SECREVIEW_AUDIT_RETENTION_DAYS` les supprime (voir
   [journal d'audit](../advanced/audit-log.md)).
+- **Journaux applicatifs** : chaque message tient sur une ligne, ses sauts de ligne écrits en
+  séquences d'échappement (`\n`, `\r`...) : une valeur envoyée par un client, comme le libellé
+  d'un jeton ou un nom d'utilisateur, ne peut pas forger une entrée. Seule une trace d'exception
+  (traceback) garde ses lignes.
 - **Métriques** : `/metrics` n'existe que sur le serveur Controller (le serveur MCP garde `/mcp`
   et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
   n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un

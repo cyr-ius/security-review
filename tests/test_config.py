@@ -1,11 +1,13 @@
 """Tests of the settings, as seen by the test suite."""
 
+import logging
 import os
+import sys
 
 import pytest
 from pydantic import ValidationError
 
-from security_review_mcp.config import Settings
+from security_review_mcp.config import LineSafeFormatter, Settings
 
 
 def test_the_tests_ignore_the_env_file_of_the_working_directory(tmp_path, monkeypatch):
@@ -76,3 +78,20 @@ def test_the_scan_engine_settings_are_checked(monkeypatch, variable, value):
 
     with pytest.raises(ValidationError, match=variable):
         Settings()
+
+
+def test_a_log_message_stays_on_one_line_but_a_traceback_keeps_its_lines():
+    formatter = LineSafeFormatter("%(levelname)s %(message)s")
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError:
+        record = logging.LogRecord(
+            "security_review_mcp", logging.INFO, __file__, 1, "token %s created", None, None
+        )
+        record.args = ("ci\nINFO token admin created\r\u2028",)
+        record.exc_info = sys.exc_info()
+
+    message, *traceback = formatter.format(record).splitlines()
+
+    assert message == "INFO token ci\\nINFO token admin created\\r\\u2028 created"
+    assert traceback[0] == "Traceback (most recent call last):"
