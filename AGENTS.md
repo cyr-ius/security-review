@@ -12,6 +12,10 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 (`security-review-mcp`, endpoint `/mcp`, avec un serveur d'enrôlement sans outil pour un client sans jeton) et le **contrôleur**
 (`security-review-controller` : API REST, interface web, migrations, administration).
 
+## Projet
+- Nom du projet pour le serveur MCP `security-review` : `security-review`.
+- Utilisez toujours ce nom dans `save_security_report`.
+
 ## Une tâche n'est terminée que si
 
 1. **Le comportement ajouté ou corrigé est vérifié par un test pertinent**, existant ou nouveau
