@@ -70,7 +70,10 @@ rule such as "fix the critical and high findings" written in the `AGENTS.md` of 
 
 As for the language, an agent that reviews without a prompt gets the configured severity in the
 results of `get_review_checklist` ("Findings to fix" section) and of `scan_code`
-(`fix_min_severity` field, `null` without instruction). Any other value is refused.
+(`fix_min_severity` field, `null` without instruction). Any other value is refused. These tools
+always give the configured severity: during a review started with a prompt, the "Findings to
+fix" section of the prompt takes precedence, including a severity given with the
+`fix_min_severity` argument.
 
 ## Tools
 

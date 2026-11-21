@@ -74,7 +74,9 @@ l'utilisateur demande. Cela remplace une règle comme « corrige les findings cr
 
 Comme pour la langue, un agent qui fait la revue sans prompt reçoit la sévérité configurée dans
 les résultats de `get_review_checklist` (section « Findings to fix ») et de `scan_code` (champ
-`fix_min_severity`, `null` sans consigne). Toute autre valeur est refusée.
+`fix_min_severity`, `null` sans consigne). Toute autre valeur est refusée. Ces outils donnent
+toujours la sévérité configurée : pendant une revue lancée avec un prompt, la section « Findings
+to fix » du prompt prévaut, y compris une sévérité donnée par l'argument `fix_min_severity`.
 
 ## Outils
 

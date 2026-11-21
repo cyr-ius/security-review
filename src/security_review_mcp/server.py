@@ -68,7 +68,8 @@ start a structured review, and `codebase-review` to review a whole repository (n
 - Use `get_review_checklist` and `scan_code` while reviewing. When their results give a report \
 language, write your reply and the free-text fields of the report in that language. When they \
 give a severity to fix (`fix_min_severity`), fix in the code the confirmed findings of that \
-severity or above once the report is saved, then propose them as `fixed`.
+severity or above once the report is saved, then propose them as `fixed`. The tools give the \
+configured default: the "Findings to fix" section of a review prompt takes precedence.
 - To scan a whole repository when you can run shell commands, call `start_codebase_scan` and \
 run the commands it gives: the files reach the Controller server without you reading them, and \
 its summary tells you which files to read first. For the dependencies only, call it with \
@@ -709,7 +710,9 @@ def scan_code(
         "controller_error": controller_error,
         # Reviews made without a prompt only learn the configured language here
         "report_language": app_settings.report_language() or None,
-        # Lowest severity of the findings to fix in the code after the review (None: no rule)
+        # Lowest severity of the findings to fix in the code after the review (None: no rule).
+        # The configured default only: the "Findings to fix" section of a prompt, which may
+        # carry another severity given by the caller, takes precedence (INSTRUCTIONS)
         "fix_min_severity": app_settings.fix_min_severity() or None,
         "note": (
             "Leads only: verify each one in context. No match does not mean safe. "
