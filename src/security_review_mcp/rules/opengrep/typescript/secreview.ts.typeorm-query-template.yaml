@@ -1,0 +1,28 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ts.typeorm-query-template
+    message: >-
+      A TypeORM query or condition is built with a template literal or a concatenation: a value
+      put in the SQL text is SQL injection. Pass the values as parameters (query(sql, [value]),
+      where("user.name = :name", { name })).
+    languages: [typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: $X.query(`...${$V}...`, ...)
+      - pattern: $X.query("..." + $V, ...)
+      - pattern: $X.query("..." + $V + $REST, ...)
+      - patterns:
+          - pattern-either:
+              - pattern: $QB.$WHERE(`...${$V}...`, ...)
+              - pattern: $QB.$WHERE("..." + $V, ...)
+              - pattern: $QB.$WHERE("..." + $V + $REST, ...)
+          - metavariable-regex:
+              metavariable: $WHERE
+              regex: ^(where|andWhere|orWhere|having|andHaving|orHaving|orderBy|addOrderBy)$

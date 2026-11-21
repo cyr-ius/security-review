@@ -160,7 +160,7 @@ A full example is provided in `examples/rules/company.toml`.
 | `JK-*` (Jenkinsfile) | Injection in `sh`, unpinned shared library, `agent any`, disabled sandbox, credential interpolated in a Groovy string, internal `Jenkins.instance` API |
 | `CI-*` (common CI/CD) | Disabled TLS or signature verification, shell tracing, install without lockfile |
 | `SP-*` (Spring) | Exposed or unprotected Actuator, H2 console, disabled TLS, SQL logs, `permitAll`, entities bound to the request body, returned error details, password in the configuration, `web.ignoring()`, disabled security headers |
-| `FA-*` (FastAPI) | `*` CORS or `.*` regex, unverified JWT signature, `reload` mode |
+| `FA-*` (FastAPI, Starlette, Uvicorn) | `*` CORS or `.*` regex, unverified JWT signature, `reload` mode, `TrustedHostMiddleware` with `*`, session key in the code, `forwarded_allow_ips="*"`, `debug=True` |
 | `AI-*` (every language, AI assistant instructions) | Text hidden from a person but read by an AI assistant: Unicode tags and supplementary variation selectors (`AI-001`), bidirectional controls of Trojan Source (`AI-002`), zero-width characters (`AI-003`); text addressed to the assistant (override of its instructions, chat-template tokens such as `<\|im_start\|>`, `AI-004`) or asking to dismiss a finding (`AI-005`) |
 
 Languages accepted by `scan_code`: `python`, `java`, `typescript`, `javascript`, `angular`,

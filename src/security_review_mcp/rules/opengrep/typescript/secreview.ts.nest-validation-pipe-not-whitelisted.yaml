@@ -1,0 +1,21 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ts.nest-validation-pipe-not-whitelisted
+    message: >-
+      ValidationPipe without whitelist: true keeps the properties that the DTO does not declare,
+      so a client can set fields such as role or isAdmin on the objects built from the body (mass
+      assignment). Set whitelist: true, and forbidNonWhitelisted: true to refuse them.
+    languages: [typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    pattern-either:
+      - pattern: new ValidationPipe()
+      - patterns:
+          - pattern: new ValidationPipe({...})
+          - pattern-not: "new ValidationPipe({..., whitelist: true, ...})"

@@ -1,0 +1,22 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.dockerfile.add-remote-url
+    message: >-
+      ADD downloads a remote file into the image without checking its integrity: a compromised or
+      spoofed server changes the image. Download it in a RUN step with a pinned checksum, or use
+      ADD --checksum=sha256:... (BuildKit).
+    languages: [dockerfile]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-494: Download of Code Without Integrity Check"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern: ADD $SRC $DEST
+      - metavariable-regex:
+          metavariable: $SRC
+          regex: ^https?://
+      - pattern-not-regex: --checksum=

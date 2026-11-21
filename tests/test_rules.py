@@ -935,6 +935,26 @@ ADDITIONAL_RULES = [
         "if (crypto.timingSafeEqual(received, expected)) {",
         "TS-015",
     ),
+    # FastAPI / Starlette
+    (
+        "python",
+        'app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])',
+        'app.add_middleware(TrustedHostMiddleware, allowed_hosts=["api.example.com"])',
+        "FA-005",
+    ),
+    (
+        "python",
+        'app.add_middleware(SessionMiddleware, secret_key="dev-secret-key")',
+        "app.add_middleware(SessionMiddleware, secret_key=settings.session_key)",
+        "FA-006",
+    ),
+    (
+        "docker",
+        'CMD ["uvicorn", "app:app", "--proxy-headers", "--forwarded-allow-ips=*"]',
+        'CMD ["uvicorn", "app:app", "--proxy-headers", "--forwarded-allow-ips=10.0.0.5"]',
+        "FA-007",
+    ),
+    ("python", 'app = FastAPI(title="Shop", debug=True)', 'app = FastAPI(title="Shop")', "FA-008"),
     # PHP, Ruby, Kotlin, Terraform
     ("php", 'system("ping -c 1 " . $host);', 'system("uptime");', "PHP-001"),
     ("php", "eval($code);", "$fn = $handlers[$name] ?? null;", "PHP-002"),

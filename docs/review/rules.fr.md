@@ -168,7 +168,7 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 | `JK-*` (Jenkinsfile) | Injection dans `sh`, bibliothèque partagée non épinglée, `agent any`, sandbox désactivée, identifiant interpolé dans une chaîne Groovy, API interne `Jenkins.instance` |
 | `CI-*` (CI/CD commun) | Vérification TLS ou de signature désactivée, traçage shell, installation sans lockfile |
 | `SP-*` (Spring) | Actuator exposé ou non protégé, console H2, TLS désactivé, logs SQL, `permitAll`, entités liées au corps de requête, détails d'erreur renvoyés, mot de passe dans la configuration, `web.ignoring()`, en-têtes de sécurité désactivés |
-| `FA-*` (FastAPI) | CORS `*` ou regex `.*`, signature JWT non vérifiée, mode `reload` |
+| `FA-*` (FastAPI, Starlette, Uvicorn) | CORS `*` ou regex `.*`, signature JWT non vérifiée, mode `reload`, `TrustedHostMiddleware` avec `*`, clé de session dans le code, `forwarded_allow_ips="*"`, `debug=True` |
 | `AI-*` (tous langages, instructions d'assistants IA) | Texte caché à une personne mais lu par un assistant IA : Unicode tags et sélecteurs de variante supplémentaires (`AI-001`), contrôles bidirectionnels de Trojan Source (`AI-002`), caractères de largeur nulle (`AI-003`) ; texte adressé à l'assistant (remplacement de ses instructions, jetons de modèle de conversation comme `<\|im_start\|>`, `AI-004`) ou demandant d'écarter un finding (`AI-005`) |
 
 Langages acceptés par `scan_code` : `python`, `java`, `typescript`, `javascript`, `angular`,

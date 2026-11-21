@@ -1,0 +1,19 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ts.prisma-raw-unsafe
+    message: >-
+      $queryRawUnsafe or $executeRawUnsafe runs a SQL string built at runtime: a value
+      concatenated or interpolated into it is SQL injection. Use the tagged templates
+      $queryRaw`...${value}` and $executeRaw`...`, which bind the values, or Prisma.sql.
+    languages: [typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    # The method names start with $, which a pattern reads as a metavariable: matched as text.
+    # A string literal alone as the first argument is a fixed query; one followed by + is not.
+    pattern-regex: \$(queryRawUnsafe|executeRawUnsafe)\s*(<[^>\n]*>)?\s*\(\s*([^'"\s)]|'[^'\n]*'\s*\+|"[^"\n]*"\s*\+)

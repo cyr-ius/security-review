@@ -2380,6 +2380,45 @@ pattern = '''\b(enable_log_file_validation|is_multi_region_trail|enable_logging|
 advice = "Keep audit trails on, in every region, with log file validation."
 
 
+# ── FastAPI / Starlette ──────────────────────────────────────────────────────
+
+[[rules]]
+id = "FA-005"
+title = "Every Host header accepted (FastAPI)"
+severity = "medium"
+cwe = "CWE-346"
+languages = ["python"]
+pattern = '''\bTrustedHostMiddleware\b[^\n]*\ballowed_hosts\s*=\s*\[\s*['"]\*['"]'''
+advice = "List the host names the application serves: a forged Host header otherwise reaches the links and redirects it builds."
+
+[[rules]]
+id = "FA-006"
+title = "Session signing key written in the code (FastAPI)"
+severity = "high"
+cwe = "CWE-798"
+languages = ["python"]
+pattern = '''\bSessionMiddleware\b[^\n]*\bsecret_key\s*=\s*['"][^'"\n]+['"]'''
+advice = "Read the key from the environment or a secret store: whoever knows it forges sessions."
+
+[[rules]]
+id = "FA-007"
+title = "Forwarded headers trusted from every client (Uvicorn)"
+severity = "medium"
+cwe = "CWE-348"
+languages = ["python", "config", "docker", "yaml"]
+pattern = '''\bforwarded_allow_ips\s*=\s*['"]\*['"]|--forwarded-allow-ips[= ]['"]?\*|\bFORWARDED_ALLOW_IPS\s*[:=]\s*['"]?\*'''
+advice = "Trust X-Forwarded-For only from the address of the reverse proxy: any client otherwise chooses its IP and scheme."
+
+[[rules]]
+id = "FA-008"
+title = "Debug mode enabled (FastAPI / Starlette)"
+severity = "medium"
+cwe = "CWE-215"
+languages = ["python"]
+pattern = '''\b(FastAPI|Starlette)\s*\([^)\n]*\bdebug\s*=\s*True\b'''
+advice = "Keep debug off outside development: it returns tracebacks with code and local values to the client."
+
+
 # The "*" domain applies to every language: it is added to every review prompt.
 [[checklist]]
 domain = "*"

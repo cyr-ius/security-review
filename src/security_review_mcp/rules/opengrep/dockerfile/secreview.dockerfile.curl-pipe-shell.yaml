@@ -1,0 +1,19 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.dockerfile.curl-pipe-shell
+    message: >-
+      A RUN step pipes a downloaded script into a shell: whatever the server sends runs in the
+      build, without integrity check. Download the script, check its checksum or signature, then
+      run it.
+    languages: [dockerfile]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-494: Download of Code Without Integrity Check"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      confidence: HIGH
+      source: Security Review
+      license: Apache-2.0
+    patterns:
+      - pattern: RUN ...
+      - pattern-regex: (curl|wget)[^|\n]*\|\s*(sudo\s+)?(ba|z|da)?sh\b

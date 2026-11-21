@@ -104,7 +104,7 @@ the 200 matches kept per file.
 
 ## Default rules
 
-Security Review ships 147 OpenGrep rules written for the project (Apache-2.0 license, like the
+Security Review ships 154 OpenGrep rules written for the project (Apache-2.0 license, like the
 rest of the code): the community packs are not redistributed, because their licenses
 (Semgrep Rules License, or LGPL with the Commons Clause for the `opengrep-rules` fork) forbid
 their use in a product like this one. They complement the [built-in rules](../rules.md) with
@@ -127,13 +127,14 @@ what a line-by-line pattern cannot see:
 
 | Language (directory) | Rules | Main checks |
 | --- | --- | --- |
-| Python (`python`) | 30 | Taint: SQL, NoSQL, command, `eval`, SSRF, path, redirect, template, HTML (Flask, Django and FastAPI responses), XPath, LDAP, session (trust boundary), deserialization, mass assignment; TLS, YAML, JWT, debug, CORS, archives, hashes, cookies, XXE, `random` for secrets, TLS 1.0/1.1, `requests` without timeout, `csrf_exempt`, secrets compared with `==` |
+| Python (`python`) | 31 | Taint: SQL, NoSQL, command, `eval`, SSRF, path, redirect, template, HTML (Flask, Django and FastAPI responses), XPath, LDAP, session (trust boundary), deserialization, mass assignment; TLS, YAML, JWT, debug, CORS, archives, hashes, cookies, XXE, `random` for secrets, TLS 1.0/1.1, `requests` without timeout, `csrf_exempt`, secrets compared with `==`, FastAPI `SessionMiddleware` without `https_only` |
 | Java, Spring (`java`) | 31 | Taint: SQL/JPQL, command, `ScriptEngine`/Groovy, path, SSRF, redirect, XSS, XPath, session (trust boundary), SpEL/OGNL, Velocity/FreeMarker, JNDI/LDAP; deserialization, XXE (DOM, SAX, StAX), CSRF, trust-all TLS, host name, ciphers, hashes, cookies, Jackson, SnakeYAML, zip slip, `Random` for secrets, unverified JWT, TLS 1.0/1.1, `XMLDecoder`, XStream, CORS with any origin and credentials, secrets compared with `equals` |
 | JavaScript, TypeScript, Angular (`javascript`) | 24 | Taint: SQL, NoSQL, command, deserialization, mass assignment, `eval`/`vm`, path, SSRF, redirect, XSS, RegExp, templates, prototype pollution, DOM XSS from the URL or the route; `message` data read without checking its origin, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, crypto, XXE (`noent`), `Math.random` for secrets, `postMessage` to any origin |
 | Go (`go`) | 17 | Taint: SQL, command, path, SSRF, redirect, XSS, templates; `InsecureSkipVerify`, zip slip, server timeouts, crypto, `math/rand` for secrets, unverified JWT, cookies, TLS 1.0/1.1, HTTP client without timeout, secrets compared with `==` |
 | C#, ASP.NET Core (`csharp`) | 20 | Taint: SQL (ADO.NET, EF Core, Dapper), process, path, SSRF, redirect, XSS, XPath; deserializers, certificate validation, JWT, crypto, DTD, HTML encoding, CORS, zip slip, `System.Random` for secrets, cookies, TLS 1.0/1.1, antiforgery disabled, secrets compared with `==` |
 | Rust (`rust`) | 13 | Taint: SQL (sqlx, diesel, drivers), command, path, SSRF, redirect from axum and actix-web extractors; SQL built with `format!`, shell, TLS, crypto, JWT, CORS, cookies, HTML |
-| Dockerfile (`dockerfile`) | 2 | No `USER` before `CMD`/`ENTRYPOINT`, last `USER` is root |
+| TypeScript: NestJS, Prisma, TypeORM (`typescript`) | 3 | `$queryRawUnsafe`/`$executeRawUnsafe` with a built string, TypeORM `query`/`where`/`orderBy` built with a template literal or `+`, `ValidationPipe` without `whitelist: true` |
+| Dockerfile (`dockerfile`) | 5 | No `USER` before `CMD`/`ENTRYPOINT`, last `USER` is root, `ADD` of a URL without `--checksum`, secret in `ENV`/`ARG`, `curl \| sh` |
 | GitHub Actions (`github-actions`) | 10 | Script injection with `${{ }}`, `pull_request_target` checking out the pull request, action not pinned on a SHA, `write-all`, `workflow_run` artifacts, self-hosted runner on pull requests, `secrets: inherit` to another repository, no `permissions`, `issue_comment` checking out a pull request, cache in `pull_request_target` |
 
 Their ids follow `secreview.<language>.<check>` (`secreview.go.zip-slip`) and their metadata
