@@ -38,6 +38,15 @@ Call `request_project` once with the project name you will pass to `save_securit
 (usually the repository name). If its `status` is `requested`, stop there: the report could \
 not be saved, so give the user its `next_steps` instead of reviewing."""
 
+# Saving the report is what makes a review count (gate, posture, trends): never optional
+_REPORT_REQUIRED = """\
+Saving the report is **required**: the review is not done until `save_security_report` has \
+returned a report id. Save it even when nothing was found, and before you end your turn or \
+tell the user that the review or the task is complete. Pass `branch` and `commit_sha` when \
+you know them (for example from git). If the call fails, fix the arguments and call it again; \
+if it still fails, tell the user clearly that the report was NOT saved. Give the user the \
+report id."""
+
 # Last step of a review: a rule for a pattern the scan missed, approved by a person
 _RULE_PROPOSAL = """\
 If a confirmed issue follows a vulnerable pattern that the scan did not report and that may \
@@ -99,7 +108,7 @@ than reporting it.
 2. Then call the `save_security_report` tool exactly once with the project name, \
 `review_type` `{{review_type}}`, a summary and the structured findings, so that the review is \
 stored. {_AUTHOR_RULE} {_COVERAGE_RULE} Pass an empty findings list if \
-the review found nothing, and say what was covered.
+the review found nothing, and say what was covered. {_REPORT_REQUIRED}
 3. {_RULE_PROPOSAL}
 """
 
@@ -364,7 +373,8 @@ Reply with a short summary and the findings, then call `save_security_report` on
 checklist item you walked through with its outcome (`ok`, `issue`, `not_applicable`, \
 `not_verifiable`). Use category `dependency`, the `advisory_id` returned by the tool (not \
 an alias) or the hygiene `rule_id` as `rule_id`, `CWE-1395` for vulnerable components and the \
-manifest path as `file_path`: the finding then matches the one of a dependency scan.
+manifest path as `file_path`: the finding then matches the one of a dependency scan. \
+{_REPORT_REQUIRED}
 """,
         _checklists(["dependencies"]),
         (
@@ -415,7 +425,7 @@ reporting them, unless they ship to production.
 files and areas reviewed, and those NOT reviewed.
 2. Call `save_security_report` exactly once with `review_type` `codebase-review`. \
 {_AUTHOR_RULE} {_COVERAGE_RULE} Put the coverage in `scope` (for example \
-"Full codebase: src/api, src/auth reviewed; src/legacy not reviewed").
+"Full codebase: src/api, src/auth reviewed; src/legacy not reviewed"). {_REPORT_REQUIRED}
 3. {_RULE_PROPOSAL}
 """
 

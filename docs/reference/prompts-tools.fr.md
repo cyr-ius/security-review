@@ -18,7 +18,10 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](../review/
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
 Chaque prompt de revue commence par appeler `request_project` (l'agent s'arrête quand le projet
 est seulement demandé) et se termine par l'instruction d'appeler `save_security_report` une
-seule fois ; `development-standards` n'enregistre rien.
+seule fois. Le dépôt du rapport est **obligatoire** : la revue n'est pas terminée tant que
+l'outil n'a pas renvoyé l'identifiant du rapport, même sans finding, et l'agent passe `branch` et
+`commit_sha` quand il les connaît ; votre `AGENTS.md` n'a donc pas à le rappeler.
+`development-standards` n'enregistre rien.
 
 Chaque prompt de revue intègre les checklists de son domaine (selon les langages pour
 `security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et les checklists

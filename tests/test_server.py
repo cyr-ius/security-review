@@ -164,6 +164,8 @@ async def test_review_prompts_give_their_review_type(prompt, review_type):
     assert ReviewType(review_type)
     # The project is checked (created or requested) before the review starts
     assert "Call `request_project` once" in text
+    # Saving the report is a condition of done, not an option
+    assert "Saving the report is **required**" in text
 
 
 async def test_review_prompts_leave_the_author_to_the_token():

@@ -176,8 +176,9 @@ cas de conflit, il prévaut.
   modèle hôte.
 - Un nouvel outil ou prompt doit être cité dans `INSTRUCTIONS` (`server.py`) s'il change le
   déroulé d'une revue.
-- Les prompts de revue se terminent par l'appel unique à `save_security_report` ; le contenu
-  fourni par l'utilisateur est encadré avec `prompts.fenced`.
+- Les prompts de revue se terminent par l'appel unique, obligatoire, à `save_security_report`
+  (règle commune `_REPORT_REQUIRED` de `prompts.py`) ; le contenu fourni par l'utilisateur est
+  encadré avec `prompts.fenced`.
 
 ### API REST et interface web
 
@@ -339,8 +340,7 @@ une PR, quelle que soit la taille du changement :
    `pyproject.toml`, `uv.lock` ou `package.json` changent) sur les fichiers modifiés, avec le
    diff comme contexte. Pour un changement très étendu, utilisez `codebase-review`.
 2. Appuyez-vous sur `scan_code` et `get_review_checklist` pendant la revue.
-3. Enregistrez le résultat **une seule fois** avec `save_security_report` (`project` :
-   `security-review-mcp`, plus `branch` et `commit_sha` quand ils sont connus).
+3. Le prompt impose l'enregistrement du rapport : utilisez le projet `security-review-mcp`.
 4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
    correction. Pour les autres, corrigez-les ou justifiez-les, et proposez leur statut avec
    `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) : un agent ne

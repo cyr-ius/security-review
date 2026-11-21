@@ -70,8 +70,9 @@ language, write your reply and the free-text fields of the report in that langua
 run the commands it gives: the files reach the Controller server without you reading them, and \
 its summary tells you which files to read first. For the dependencies only, call it with \
 `scope` `deps` rather than `scan_dependencies` file by file.
-- At the end of a review, call `save_security_report` once to store the report in the \
-database: the server records the user of the token as its author. Use \
+- At the end of every review, calling `save_security_report` once is required: the review is \
+not done until it has returned a report id, even when nothing was found. The server records \
+the user of the token as its author. Use \
 `list_security_reports`, `get_security_report` and `get_project_security_posture` to read \
 stored results. When the developer asks for a report of the findings of a project (on \
 screen or in a file), call `export_findings_report`: show it, or write it yourself to \

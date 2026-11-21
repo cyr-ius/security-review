@@ -17,8 +17,10 @@ To understand when the rules, the checklists and the standards apply, and how to
 
 If `code` is empty, the prompt asks the agent to read the files of its workspace. Every review
 prompt starts by calling `request_project` (the agent stops when the project is only
-requested) and ends with the instruction to call `save_security_report` once;
-`development-standards` saves nothing.
+requested) and ends with the instruction to call `save_security_report` once. Saving the
+report is **required**: the review is not done until the tool has returned a report id, even
+when nothing was found, and the agent passes `branch` and `commit_sha` when it knows them, so
+your `AGENTS.md` does not need to repeat it. `development-standards` saves nothing.
 
 Each review prompt embeds the checklists of its domain (by language for `security-review` and
 `codebase-review`, aliases such as `py` or `ts` accepted), the `*` (every language) and `company`
