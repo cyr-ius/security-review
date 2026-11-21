@@ -107,7 +107,7 @@ par fichier.
 
 ## Règles par défaut
 
-Security Review fournit 154 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
+Security Review fournit 171 règles OpenGrep écrites pour le projet (licence Apache-2.0, comme le
 reste du code) : les packs communautaires ne sont pas redistribués, car leurs licences
 (Semgrep Rules License, ou LGPL avec la Commons Clause pour le fork `opengrep-rules`) interdisent
 leur usage dans un produit comme celui-ci. Elles complètent les [règles intégrées](../rules.md)
@@ -115,6 +115,7 @@ avec ce qu'un motif ligne par ligne ne voit pas :
 
 - **analyse de propagation (taint)** : une valeur lue dans la requête (Flask, Django, FastAPI,
   aiohttp, Tornado, Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS,
+  superglobales PHP, Laravel, Symfony, Rails,
   ASP.NET Core, `net/http`, Gin, Echo), sur une socket, une websocket ou dans un événement AWS
   Lambda est suivie à travers les variables et la construction de chaînes jusqu'à un appel
   dangereux (SQL, commande, chemin de fichier, URL sortante, redirection, template, HTML,
@@ -135,6 +136,8 @@ avec ce qu'un motif ligne par ligne ne voit pas :
 | JavaScript, TypeScript, Angular (`javascript`) | 24 | Taint : SQL, NoSQL, commande, désérialisation, mass assignment, `eval`/`vm`, chemin, SSRF, redirection, XSS, RegExp, templates, pollution de prototype, XSS DOM depuis l'URL ou la route ; données `message` lues sans vérifier leur origine, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, cryptographie, XXE (`noent`), `Math.random` pour un secret, `postMessage` vers toute origine |
 | Go (`go`) | 17 | Taint : SQL, commande, chemin, SSRF, redirection, XSS, templates ; `InsecureSkipVerify`, zip slip, délais du serveur, cryptographie, `math/rand` pour un secret, JWT non vérifié, cookies, TLS 1.0/1.1, client HTTP sans timeout, secrets comparés avec `==` |
 | C#, ASP.NET Core (`csharp`) | 20 | Taint : SQL (ADO.NET, EF Core, Dapper), processus, chemin, SSRF, redirection, XSS, XPath ; désérialiseurs, validation des certificats, JWT, cryptographie, DTD, encodage HTML, CORS, zip slip, `System.Random` pour un secret, cookies, TLS 1.0/1.1, antiforgery désactivé, secrets comparés avec `==` |
+| PHP : PHP natif, Laravel, Symfony (`php`) | 9 | Taint : SQL (mysqli, PDO, requêtes brutes Laravel), commande, `eval`/`call_user_func`, inclusion de fichier, chemin, SSRF (cURL, Guzzle, HTTP Laravel), XSS (`echo`), redirection, `unserialize` |
+| Ruby, Rails (`ruby`) | 8 | Taint : fragments SQL d'Active Record, commande shell, `eval`/`send`/`constantize`, chemin et `send_file`, SSRF, `html_safe`/`raw`, redirection, `Marshal`/`YAML.unsafe_load` ; les conditions par hash, les assistants de route et les enregistrements lus en base ne sont pas des sources |
 | Rust (`rust`) | 13 | Taint : SQL (sqlx, diesel, pilotes), commande, chemin, SSRF, redirection depuis les extracteurs axum et actix-web ; SQL construit avec `format!`, shell, TLS, cryptographie, JWT, CORS, cookies, HTML |
 | TypeScript : NestJS, Prisma, TypeORM (`typescript`) | 3 | `$queryRawUnsafe`/`$executeRawUnsafe` avec une chaîne construite, `query`/`where`/`orderBy` TypeORM construits par template literal ou `+`, `ValidationPipe` sans `whitelist: true` |
 | Dockerfile (`dockerfile`) | 5 | Pas de `USER` avant `CMD`/`ENTRYPOINT`, dernier `USER` à root, `ADD` d'une URL sans `--checksum`, secret dans `ENV`/`ARG`, `curl \| sh` |

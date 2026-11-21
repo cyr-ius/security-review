@@ -1,0 +1,72 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.php.taint-path-traversal
+    message: >-
+      Request data reaches a file path (read, write, delete, download). Keep only the file name (basename()) and check that the resolved path stays under the expected directory.
+    languages: [php]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          # Superglobals (plain PHP)
+          - pattern: $_GET
+          - pattern: $_POST
+          - pattern: $_REQUEST
+          - pattern: $_COOKIE
+          - pattern: $_FILES
+          - pattern: file_get_contents("php://input")
+          - pattern: getallheaders()
+          # Laravel: $request->input('x'), request('x'), Request::input('x')
+          - patterns:
+              - pattern: $REQ->$GET(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^\$(request|req)$
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(input|query|post|get|cookie|header|all|json|file|route|string|integer|only|except)$
+          - pattern: request(...)
+          - pattern: request()->$GET(...)
+          - pattern: Request::$GET(...)
+          # Symfony: $request->query->get('x'), $request->request->all()...
+          - patterns:
+              - pattern: $REQ->$BAG->$GET(...)
+              - metavariable-regex:
+                  metavariable: $BAG
+                  regex: ^(query|request|cookies|headers|files|attributes)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: intval(...)
+          - pattern: floatval(...)
+          - pattern: (int) $X
+          - pattern: (float) $X
+          - pattern: basename(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: file_get_contents($PATH, ...)
+              - pattern: file_put_contents($PATH, ...)
+              - pattern: fopen($PATH, ...)
+              - pattern: readfile($PATH, ...)
+              - pattern: file($PATH, ...)
+              - pattern: unlink($PATH, ...)
+              - pattern: copy($PATH, ...)
+              - pattern: copy($SRC, $PATH, ...)
+              - pattern: move_uploaded_file($TMP, $PATH)
+              - pattern: response()->download($PATH, ...)
+              - pattern: response()->file($PATH, ...)
+          - pattern-not: file_get_contents("php://input")
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: Storage::$IO($PATH, ...)
+          - metavariable-regex:
+              metavariable: $IO
+              regex: ^(get|put|delete|download|readStream|copy|move)$
+          - focus-metavariable: $PATH

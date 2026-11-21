@@ -1,0 +1,57 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ruby.taint-ssrf
+    message: >-
+      Request data chooses the URL of an outgoing request. Check the host against an allow-list, and refuse private and loopback addresses.
+    languages: [ruby]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery (SSRF)"
+      owasp: "A10:2021 - Server-Side Request Forgery (SSRF)"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: params
+          - pattern: cookies
+          - patterns:
+              - pattern: request.$ATTR
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(params|parameters|query_parameters|request_parameters|path_parameters|headers|body|raw_post|query_string|cookies|referer|referrer|user_agent|fullpath|original_url|url)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $X.to_i
+          - pattern: $X.to_f
+          - pattern: Integer(...)
+          - pattern: Float(...)
+          # A record found in the database (User.find_by(name: params[:name]).avatar) is not
+          # request data
+          - patterns:
+              - pattern: $MODEL.$FIND(...)
+              - metavariable-regex:
+                  metavariable: $FIND
+                  regex: ^(find|find_by|find_by!|find_or_create_by|first|last|take)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Net::HTTP.get($URL, ...)
+              - pattern: Net::HTTP.get_response($URL, ...)
+              - pattern: Net::HTTP.post($URL, ...)
+              - pattern: Net::HTTP.post_form($URL, ...)
+              - pattern: URI.open($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern-either:
+              - pattern: HTTParty.$VERB($URL, ...)
+              - pattern: Faraday.$VERB($URL, ...)
+              - pattern: RestClient.$VERB($URL, ...)
+              - pattern: Excon.$VERB($URL, ...)
+              - pattern: Typhoeus.$VERB($URL, ...)
+          - metavariable-regex:
+              metavariable: $VERB
+              regex: ^(get|post|put|patch|delete|head|new)$
+          - focus-metavariable: $URL

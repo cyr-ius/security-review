@@ -1,0 +1,53 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.ruby.taint-sql
+    message: >-
+      Request data is put into a SQL fragment. Use placeholders (where("name = ?", value)), hash conditions (where(name: value)) or sanitize_sql_array.
+    languages: [ruby]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 - Injection"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: params
+          - pattern: cookies
+          - patterns:
+              - pattern: request.$ATTR
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: ^(params|parameters|query_parameters|request_parameters|path_parameters|headers|body|raw_post|query_string|cookies|referer|referrer|user_agent|fullpath|original_url|url)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $X.to_i
+          - pattern: $X.to_f
+          - pattern: Integer(...)
+          - pattern: Float(...)
+          # A record found in the database (User.find_by(name: params[:name]).avatar) is not
+          # request data
+          - patterns:
+              - pattern: $MODEL.$FIND(...)
+              - metavariable-regex:
+                  metavariable: $FIND
+                  regex: ^(find|find_by|find_by!|find_or_create_by|first|last|take)$
+          - pattern: sanitize_sql(...)
+          - pattern: sanitize_sql_array(...)
+          - pattern: sanitize_sql_like(...)
+          - pattern: $M.sanitize_sql(...)
+          - pattern: $M.sanitize_sql_array(...)
+          - pattern: $CONN.quote(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: $M.$METHOD($Q, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(where|not|order|reorder|group|having|joins|select|pluck|from|lock|find_by_sql|count_by_sql|execute|exec_query|exec_update|exec_delete|select_all|select_one|select_value|select_values|select_rows|delete_all|update_all)$
+          # A hash condition (where(name: value)) binds its values
+          - pattern-not: $M.$METHOD({...}, ...)
+          - pattern-not: "$M.$METHOD($K: $V, ...)"
+          - focus-metavariable: $Q

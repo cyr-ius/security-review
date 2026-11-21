@@ -104,14 +104,15 @@ the 200 matches kept per file.
 
 ## Default rules
 
-Security Review ships 154 OpenGrep rules written for the project (Apache-2.0 license, like the
+Security Review ships 171 OpenGrep rules written for the project (Apache-2.0 license, like the
 rest of the code): the community packs are not redistributed, because their licenses
 (Semgrep Rules License, or LGPL with the Commons Clause for the `opengrep-rules` fork) forbid
 their use in a product like this one. They complement the [built-in rules](../rules.md) with
 what a line-by-line pattern cannot see:
 
 - **taint analysis**: a value read from the request (Flask, Django, FastAPI, aiohttp, Tornado,
-  Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS, ASP.NET Core, `net/http`,
+  Bottle, Pyramid, Azure Functions, Spring, servlets, Express, NestJS, ASP.NET Core, PHP
+  superglobals, Laravel, Symfony, Rails, `net/http`,
   Gin, Echo), a socket, a websocket or an AWS Lambda event is followed through variables and
   string building until it reaches a dangerous call (SQL, command, file path, outgoing URL,
   redirect, template, HTML, deserialization). A sanitizer on the way (`int()`,
@@ -132,6 +133,8 @@ what a line-by-line pattern cannot see:
 | JavaScript, TypeScript, Angular (`javascript`) | 24 | Taint: SQL, NoSQL, command, deserialization, mass assignment, `eval`/`vm`, path, SSRF, redirect, XSS, RegExp, templates, prototype pollution, DOM XSS from the URL or the route; `message` data read without checking its origin, `bypassSecurityTrust*`, TLS, CORS, JWT, cookies, crypto, XXE (`noent`), `Math.random` for secrets, `postMessage` to any origin |
 | Go (`go`) | 17 | Taint: SQL, command, path, SSRF, redirect, XSS, templates; `InsecureSkipVerify`, zip slip, server timeouts, crypto, `math/rand` for secrets, unverified JWT, cookies, TLS 1.0/1.1, HTTP client without timeout, secrets compared with `==` |
 | C#, ASP.NET Core (`csharp`) | 20 | Taint: SQL (ADO.NET, EF Core, Dapper), process, path, SSRF, redirect, XSS, XPath; deserializers, certificate validation, JWT, crypto, DTD, HTML encoding, CORS, zip slip, `System.Random` for secrets, cookies, TLS 1.0/1.1, antiforgery disabled, secrets compared with `==` |
+| PHP: plain PHP, Laravel, Symfony (`php`) | 9 | Taint: SQL (mysqli, PDO, Laravel raw queries), command, `eval`/`call_user_func`, file inclusion, path, SSRF (cURL, Guzzle, Laravel HTTP), XSS (`echo`), redirect, `unserialize` |
+| Ruby, Rails (`ruby`) | 8 | Taint: SQL fragments of Active Record, shell command, `eval`/`send`/`constantize`, path and `send_file`, SSRF, `html_safe`/`raw`, redirect, `Marshal`/`YAML.unsafe_load`; hash conditions, route helpers and records found in the database are not tainted |
 | Rust (`rust`) | 13 | Taint: SQL (sqlx, diesel, drivers), command, path, SSRF, redirect from axum and actix-web extractors; SQL built with `format!`, shell, TLS, crypto, JWT, CORS, cookies, HTML |
 | TypeScript: NestJS, Prisma, TypeORM (`typescript`) | 3 | `$queryRawUnsafe`/`$executeRawUnsafe` with a built string, TypeORM `query`/`where`/`orderBy` built with a template literal or `+`, `ValidationPipe` without `whitelist: true` |
 | Dockerfile (`dockerfile`) | 5 | No `USER` before `CMD`/`ENTRYPOINT`, last `USER` is root, `ADD` of a URL without `--checksum`, secret in `ENV`/`ARG`, `curl \| sh` |

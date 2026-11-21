@@ -1,0 +1,69 @@
+# Security Review default OpenGrep rule (Apache-2.0), written for this project.
+rules:
+  - id: secreview.php.taint-open-redirect
+    message: >-
+      Request data chooses the target of a redirect. Redirect only to relative paths or to an allow-list of hosts.
+    languages: [php]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      source: Security Review
+      license: Apache-2.0
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          # Superglobals (plain PHP)
+          - pattern: $_GET
+          - pattern: $_POST
+          - pattern: $_REQUEST
+          - pattern: $_COOKIE
+          - pattern: $_FILES
+          - pattern: file_get_contents("php://input")
+          - pattern: getallheaders()
+          # Laravel: $request->input('x'), request('x'), Request::input('x')
+          - patterns:
+              - pattern: $REQ->$GET(...)
+              - metavariable-regex:
+                  metavariable: $REQ
+                  regex: ^\$(request|req)$
+              - metavariable-regex:
+                  metavariable: $GET
+                  regex: ^(input|query|post|get|cookie|header|all|json|file|route|string|integer|only|except)$
+          - pattern: request(...)
+          - pattern: request()->$GET(...)
+          - pattern: Request::$GET(...)
+          # Symfony: $request->query->get('x'), $request->request->all()...
+          - patterns:
+              - pattern: $REQ->$BAG->$GET(...)
+              - metavariable-regex:
+                  metavariable: $BAG
+                  regex: ^(query|request|cookies|headers|files|attributes)$
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: intval(...)
+          - pattern: floatval(...)
+          - pattern: (int) $X
+          - pattern: (float) $X
+          - patterns:
+              - pattern: $OBJ->$METHOD(...)
+              - metavariable-regex:
+                  metavariable: $OBJ
+                  regex: ^(?!\$(request|req)\b)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: header($HEADER, ...)
+              - pattern: redirect($HEADER, ...)
+              - pattern: redirect()->to($HEADER, ...)
+              - pattern: redirect()->away($HEADER, ...)
+              - pattern: Redirect::to($HEADER, ...)
+              - pattern: Redirect::away($HEADER, ...)
+              - pattern: new RedirectResponse($HEADER, ...)
+          # A relative path ("/x/{$id}", not "//host") stays on the site
+          - metavariable-regex:
+              metavariable: $HEADER
+              regex: ^(?!["']/[^/"'])
+          - focus-metavariable: $HEADER
