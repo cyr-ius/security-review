@@ -117,6 +117,49 @@ def project_posture(project: str) -> dict:
     return {"project": project, "reports_total": reports_total, **_open_summary(by_severity)}
 
 
+def findings_to_fix(project: str, min_severity: str) -> dict | None:
+    """Open findings of a project at ``min_severity`` or above, still to fix in the code.
+
+    Returns None when none is left to fix. ``by_severity`` counts those without a proposal,
+    which the agent must fix; ``proposed`` those carrying a status proposed by an agent, which
+    wait for a person (an expired acceptance counts as open, as in the gate).
+    """
+    project = normalize_project(project)
+    wanted = [s for s in Severity if SEVERITY_RANK[s] >= SEVERITY_RANK[Severity(min_severity)]]
+    with session_scope() as session:
+        rows = session.exec(
+            select(
+                Finding.severity,
+                col(Finding.proposed_status).is_not(None),
+                func.count(),
+            )
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(
+                SecurityReport.project == project,
+                _status_is(FindingStatus.OPEN),
+                _current(),
+                col(Finding.severity).in_(wanted),
+            )
+            .group_by(Finding.severity, col(Finding.proposed_status).is_not(None))  # type: ignore[arg-type]
+        ).all()
+    by_severity = {severity.value: 0 for severity in wanted}
+    proposed = 0
+    for severity, has_proposal, number in rows:
+        if has_proposal:
+            proposed += number
+        else:
+            by_severity[severity.value] += number
+    total = sum(by_severity.values())
+    if not total:
+        return None
+    return {
+        "min_severity": min_severity,
+        "total": total,
+        "by_severity": by_severity,
+        "proposed": proposed,
+    }
+
+
 def _open_summary(by_severity: dict[str, int]) -> dict:
     """Open findings of a project from its open counts by severity.
 

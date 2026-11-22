@@ -78,6 +78,12 @@ les résultats de `get_review_checklist` (section « Findings to fix ») et de `
 toujours la sévérité configurée : pendant une revue lancée avec un prompt, la section « Findings
 to fix » du prompt prévaut, y compris une sévérité donnée par l'argument `fix_min_severity`.
 
+Quand la sévérité configurée est définie, `request_project`, appelé avant chaque revue, signale
+aussi à l'agent les findings ouverts du projet qui l'atteignent (`findings_to_fix` : décompte par
+sévérité, findings déjà proposés comme corrigés à part, et `next_steps` au texte fixe) : l'agent
+prévient le développeur et propose de les corriger une fois la tâche en cours terminée, jamais
+sans son accord.
+
 ## Outils
 
 | Outil | Rôle |
@@ -98,7 +104,7 @@ to fix » du prompt prévaut, y compris une sévérité donnée par l'argument `
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton peut y enregistrer des rapports, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), `joined` pour un projet existant que l'utilisateur ne lit pas encore quand il porte `projects.autojoin` (il le lit et y écrit), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) ; avec un projet que le jeton atteint, `codebase_review` (`reasons`, `last_review_at`, `next_steps`) quand une [revue complète du code](../usage/projects.md#revue-complete-du-code) est attendue |
+| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton peut y enregistrer des rapports, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), `joined` pour un projet existant que l'utilisateur ne lit pas encore quand il porte `projects.autojoin` (il le lit et y écrit), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) ; avec un projet que le jeton atteint, `findings_to_fix` (`min_severity`, `total`, `by_severity`, `proposed`, `next_steps`) quand des findings ouverts atteignent la [sévérité à corriger](#findings-a-corriger), et `codebase_review` (`reasons`, `last_review_at`, `next_steps`) quand une [revue complète du code](../usage/projects.md#revue-complete-du-code) est attendue |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](../review/standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](../review/rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 

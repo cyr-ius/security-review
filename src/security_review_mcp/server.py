@@ -26,6 +26,7 @@ from . import __version__, app_settings, http_server, prompts, standards
 from .auth import access_control, token_store
 from .ci_client import EXIT_ERROR
 from .config import (
+    FIX_SEVERITIES,
     Settings,
     check_fix_min_severity,
     check_report_language,
@@ -99,7 +100,9 @@ reach the project yet, a user allowed to create projects gets a new project at o
 allowed to join projects joins an existing one at once, otherwise the project is requested \
 for an administrator to approve (which gives the user access to it). \
 If its `status` is `requested`, do not review: give the user its `next_steps`. If it \
-returns `codebase_review`, a review of the whole repository is due: follow its `next_steps`.
+returns `findings_to_fix`, open findings reach the severity the administrators expect to be \
+fixed, and if it returns `codebase_review`, a review of the whole repository is due: follow \
+their `next_steps`.
 - Before writing code, use the prompt `development-standards` (or the tool \
 `get_development_standards`) to get the development standards of the technologies you work on.
 """
@@ -1311,6 +1314,42 @@ _DUE_REASONS = {
 }
 
 
+# Fixed text given to the agent when open findings reach the severity to fix
+_FINDINGS_TO_FIX = (
+    "This project has {total} open finding(s) of severity {severity} or above that the "
+    "administrators expect to be fixed in the code ({counts}). Tell the developer, and offer "
+    "to fix them once the current task is done: list them with export_findings_report, confirm "
+    "each one in the code, fix it (with a test when the project has tests), then call "
+    "propose_finding_status with status `fixed` and what you changed. Do not start without the "
+    "developer's agreement."
+)
+
+
+def _with_reminders(result: dict) -> dict:
+    """Add the reminders of request_project for a project the token reaches:
+    ``findings_to_fix`` and ``codebase_review``."""
+    return _with_codebase_review(_with_findings_to_fix(result))
+
+
+def _with_findings_to_fix(result: dict) -> dict:
+    """Add ``findings_to_fix`` when open findings of the project reach the severity to fix
+    (SECREVIEW_FIX_MIN_SEVERITY or the web interface); nothing when no severity is set."""
+    severity = app_settings.fix_min_severity()
+    if severity not in FIX_SEVERITIES:
+        return result
+    pending = services.findings_to_fix(result["project"], severity)
+    if pending is None:
+        return result
+    counts = ", ".join(f"{n} {level}" for level, n in pending["by_severity"].items() if n)
+    result["findings_to_fix"] = {
+        **pending,
+        "next_steps": _FINDINGS_TO_FIX.format(
+            total=pending["total"], severity=severity, counts=counts
+        ),
+    }
+    return result
+
+
 def _with_codebase_review(result: dict) -> dict:
     """Add ``codebase_review`` to the result of request_project when a review of the whole
     repository of a project the token reaches is due (see reports.codebase_review)."""
@@ -1339,8 +1378,9 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     project waits for an administrator, or the user must be given access to it: do not review,
     give the user ``next_steps``). No token is created.
 
-    With a project the token reaches, ``codebase_review`` tells when a person asked for a
-    review of the whole repository, or the periodic one is due: a reminder for the agent to
+    With a project the token reaches, ``findings_to_fix`` tells when open findings reach the
+    severity the administrators expect to be fixed, and ``codebase_review`` when a person asked
+    for a review of the whole repository, or the periodic one is due: reminders for the agent to
     offer the developer, never a condition of the current review.
     """
     allowed = _caller_write_projects(ctx)
@@ -1350,12 +1390,12 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     if allowed is None:
         # A token of a user that reaches every project still creates the project
         if state.get("auth_owner") is None:
-            return _with_codebase_review({"project": project, "status": "accessible"})
+            return _with_reminders({"project": project, "status": "accessible"})
         adopted = access_control.adopt_project(project, state["auth_owner"], actor)
         logger.info("Project %s %s by %s", adopted["project"], adopted["status"], label)
-        return _with_codebase_review(adopted)
+        return _with_reminders(adopted)
     if project in allowed:
-        return _with_codebase_review({"project": project, "status": "accessible"})
+        return _with_reminders({"project": project, "status": "accessible"})
     requested = access_control.request_project(
         project, state.get("auth_owner"), _caller_address(ctx), actor
     )

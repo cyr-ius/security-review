@@ -75,6 +75,11 @@ always give the configured severity: during a review started with a prompt, the 
 fix" section of the prompt takes precedence, including a severity given with the
 `fix_min_severity` argument.
 
+When the configured severity is set, `request_project`, called before every review, also tells
+the agent about the open findings of the project that reach it (`findings_to_fix`: counts by
+severity, findings already proposed as fixed apart, and fixed `next_steps`): the agent tells the
+developer and offers to fix them once the current task is done, never without their agreement.
+
 ## Tools
 
 | Tool | Role |
@@ -95,7 +100,7 @@ fix" section of the prompt takes precedence, including a severity given with the
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
-| `request_project` | Called before a review with `project`: `accessible` when the token may save reports on it, `created` for a new project when the user holds `projects.create` (the user becomes its member), `joined` for an existing project the user does not read yet when the user holds `projects.autojoin` (the user reads and writes it), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)); with a project the token reaches, `codebase_review` (`reasons`, `last_review_at`, `next_steps`) when a [full codebase review](../usage/projects.md#full-codebase-review) is due |
+| `request_project` | Called before a review with `project`: `accessible` when the token may save reports on it, `created` for a new project when the user holds `projects.create` (the user becomes its member), `joined` for an existing project the user does not read yet when the user holds `projects.autojoin` (the user reads and writes it), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)); with a project the token reaches, `findings_to_fix` (`min_severity`, `total`, `by_severity`, `proposed`, `next_steps`) when open findings reach the [severity to fix](#findings-to-fix), and `codebase_review` (`reasons`, `last_review_at`, `next_steps`) when a [full codebase review](../usage/projects.md#full-codebase-review) is due |
 | `list_development_standards` / `get_development_standards` | [Development standards](../review/standards.md): catalog, then the standards to apply for technologies or file names |
 | `list_rules` / `reload_rules` | Active rules ([default and custom](../review/rules.md), stored in the database), loading errors, immediate reload |
 
