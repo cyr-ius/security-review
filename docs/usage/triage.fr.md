@@ -69,6 +69,10 @@ titre : une revue et un scan des dépendances signalent une seule fois un paquet
   approbateur et sa date d'expiration, de même que les commentaires et une criticité relevée.
   La gate ne bloque pas de nouveau.
 - Un finding **corrigé** qui revient est de nouveau **ouvert**.
+- Une revue (agent) qui signale le problème avec une **sévérité plus faible** ne la baisse pas :
+  le finding garde la sévérité de son rapport précédent, et la gate continue de bloquer. Seul un
+  nouveau scan du serveur Controller (code ou dépendances) suit ses règles, plus bas ou non. Pour
+  clore un risque, une personne l'accepte.
 - L'occurrence précédente reste dans son ancien rapport, marquée **Signalé de nouveau : voir le
   finding #N**, et ne peut plus être triée.
 - Les listes, compteurs, gate et tendance ne comptent que la dernière occurrence ; le délai de

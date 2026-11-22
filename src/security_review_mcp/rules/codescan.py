@@ -286,4 +286,5 @@ def save(
         review_type=ReviewType.CODE_SCAN,
         author=author,
         submitted_by=submitted_by,
+        from_scan=True,
     )

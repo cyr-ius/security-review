@@ -217,7 +217,8 @@
   the developer in local mode](prompts-tools.md#decision-of-the-developer-in-local-mode)).
   A decision carried to the same issue raised by a later report (same project, rule,
   file and title: [finding reported again](../usage/triage.md#finding-reported-again))
-  keeps its approver and its expiry date: a new report never extends it. Pages are served with a strict CSP and the anti-clickjacking headers, and every
+  keeps its approver and its expiry date: a new report never extends it. Nor does a review lower
+  the severity of an issue raised again: only the scans of the Controller server do. Pages are served with a strict CSP and the anti-clickjacking headers, and every
   answer of the Controller server (API, refusals included) carries `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a closed CSP when the route sets
   none and, over HTTPS (TLS of the Controller server, or `X-Forwarded-Proto` of a proxy listed in

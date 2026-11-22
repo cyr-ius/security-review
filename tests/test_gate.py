@@ -68,7 +68,9 @@ def test_gate_warns_of_the_decisions_that_will_block_it_again(triage):
 
 def test_gate_can_target_one_report():
     first = services.save_report("shop", "summary", [finding(Severity.CRITICAL)])
-    second = services.save_report("shop", "summary", [finding(Severity.LOW)])
+    # Another issue: the same one reported lower would keep its critical severity
+    other = FindingCreate(title="Other issue", severity=Severity.LOW, description="Minor")
+    second = services.save_report("shop", "summary", [other])
     assert services.evaluate_gate("shop", report_id=second["report_id"])["passed"] is True
     assert services.evaluate_gate("shop", report_id=first["report_id"])["passed"] is False
 

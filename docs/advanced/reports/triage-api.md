@@ -70,11 +70,16 @@ hygiene rule (`DEP-*`) by its id and the file name. When a rule matches several 
 the occurrences are paired in line order if their number is unchanged (the code moved), else
 only on the same line: a new occurrence never inherits the decision taken on another one, it
 is open. A pending agent proposal of an acceptance or a false positive is carried over too.
+A paired finding of a review reported with a lower severity keeps the severity of its previous
+report (before any raise by a person); only the scans of the Controller server (pipeline code and
+dependency scans) may lower it. The `review_type` is declared by the client and does not tell
+them apart.
 
 The previous occurrence can no longer be triaged (`422`) nor sent through a connector (`409`).
 The trend and the time to remediate start at the first occurrence (`first_seen_at`).
 `save_security_report` and the pipeline scans return `recurring_findings` (findings already
-raised by a previous report) and `carried_decisions` (decisions carried to them).
+raised by a previous report), `carried_decisions` (decisions carried to them) and
+`kept_severities` (findings reported lower that kept their previous severity).
 
 ## Severity of a finding
 

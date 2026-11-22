@@ -289,5 +289,6 @@ def save(
         commit_sha=commit_sha,
         author=author,
         submitted_by=submitted_by,
+        from_scan=True,
         **report_content(results),
     )

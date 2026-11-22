@@ -100,23 +100,36 @@ def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: date
     return True
 
 
+def _keep_severity(previous: Finding, row: Finding) -> bool:
+    """Keep on the new occurrence of an issue the severity its previous report gave it, when a
+    reviewer reports it lower: an agent never lowers a finding below the gate by reporting it
+    again (a person accepts the risk instead). Return True when the severity was kept."""
+    reported = Severity(previous.original_severity or previous.severity)
+    if SEVERITY_RANK[reported] <= SEVERITY_RANK[row.severity]:
+        return False
+    row.severity = reported
+    return True
+
+
 def _match_occurrences(
-    session: Session, project: str, rows: list[Finding], now: datetime
-) -> tuple[list[tuple[Finding, Finding]], int, int]:
+    session: Session, project: str, rows: list[Finding], now: datetime, from_scan: bool = False
+) -> tuple[list[tuple[Finding, Finding]], int, int, int]:
     """Pair the findings of a new report with the current occurrences of the same issues.
 
     A rule may match several lines of a file: occurrences of one fingerprint are paired in line
     order when their number is unchanged (the code moved), else only on the same line, so that
     a new occurrence never inherits the decision taken on another one. A current occurrence
-    left unpaired is replaced, without carry, by the first new one. Return the (previous, new)
-    pairs, the number of new findings paired and the number of decisions carried.
+    left unpaired is replaced, without carry, by the first new one. Unless the report comes
+    ``from_scan``, a paired finding keeps the severity of its previous report when it is
+    reported lower (see _keep_severity). Return the (previous, new) pairs, the number of new
+    findings paired, of decisions carried and of severities kept.
     """
     reported: dict[str, list[Finding]] = {}
     for row in rows:
         row.fingerprint = issue_fingerprint(project, row)
         reported.setdefault(row.fingerprint, []).append(row)
     if not reported:
-        return [], 0, 0
+        return [], 0, 0, 0
     current: dict[str, list[tuple[Finding, datetime]]] = {}
     for previous, created_at in session.exec(
         select(Finding, SecurityReport.created_at)
@@ -131,7 +144,7 @@ def _match_occurrences(
         current.setdefault(str(previous.fingerprint), []).append((previous, created_at))
 
     pairs: list[tuple[Finding, Finding]] = []
-    recurring = carried = 0
+    recurring = carried = kept = 0
     for digest, previous_rows in current.items():
         new_rows = sorted(
             reported[digest], key=lambda row: (row.line_start is None, row.line_start or 0)
@@ -149,10 +162,12 @@ def _match_occurrences(
             row = matched.get(index)
             if row is not None:
                 recurring += 1
+                if not from_scan:
+                    kept += _keep_severity(previous, row)
                 first_seen = previous.first_seen_at or created_at
                 carried += _carry_over(previous, first_seen, row, now)
             pairs.append((previous, row or new_rows[0]))
-    return pairs, recurring, carried
+    return pairs, recurring, carried, kept
 
 
 def _supersede(session: Session, pairs: list[tuple[Finding, Finding]]) -> None:
@@ -188,6 +203,7 @@ def save_report(
     submitted_by: str | None = None,
     checklist_results: list[ChecklistResult] | None = None,
     scan_rules: list[str] | None = None,
+    from_scan: bool = False,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -208,6 +224,10 @@ def save_report(
         checklist_results: Checklist items walked through by the reviewer, with their
             outcome; None for a report without declared coverage (CLI scans).
         scan_rules: Rules that raised scan_code leads, confirmed or not.
+        from_scan: The findings come from the rules of a scan of the controller (codescan,
+            depscan), never from a reviewer: their severity may be lower than the previous
+            occurrence of an issue. A review keeps that severity instead; ``review_type`` is
+            declared by the client and does not tell them apart.
 
     Returns:
         Identifier, risk level and finding counts of the stored report; with declared
@@ -252,7 +272,7 @@ def save_report(
 
     with session_scope() as session:
         ensure_project(session, project, submitted_by)
-        pairs, recurring, carried = _match_occurrences(session, project, rows, now)
+        pairs, recurring, carried, kept = _match_occurrences(session, project, rows, now, from_scan)
         risk = compute_risk_level([row.severity for row in rows], risk_level)
         report = SecurityReport(
             project=project,
@@ -287,6 +307,7 @@ def save_report(
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
             "recurring_findings": recurring,
             "carried_decisions": carried,
+            "kept_severities": kept,
         }
         if declared is not None:
             result["coverage"] = {

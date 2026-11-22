@@ -332,13 +332,16 @@ def test_a_dependency_review_and_a_dependency_scan_report_an_issue_once():
             ),
         ],
         review_type=ReviewType.DEPENDENCY_SCAN,
+        from_scan=True,
     )
-    # The agent writes its own titles, cites the manifest and the same advisory in lower case
+    # The agent writes its own titles, cites the manifest and the same advisory in lower case,
+    # and reports it lower than the scan did
     review = services.save_report(
         "shop",
         "Dependency review",
         [
             make_finding(
+                Severity.LOW,
                 title="python-jose : contournement de la protection",
                 rule_id="ghsa-3qf3-8w2g-rqmx",
                 file_path="pyproject.toml",
@@ -356,6 +359,21 @@ def test_a_dependency_review_and_a_dependency_scan_report_an_issue_once():
     )
     assert review["recurring_findings"] == 2
     assert services.list_project_findings("shop")["total"] == 2
+    # A review never lowers an issue below the gate: it keeps the severity of the scan
+    assert review["kept_severities"] == 1
+    advisory = services.get_report(review["report_id"]).findings[0]
+    assert (advisory.severity, advisory.original_severity) == (Severity.HIGH, None)
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is False
+    # A new scan follows its rules, lower or not
+    rescan = services.save_report(
+        "shop",
+        "Dependency scan",
+        [make_finding(Severity.LOW, rule_id="GHSA-3qf3-8w2g-rqmx", **dependency)],
+        review_type=ReviewType.DEPENDENCY_SCAN,
+        from_scan=True,
+    )
+    assert rescan["kept_severities"] == 0
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is True
 
 
 def test_review_type_is_stored_listed_and_filtered():

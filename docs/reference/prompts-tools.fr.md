@@ -158,7 +158,8 @@ Le **niveau de risque** du rapport est calculé (sévérité maximale des findin
 `risk_level` peut seulement le relever, jamais le baisser.
 
 Un finding déjà signalé par un rapport précédent du projet le remplace et garde la décision
-prise sur lui : le résultat donne `recurring_findings` et `carried_decisions` (voir
+prise sur lui ; signalé avec une sévérité plus faible, il garde la sévérité du rapport
+précédent. Le résultat donne `recurring_findings`, `carried_decisions` et `kept_severities` (voir
 [finding signalé de nouveau](../usage/triage.md#finding-signale-de-nouveau)).
 
 ### Nom du projet

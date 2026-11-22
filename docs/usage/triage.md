@@ -63,6 +63,10 @@ dependency scan report a vulnerable package once.
 - A still valid **acceptance** or **false positive** is carried over, with its reason, approver
   and expiry date, as are the comments and a raised severity. The gate does not block again.
 - A **fixed** finding that comes back is **open** again.
+- A review (agent) that reports the issue with a **lower severity** does not lower it: the
+  finding keeps the severity of its previous report, so the gate keeps blocking. Only a new
+  scan of the Controller server (code or dependencies) follows its rules, lower or not. To close
+  a risk, a person accepts it.
 - The previous occurrence stays in its old report, marked **Reported again: see finding #N**,
   and can no longer be triaged.
 - Lists, counters, gate and trend only count the latest occurrence; the time to remediate

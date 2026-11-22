@@ -155,7 +155,8 @@ The **risk level** of the report is computed (highest severity of the findings).
 `risk_level` parameter can only raise it, never lower it.
 
 A finding already raised by a previous report of the project replaces it and keeps the
-decision taken on it: the result gives `recurring_findings` and `carried_decisions` (see
+decision taken on it; reported with a lower severity, it keeps the severity of the previous
+report. The result gives `recurring_findings`, `carried_decisions` and `kept_severities` (see
 [finding reported again](../usage/triage.md#finding-reported-again)).
 
 ### Project name
