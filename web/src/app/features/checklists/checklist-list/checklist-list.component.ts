@@ -1,5 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+  input,
+  linkedSignal,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -23,8 +32,9 @@ import {
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { checklistSearchText } from '../../../shared/utils/reference-search';
 import { TableSort } from '../../../shared/utils/table-sort';
-import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
+import { compareTableText, filterAndSortRows, idSearch } from '../../../shared/utils/table-utils';
 
 interface ChecklistFormModel {
   domain: string;
@@ -69,7 +79,9 @@ export class ChecklistListComponent {
   readonly canManage = computed(() => this.auth.can('rules.manage'));
   readonly catalog = rxResource({ stream: () => this.api.checklistItems() });
   readonly domainFilter = signal<string[]>([]);
-  readonly search = signal('');
+  /** ``?search=`` of the address (the global search opens ``#PY-004`` here), then typed. */
+  readonly searchParam = input<string | undefined>(undefined, { alias: 'search' });
+  readonly search = linkedSignal(() => this.searchParam() ?? '');
   readonly sort = new TableSort<ChecklistSortKey>(
     'checklists',
     ['domain', 'title'],
@@ -102,15 +114,20 @@ export class ChecklistListComponent {
   readonly visibleItems = computed(() => {
     const domain = this.domainFilter();
     const origin = this.originFilter();
+    // "#PY-01" / "#AI*": that id, or the ids starting with AI (the global search opens it)
+    const byId = idSearch(this.search());
     const items = (this.catalog.value()?.checklist_items ?? []).filter(
-      (item) => matchesFilter(domain, item.domain) && matchesFilter(origin, item.origin),
+      (item) =>
+        matchesFilter(domain, item.domain) &&
+        matchesFilter(origin, item.origin) &&
+        (!byId || byId(item.id)),
     );
     const sort = this.sort.key();
     return filterAndSortRows(
       items,
-      this.search(),
+      byId ? '' : this.search(),
       this.sort.direction(),
-      (item) => [item.domain, item.id, item.title, item.what_to_look_for, item.cwe].join(' '),
+      checklistSearchText,
       (left, right) =>
         compareTableText(left[sort], right[sort]) ||
         compareTableText(left.domain, right.domain) ||

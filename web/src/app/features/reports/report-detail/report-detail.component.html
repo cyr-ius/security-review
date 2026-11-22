@@ -22,7 +22,7 @@
           'layout.reports' | t
         }}</a>
       </li>
-      <li class="breadcrumb-item active" aria-current="page">#{{ data.id }}</li>
+      <li class="breadcrumb-item active" aria-current="page">R{{ data.id }}</li>
     </ol>
   </nav>
 
@@ -202,7 +202,7 @@
                   @if (scan.review_type; as scanType) {
                     <i class="bi {{ reviewTypeMeta[scanType].icon }}" aria-hidden="true"></i>
                     <a [routerLink]="['/reports', scan.id]">
-                      {{ reviewTypeMeta[scanType].label | t }} · #{{ scan.id }}
+                      {{ reviewTypeMeta[scanType].label | t }} · R{{ scan.id }}
                     </a>
                   }
                   <span>{{ 'report.scannedCount' | t: { count: summary.files } }}</span>

@@ -67,7 +67,7 @@ dependency scan report a vulnerable package once.
   finding keeps the severity of its previous report, so the gate keeps blocking. Only a new
   scan of the Controller server (code or dependencies) follows its rules, lower or not. To close
   a risk, a person accepts it.
-- The previous occurrence stays in its old report, marked **Reported again: see finding #N**,
+- The previous occurrence stays in its old report, marked **Reported again: see finding FN**,
   and can no longer be triaged.
 - Lists, counters, gate and trend only count the latest occurrence; the time to remediate
   starts at the first one.

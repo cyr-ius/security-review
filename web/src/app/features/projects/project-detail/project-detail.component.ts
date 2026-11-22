@@ -138,7 +138,7 @@ export class ProjectDetailComponent {
   onFindingRowClick(findingId: number, event: MouseEvent): void {
     if (!this.clickedControl(event)) {
       void this.router.navigate(['/projects', this.project(), 'findings'], {
-        queryParams: { search: `#${findingId}` },
+        queryParams: { search: `#F${findingId}` },
       });
     }
   }

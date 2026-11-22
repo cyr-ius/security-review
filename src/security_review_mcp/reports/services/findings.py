@@ -38,7 +38,7 @@ from .core import (
     _values,
     compute_risk_level,
 )
-from .persistence import _contains_pattern
+from .persistence import _contains_pattern, _id_filter, _number_filter, _split_search
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -190,8 +190,20 @@ def _status_filter(value: FindingStatusFilter | str, now: datetime) -> ColumnEle
     return _status_is(FindingStatus(value.value), now)
 
 
-# A search "#12" names one finding by its id (at most 18 digits: within a 64-bit integer)
-_FINDING_ID = re.compile(r"#(\d{1,18})")
+# "#F12": one finding by its number (its status is not filtered then)
+_EXACT_FINDING = re.compile(r"#[Ff]\d{1,18}")
+
+
+def _search_word(word: str) -> ColumnElement[bool] | None:
+    """The word ``#F12`` / ``#F1*`` (finding number), ``#R7`` / ``#R7*`` (report number), else
+    ``#PY-004`` / ``#AI*`` (rule id); None for a word searched as text."""
+    for by_number in (
+        _number_filter(word, "F", Finding.id),
+        _number_filter(word, "R", Finding.report_id),
+    ):
+        if by_number is not None:
+            return by_number
+    return _id_filter(word, Finding.rule_id)
 
 
 def list_project_findings(
@@ -218,8 +230,12 @@ def list_project_findings(
     None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
     ``search`` keeps the findings whose title, rule, CWE, file, description, project or branch
-    contains it (case-insensitive, first 200 characters); ``#12`` keeps the finding 12 (the link
-    of a finding to the findings of its project). ``report_id`` keeps the findings of
+    contains it (case-insensitive, first 200 characters); ``#F12`` alone keeps the finding 12 (the
+    link of a finding to the findings of its project), ``#F1*`` the findings whose number starts
+    with 1, ``#R7`` / ``#R7*`` the findings of the reports so numbered, ``#PY-004`` / ``#AI*`` the
+    findings of that rule or of the rules starting with AI; these words combine with each other
+    and with the text (``scan code #GEN-007``). With ``#F12``, the status is not filtered: a
+    link to a finding shows it whatever its status. ``report_id`` keeps the findings of
     that report; ``proposed`` keeps the findings carrying a status proposed by an agent.
     """
     settings = get_settings()
@@ -227,7 +243,10 @@ def list_project_findings(
     offset = max(0, offset)
     statuses = _values(status) or [FindingStatusFilter.OPEN]
     now = utcnow()
-    filters = [or_(*(_status_filter(s, now) for s in statuses)), _current()]
+    filters = [_current()]
+    # "#F12" names one finding: shown whatever its status (a link opens it there)
+    if not any(_EXACT_FINDING.fullmatch(word) for word in (search or "")[:200].split()):
+        filters.append(or_(*(_status_filter(s, now) for s in statuses)))
     if project is not None:
         filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:
@@ -240,10 +259,10 @@ def list_project_findings(
         filters.append(Finding.report_id == report_id)
     if proposed:
         filters.append(col(Finding.proposed_status).is_not(None))
-    if search and (by_id := _FINDING_ID.fullmatch(search.strip())):
-        filters.append(Finding.id == int(by_id.group(1)))
-    elif search and search.strip():
-        pattern = _contains_pattern(search.strip())
+    by_id, text = _split_search(search or "", _search_word)
+    filters.extend(by_id)
+    if text:
+        pattern = _contains_pattern(text)
         searched = [
             Finding.title,
             Finding.rule_id,

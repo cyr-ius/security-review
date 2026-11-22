@@ -292,9 +292,9 @@
                   <td class="text-nowrap">
                     <a
                       [routerLink]="['/projects', project(), 'findings']"
-                      [queryParams]="{ search: '#' + finding.id }"
+                      [queryParams]="{ search: '#F' + finding.id }"
                       [attr.aria-label]="'project.openFinding' | t: { id: finding.id }"
-                      >#{{ finding.id }}</a
+                      >F{{ finding.id }}</a
                     >
                   </td>
                   <td class="text-nowrap"><app-severity-badge [severity]="finding.severity" /></td>
@@ -325,7 +325,7 @@
                       <a
                         class="proposal-pending"
                         [routerLink]="['/projects', project(), 'findings']"
-                        [queryParams]="{ search: '#' + finding.id }"
+                        [queryParams]="{ search: '#F' + finding.id }"
                         [attr.aria-label]="hint"
                         [title]="hint"
                         ><i class="bi bi-robot" aria-hidden="true"></i

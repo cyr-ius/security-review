@@ -46,7 +46,7 @@
           @for (report of visibleReports(); track report.report_id) {
             <tr>
               <td>
-                <a [routerLink]="['/reports', report.report_id]">#{{ report.report_id }}</a>
+                <a [routerLink]="['/reports', report.report_id]">R{{ report.report_id }}</a>
               </td>
               <td class="text-nowrap">{{ report.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
               @if (showProject()) {

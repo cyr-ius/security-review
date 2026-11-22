@@ -91,7 +91,7 @@ export const projects = defineMessages({
     'project.oldest': 'Oldest open finding',
     'project.topCwes': 'Most frequent CWEs',
     'project.colNumber': 'No.',
-    'project.openFinding': 'Show finding #{id} among the findings of the project',
+    'project.openFinding': 'Show finding F{id} among the findings of the project',
     'project.proposalPending': 'An agent proposes "{status}": open the finding to review it',
     'project.colSeverity': 'Severity',
     'project.colFinding': 'Finding',
@@ -140,15 +140,15 @@ export const projects = defineMessages({
     'projectFindings.none': 'No open findings: nothing to review.',
     'projectFindings.bulkTitle': 'Decision for the selected findings',
     'projectFindings.bulkSelectAll': 'Select the loaded findings',
-    'projectFindings.bulkPick': 'Select finding #{id}',
+    'projectFindings.bulkPick': 'Select finding F{id}',
     'projectFindings.bulkSelected': '{count} finding(s) selected',
     'projectFindings.bulkStatus': 'New status',
     'projectFindings.bulkApply': 'Apply to {count} finding(s)',
     'projectFindings.bulkClear': 'Clear the selection',
     'projectFindings.bulkInvalid':
-      'Nothing was saved: the decision was refused for finding #{id} (check the reason, 10 characters or more, and the expiry date).',
+      'Nothing was saved: the decision was refused for finding F{id} (check the reason, 10 characters or more, and the expiry date).',
     'projectFindings.bulkNotFound':
-      'Nothing was saved: finding #{id} does not exist or is outside your scope.',
+      'Nothing was saved: finding F{id} does not exist or is outside your scope.',
     'projectFindings.bulkFailed': 'Nothing was saved: the decision could not be recorded.',
     'projectFindings.bulkTooMany':
       'At most {max} findings per decision: narrow the selection with the filters or clear it.',
@@ -247,7 +247,7 @@ export const projects = defineMessages({
     'project.oldest': 'Plus ancien finding ouvert',
     'project.topCwes': 'CWE les plus fréquentes',
     'project.colNumber': 'N°',
-    'project.openFinding': 'Afficher le finding n° {id} parmi les findings du projet',
+    'project.openFinding': 'Afficher le finding F{id} parmi les findings du projet',
     'project.proposalPending': "Un agent propose « {status} » : ouvrir le finding pour l'examiner",
     'project.colSeverity': 'Sévérité',
     'project.colFinding': 'Finding',
@@ -297,15 +297,15 @@ export const projects = defineMessages({
     'projectFindings.none': 'Aucun finding ouvert : rien à revoir.',
     'projectFindings.bulkTitle': 'Décision pour les findings sélectionnés',
     'projectFindings.bulkSelectAll': 'Sélectionner les findings chargés',
-    'projectFindings.bulkPick': 'Sélectionner le finding #{id}',
+    'projectFindings.bulkPick': 'Sélectionner le finding F{id}',
     'projectFindings.bulkSelected': '{count} finding(s) sélectionné(s)',
     'projectFindings.bulkStatus': 'Nouveau statut',
     'projectFindings.bulkApply': 'Appliquer à {count} finding(s)',
     'projectFindings.bulkClear': 'Vider la sélection',
     'projectFindings.bulkInvalid':
-      "Rien n'a été enregistré : la décision a été refusée pour le finding #{id} (vérifiez le motif, 10 caractères ou plus, et la date d'expiration).",
+      "Rien n'a été enregistré : la décision a été refusée pour le finding F{id} (vérifiez le motif, 10 caractères ou plus, et la date d'expiration).",
     'projectFindings.bulkNotFound':
-      "Rien n'a été enregistré : le finding #{id} n'existe pas ou est hors de votre périmètre.",
+      "Rien n'a été enregistré : le finding F{id} n'existe pas ou est hors de votre périmètre.",
     'projectFindings.bulkFailed':
       "Rien n'a été enregistré : la décision n'a pas pu être enregistrée.",
     'projectFindings.bulkTooMany':
@@ -405,7 +405,7 @@ export const projects = defineMessages({
     'project.oldest': 'Hallazgo abierto más antiguo',
     'project.topCwes': 'CWE más frecuentes',
     'project.colNumber': 'N.º',
-    'project.openFinding': 'Mostrar el hallazgo n.º {id} entre los hallazgos del proyecto',
+    'project.openFinding': 'Mostrar el hallazgo F{id} entre los hallazgos del proyecto',
     'project.proposalPending': 'Un agente propone «{status}»: abrir el hallazgo para revisarlo',
     'project.colSeverity': 'Severidad',
     'project.colFinding': 'Hallazgo',
@@ -455,15 +455,15 @@ export const projects = defineMessages({
     'projectFindings.none': 'No hay hallazgos abiertos: nada que revisar.',
     'projectFindings.bulkTitle': 'Decisión para los hallazgos seleccionados',
     'projectFindings.bulkSelectAll': 'Seleccionar los hallazgos cargados',
-    'projectFindings.bulkPick': 'Seleccionar el hallazgo #{id}',
+    'projectFindings.bulkPick': 'Seleccionar el hallazgo F{id}',
     'projectFindings.bulkSelected': '{count} hallazgo(s) seleccionado(s)',
     'projectFindings.bulkStatus': 'Nuevo estado',
     'projectFindings.bulkApply': 'Aplicar a {count} hallazgo(s)',
     'projectFindings.bulkClear': 'Vaciar la selección',
     'projectFindings.bulkInvalid':
-      'No se guardó nada: la decisión fue rechazada para el hallazgo #{id} (compruebe el motivo, 10 caracteres o más, y la fecha de caducidad).',
+      'No se guardó nada: la decisión fue rechazada para el hallazgo F{id} (compruebe el motivo, 10 caracteres o más, y la fecha de caducidad).',
     'projectFindings.bulkNotFound':
-      'No se guardó nada: el hallazgo #{id} no existe o está fuera de su ámbito.',
+      'No se guardó nada: el hallazgo F{id} no existe o está fuera de su ámbito.',
     'projectFindings.bulkFailed': 'No se guardó nada: no se pudo registrar la decisión.',
     'projectFindings.bulkTooMany':
       'Como máximo {max} hallazgos por decisión: reduzca la selección con los filtros o vacíela.',

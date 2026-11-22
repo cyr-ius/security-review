@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
 import { MessageParams } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { FINDING_STATUS_FILTERS } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SeverityBadgeComponent } from '../../shared/components/severity-badge/severity-badge.component';
@@ -30,9 +31,17 @@ import {
   Suggestion,
   SuggestionSection,
   describe,
+  foundChecklistItem,
   foundFinding,
   foundReport,
+  foundRule,
+  foundStandard,
 } from './search-suggestions';
+import {
+  checklistSearchText,
+  referenceMatches,
+  ruleSearchText,
+} from '../../shared/utils/reference-search';
 
 /** Pause after the last key stroke before the findings and reports found are loaded. */
 const PREVIEW_DELAY_MS = 300;
@@ -40,30 +49,37 @@ const PREVIEW_DELAY_MS = 300;
 /** Findings and reports shown under the field for a search. */
 const PREVIEW_FINDINGS = 5;
 const PREVIEW_REPORTS = 3;
+/** Rules, checklist items and standards shown under the field for a search. */
+const PREVIEW_REFERENCES = 3;
 
 /** Title of each group of the list (the actions have none). */
 const SECTION_TITLES: Record<SuggestionSection, MessageKey | null> = {
   actions: null,
   findings: 'layout.findings',
   reports: 'layout.reports',
+  rules: 'layout.rules',
+  checklists: 'layout.checklists',
+  standards: 'layout.standards',
 };
 
 /** Syntax reminded while the field is empty. */
 const SYNTAX: readonly { example: string; label: MessageKey }[] = [
   { example: 'sql injection', label: 'layout.searchHelpText' },
-  { example: '#report:12', label: 'layout.searchHelpReport' },
-  { example: 'xss #report:12', label: 'layout.searchHelpInReport' },
-  { example: '#finding:34', label: 'layout.searchHelpFinding' },
-  { example: '#report:*', label: 'layout.searchHelpAll' },
-  { example: 'project:shop sev:high,critical', label: 'layout.searchHelpFilters' },
+  { example: '#R12 · #F34', label: 'layout.searchHelpOpen' },
+  { example: '#5', label: 'layout.searchHelpNumber' },
+  { example: '#PY-004', label: 'layout.searchHelpRule' },
+  { example: '#F1* · #AI*', label: 'layout.searchHelpPrefix' },
+  { example: 'xss #R12', label: 'layout.searchHelpCombine' },
+  { example: 'project:shop sev:high', label: 'layout.searchHelpFilters' },
   { example: 'status:accepted', label: 'layout.searchHelpStatus' },
 ];
 
 /**
  * Search field of the top bar: plain text searches the findings and the reports (the first ones
  * found are listed under the field) and offers the projects whose name contains it,
- * ``#report:<n>`` and ``#finding:<n>`` open one of them (``xss #report:<n>`` searches the
- * report), ``project:``, ``severity:`` and ``status:`` filter, ``*`` lists them all. Ctrl+K (⌘K)
+ * ``#R<n>`` / ``#report:<n>`` and ``#F<n>`` / ``#finding:<n>`` open one of them
+ * (``xss #R<n>`` searches the report, ``#R*`` / ``#F*`` list them), ``#<n>`` offers both, ``#PY-004`` a rule or a
+ * checklist item, ``project:``, ``severity:`` and ``status:`` filter, ``*`` lists them all. Ctrl+K (⌘K)
  * focuses it.
  */
 @Component({
@@ -117,7 +133,15 @@ export class GlobalSearchComponent {
     const targets = isProjectName(query, names)
       ? [...projects, ...searches]
       : [...searches, ...projects];
-    return targets.filter((target) => target.kind !== 'findings' || this.auth.can('reports.read'));
+    return targets.filter((target) =>
+      target.kind === 'findings'
+        ? this.auth.can('reports.read')
+        : target.kind === 'rules' || target.kind === 'checklists'
+          ? this.auth.can('rules.read')
+          : target.kind === 'standards'
+            ? this.auth.can('standards.read')
+            : true,
+    );
   });
 
   /** Searches of the settled query whose first results are listed. */
@@ -128,10 +152,56 @@ export class GlobalSearchComponent {
         ? targets.find((target) => target.kind === 'findings')
         : undefined,
       reports: targets.find((target) => target.kind === 'reports'),
+      rules: this.auth.can('rules.read')
+        ? targets.find((target) => target.kind === 'rules')
+        : undefined,
+      checklists: this.auth.can('rules.read')
+        ? targets.find((target) => target.kind === 'checklists')
+        : undefined,
+      standards: this.auth.can('standards.read')
+        ? targets.find((target) => target.kind === 'standards')
+        : undefined,
     };
   });
 
-  /** First findings found (open ones unless a status is typed), worst first. */
+  /** The rules and the checklist items, loaded once the field gets the focus (rules.read). */
+  private readonly ruleCatalog = rxResource({
+    params: () => (this.wanted() && this.auth.can('rules.read') ? true : undefined),
+    stream: () => this.api.customRules(),
+  });
+  private readonly checklistCatalog = rxResource({
+    params: () => (this.wanted() && this.auth.can('rules.read') ? true : undefined),
+    stream: () => this.api.checklistItems(),
+  });
+
+  /** Rules and checklist items found, with the same criteria as their pages. */
+  private readonly foundRules = computed(() => {
+    const target = this.previewed().rules;
+    return target?.kind === 'rules'
+      ? (this.ruleCatalog.value()?.rules ?? []).filter((rule) =>
+          referenceMatches(rule.id, ruleSearchText(rule), target.search),
+        )
+      : null;
+  });
+  private readonly foundChecklistItems = computed(() => {
+    const target = this.previewed().checklists;
+    return target?.kind === 'checklists'
+      ? (this.checklistCatalog.value()?.checklist_items ?? []).filter((item) =>
+          referenceMatches(item.id, checklistSearchText(item), target.search),
+        )
+      : null;
+  });
+
+  /** Standards found, their content included (searched by the server). */
+  private readonly foundStandards = rxResource({
+    params: () => {
+      const target = this.previewed().standards;
+      return target?.kind === 'standards' ? target.search : undefined;
+    },
+    stream: ({ params }) => this.api.devStandards(params),
+  });
+
+  /** First findings found (every status unless one is typed), worst first. */
   private readonly foundFindings = rxResource({
     params: () => {
       const target = this.previewed().findings;
@@ -140,7 +210,8 @@ export class GlobalSearchComponent {
     stream: ({ params }) =>
       this.api.projectFindings({
         project: params.filters.project,
-        status: params.filters.status.length ? params.filters.status : ['open'],
+        // Every status unless one is typed: a search finds the accepted findings too
+        status: params.filters.status.length ? params.filters.status : [...FINDING_STATUS_FILTERS],
         severity: params.filters.severity,
         reviewType: [],
         search: params.text || undefined,
@@ -166,7 +237,11 @@ export class GlobalSearchComponent {
   });
 
   readonly loading = computed(
-    () => this.busy() || this.foundFindings.isLoading() || this.foundReports.isLoading(),
+    () =>
+      this.busy() ||
+      this.foundFindings.isLoading() ||
+      this.foundReports.isLoading() ||
+      this.foundStandards.isLoading(),
   );
 
   /** Entries of the list: what to open, then the findings and the reports found. */
@@ -175,19 +250,30 @@ export class GlobalSearchComponent {
     const current = this.query() === this.settled();
     const findings = current && this.foundFindings.hasValue() ? this.foundFindings.value() : null;
     const reports = current && this.foundReports.hasValue() ? this.foundReports.value() : [];
+    const rules = current ? this.foundRules() : null;
+    const items = current ? this.foundChecklistItems() : null;
+    const standards =
+      current && this.foundStandards.hasValue() ? this.foundStandards.value().standards : null;
+    const counts: Partial<Record<SearchTarget['kind'], number | undefined>> = {
+      findings: findings?.total,
+      rules: rules?.length,
+      checklists: items?.length,
+      standards: standards?.length,
+    };
     return [
-      ...this.targets().map((target) =>
-        describe(target, target.kind === 'findings' ? findings?.total : undefined),
-      ),
+      ...this.targets().map((target) => describe(target, counts[target.kind])),
       ...(findings?.findings ?? []).map(foundFinding),
       ...reports.map(foundReport),
+      ...(rules ?? []).slice(0, PREVIEW_REFERENCES).map(foundRule),
+      ...(items ?? []).slice(0, PREVIEW_REFERENCES).map(foundChecklistItem),
+      ...(standards ?? []).slice(0, PREVIEW_REFERENCES).map(foundStandard),
     ];
   });
 
   /** The entries by group, each with its place in the whole list (keyboard selection). */
   readonly groups = computed(() => {
     const entries = this.suggestions().map((suggestion, index) => ({ suggestion, index }));
-    return (['actions', 'findings', 'reports'] as const)
+    return (['actions', 'findings', 'reports', 'rules', 'checklists', 'standards'] as const)
       .map((section) => ({
         section,
         entries: entries.filter((entry) => entry.suggestion.section === section),
@@ -313,8 +399,17 @@ export class GlobalSearchComponent {
       case 'projectReports':
         await this.router.navigate(['/reports'], { queryParams: { project: target.name } });
         break;
+      case 'rules':
+        await this.router.navigate(['/rules'], { queryParams: { search: target.search } });
+        break;
+      case 'checklists':
+        await this.router.navigate(['/checklists'], { queryParams: { search: target.search } });
+        break;
+      case 'standards':
+        await this.router.navigate(['/standards'], { queryParams: { search: target.search } });
+        break;
       case 'finding':
-        if (!(await this.openFinding(target.id, target.reportId))) {
+        if (!(await this.openFinding(target.id, target.project))) {
           return;
         }
         break;
@@ -323,12 +418,17 @@ export class GlobalSearchComponent {
     this.field().nativeElement.blur();
   }
 
-  /** Open the report of a finding at its card; false when it cannot be shown. */
-  private async openFinding(id: number, reportId?: number): Promise<boolean> {
+  /**
+   * Open a finding among the findings of its project (searched "#F<id>", shown whatever its
+   * status); false when it cannot be shown.
+   */
+  private async openFinding(id: number, project?: string): Promise<boolean> {
     this.busy.set(true);
     try {
-      const report = reportId ?? (await firstValueFrom(this.api.projectFinding(id))).report_id;
-      await this.router.navigate(['/reports', report], { fragment: `finding-${id}` });
+      const name = project ?? (await firstValueFrom(this.api.projectFinding(id))).project;
+      await this.router.navigate(['/projects', name, 'findings'], {
+        queryParams: { search: `#F${id}` },
+      });
       return true;
     } catch (error) {
       const missing = error instanceof HttpErrorResponse && error.status === 404;
@@ -344,11 +444,14 @@ export class GlobalSearchComponent {
   }
 }
 
-/** Query parameters of the findings page for a search (empty values left out). */
+/**
+ * Query parameters of the findings page for a search (empty values left out): every status
+ * unless one is typed, as counted under the field.
+ */
 function findingParams(text: string, filters: SearchFilters): Params {
   return {
     search: text || undefined,
-    status: filters.status.length ? filters.status : undefined,
+    status: filters.status.length ? filters.status : [...FINDING_STATUS_FILTERS],
     severity: filters.severity.length ? filters.severity : undefined,
   };
 }
