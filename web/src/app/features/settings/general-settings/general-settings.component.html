@@ -67,6 +67,7 @@
               id="language-mode"
               class="form-select form-select-sm"
               [formField]="languageForm.mode"
+              (change)="languageModeChanged()"
             >
               <option value="agent">{{ 'settings.languageAgent' | t }}</option>
               <option value="custom">{{ 'settings.languageCustom' | t }}</option>
@@ -96,17 +97,17 @@
                 {{ 'settings.languagePattern' | t }}
               </div>
             </div>
+            <div class="col-md-3">
+              <button
+                type="submit"
+                class="btn btn-sm btn-primary"
+                [disabled]="busy() || !languageValid()"
+              >
+                <i class="bi bi-check-lg" aria-hidden="true"></i>
+                {{ 'common.save' | t }}
+              </button>
+            </div>
           }
-          <div class="col-md-3">
-            <button
-              type="submit"
-              class="btn btn-sm btn-primary"
-              [disabled]="busy() || !languageValid()"
-            >
-              <i class="bi bi-check-lg" aria-hidden="true"></i>
-              {{ 'common.save' | t }}
-            </button>
-          </div>
         </form>
       }
     </div>
@@ -148,7 +149,7 @@
           }
         </div>
       } @else {
-        <form class="row g-2 align-items-end" (submit)="saveFixSeverity($event)" novalidate>
+        <form class="row g-2 align-items-end" (submit)="$event.preventDefault()" novalidate>
           <div class="col-md-5">
             <label for="fix-severity-value" class="form-label small mb-1">{{
               'settings.fixLabel' | t
@@ -157,18 +158,13 @@
               id="fix-severity-value"
               class="form-select form-select-sm"
               [formField]="fixForm.severity"
+              (change)="saveFixSeverity()"
             >
               <option value="">{{ 'settings.fixNone' | t }}</option>
               @for (option of fixOptions(); track option.severity) {
                 <option [value]="option.severity">{{ option.label }}</option>
               }
             </select>
-          </div>
-          <div class="col-md-3">
-            <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy()">
-              <i class="bi bi-check-lg" aria-hidden="true"></i>
-              {{ 'common.save' | t }}
-            </button>
           </div>
         </form>
       }
