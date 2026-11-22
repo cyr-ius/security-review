@@ -216,7 +216,7 @@
                       <a
                         class="count-link"
                         [routerLink]="['/projects', project.project, 'findings']"
-                        [queryParams]="{ severity }"
+                        [queryParams]="findingsQuery(severity)"
                         [attr.aria-label]="
                           'projects.openFindingsOf'
                             | t

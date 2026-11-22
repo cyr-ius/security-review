@@ -18,6 +18,7 @@ import {
   SEVERITY_RANK,
   Severity,
   SeverityCounts,
+  openFindingsQuery,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -110,6 +111,7 @@ export class ProjectListComponent {
 
   readonly severities = SEVERITIES;
   readonly severityMeta = SEVERITY_META;
+  readonly findingsQuery = openFindingsQuery;
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
   /** Projects requested by the MCP agent of a user, approved or rejected by the holders of

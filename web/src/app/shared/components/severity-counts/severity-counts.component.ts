@@ -3,7 +3,7 @@ import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { SEVERITY_META } from '../../../core/constants/labels';
-import { SEVERITIES, SeverityCounts } from '../../../core/models/api.models';
+import { SEVERITIES, SeverityCounts, openFindingsQuery } from '../../../core/models/api.models';
 
 /**
  * One stat tile per severity: icon, name and number of open findings. With `link`, a tile that
@@ -27,8 +27,7 @@ export class SeverityCountsComponent {
       severity,
       ...SEVERITY_META[severity],
       value: this.counts()[severity] ?? 0,
-      // The open info findings are observations: listed under the "unread" status
-      query: severity === 'info' ? { severity, status: 'unread' } : { severity },
+      query: openFindingsQuery(severity),
     })),
   );
 }

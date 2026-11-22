@@ -62,6 +62,15 @@ export function statusFilterOf(finding: {
   return finding.status === 'open' && finding.severity === 'info' ? 'unread' : finding.status;
 }
 
+/** Query parameters of the findings list showing the open findings of one severity (the open
+ * ``info`` findings are listed under the ``unread`` status). */
+export function openFindingsQuery(severity: Severity): {
+  severity: Severity;
+  status?: FindingStatusFilter;
+} {
+  return severity === 'info' ? { severity, status: 'unread' } : { severity };
+}
+
 export const FINDING_STATUSES: readonly FindingStatus[] = [
   'open',
   'fixed',
