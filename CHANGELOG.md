@@ -1,5 +1,37 @@
 # Changelog
 
+## [13.0.0](https://github.com/cyr-ius/security-review/compare/v12.7.0...v13.0.0) (2026-11-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* open_findings_total, worst_open_severity et secreview_open_findings ne comptent plus les findings info ; GET /api/v1/findings?status=open ne les renvoie plus (status=unread) ; accepter un finding info est refusé (422 ou erreur de l'outil MCP).
+
+### Features
+
+* **reports:** couverture par fichiers d'une revue du code complet ([7f7d3c6](https://github.com/cyr-ius/security-review/commit/7f7d3c634fd63dc44fc14e088ce2385d59edb919))
+* **reports:** fichiers d'un scan de dépendances dans le rapport ([fa1888e](https://github.com/cyr-ius/security-review/commit/fa1888e4d14786a49125da579196071f7517d3d9))
+* **reports:** lier les rapports d'une revue du code complet ([c834fde](https://github.com/cyr-ius/security-review/commit/c834fdeef3cf1875ddd19f57e33a55f04e848dea))
+* **reports:** liste des fichiers d'un scan de code dans le rapport ([0dc7504](https://github.com/cyr-ius/security-review/commit/0dc7504cdf2fd608bb8a5a11809643a3d8e1b541))
+* **scan-engines:** régler le repli des moteurs dans l'interface ([3731512](https://github.com/cyr-ius/security-review/commit/373151217eb5c59054e84c66079ab5656f972547))
+* traiter les findings info comme des observations (Lu / Non lu) ([42acfab](https://github.com/cyr-ius/security-review/commit/42acfab5b008176eaf0179d440a69dbe79c7f5a1))
+* **ui:** alerter quand aucun moteur de scan n'est en ligne ([d442ad3](https://github.com/cyr-ius/security-review/commit/d442ad3afc6b685c6105452f363fdf580bb4bd77))
+* **ui:** signaler les demandes de projet et le jeton qui les a faites ([5fb0d24](https://github.com/cyr-ius/security-review/commit/5fb0d24710f3fb0ee72501dd3e2937a82a0e0d0e))
+
+
+### Bug Fixes
+
+* **agents:** ajouter des détails sur le projet et l'utilisation du nom dans save_security_report ([0206aa3](https://github.com/cyr-ius/security-review/commit/0206aa33fd5fe8c5002692df157f0a558aa28988))
+* **agents:** clarifier les instructions de revue et d'enregistrement des rapports ([6d82a1b](https://github.com/cyr-ius/security-review/commit/6d82a1bcdd21e90afc7e49c22cce343be1ca697a))
+* **agents:** mettre à jour les instructions de revue de sécurité pour plus de clarté et de précision ([2cd7815](https://github.com/cyr-ius/security-review/commit/2cd7815ee34df89423a96fe5fc4eacf533767b63))
+* **coverage:** reconnaître les pistes OpenGrep déclarées dans scan_rules ([17358dd](https://github.com/cyr-ius/security-review/commit/17358ddc265625957733dfdecd972c8ccb5b52f3))
+* **triage:** une revue ne baisse plus la sévérité d'un finding signalé de nouveau ([5acaa46](https://github.com/cyr-ius/security-review/commit/5acaa469131cb2bb3b6f68d8d54f1e65f02e5773))
+
+
+### Documentation
+
+* **agents:** exclure tests/ du scan complet du dépôt ([96e5243](https://github.com/cyr-ius/security-review/commit/96e52438c820bc8db808a2219b7d5edf139b3345))
+
 ## [12.7.0](https://github.com/cyr-ius/security-review/compare/v12.6.0...v12.7.0) (2026-11-21)
 
 
