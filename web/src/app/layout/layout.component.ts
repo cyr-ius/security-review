@@ -183,6 +183,7 @@ export class LayoutComponent {
   private readonly openFindings = rxResource({
     params: () => (this.auth.can('reports.read') ? { navigation: this.navigations() } : undefined),
     stream: () =>
+      // No status: the open risks, the unread observations left out
       this.api.projectFindings({ status: [], severity: [], reviewType: [], limit: 1, offset: 0 }),
   });
 

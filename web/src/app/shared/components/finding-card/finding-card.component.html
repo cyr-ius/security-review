@@ -32,14 +32,14 @@
         [disabled]="saving()"
         (change)="changeStatus($event)"
       >
-        @for (status of statuses; track status) {
+        @for (status of statuses(); track status) {
           <option [value]="status" [selected]="status === finding().status">
-            {{ statusMeta[status].label | t }}
+            {{ statusLabel(status) | t }}
           </option>
         }
       </select>
     } @else {
-      <app-status-badge [status]="finding().status" />
+      <app-status-badge [status]="finding().status" [severity]="finding().severity" />
     }
   </div>
   <div class="card-body">
@@ -84,7 +84,7 @@
             'report.statusOn'
               | t
                 : {
-                    status: statusMeta[finding().status].label | t,
+                    status: statusLabel(finding().status) | t,
                     date: (finding().status_changed_at | date: 'dd/MM/yyyy') ?? '',
                   }
           }}

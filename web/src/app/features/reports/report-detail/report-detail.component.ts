@@ -16,11 +16,13 @@ import {
   CHECKLIST_OUTCOME_META,
   REVIEW_TYPE_META,
   SEVERITY_META,
-  STATUS_META,
+  STATUS_FILTER_META,
 } from '../../../core/constants/labels';
 import {
   CHECKLIST_OUTCOMES,
-  FINDING_STATUSES,
+  FINDING_STATUS_FILTERS,
+  FindingStatusFilter,
+  statusFilterOf,
   Finding,
   FindingStatus,
   PROMPT_REVIEW_TYPES,
@@ -107,7 +109,7 @@ export class ReportDetailComponent {
   readonly searchInput = linkedSignal(() => this.search() ?? '');
 
   readonly severityFilter = signal<Severity[]>([]);
-  readonly statusFilter = signal<FindingStatus[]>([]);
+  readonly statusFilter = signal<FindingStatusFilter[]>([]);
 
   /** Filters of the findings of the report (ids report-findings-filter-severity and -status). */
   readonly filters = computed<TableControlMultiFilter[]>(() => [
@@ -126,9 +128,9 @@ export class ReportDetailComponent {
       label: this.i18n.translate('report.filterStatus'),
       allLabel: this.i18n.translate('report.allStatuses'),
       values: this.statusFilter(),
-      options: FINDING_STATUSES.map((status) => ({
+      options: FINDING_STATUS_FILTERS.map((status) => ({
         value: status,
-        label: this.i18n.translate(STATUS_META[status].label),
+        label: this.i18n.translate(STATUS_FILTER_META[status].label),
       })),
     },
   ]);
@@ -144,7 +146,7 @@ export class ReportDetailComponent {
   readonly visibleFindings = computed(() =>
     this.findings()
       .filter((f) => matchesFilter(this.severityFilter(), f.severity))
-      .filter((f) => matchesFilter(this.statusFilter(), f.status))
+      .filter((f) => matchesFilter(this.statusFilter(), statusFilterOf(f)))
       .filter((f) => matches(f, this.searchInput()))
       .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.id - b.id),
   );
@@ -180,7 +182,10 @@ export class ReportDetailComponent {
     return declared || expected ? { items, counts, leads, declared } : null;
   });
 
-  readonly openCount = computed(() => this.findings().filter((f) => f.status === 'open').length);
+  /** Open risks of the report (the unread observations are not open findings). */
+  readonly openCount = computed(
+    () => this.findings().filter((f) => statusFilterOf(f) === 'open').length,
+  );
 
   /** Finding a link points to, from the URL fragment ``#finding-<id>``. */
   private readonly fragment = toSignal(inject(ActivatedRoute).fragment);
@@ -214,7 +219,7 @@ export class ReportDetailComponent {
     if (key === 'severity') {
       this.severityFilter.set(knownValues(values, SEVERITIES));
     } else if (key === 'status') {
-      this.statusFilter.set(knownValues(values, FINDING_STATUSES));
+      this.statusFilter.set(knownValues(values, FINDING_STATUS_FILTERS));
     }
   }
 

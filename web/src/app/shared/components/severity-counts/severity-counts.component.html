@@ -5,7 +5,7 @@
         class="tile tile-link"
         [class]="'sev-' + tile.severity"
         [routerLink]="link()"
-        [queryParams]="{ severity: tile.severity }"
+        [queryParams]="tile.query"
       >
         <ng-container *ngTemplateOutlet="content; context: { $implicit: tile }" />
       </a>

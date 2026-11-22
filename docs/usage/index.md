@@ -37,7 +37,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
     | `#report:*`, `#finding:*`, `*` | List every report, every finding, or offer both |
     | `sql project:shop` | Only in project `shop` |
     | `severity:high,critical` (or `sev:`) | Only these severities (risk level of the reports) |
-    | `status:accepted` | Findings with this status (`open`, `fixed`, `accepted`, `false_positive`) instead of the open ones |
+    | `status:accepted` | Findings with this status (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) instead of the open ones |
     | `rule:PY-004`, `cwe:89` | Searched as text |
 
     Filters and text combine in any order: `sql project:shop sev:high #finding:*`. One

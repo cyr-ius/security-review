@@ -135,14 +135,14 @@ message de toute autre erreur lui est masqué.
 | `save_security_report` | écriture | `project`, `summary`, `findings` (au plus `SECREVIEW_MAX_FINDINGS_PER_REPORT`) ; facultatifs `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (ne peut que relever le risque calculé), `review_type`, `author`, `checklist_results` (500 au plus), `scan_rules` (500 au plus) | Identifiant du rapport, niveau de risque, comptes par sévérité et couverture de la revue ([rapport enregistré](../../reference/prompts-tools.md#rapport-enregistre)) |
 | `get_security_report` | lecture seule | `report_id`, `format` (`markdown` par défaut, ou `json`) | Le rapport et ses findings, sans son auteur |
 | `list_security_reports` | lecture seule | `project`, `risk_level`, `review_type`, `limit` (1 à 100, `20` par défaut), `offset` | Les rapports, du plus récent au plus ancien, sans leur auteur (`author` : obsolète, ignoré) |
-| `propose_finding_status` | écriture | `finding_id`, `status` (`fixed`, `accepted` ou `false_positive`), `reason` (10 à 1 000 caractères) | Le finding avec sa proposition ; son statut ne change pas tant qu'une personne n'a pas décidé ([statut d'un finding](../../reference/prompts-tools.md#statut-dun-finding)) |
+| `propose_finding_status` | écriture | `finding_id`, `status` (`fixed`, `accepted` ou `false_positive` ; jamais `accepted` pour un finding `info`), `reason` (10 à 1 000 caractères) | Le finding avec sa proposition ; son statut ne change pas tant qu'une personne n'a pas décidé ([statut d'un finding](../../reference/prompts-tools.md#statut-dun-finding)) |
 | `propose_opengrep_rule` | écriture | `project`, `rule_id`, `content` (une règle YAML, au plus 256 Kio), `reason` (10 à 1 000 caractères), `test_code` (au plus `SECREVIEW_MAX_CONTENT_CHARS`) | La proposition en attente et `next_steps` ; la règle n'est installée qu'après l'approbation d'une personne ([règles proposées par les agents](../../review/analysis/opengrep.md#regles-proposees-par-les-agents)) |
 
 **Posture, gate, exports et tendances**
 
 | Outil | Type | Paramètres | Renvoie |
 |---|---|---|---|
-| `get_project_security_posture` | lecture seule | `project` | Findings ouverts par sévérité, pire sévérité ouverte |
+| `get_project_security_posture` | lecture seule | `project` | Findings ouverts par sévérité, pire sévérité ouverte et total, tous deux sans les findings `info`, comptés dans `open_observations` |
 | `check_project_gate` | lecture seule | `project`, `fail_on` (`high` par défaut), `report_id` (facultatif) | `passed` faux tant qu'un finding ouvert atteint `fail_on` ([gate](../../review/gate.md)) |
 | `export_sarif` | lecture seule | `report_id` **ou** `project`, `include_resolved` (`false` par défaut) | Un journal SARIF 2.1.0 ; pour un projet, chaque finding une fois (dernier rapport) |
 | `get_trend_report` | lecture seule | `project`, `days` (1 à 1 095, `90` par défaut), `granularity` (`day`, `week` par défaut, `month`), `format` | Findings nouveaux et corrigés, stock ouvert, score de risque, MTTR |

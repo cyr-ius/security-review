@@ -91,7 +91,7 @@ to fix » du prompt prévaut, y compris une sévérité donnée par l'argument `
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
 | `decide_finding_status` | **Mode local (stdio) uniquement** : applique une décision de triage énoncée par le développeur dans la conversation, une fois qu'il l'a confirmée dans l'hôte ([décision du développeur en mode local](#decision-du-developpeur-en-mode-local)) |
 | `propose_opengrep_rule` | **Propose** une [règle OpenGrep](../review/analysis/opengrep.md#regles-proposees-par-les-agents) pour un motif vulnérable que le scan n'a pas relevé ; installée seulement après l'approbation d'une personne |
-| `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
+| `get_project_security_posture` | Findings ouverts par sévérité, observations `info` comptées à part (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
 | `export_findings_report` | Findings actuels d'un projet en un document Markdown (`detail` : `compact` par défaut, une ligne par finding, ou `full`), affiché au développeur ou écrit par l'agent dans `SECURITY_REPORT.md` ([rapport des findings](../getting-started/stdio.md#rapport-des-findings-security_reportmd)) |
@@ -266,6 +266,9 @@ injectées ([injection de prompt](security.md#securite-du-serveur-lui-meme)).
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
   remplace la précédente. Elle est écrite dans le [journal d'audit](../usage/audit-metrics.md),
   comme la décision qui suit.
+  Un finding `info` est une observation, pas un risque : `accepted` est refusé pour lui (une
+  erreur, comme avec `decide_finding_status`). Seule une personne le marque `acknowledged`
+  (lu) : un agent ne peut pas le proposer.
 - Une personne qui a la permission `findings.triage` sur le projet l'applique ou la rejette dans
   l'[interface web](../usage/triage.md). `accepted` et `false_positive`
   exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir
@@ -279,7 +282,8 @@ outil qui change un statut.
 En [mode local (stdio)](../getting-started/stdio.md), il n'y a pas d'interface web, mais le
 développeur est devant l'hôte. Quand il énonce une décision dans la conversation (*« la
 ligne 12 de app/db.py est un faux positif, la requête est paramétrée »*), l'agent appelle
-`decide_finding_status` avec les findings, le statut (`fixed`, `accepted` ou `false_positive`),
+`decide_finding_status` avec les findings, le statut (`fixed`, `accepted`, `false_positive`, ou
+`acknowledged` pour un finding `info`),
 le motif et, pour accepter un risque, la date d'expiration donnée par le développeur (50
 findings au plus à la fois). Le statut ne change pas encore : le serveur demande au développeur
 de confirmer par l'hôte (**elicitation** MCP), avec un message qui liste les findings, le

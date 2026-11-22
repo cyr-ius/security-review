@@ -13,6 +13,7 @@ import {
   PendingProject,
   ProjectRenamed,
   ProjectSummary,
+  RISK_SEVERITIES,
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
@@ -159,9 +160,9 @@ export class ProjectListComponent {
     return totals;
   });
 
-  /** Open findings of every project, shown on the review button. */
+  /** Open findings of every project, shown on the review button (observations left out). */
   readonly openTotal = computed(() =>
-    SEVERITIES.reduce((sum, severity) => sum + this.totals()[severity], 0),
+    RISK_SEVERITIES.reduce((sum, severity) => sum + this.totals()[severity], 0),
   );
 
   readonly visible = computed(() => {

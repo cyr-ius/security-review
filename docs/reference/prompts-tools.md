@@ -88,7 +88,7 @@ fix" section of the prompt takes precedence, including a severity given with the
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
 | `decide_finding_status` | **Local mode (stdio) only**: applies a triage decision the developer stated in the conversation, once they confirm it in the host ([decision of the developer in local mode](#decision-of-the-developer-in-local-mode)) |
 | `propose_opengrep_rule` | **Proposes** an [OpenGrep rule](../review/analysis/opengrep.md#rules-proposed-by-agents) for a vulnerable pattern the scan missed; installed only once a person approves it |
-| `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
+| `get_project_security_posture` | Open findings by severity, `info` observations counted apart (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
 | `export_findings_report` | Current findings of a project as one Markdown document (`detail`: `compact` by default, one line per finding, or `full`), shown to the developer or written by the agent to `SECURITY_REPORT.md` ([findings report](../getting-started/stdio.md#findings-report-security_reportmd)) |
@@ -258,6 +258,9 @@ what it hands back to the agent and reports injected instructions
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The
   status, the posture and the gate do not change. A new proposal replaces the previous one. It
   is written to the [audit log](../usage/audit-metrics.md), like the decision that follows.
+  An `info` finding is an observation, not a risk: `accepted` is refused for it (an error,
+  like with `decide_finding_status`). Only a person marks it `acknowledged` (read): an agent
+  cannot propose it.
 - A person with the `findings.triage` permission on the project applies or rejects it in the
   [web interface](../usage/triage.md). `accepted` and `false_positive` need a
   reason, an approver (the logged-in user) and an expiry date; from that date the finding counts
@@ -271,7 +274,8 @@ changes a status.
 In [local mode (stdio)](../getting-started/stdio.md) there is no web interface, but the
 developer sits at the host. When they state a decision in the conversation (*"line 12 of
 app/db.py is a false positive, the query is bound"*), the agent calls `decide_finding_status`
-with the findings, the status (`fixed`, `accepted` or `false_positive`), the reason and, to
+with the findings, the status (`fixed`, `accepted`, `false_positive`, or `acknowledged` for an
+`info` finding), the reason and, to
 accept a risk, the expiry date the developer gave (at most 50 findings at once). The status
 does not change yet: the server asks the developer to confirm through the host (MCP
 **elicitation**), with a message that lists the findings, the status, the reason and the

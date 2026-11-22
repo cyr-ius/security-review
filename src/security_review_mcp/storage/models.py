@@ -41,6 +41,20 @@ class FindingStatus(StrEnum):
     FIXED = "fixed"
     ACCEPTED = "accepted"
     FALSE_POSITIVE = "false_positive"
+    # An info finding (an observation, not a risk) a person has read: closed, with no expiry
+    ACKNOWLEDGED = "acknowledged"
+
+
+class FindingStatusFilter(StrEnum):
+    """Status filter of the finding lists: a status, where ``open`` keeps the open risks and
+    ``unread`` the open ``info`` findings (observations nobody has read yet)."""
+
+    OPEN = "open"
+    UNREAD = "unread"
+    FIXED = "fixed"
+    ACCEPTED = "accepted"
+    FALSE_POSITIVE = "false_positive"
+    ACKNOWLEDGED = "acknowledged"
 
 
 # Statuses that close a finding without a fix: a person decides them, with a reason and an

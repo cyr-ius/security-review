@@ -2,6 +2,7 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
 import { STATUS_META } from '../../../../core/constants/labels';
 import { I18nService } from '../../../../core/i18n/i18n.service';
+import { MessageKey } from '../../../../core/i18n/messages';
 import { TranslatePipe } from '../../../../core/i18n/translate.pipe';
 import {
   FINDING_STATUSES,
@@ -9,6 +10,7 @@ import {
   FindingDecision,
   FindingStatus,
   Severity,
+  fitsSeverity,
   plainAcceptance,
 } from '../../../../core/models/api.models';
 
@@ -77,6 +79,20 @@ export class BulkTriageComponent {
   readonly minExpiry = isoDay(1);
   readonly maxFindings = MAX_BULK_FINDINGS;
 
+  /**
+   * Why the decision is refused for the selection, null when it suits every finding: an info
+   * finding (an observation) is never accepted, and only it is marked as read.
+   */
+  readonly severityRefusal = computed<MessageKey | null>(() => {
+    const status = this.model().status;
+    if (this.findings().every((f) => fitsSeverity(status, f.severity))) {
+      return null;
+    }
+    return status === 'accepted'
+      ? 'projectFindings.bulkInfoNotAcceptable'
+      : 'projectFindings.bulkOnlyInfoRead';
+  });
+
   /** More findings are selected than one decision accepts. */
   readonly tooMany = computed(() => this.findings().length > MAX_BULK_FINDINGS);
 
@@ -120,7 +136,12 @@ export class BulkTriageComponent {
 
   submit(event: Event): void {
     event.preventDefault();
-    if (!this.findings().length || this.tooMany() || this.bulkForm().invalid()) {
+    if (
+      !this.findings().length ||
+      this.tooMany() ||
+      this.severityRefusal() ||
+      this.bulkForm().invalid()
+    ) {
       this.bulkForm().markAsTouched();
       return;
     }

@@ -14,6 +14,7 @@ from ...storage.models import (
     Finding,
     FindingPublic,
     FindingStatus,
+    FindingStatusFilter,
     SecurityReport,
     SecurityReportPublic,
     Severity,
@@ -155,7 +156,11 @@ def render_findings_markdown(
     """
     project = normalize_project(project)
     check_project_scope(projects, project)
-    statuses = list(FindingStatus) if include_resolved else [FindingStatus.OPEN]
+    statuses = (
+        list(FindingStatusFilter)
+        if include_resolved
+        else [FindingStatusFilter.OPEN, FindingStatusFilter.UNREAD]
+    )
     posture = project_posture(project)
     listed = list_project_findings(
         project, statuses, limit=get_settings().max_list_limit, projects=projects
@@ -169,6 +174,7 @@ def render_findings_markdown(
         f"- **Reports**: {posture['reports_total']}",
         f"- **Open findings**: {posture['open_findings_total']}"
         + (f" (worst: {worst.upper()})" if worst else ""),
+        f"- **Observations (info)**: {posture['open_observations']}",
         "",
         "| Severity | Open |",
         "|---|---|",

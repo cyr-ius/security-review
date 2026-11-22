@@ -1,7 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { STATUS_META } from '../../../core/constants/labels';
-import { FindingStatus } from '../../../core/models/api.models';
+import { findingStatusMeta } from '../../../core/constants/labels';
+import { FindingStatus, Severity } from '../../../core/models/api.models';
 
 /** Finding status shown as an icon followed by its name. */
 @Component({
@@ -12,6 +12,8 @@ import { FindingStatus } from '../../../core/models/api.models';
 })
 export class StatusBadgeComponent {
   readonly status = input.required<FindingStatus>();
+  /** Severity of the finding: an open ``info`` finding is shown as unread. */
+  readonly severity = input.required<Severity>();
 
-  readonly meta = computed(() => STATUS_META[this.status()]);
+  readonly meta = computed(() => findingStatusMeta(this.status(), this.severity()));
 }

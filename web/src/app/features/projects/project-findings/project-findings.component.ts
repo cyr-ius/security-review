@@ -12,12 +12,18 @@ import {
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
-import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
+import {
+  REVIEW_TYPE_META,
+  SEVERITY_META,
+  STATUS_FILTER_META,
+} from '../../../core/constants/labels';
 import { I18nService, Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
 import {
-  FINDING_STATUSES,
+  FINDING_STATUS_FILTERS,
+  FindingStatusFilter,
+  statusFilterOf,
   Finding,
   FindingDecision,
   FindingStatus,
@@ -91,8 +97,8 @@ export class ProjectFindingsComponent {
   readonly severity = input<string | string[]>();
 
   /** Selected values of each filter (none: no filter, every status for the status). */
-  readonly statusFilter = linkedSignal<FindingStatus[]>(() => {
-    const statuses = known(this.status(), FINDING_STATUSES);
+  readonly statusFilter = linkedSignal<FindingStatusFilter[]>(() => {
+    const statuses = known(this.status(), FINDING_STATUS_FILTERS);
     return statuses.length ? statuses : ['open'];
   });
   readonly severityFilter = linkedSignal<Severity[]>(() => known(this.severity(), SEVERITIES));
@@ -117,13 +123,13 @@ export class ProjectFindingsComponent {
 
   /** Statuses listed: the selected ones, or all of them. */
   private readonly statuses = computed(() =>
-    this.statusFilter().length ? this.statusFilter() : FINDING_STATUSES,
+    this.statusFilter().length ? this.statusFilter() : FINDING_STATUS_FILTERS,
   );
 
   readonly statusOptions = computed<MultiSelectOption[]>(() =>
-    FINDING_STATUSES.map((status) => ({
+    FINDING_STATUS_FILTERS.map((status) => ({
       value: status,
-      label: this.i18n.translate(STATUS_META[status].label),
+      label: this.i18n.translate(STATUS_FILTER_META[status].label),
     })),
   );
   readonly severityOptions = computed<MultiSelectOption[]>(() =>
@@ -221,7 +227,7 @@ export class ProjectFindingsComponent {
 
   /** Findings whose status changed on this page (they stay listed until the next reload). */
   readonly triagedCount = computed(
-    () => this.findings().filter((f) => !this.statuses().includes(f.status)).length,
+    () => this.findings().filter((f) => !this.statuses().includes(statusFilterOf(f))).length,
   );
 
   /** Ids picked for a bulk decision (cleared when the filters change or the list reloads). */
@@ -260,7 +266,7 @@ export class ProjectFindingsComponent {
 
   onFilter({ key, values }: TableControlMultiFilterChange): void {
     if (key === 'status') {
-      this.statusFilter.set(FINDING_STATUSES.filter((status) => values.includes(status)));
+      this.statusFilter.set(FINDING_STATUS_FILTERS.filter((status) => values.includes(status)));
     } else if (key === 'severity') {
       this.severityFilter.set(SEVERITIES.filter((severity) => values.includes(severity)));
     } else if (key === 'review-type') {

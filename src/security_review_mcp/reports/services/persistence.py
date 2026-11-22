@@ -69,8 +69,9 @@ def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: date
 
     A pending acceptance or false positive is carried with its reason, approver and expiry
     date, as is a proposal of one of them and a severity raised above the one of the new
-    report. A fixed issue that comes back is open, seen for the first time again. Return True
-    when a decision was carried.
+    report. An acknowledged observation is carried while it is still ``info``. A fixed issue
+    that comes back is open, seen for the first time again. Return True when a decision was
+    carried.
     """
     status = effective_status(previous.status, previous.status_expires_at, now)
     row.first_seen_at = None if status == FindingStatus.FIXED else first_seen
@@ -87,7 +88,9 @@ def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: date
         row.proposed_reason = previous.proposed_reason
         row.proposed_by = previous.proposed_by
         row.proposed_at = previous.proposed_at
-    if status not in DISMISSED_STATUSES:
+    # An acknowledged observation stays read while it is still an observation
+    seen = status == FindingStatus.ACKNOWLEDGED and row.severity == Severity.INFO
+    if status not in DISMISSED_STATUSES and not seen:
         return False
     row.status = previous.status
     row.status_changed_at = previous.status_changed_at

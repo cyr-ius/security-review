@@ -27,9 +27,14 @@ class ProjectSummary(BaseModel):
     reports_total: int
     # None for a project without any report yet
     last_report_at: str | None
+    # Open findings above info: the info findings are observations, not risks
     open_findings_total: int
+    # Every severity, info included
     open_findings_by_severity: dict[str, int]
+    # Worst severity above info
     worst_open_severity: Severity | None
+    # Open info findings
+    open_observations: int = 0
     # The holders of projects.autojoin may not join this project at once
     autojoin_blocked: bool = False
 
@@ -112,9 +117,14 @@ class ProjectPosture(BaseModel):
 
     project: str
     reports_total: int
+    # Open findings above info: the info findings are observations, not risks
     open_findings_total: int
+    # Every severity, info included
     open_findings_by_severity: dict[str, int]
+    # Worst severity above info
     worst_open_severity: Severity | None
+    # Open info findings
+    open_observations: int = 0
 
 
 class ReportSummary(BaseModel):

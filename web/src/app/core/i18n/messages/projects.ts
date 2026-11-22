@@ -127,6 +127,10 @@ export const projects = defineMessages({
     'projectFindings.bulkFailed': 'Nothing was saved: the decision could not be recorded.',
     'projectFindings.bulkTooMany':
       'At most {max} findings per decision: narrow the selection with the filters or clear it.',
+    'projectFindings.bulkInfoNotAcceptable':
+      'An info finding is an observation, not a risk: it cannot be accepted. Mark it as read, fixed or false positive, or raise its severity first.',
+    'projectFindings.bulkOnlyInfoRead':
+      'Only an info finding (an observation) can be marked as read: accept the risk of the others, or mark them as fixed or false positive.',
     'projects.approvedNoUser': 'Project {project} approved (no user to give access to).',
   },
   fr: {
@@ -255,6 +259,10 @@ export const projects = defineMessages({
       "Rien n'a été enregistré : la décision n'a pas pu être enregistrée.",
     'projectFindings.bulkTooMany':
       'Au plus {max} findings par décision : réduisez la sélection avec les filtres ou videz-la.',
+    'projectFindings.bulkInfoNotAcceptable':
+      "Un finding info est une observation, pas un risque : il ne peut pas être accepté. Marquez-le lu, corrigé ou faux positif, ou relevez d'abord sa sévérité.",
+    'projectFindings.bulkOnlyInfoRead':
+      'Seul un finding info (une observation) peut être marqué lu : acceptez le risque des autres, ou marquez-les corrigés ou faux positifs.',
     'projects.approvedNoUser': 'Projet {project} validé (aucun utilisateur à qui donner accès).',
   },
   es: {
@@ -382,6 +390,10 @@ export const projects = defineMessages({
     'projectFindings.bulkFailed': 'No se guardó nada: no se pudo registrar la decisión.',
     'projectFindings.bulkTooMany':
       'Como máximo {max} hallazgos por decisión: reduzca la selección con los filtros o vacíela.',
+    'projectFindings.bulkInfoNotAcceptable':
+      'Un hallazgo info es una observación, no un riesgo: no se puede aceptar. Márquelo como leído, corregido o falso positivo, o eleve antes su severidad.',
+    'projectFindings.bulkOnlyInfoRead':
+      'Solo un hallazgo info (una observación) puede marcarse como leído: acepte el riesgo de los demás, o márquelos como corregidos o falsos positivos.',
     'projects.approvedNoUser': 'Proyecto {project} aprobado (ningún usuario al que dar acceso).',
   },
 });

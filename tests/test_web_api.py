@@ -759,9 +759,10 @@ def test_reader_can_read_but_not_triage(secured, web_sessions, reports):
 
 
 def test_a_token_can_fix_but_never_dismiss(secured, reports):
-    """A bearer token (an agent may hold one) cannot accept a risk or mark a false positive."""
+    """A bearer token (an agent may hold one) cannot accept a risk, mark a false positive or
+    acknowledge an observation."""
     expires_on = (date.today() + timedelta(days=30)).isoformat()
-    for dismissal in ("false_positive", "accepted"):
+    for dismissal in ("false_positive", "accepted", "acknowledged"):
         body = {
             "status": dismissal,
             "reason": "Not reachable from outside",
@@ -1184,6 +1185,7 @@ def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
         "open_findings_total": 0,
         "open_findings_by_severity": dict.fromkeys([severity.value for severity in Severity], 0),
         "worst_open_severity": None,
+        "open_observations": 0,
         "autojoin_blocked": False,
     }
     me = accounts.get("/api/v1/me", headers=headers).json()

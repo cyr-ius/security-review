@@ -32,7 +32,9 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
   https://secreview.example.com/api/v1/findings/42/proposal    # rejette la proposition de l'agent
 ```
 
-**Ouvert** et **Corrigé** acceptent un motif facultatif. Un motif absent ou trop court, une date
+**Ouvert**, **Corrigé** et **Lu** (`acknowledged`, finding `info` uniquement, `422` pour un
+risque, `403` avec un jeton Bearer) acceptent un motif facultatif et aucune date d'expiration.
+Un finding `info` ne peut pas être `accepted` (`422`). Un motif absent ou trop court, une date
 d'expiration passée ou trop lointaine, ou une date d'expiration pour `open` / `fixed` reçoit
 `422`. Sans `expires_on`, un faux positif n'expire jamais, une acceptation non plus, sauf si
 `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie

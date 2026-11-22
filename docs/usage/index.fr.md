@@ -39,7 +39,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
     | `#report:*`, `#finding:*`, `*` | Lister tous les rapports, tous les findings, ou proposer les deux |
     | `sql project:shop` | Uniquement dans le projet `shop` |
     | `severity:high,critical` (ou `sev:`) | Uniquement ces sévérités (niveau de risque des rapports) |
-    | `status:accepted` | Les findings de ce statut (`open`, `fixed`, `accepted`, `false_positive`) au lieu des ouverts |
+    | `status:accepted` | Les findings de ce statut (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) au lieu des ouverts |
     | `rule:PY-004`, `cwe:89` | Recherchés comme du texte |
 
     Filtres et texte se combinent dans n'importe quel ordre : `sql project:shop sev:high #finding:*`.

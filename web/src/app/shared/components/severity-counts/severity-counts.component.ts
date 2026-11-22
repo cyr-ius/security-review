@@ -7,7 +7,8 @@ import { SEVERITIES, SeverityCounts } from '../../../core/models/api.models';
 
 /**
  * One stat tile per severity: icon, name and number of open findings. With `link`, a tile that
- * counts something opens that page filtered on its severity (`?severity=`).
+ * counts something opens that page filtered on its severity (`?severity=`; the info tile adds
+ * `?status=unread`, its findings being observations).
  */
 @Component({
   imports: [NgTemplateOutlet, RouterLink, TranslatePipe],
@@ -26,6 +27,8 @@ export class SeverityCountsComponent {
       severity,
       ...SEVERITY_META[severity],
       value: this.counts()[severity] ?? 0,
+      // The open info findings are observations: listed under the "unread" status
+      query: severity === 'info' ? { severity, status: 'unread' } : { severity },
     })),
   );
 }

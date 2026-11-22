@@ -23,7 +23,12 @@ RISK_WEIGHTS: dict[Severity, int] = {
     Severity.LOW: 1,
     Severity.INFO: 0,
 }
-_CLOSED = (FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE)
+_CLOSED = (
+    FindingStatus.FIXED,
+    FindingStatus.ACCEPTED,
+    FindingStatus.FALSE_POSITIVE,
+    FindingStatus.ACKNOWLEDGED,
+)
 _DISMISSED = (FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE)
 STABLE_TOLERANCE = 0.10  # a change of less than 10% of the risk score is "stable"
 

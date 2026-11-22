@@ -28,9 +28,15 @@ def finding(severity: Severity, title: str = "SQL injection") -> FindingCreate:
 
 def test_metrics_count_findings_tokens_and_users(triage):
     report = services.save_report(
-        "shop-api", "Review", [finding(Severity.HIGH), finding(Severity.LOW, "Weak hash")]
+        "shop-api",
+        "Review",
+        [
+            finding(Severity.HIGH),
+            finding(Severity.LOW, "Weak hash"),
+            finding(Severity.INFO, "Version header"),
+        ],
     )
-    high, low = services.get_report(report["report_id"]).findings
+    high, low, _ = services.get_report(report["report_id"]).findings
     triage(low.id, "accepted")
     services.propose_finding_status(high.id, FindingStatus.FIXED, "Query is now bound", "bot")
     services.save_report("billing", "Clean review", [])
@@ -44,12 +50,14 @@ def test_metrics_count_findings_tokens_and_users(triage):
     for line in (
         "secreview_projects 2",
         "secreview_reports 2",
-        'secreview_findings{status="open"} 1',
+        'secreview_findings{status="open"} 2',
         'secreview_findings{status="accepted"} 1',
         'secreview_open_findings{severity="high"} 1',
         'secreview_open_findings{severity="low"} 0',
         'secreview_project_open_findings{project="shop-api",severity="high"} 1',
         'secreview_project_open_findings{project="billing",severity="high"} 0',
+        # An info finding is an observation, counted apart from the open findings
+        "secreview_open_observations 1",
         "secreview_finding_proposals_pending 1",
         'secreview_tokens{role="mcp",state="active"} 2',
         "secreview_tokens_expiring_soon 1",
@@ -62,6 +70,7 @@ def test_metrics_count_findings_tokens_and_users(triage):
     ):
         assert line in text.splitlines(), line
     # No OSV download yet: no timestamp
+    assert 'severity="info"' not in text
     assert "secreview_advisory_last_update_timestamp_seconds" not in text
 
 

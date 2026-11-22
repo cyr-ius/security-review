@@ -32,7 +32,9 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
   https://secreview.example.com/api/v1/findings/42/proposal    # reject the agent proposal
 ```
 
-**Open** and **Fixed** take an optional reason. A reason that is missing or too short, an
+**Open**, **Fixed** and **Read** (`acknowledged`, an `info` finding only, `422` for a risk,
+`403` with a bearer token) take an optional reason and no expiry date. An `info` finding
+cannot be `accepted` (`422`). A reason that is missing or too short, an
 expiry date in the past or too far away, or an expiry date for `open` / `fixed` gets `422`.
 Without `expires_on`, a false positive never expires, nor does an acceptance, unless
 `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns

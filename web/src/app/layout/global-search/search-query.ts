@@ -1,5 +1,6 @@
 import {
-  FINDING_STATUSES,
+  FINDING_STATUS_FILTERS,
+  FindingStatusFilter,
   FindingStatus,
   SEVERITIES,
   Severity,
@@ -18,7 +19,7 @@ export interface SearchFilters {
   /** Any of these severities (risk level for the reports; empty: every one). */
   severity: Severity[];
   /** Any of these statuses of the findings (empty: the default, open findings). */
-  status: FindingStatus[];
+  status: FindingStatusFilter[];
 }
 
 /** What a search of the top bar can open. */
@@ -95,7 +96,7 @@ function parse(raw: string): ParsedSearch {
       }
       filters.severity = severities;
     } else if (key === 'status') {
-      const statuses = values(value, FINDING_STATUSES);
+      const statuses = values(value, FINDING_STATUS_FILTERS);
       if (!statuses) {
         words.push(word);
         continue;

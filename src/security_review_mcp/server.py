@@ -956,7 +956,10 @@ def propose_finding_status(
     finding_id: int,
     status: Annotated[
         Literal["fixed", "accepted", "false_positive"],
-        Field(description="Status you propose: fixed, accepted or false_positive"),
+        Field(
+            description="Status you propose: fixed, accepted or false_positive (an info "
+            "finding is an observation: never accepted)"
+        ),
     ],
     reason: Annotated[
         str,
@@ -1477,8 +1480,11 @@ FindingIdsArg = Annotated[
     ),
 ]
 DecisionArg = Annotated[
-    Literal["fixed", "accepted", "false_positive"],
-    Field(description="The decision the developer stated"),
+    Literal["fixed", "accepted", "false_positive", "acknowledged"],
+    Field(
+        description="The decision the developer stated: acknowledged (read) only for an info "
+        "finding, which is an observation and is never accepted"
+    ),
 ]
 DecisionReasonArg = Annotated[
     str | None,
