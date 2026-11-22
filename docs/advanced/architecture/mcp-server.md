@@ -274,6 +274,9 @@ where to create a token, so a client without a token gets `401`. With the
     The approval gives the **requester** the reading and writing of the project (see
     [members](../../usage/projects.md#members)), created for a new project: their
     personal token reaches the project from the next request, without reconfiguration. A
+    request filed with a token without a user shows that token instead of a requester: its
+    approval only creates the project, the token reaches it once an administrator adds the
+    project to it (**Tokens** page). A
     request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)
     is deleted.
 

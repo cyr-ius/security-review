@@ -24,6 +24,9 @@ project `mobile-app`, so that the members of a team reach the same project whate
 
 A project created without a report shows **No report yet** until its first review.
 
+While requests wait for a decision, the **Projects** entry of the menu shows their number in a
+badge, for the users who may approve them (`projects.create`).
+
 ![The Projects page with a project requested by the agent of a developer](../assets/screenshots/projects-pending.png)
 
 ## Members

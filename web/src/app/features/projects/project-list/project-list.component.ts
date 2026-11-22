@@ -120,6 +120,12 @@ export class ProjectListComponent {
   });
   readonly deciding = signal(false);
 
+  /** Label of the token that filed a request without a user (``token:<label>`` in the
+   * request), or null. */
+  tokenLabel(requestedWith: string | null): string | null {
+    return requestedWith?.startsWith('token:') ? requestedWith.slice('token:'.length) : null;
+  }
+
   constructor() {
     reloadOnReturn(() => this.reload());
   }

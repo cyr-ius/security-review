@@ -69,7 +69,12 @@ export class LayoutComponent {
   private readonly i18n = inject(I18nService);
 
   readonly mainNav: readonly NavItem[] = [
-    { path: '/projects', label: 'layout.projects', icon: 'bi-grid-1x2' },
+    {
+      path: '/projects',
+      label: 'layout.projects',
+      icon: 'bi-grid-1x2',
+      badgeTitle: 'layout.pendingProjects',
+    },
   ];
 
   /** Review of the findings, in the projects whose reports the user reads. */
@@ -193,10 +198,22 @@ export class LayoutComponent {
     stream: () => this.api.opengrepProposals(),
   });
 
+  /** Projects requested by MCP agents and waiting for a decision (only projects.create
+   * approves or rejects them, on the Projects page). */
+  private readonly pendingProjects = rxResource({
+    params: () =>
+      this.auth.can('projects.create') ? { navigation: this.navigations() } : undefined,
+    stream: () => this.api.pendingProjects(),
+  });
+
   /** Number shown next to an entry of the sidebar (null: no badge). */
   badge(item: NavItem): number | null {
     if (item.path === '/findings') {
       return this.openFindings.hasValue() ? this.openFindings.value().total : null;
+    }
+    if (item.path === '/projects' && this.pendingProjects.hasValue()) {
+      // Shown only while requests wait for a decision
+      return this.pendingProjects.value().length || null;
     }
     if (item.path === '/rules' && this.pendingProposals.hasValue()) {
       // Shown only while proposals wait for a review

@@ -277,6 +277,9 @@ de projet (`request_project`) sont toujours disponibles.
     La validation donne au **demandeur** la lecture et l'écriture du projet (voir
     [membres](../../usage/projects.md#membres)), créé pour un nouveau projet : son
     jeton personnel atteint le projet dès la requête suivante, sans reconfiguration. Une demande
+    déposée avec un jeton sans utilisateur affiche ce jeton à la place d'un demandeur : sa
+    validation ne fait que créer le projet, le jeton l'atteint une fois qu'un administrateur lui
+    ajoute le projet (page **Jetons**). Une demande
     que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut)
     est supprimée.
 

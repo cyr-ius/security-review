@@ -23,6 +23,9 @@ export const projects = defineMessages({
     'projects.pendingHelp':
       'Projects requested by the MCP agent of a user who may not create projects, and requests to access an existing project. Check the requester: approving gives the requester the reading and writing of the reports of the project (created for a new project); a request not approved before its expiry is deleted.',
     'projects.requester': 'Requested by',
+    'projects.requesterToken': 'Token {token}',
+    'projects.requesterTokenHelp':
+      'Token without a user: approving creates the project but gives access to nobody.',
     'projects.address': 'Address',
     'projects.requestedAt': 'Requested on',
     'projects.expiresAt': 'Expires on',
@@ -154,6 +157,9 @@ export const projects = defineMessages({
     'projects.pendingHelp':
       "Projets demandés par l'agent MCP d'un utilisateur qui ne peut pas créer de projet, et demandes d'accès à un projet existant. Vérifiez le demandeur : valider lui donne la lecture et l'écriture des rapports du projet (créé pour un nouveau projet) ; une demande non validée avant son expiration est supprimée.",
     'projects.requester': 'Demandé par',
+    'projects.requesterToken': 'Jeton {token}',
+    'projects.requesterTokenHelp':
+      "Jeton sans utilisateur : la validation crée le projet mais ne donne l'accès à personne.",
     'projects.address': 'Adresse',
     'projects.requestedAt': 'Demandé le',
     'projects.expiresAt': 'Expire le',
@@ -286,6 +292,9 @@ export const projects = defineMessages({
     'projects.pendingHelp':
       'Proyectos solicitados por el agente MCP de un usuario que no puede crear proyectos, y solicitudes de acceso a un proyecto existente. Compruebe el solicitante: aprobar le da la lectura y la escritura de los informes del proyecto (creado para un proyecto nuevo); una solicitud no aprobada antes de su caducidad se elimina.',
     'projects.requester': 'Solicitado por',
+    'projects.requesterToken': 'Token {token}',
+    'projects.requesterTokenHelp':
+      'Token sin usuario: la aprobación crea el proyecto pero no da acceso a nadie.',
     'projects.address': 'Dirección',
     'projects.requestedAt': 'Solicitado el',
     'projects.expiresAt': 'Caduca el',

@@ -74,7 +74,20 @@
                       <span class="badge text-bg-secondary">{{ 'projects.requestNew' | t }}</span>
                     }
                   </td>
-                  <td class="text-break">{{ request.requested_by ?? '—' }}</td>
+                  <td class="text-break">
+                    @if (request.requested_by) {
+                      {{ request.requested_by }}
+                    } @else if (tokenLabel(request.requested_with); as token) {
+                      <!-- A token without a user: the approval creates the project only -->
+                      <i class="bi bi-key" aria-hidden="true"></i>
+                      {{ 'projects.requesterToken' | t: { token } }}
+                      <div class="small text-body-secondary">
+                        {{ 'projects.requesterTokenHelp' | t }}
+                      </div>
+                    } @else {
+                      —
+                    }
+                  </td>
                   <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
                   <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
                   <td>{{ request.expires_at | date: 'dd/MM/yyyy HH:mm' }}</td>
