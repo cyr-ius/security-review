@@ -38,27 +38,30 @@
     }
   </svg>
 
-  <table class="visually-hidden">
-    <caption>
-      {{
-        'trend.cweLabel' | t
-      }}
-    </caption>
-    <thead>
-      <tr>
-        <th scope="col">CWE</th>
-        <th scope="col">{{ 'trend.cweCount' | t }}</th>
-        <th scope="col">%</th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (slice of slices(); track slice.key) {
+  <!-- On a div: a table ignores the width of visually-hidden and widens the page -->
+  <div class="visually-hidden">
+    <table>
+      <caption>
+        {{
+          'trend.cweLabel' | t
+        }}
+      </caption>
+      <thead>
         <tr>
-          <th scope="row">{{ slice.cwe ?? ('trend.cweOther' | t) }}</th>
-          <td>{{ slice.count }}</td>
-          <td>{{ slice.percent }}</td>
+          <th scope="col">CWE</th>
+          <th scope="col">{{ 'trend.cweCount' | t }}</th>
+          <th scope="col">%</th>
         </tr>
-      }
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        @for (slice of slices(); track slice.key) {
+          <tr>
+            <th scope="row">{{ slice.cwe ?? ('trend.cweOther' | t) }}</th>
+            <td>{{ slice.count }}</td>
+            <td>{{ slice.percent }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 }
