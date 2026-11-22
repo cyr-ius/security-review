@@ -17,9 +17,12 @@
       <li class="breadcrumb-item">
         <a [routerLink]="['/projects', data.project]">{{ data.project }}</a>
       </li>
-      <li class="breadcrumb-item active" aria-current="page">
-        {{ 'report.title' | t: { id: data.id } }}
+      <li class="breadcrumb-item">
+        <a routerLink="/reports" [queryParams]="{ project: data.project }">{{
+          'layout.reports' | t
+        }}</a>
       </li>
+      <li class="breadcrumb-item active" aria-current="page">#{{ data.id }}</li>
     </ol>
   </nav>
 

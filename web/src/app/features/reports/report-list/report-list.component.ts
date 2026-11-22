@@ -1,6 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -28,7 +28,13 @@ const PAGE_SIZE = 25;
  */
 @Component({
   selector: 'app-report-list',
-  imports: [ReportTableComponent, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
+  imports: [
+    ReportTableComponent,
+    RefreshButtonComponent,
+    RouterLink,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './report-list.component.html',
   styleUrl: './report-list.component.css',
 })
@@ -56,6 +62,11 @@ export class ReportListComponent {
   readonly pageNumber = computed(() => Math.max(1, Number.parseInt(this.page() ?? '1', 10) || 1));
 
   readonly projectFilter = computed(() => asList(this.project()));
+  /** The only project of the filter, when opened from its page: the breadcrumb leads back to it. */
+  readonly singleProject = computed(() => {
+    const projects = this.projectFilter();
+    return projects.length === 1 ? projects[0] : null;
+  });
   readonly riskLevels = computed(() => {
     const risks = asList(this.risk());
     return SEVERITIES.filter((severity) => risks.includes(severity));
