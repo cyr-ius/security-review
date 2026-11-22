@@ -16,6 +16,7 @@ import {
   ChecklistCatalog,
   ChecklistItemWrite,
   ChecklistReloadResult,
+  CodebaseReviewState,
   CustomRuleCatalog,
   CustomRuleWrite,
   DevStandard,
@@ -402,6 +403,26 @@ export class ApiService {
     return this.http.put<ProjectAutojoin>(
       `${API_URL}/projects/${encodeURIComponent(project)}/autojoin`,
       { blocked },
+    );
+  }
+
+  /** GET /api/v1/projects/{project}/codebase-review: the codebase review asked of the agent. */
+  codebaseReview(project: string): Observable<CodebaseReviewState> {
+    return this.http.get<CodebaseReviewState>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/codebase-review`,
+    );
+  }
+
+  /** PUT /api/v1/projects/{project}/codebase-review: ask the agent for a codebase review, once
+   * and/or every ``interval_days`` days (findings.triage on the project). */
+  setCodebaseReview(
+    project: string,
+    requested: boolean,
+    intervalDays: number | null,
+  ): Observable<CodebaseReviewState> {
+    return this.http.put<CodebaseReviewState>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/codebase-review`,
+      { requested, interval_days: intervalDays },
     );
   }
 

@@ -11,7 +11,7 @@ from fastapi.responses import PlainTextResponse, Response
 from pydantic import StringConstraints
 
 from ..auth import access_control
-from ..reports import services, trends
+from ..reports import codebase_review, services, trends
 from ..reports.sarif import build_sarif
 from ..storage import projects as project_store
 from ..storage.database import session_scope
@@ -46,6 +46,8 @@ from .deps import (
     web_user_id,
 )
 from .schemas import (
+    CodebaseReviewState,
+    CodebaseReviewUpdate,
     FindingBulkStatusUpdate,
     FindingCommentCreate,
     FindingSeverityUpdate,
@@ -100,12 +102,17 @@ async def project_trend(project: str, days: int, granularity: Granularity) -> di
 
 def _known_projects() -> list[dict]:
     """Projects with reports, then the known projects without any report, with whether their
-    autojoin is blocked."""
+    autojoin is blocked and whether a codebase review is due."""
     with session_scope() as session:
         known = project_store.known_projects(session)
         blocked = access_control.autojoin_blocked_projects(session)
+        due = codebase_review.due_projects(session)
     return [
-        item | {"autojoin_blocked": item["project"] in blocked}
+        item
+        | {
+            "autojoin_blocked": item["project"] in blocked,
+            "codebase_review_due": item["project"] in due,
+        }
         for item in services.list_projects(known)
     ]
 
@@ -221,6 +228,61 @@ async def set_project_autojoin(
         identity.client,
     )
     return ProjectAutojoin.model_validate(changed)
+
+
+def _codebase_review_state(project: str) -> dict:
+    """State of the codebase review of a known project (NotFoundError otherwise)."""
+    with session_scope() as session:
+        state = codebase_review.project_state(session, project)
+    if state is None:
+        raise services.NotFoundError(f"Project '{project}' not found")
+    return state
+
+
+@router.get("/projects/{project}/codebase-review")
+async def project_codebase_review(
+    project: Annotated[ProjectName, Path()], identity: CurrentIdentity
+) -> CodebaseReviewState:
+    """Whether a review of the whole repository is asked of the MCP agent on a project the
+    caller reads, and its latest codebase review. A project outside the scope of the caller is
+    not found (404)."""
+    cleaned = scoped_project(identity, project)
+    try:
+        state = await run_in_threadpool(_codebase_review_state, cleaned)
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    return CodebaseReviewState.model_validate(state)
+
+
+@router.put("/projects/{project}/codebase-review")
+async def set_project_codebase_review(
+    request: Request,
+    project: Annotated[ProjectName, Path()],
+    body: CodebaseReviewUpdate,
+    identity: Triager,
+) -> CodebaseReviewState:
+    """Ask the MCP agent for a review of the whole repository of a project, once and/or every
+    ``interval_days`` days (``findings.triage`` on the project, logged-in web user only: an
+    agent never asks it of itself nor withdraws it). A project outside the scope of the caller
+    is not found (404)."""
+    web_user_id(request)
+    cleaned = scoped_project(identity, project)
+    if not has_permission(identity, Permission.FINDINGS_TRIAGE, cleaned):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Permission 'findings.triage' required")
+    try:
+        state = await run_in_threadpool(
+            access_control.set_codebase_review,
+            cleaned,
+            body.requested,
+            body.interval_days,
+            actor_of(identity),
+        )
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Codebase review of project %s changed by %s", cleaned, identity.client)
+    return CodebaseReviewState.model_validate(state)
 
 
 @router.post("/projects/{project}/rename")

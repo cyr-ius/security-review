@@ -196,6 +196,15 @@
                       {{ 'projects.autojoinBlocked' | t }}
                     </span>
                   }
+                  @if (project.codebase_review_due) {
+                    <span
+                      class="badge text-bg-warning text-wrap text-start ms-1"
+                      [attr.title]="'projects.codebaseReviewDueHelp' | t"
+                    >
+                      <i class="bi bi-clock-history" aria-hidden="true"></i>
+                      {{ 'projects.codebaseReviewDue' | t }}
+                    </span>
+                  }
                 </td>
                 <td>
                   @if (project.worst_open_severity; as worst) {

@@ -125,7 +125,7 @@ Les prompts sont à la disposition du développeur via l'agent disponible dans s
 | `security-review` | Revue générale du code (Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js, Angular) |
 | `api-security-review`, `configuration-review` | Revue d'une API REST (OWASP API Top 10), ou d'une configuration (Dockerfile, CI/CD, YAML...) |
 | `dependency-review` | Revue des manifestes et lockfiles (chaîne d'approvisionnement) |
-| `codebase-review` | Revue de tout le dépôt, pas seulement d'un diff |
+| `codebase-review` | Revue de tout le dépôt, pas seulement d'un diff ([demandée à l'agent](../usage/projects.md#revue-complete-du-code) une fois ou périodiquement) |
 | `triage-report` | Requalifie les findings d'un rapport enregistré |
 
 Pour une revue importante, préférez le prompt.

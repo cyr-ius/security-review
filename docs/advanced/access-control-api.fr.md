@@ -170,6 +170,24 @@ curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/js
 # {"project": "mobile-app", "autojoin_blocked": true}
 ```
 
+### Revue complète du code d'un projet
+
+`GET /api/v1/projects/{project}/codebase-review` donne la [revue complète du code](../usage/projects.md#revue-complete-du-code)
+demandée à l'agent MCP sur un projet que l'appelant lit : `requested`, `requested_at`,
+`interval_days`, `last_review_at`, `next_due_at`, `due` et `reasons` (`requested`, `interval`).
+`PUT` sur la même route, avec `findings.triage` sur le projet et depuis une session de
+l'interface web uniquement, la demande (`requested`) et règle son intervalle (`interval_days`,
+de 1 à 3650, `null` sans revue périodique) ; `"requested": false` retire une demande en
+attente. `GET /api/v1/projects` affiche `"codebase_review_due": true` pour un projet dont une
+revue est attendue. Chaque changement est écrit dans le journal d'audit
+(`project.codebase_review_changed`).
+
+```bash
+curl -X PUT -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects/mobile-app/codebase-review \
+  -d '{"requested": true, "interval_days": 90}'
+```
+
 ### Renommage d'un projet
 
 `POST /api/v1/projects/{project}/rename` renomme un projet (`projects.delete`), depuis une

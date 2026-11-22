@@ -67,6 +67,8 @@ from .engines import (  # noqa: F401
 )
 from .findings import (  # noqa: F401
     MAX_BULK_FINDINGS,
+    CodebaseReviewState,
+    CodebaseReviewUpdate,
     CweCount,
     FindingBulkStatusUpdate,
     FindingCommentCreate,

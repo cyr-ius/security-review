@@ -399,6 +399,7 @@ export type AuditAction =
   | 'project.renamed'
   | 'project.joined'
   | 'project.autojoin_changed'
+  | 'project.codebase_review_changed'
   | 'user.roles_changed'
   | 'user.projects_changed'
   | 'oidc.mappings_changed'
@@ -456,6 +457,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'project.renamed',
   'project.joined',
   'project.autojoin_changed',
+  'project.codebase_review_changed',
   'user.roles_changed',
   'user.projects_changed',
   'oidc.mappings_changed',
@@ -801,6 +803,24 @@ export interface ProjectSummary {
   open_observations: number;
   /** The holders of projects.autojoin may not join this project at once. */
   autojoin_blocked: boolean;
+  /** A review of the whole repository is asked of the MCP agent (once or periodically). */
+  codebase_review_due: boolean;
+}
+
+/** GET and PUT /api/v1/projects/{project}/codebase-review: the review of the whole repository
+ * asked of the MCP agent. */
+export interface CodebaseReviewState {
+  project: string;
+  /** Asked by a person and not met yet by a codebase review. */
+  requested: boolean;
+  requested_at: string | null;
+  /** Days between two codebase reviews (null: no periodic review). */
+  interval_days: number | null;
+  /** Latest codebase review: a codebase-review report linked to a code scan of its group. */
+  last_review_at: string | null;
+  next_due_at: string | null;
+  due: boolean;
+  reasons: ('requested' | 'interval')[];
 }
 
 /** PUT /api/v1/projects/{project}/autojoin: whether the autojoin of a project is blocked. */

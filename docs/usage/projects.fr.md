@@ -106,6 +106,29 @@ autres. Le projet affiche le badge **Adhésion automatique bloquée** ; le bouto
 autorise de nouveau l'adhésion automatique. Les utilisateurs qui ont déjà rejoint le projet
 gardent leur accès : retirez-les de ses [membres](#membres) si nécessaire.
 
+## Revue complète du code
+
+Sur la page d'un projet, la carte **Revue complète du code** demande à l'agent MCP une revue de
+tout le dépôt, pas seulement d'un diff :
+
+- **Demander une revue complète à l'agent** : une fois, par exemple après un incident ou une
+  nouvelle règle ;
+- **La demander périodiquement**, **Tous les (jours)** : de nouveau quand la dernière revue
+  complète est plus ancienne que l'intervalle (aussitôt s'il n'y en a aucune).
+
+Avec `findings.triage` sur le projet, depuis une session de l'interface web uniquement : un agent
+ne se la demande jamais lui-même et ne la retire pas. La carte, au-dessus des findings ouverts, est
+repliée : son bandeau affiche la dernière revue complète, la prochaine revue périodique et un drapeau
+tant qu'une demande est en attente ; dépliez-la pour voir pourquoi une revue est attendue et changer
+les réglages. La page **Projets** affiche le badge **Revue
+complète attendue**.
+
+Au début de sa revue suivante, `request_project` prévient l'agent, qui propose au développeur le
+prompt `codebase-review` une fois sa tâche terminée. Seule une revue complète passée par le
+serveur Controller satisfait la demande : un rapport `codebase-review` lié (`review_group`) au
+scan de code de [`start_codebase_scan`](../review/analysis/code-scan.md), lancé après la demande (un rapport qui réutilise le `review_group` d'une revue plus ancienne ne compte pas). C'est un rappel : le
+[gate](../review/gate.md) n'en dépend pas.
+
 ## Points d'attention
 
 - **Une demande en attente expire** après 7 jours par défaut : l'agent doit la refaire.

@@ -9,6 +9,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ProjectFinding, SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ProjectCodebaseReviewComponent } from '../project-codebase-review/project-codebase-review.component';
 import { ProjectMembersComponent } from '../project-members/project-members.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
@@ -49,6 +50,7 @@ const TOP_OPEN_FINDINGS = 20;
     RouterLink,
     DatePipe,
     DecimalPipe,
+    ProjectCodebaseReviewComponent,
     ProjectMembersComponent,
     CwePieComponent,
     RefreshButtonComponent,

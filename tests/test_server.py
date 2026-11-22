@@ -543,6 +543,25 @@ async def test_agent_tracking_counts_every_request_by_family(monkeypatch):
     assert families == ["reports", "deps", "reads", "reads", None, None]
 
 
+async def test_request_project_tells_the_agent_when_a_codebase_review_is_due():
+    """A codebase review asked by a person reaches the agent as a fixed reminder of
+    request_project, never as a condition of the review."""
+    services.save_report("shop-api", "Review", [])
+    async with Client(mcp) as client:
+        before = json.loads(
+            text_of(await client.call_tool("request_project", {"project": "shop-api"}))
+        )
+        access_control.set_codebase_review("shop-api", True, None, "user:alice")
+        after = json.loads(
+            text_of(await client.call_tool("request_project", {"project": "shop-api"}))
+        )
+
+    assert "codebase_review" not in before
+    assert after["status"] == "accessible"
+    assert after["codebase_review"]["reasons"] == ["requested"]
+    assert "codebase-review" in after["codebase_review"]["next_steps"]
+
+
 async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):
     sent = []
     # Counted like scan_code by the heartbeat: the Activity page shows the request

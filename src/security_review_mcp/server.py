@@ -35,10 +35,11 @@ from .config import (
 )
 from .deps import advisories, depscan
 from .observability import audit
+from .reports import codebase_review as codebase_reviews
 from .reports import sarif, services, trends
 from .rules import opengrep_proposals, opengrep_rule_store, registry, remote_scan, scanner
 from .storage import server_instances
-from .storage.database import SchemaError, check_db, init_db
+from .storage.database import SchemaError, check_db, init_db, session_scope
 from .storage.models import (
     MAX_AUTHOR_CHARS,
     MAX_BRANCH_CHARS,
@@ -97,7 +98,8 @@ joins the rules.
 reach the project yet, a user allowed to create projects gets a new project at once, a user \
 allowed to join projects joins an existing one at once, otherwise the project is requested \
 for an administrator to approve (which gives the user access to it). \
-If its `status` is `requested`, do not review: give the user its `next_steps`.
+If its `status` is `requested`, do not review: give the user its `next_steps`. If it \
+returns `codebase_review`, a review of the whole repository is due: follow its `next_steps`.
 - Before writing code, use the prompt `development-standards` (or the tool \
 `get_development_standards`) to get the development standards of the technologies you work on.
 """
@@ -1295,6 +1297,37 @@ ProjectArg = Annotated[
 ]
 
 
+# Fixed text given to the agent when a codebase review is due: never a text typed by a person,
+# which would reach the agent as instructions
+_CODEBASE_REVIEW_DUE = (
+    "A review of the whole repository of this project is due ({reasons}). Tell the developer, "
+    "and offer to run the prompt `codebase-review` (start_codebase_scan, then "
+    "save_security_report with its review_group) once the current task is done, unless this "
+    "review already is one. Do not start it without the developer's agreement."
+)
+_DUE_REASONS = {
+    "requested": "asked by a person in the web interface",
+    "interval": "the periodic review is due",
+}
+
+
+def _with_codebase_review(result: dict) -> dict:
+    """Add ``codebase_review`` to the result of request_project when a review of the whole
+    repository of a project the token reaches is due (see reports.codebase_review)."""
+    with session_scope() as session:
+        due = codebase_reviews.project_state(session, result["project"])
+    if due is None or not due["due"]:
+        return result
+    reasons = ", ".join(_DUE_REASONS[reason] for reason in due["reasons"])
+    result["codebase_review"] = {
+        "due": True,
+        "reasons": due["reasons"],
+        "last_review_at": due["last_review_at"],
+        "next_steps": _CODEBASE_REVIEW_DUE.format(reasons=reasons),
+    }
+    return result
+
+
 @mcp.tool(annotations=WRITE)
 @_tool_errors
 def request_project(ctx: Context, project: ProjectArg) -> dict:
@@ -1305,6 +1338,10 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     join projects: it joined the existing project to review it) or ``requested`` (the
     project waits for an administrator, or the user must be given access to it: do not review,
     give the user ``next_steps``). No token is created.
+
+    With a project the token reaches, ``codebase_review`` tells when a person asked for a
+    review of the whole repository, or the periodic one is due: a reminder for the agent to
+    offer the developer, never a condition of the current review.
     """
     allowed = _caller_write_projects(ctx)
     state = _auth_state(ctx)
@@ -1313,12 +1350,12 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
     if allowed is None:
         # A token of a user that reaches every project still creates the project
         if state.get("auth_owner") is None:
-            return {"project": project, "status": "accessible"}
+            return _with_codebase_review({"project": project, "status": "accessible"})
         adopted = access_control.adopt_project(project, state["auth_owner"], actor)
         logger.info("Project %s %s by %s", adopted["project"], adopted["status"], label)
-        return adopted
+        return _with_codebase_review(adopted)
     if project in allowed:
-        return {"project": project, "status": "accessible"}
+        return _with_codebase_review({"project": project, "status": "accessible"})
     requested = access_control.request_project(
         project, state.get("auth_owner"), _caller_address(ctx), actor
     )

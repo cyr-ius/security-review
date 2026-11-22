@@ -104,6 +104,26 @@ shows the **Autojoin blocked** badge; the unlock button allows the autojoin agai
 already joined the project keep their access: remove them from its [members](#members) if
 needed.
 
+## Full codebase review
+
+On the page of a project, the **Full codebase review** card asks the MCP agent to review the
+whole repository, not only a diff:
+
+- **Ask the agent for a full review**: once, for instance after an incident or a new rule;
+- **Ask for it periodically**, **Every (days)**: again when the latest full review is older
+  than the interval (at once when there is none).
+
+With `findings.triage` on the project, from a session of the web interface only: an agent never
+asks it of itself nor withdraws it. The card, above the open findings, is folded: its header shows the
+latest full review, the next periodic one and a flag while a request is pending; unfold it to see why
+a review is due and to change the settings. The **Projects** page shows the **Full review due** badge.
+
+At the start of its next review, `request_project` tells the agent, which offers the developer
+the `codebase-review` prompt once its task is done. Only a full review that went through the
+Controller server meets the request: a `codebase-review` report linked (`review_group`) to the
+code scan of [`start_codebase_scan`](../review/analysis/code-scan.md), run after the request (a report that reuses the `review_group` of an older review does not count). It is a reminder: the
+[gate](../review/gate.md) does not depend on it.
+
 ## Points to watch
 
 - **A pending request expires** after 7 days by default: the agent has to ask again.

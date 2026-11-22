@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from ...reports import services
+from ...reports.codebase_review import MAX_INTERVAL_DAYS
 from ...storage.models import (
     MAX_COMMENT_CHARS,
     MAX_STATUS_REASON_CHARS,
@@ -37,6 +38,8 @@ class ProjectSummary(BaseModel):
     open_observations: int = 0
     # The holders of projects.autojoin may not join this project at once
     autojoin_blocked: bool = False
+    # A codebase review is due: asked by a person or periodic (see reports.codebase_review)
+    codebase_review_due: bool = False
 
 
 class ProjectAutojoin(BaseModel):
@@ -50,6 +53,32 @@ class ProjectAutojoinUpdate(BaseModel):
     """Block (true) or allow again (false) the autojoin of a project."""
 
     blocked: bool
+
+
+class CodebaseReviewState(BaseModel):
+    """Review of the whole repository asked of the MCP agent on a project
+    (GET and PUT /projects/{project}/codebase-review)."""
+
+    project: str
+    # Asked by a person and not met yet by a codebase review
+    requested: bool
+    requested_at: str | None
+    # Days between two codebase reviews (None: no periodic review)
+    interval_days: int | None
+    # Latest codebase review: a codebase-review report linked to a code scan of its group
+    last_review_at: str | None
+    # Date the periodic review falls due (None without an interval or without any review)
+    next_due_at: str | None
+    due: bool
+    # "requested" and/or "interval"
+    reasons: list[Literal["requested", "interval"]]
+
+
+class CodebaseReviewUpdate(BaseModel):
+    """Ask (or no longer ask) the MCP agent for a codebase review, once and/or periodically."""
+
+    requested: bool
+    interval_days: int | None = Field(default=None, ge=1, le=MAX_INTERVAL_DAYS)
 
 
 class ProjectCreate(BaseModel):

@@ -1187,6 +1187,7 @@ def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
         "worst_open_severity": None,
         "open_observations": 0,
         "autojoin_blocked": False,
+        "codebase_review_due": False,
     }
     me = accounts.get("/api/v1/me", headers=headers).json()
     assert me["permissions"] == {
@@ -1795,6 +1796,33 @@ def test_a_users_manager_blocks_the_autojoin_of_a_project_it_reads(secured, repo
     assert secured.get("/api/v1/projects", headers=headers).json()[0]["autojoin_blocked"] is True
     assert put("shop-api", False).json()["autojoin_blocked"] is False
     assert put("shop-api", True, session_headers(secured, "cody")).status_code == 403
+
+
+def test_a_triager_asks_the_agent_for_a_codebase_review_of_a_project(secured, reports):
+    """findings.triage on the project, in a web session only: a reader, a triager of another
+    project and a bearer token never ask it nor withdraw it."""
+    make_user("tina", USER_PASSWORD, "triager", ["shop-api"])
+    make_user("rita", USER_PASSWORD, "reader", ["shop-api"])
+    make_user("bill", USER_PASSWORD, "triager", ["billing"])
+    headers = session_headers(secured, "tina")
+    url = "/api/v1/projects/shop-api/codebase-review"
+    body = {"requested": True, "interval_days": 90}
+
+    response = secured.put(url, json=body, headers=headers)
+
+    assert response.status_code == 200, response.text
+    state = response.json()
+    assert state["due"] is True and state["reasons"] == ["requested", "interval"]
+    assert secured.get(url, headers=session_headers(secured, "rita")).json() == state
+    listed = secured.get("/api/v1/projects", headers=headers).json()
+    assert [(item["project"], item["codebase_review_due"]) for item in listed] == [
+        ("shop-api", True)
+    ]
+    assert secured.put(url, json=body, headers=session_headers(secured, "rita")).status_code == 403
+    assert secured.put(url, json=body, headers=session_headers(secured, "bill")).status_code == 404
+    assert secured.put(url, json=body, headers=auth("admin")).status_code == 403
+    invalid = {"requested": False, "interval_days": 0}
+    assert secured.put(url, json=invalid, headers=headers).status_code == 422
 
 
 def test_reader_of_several_projects_in_the_web_interface(secured, reports):
