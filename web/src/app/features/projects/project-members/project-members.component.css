@@ -1,0 +1,12 @@
+/* The list of suggestions opens below the search field, as wide as it (not under its label) */
+.member-search {
+  position: relative;
+}
+
+.member-search .dropdown-menu {
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  max-height: 16rem;
+  overflow-y: auto;
+}

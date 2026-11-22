@@ -37,12 +37,12 @@ validée, en reçoit la lecture et l'écriture (`reports.read` et `reports.write
 
 Une personne dotée de `users.manage` voit la section **Membres** en bas de la page du projet (repliée : cliquez sur son en-tête pour la déplier),
 qu'ouvre aussi le bouton en forme de personnes de sa ligne sur la page **Projets** :
-recherchez des comptes, cochez-les et ajoutez-les (avec la lecture), choisissez les droits de
-chaque membre (**Écrire les rapports** pour ceux dont l'agent enregistre des revues) ou retirez-le, puis **Enregistrer**. Les mêmes projets se donnent dans
+tapez un nom et choisissez le compte dans la liste proposée pour l'ajouter (avec la lecture), choisissez les droits de
+chaque membre (**Écrire les rapports** pour ceux dont l'agent enregistre des revues) ou retirez-le : chaque changement est enregistré aussitôt. Les mêmes projets se donnent dans
 **Utilisateurs** ([rôles et projets d'un compte](access-control.md#roles-et-projets-dun-compte)),
 ou en validant la **Demande d'accès** déposée par un agent dans **Projets**. Les comptes qui ont
 tous les projets, eux-mêmes ou par une [correspondance OIDC](sso.md#correspondances-oidc), sont
-listés à part, sous **Utilisateurs qui ont tous les projets**, en lecture seule : modifiez leurs
+listés à part, sous **Hérite de "Tous les projets"**, en lecture seule : modifiez leurs
 droits dans **Utilisateurs** ou dans la correspondance.
 
 ![Les membres d'un projet](../assets/screenshots/project-members.png)
@@ -111,9 +111,9 @@ gardent leur accès : retirez-les de ses [membres](#membres) si nécessaire.
 Sur la page d'un projet, la carte **Revue complète du code** demande à l'agent MCP une revue de
 tout le dépôt, pas seulement d'un diff :
 
-- **Demander une revue complète à l'agent** : une fois, par exemple après un incident ou une
+- **Demander une revue complète exceptionnelle** : une fois, par exemple après un incident ou une
   nouvelle règle ;
-- **La demander périodiquement**, **Tous les (jours)** : de nouveau quand la dernière revue
+- **Demande périodique**, nombre de **jours** : de nouveau quand la dernière revue
   complète est plus ancienne que l'intervalle (aussitôt s'il n'y en a aucune).
 
 Avec `findings.triage` sur le projet, depuis une session de l'interface web uniquement : un agent

@@ -7,7 +7,10 @@
       [attr.aria-expanded]="expanded()"
       (click)="toggle()"
     >
-      <span class="fw-semibold">{{ 'project.codebaseReview' | t }}</span>
+      <span class="fw-semibold"
+        ><i class="bi bi-folder-check me-2" aria-hidden="true"></i
+        >{{ 'project.codebaseReview' | t }}</span
+      >
       @if (state.value(); as current) {
         @if (current.requested) {
           @let asked =
@@ -59,21 +62,28 @@
           {{ 'project.codebaseReviewLoadError' | t }}
         </div>
       } @else if (state.value(); as current) {
-        <dl class="row small mb-3">
-          <dt class="col-sm-4">{{ 'project.codebaseReviewLast' | t }}</dt>
-          <dd class="col-sm-8">
-            @if (current.last_review_at) {
-              {{ current.last_review_at | date: 'dd/MM/yyyy HH:mm' }}
-            } @else {
-              <span class="text-body-secondary">{{ 'project.codebaseReviewNever' | t }}</span>
+        <!-- Last review, next periodic review and the reasons, on one line -->
+        <div class="d-flex flex-wrap align-items-center column-gap-4 row-gap-1 small mb-3">
+          <dl class="d-flex flex-wrap column-gap-4 row-gap-1 mb-0">
+            <div>
+              <dt class="d-inline">{{ 'project.codebaseReviewLast' | t }}</dt>
+              <dd class="d-inline ms-2 mb-0">
+                @if (current.last_review_at) {
+                  {{ current.last_review_at | date: 'dd/MM/yyyy HH:mm' }}
+                } @else {
+                  <span class="text-body-secondary">{{ 'project.codebaseReviewNever' | t }}</span>
+                }
+              </dd>
+            </div>
+            @if (current.next_due_at) {
+              <div>
+                <dt class="d-inline">{{ 'project.codebaseReviewNext' | t }}</dt>
+                <dd class="d-inline ms-2 mb-0">{{ current.next_due_at | date: 'dd/MM/yyyy' }}</dd>
+              </div>
             }
-          </dd>
-          @if (current.next_due_at) {
-            <dt class="col-sm-4">{{ 'project.codebaseReviewNext' | t }}</dt>
-            <dd class="col-sm-8">{{ current.next_due_at | date: 'dd/MM/yyyy' }}</dd>
-          }
+          </dl>
           @for (reason of current.reasons; track reason) {
-            <dd class="col-sm-8 offset-sm-4 text-warning-emphasis">
+            <span class="text-warning-emphasis">
               <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
               @if (reason === 'requested') {
                 {{
@@ -83,9 +93,9 @@
               } @else {
                 {{ 'project.codebaseReviewReasonInterval' | t }}
               }
-            </dd>
+            </span>
           }
-        </dl>
+        </div>
 
         @if (canEdit()) {
           @if (error(); as text) {
@@ -94,8 +104,12 @@
           @if (message(); as text) {
             <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
           }
-          <form class="d-flex flex-wrap align-items-end gap-3" (submit)="submit($event)" novalidate>
-            <div class="form-check mb-1">
+          <form
+            class="d-flex flex-wrap align-items-center gap-3"
+            (submit)="submit($event)"
+            novalidate
+          >
+            <div class="form-check mb-0">
               <input
                 id="codebase-review-requested"
                 class="form-check-input"
@@ -107,7 +121,7 @@
                 {{ 'project.codebaseReviewRequest' | t }}
               </label>
             </div>
-            <div class="form-check mb-1">
+            <div class="form-check mb-0">
               <input
                 id="codebase-review-periodic"
                 class="form-check-input"
@@ -119,22 +133,27 @@
                 {{ 'project.codebaseReviewPeriodic' | t }}
               </label>
             </div>
-            <div>
-              <label class="form-label small mb-1" for="codebase-review-interval">
+            <!-- The number of days, its unit appended: the full label stays for screen readers -->
+            <div class="input-group input-group-sm interval">
+              <label class="visually-hidden" for="codebase-review-interval">
                 {{ 'project.codebaseReviewInterval' | t }}
               </label>
               <input
                 id="codebase-review-interval"
-                class="form-control form-control-sm"
+                class="form-control"
                 type="number"
                 step="1"
+                aria-describedby="codebase-review-interval-unit"
                 [formField]="settingsForm.interval"
                 (change)="save()"
               />
+              <span id="codebase-review-interval-unit" class="input-group-text">{{
+                'project.codebaseReviewDays' | t
+              }}</span>
             </div>
             @if (saving()) {
               <span
-                class="spinner-border spinner-border-sm text-secondary mb-2"
+                class="spinner-border spinner-border-sm text-secondary"
                 aria-hidden="true"
               ></span>
             }

@@ -70,7 +70,9 @@
     <div class="col-12" [class.col-xl-6]="hasCwes" [class.col-lg-8]="!hasCwes">
       <div class="card h-100">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
-          <span class="fw-semibold">{{ 'project.trend' | t }}</span>
+          <span class="fw-semibold"
+            ><i class="bi bi-graph-up me-2" aria-hidden="true"></i>{{ 'project.trend' | t }}</span
+          >
           <span class="badge bg-body-secondary text-body border">
             <i class="bi" [class]="direction().icon" aria-hidden="true"></i>
             {{ direction().label | t }}
@@ -111,7 +113,9 @@
       [class.col-lg-4]="!hasCwes"
     >
       <div class="card h-100">
-        <div class="card-header fw-semibold">{{ 'project.overPeriod' | t }}</div>
+        <div class="card-header fw-semibold">
+          <i class="bi bi-calendar-range me-2" aria-hidden="true"></i>{{ 'project.overPeriod' | t }}
+        </div>
         <ul class="list-group list-group-flush">
           <li class="list-group-item d-flex justify-content-between">
             <span>{{ 'project.newFindings' | t }}</span><strong>{{
@@ -134,7 +138,9 @@
 
         @if (mttr().length > 0) {
           <div class="card-body border-top">
-            <h2 class="h6">{{ 'project.mttr' | t }}</h2>
+            <h2 class="h6">
+              <i class="bi bi-stopwatch me-2" aria-hidden="true"></i>{{ 'project.mttr' | t }}
+            </h2>
             @for (row of mttr(); track row.severity) {
               <div class="d-flex justify-content-between small">
                 <span>{{ row.label | t }}</span>
@@ -150,7 +156,10 @@
 
         @if (oldest().length > 0) {
           <div class="card-body border-top">
-            <h2 class="h6">{{ 'project.oldest' | t }}</h2>
+            <h2 class="h6">
+              <i class="bi bi-hourglass-split me-2" aria-hidden="true"></i
+              >{{ 'project.oldest' | t }}
+            </h2>
             @for (row of oldest(); track row.label) {
               <div class="d-flex justify-content-between small">
                 <span>{{ row.label | t }}</span>
@@ -165,7 +174,9 @@
     @if (hasCwes) {
       <div class="col-12 col-md-6 col-xl-3">
         <div class="card h-100">
-          <div class="card-header fw-semibold">{{ 'project.topCwes' | t }}</div>
+          <div class="card-header fw-semibold">
+            <i class="bi bi-bug me-2" aria-hidden="true"></i>{{ 'project.topCwes' | t }}
+          </div>
           <div class="card-body d-flex flex-column">
             <app-cwe-pie
               class="flex-grow-1"
@@ -192,7 +203,10 @@
 
 <div class="card mb-4">
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
-    <span class="fw-semibold">{{ 'project.openFindings' | t }}</span>
+    <span class="fw-semibold"
+      ><i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i
+      >{{ 'project.openFindings' | t }}</span
+    >
     @if (openFindings.value(); as page) {
       @if (page.total > page.findings.length) {
         <span class="small text-body-secondary">

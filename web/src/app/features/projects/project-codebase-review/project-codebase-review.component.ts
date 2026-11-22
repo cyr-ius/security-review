@@ -35,6 +35,7 @@ function settingsOf(state: CodebaseReviewState | undefined): {
   selector: 'app-project-codebase-review',
   imports: [DatePipe, FormField, TranslatePipe],
   templateUrl: './project-codebase-review.component.html',
+  styleUrl: './project-codebase-review.component.css',
 })
 export class ProjectCodebaseReviewComponent {
   private readonly api = inject(ApiService);
