@@ -94,13 +94,14 @@
           @if (message(); as text) {
             <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
           }
-          <form class="d-flex flex-wrap align-items-end gap-3" (submit)="save($event)" novalidate>
+          <form class="d-flex flex-wrap align-items-end gap-3" (submit)="submit($event)" novalidate>
             <div class="form-check mb-1">
               <input
                 id="codebase-review-requested"
                 class="form-check-input"
                 type="checkbox"
                 [formField]="settingsForm.requested"
+                (change)="save()"
               />
               <label class="form-check-label" for="codebase-review-requested">
                 {{ 'project.codebaseReviewRequest' | t }}
@@ -112,6 +113,7 @@
                 class="form-check-input"
                 type="checkbox"
                 [formField]="settingsForm.periodic"
+                (change)="save()"
               />
               <label class="form-check-label" for="codebase-review-periodic">
                 {{ 'project.codebaseReviewPeriodic' | t }}
@@ -127,12 +129,15 @@
                 type="number"
                 step="1"
                 [formField]="settingsForm.interval"
+                (change)="save()"
               />
             </div>
-            <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
-              <i class="bi bi-check-lg" aria-hidden="true"></i>
-              {{ 'common.save' | t }}
-            </button>
+            @if (saving()) {
+              <span
+                class="spinner-border spinner-border-sm text-secondary mb-2"
+                aria-hidden="true"
+              ></span>
+            }
           </form>
         }
       } @else {
