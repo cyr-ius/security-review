@@ -363,7 +363,8 @@ async def project_findings(
     project in the scope of the caller. ``open`` keeps the open risks, ``unread`` the open
     ``info`` findings (observations). ``status``, ``severity`` and ``review_type`` may be
     repeated (any of the values matches); ``search`` keeps the findings whose title, rule, CWE,
-    file, description, project or branch contains it; ``report_id`` keeps the findings of one
+    file, description, project, branch or token label contains it (and the author of the report
+    for a manager of the users or of the tokens); ``report_id`` keeps the findings of one
     report and ``proposed`` those carrying a status proposed by an agent. limit is capped by
     SECREVIEW_MAX_LIST_LIMIT.
     """
@@ -381,6 +382,7 @@ async def project_findings(
         search,
         report_id,
         proposed,
+        sees_authors(identity),
     )
 
 

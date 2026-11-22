@@ -217,6 +217,7 @@ def list_project_findings(
     search: str | None = None,
     report_id: int | None = None,
     proposed: bool = False,
+    with_author: bool = False,
 ) -> dict:
     """List the findings of a project (or of every project) across all reports, for a review.
 
@@ -235,7 +236,9 @@ def list_project_findings(
     with 1, ``#R7`` / ``#R7*`` the findings of the reports so numbered, ``#PY-004`` / ``#AI*`` the
     findings of that rule or of the rules starting with AI; these words combine with each other
     and with the text (``scan code #GEN-007``). With ``#F12``, the status is not filtered: a
-    link to a finding shows it whatever its status. ``report_id`` keeps the findings of
+    link to a finding shows it whatever its status. The text is also searched in the token label
+    of the report, and in its author with ``with_author`` (a caller who may see it), as for the
+    reports. ``report_id`` keeps the findings of
     that report; ``proposed`` keeps the findings carrying a status proposed by an agent.
     """
     settings = get_settings()
@@ -271,7 +274,10 @@ def list_project_findings(
             Finding.description,
             SecurityReport.project,
             SecurityReport.branch,
+            SecurityReport.submitted_by,
         ]
+        if with_author:
+            searched.append(SecurityReport.author)
         filters.append(or_(*(col(column).ilike(pattern, escape="\\") for column in searched)))
     rank = case(*((Finding.severity == s, r) for s, r in SEVERITY_RANK.items()), else_=0)
 

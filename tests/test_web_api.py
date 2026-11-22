@@ -538,7 +538,11 @@ def test_report_author_is_hidden_from_a_caller_who_manages_neither_users_nor_tok
     web_sessions,
 ):
     saved = services.save_report(
-        "authored", "Review", [], author="alice@example.com", submitted_by="laptop-42"
+        "authored",
+        "Review",
+        [make_finding()],
+        author="alice@example.com",
+        submitted_by="laptop-42",
     )
     services.save_report("authored", "Other review", [], author="bob")
     reader = auth("reader")
@@ -553,10 +557,14 @@ def test_report_author_is_hidden_from_a_caller_who_manages_neither_users_nor_tok
     markdown = web_sessions.get(f"/api/v1/reports/{saved['report_id']}/markdown", headers=reader)
     assert "alice" not in markdown.text
     assert "laptop-42" in markdown.text
-    # A token manager sees it
+    found = web_sessions.get("/api/v1/findings", params={"search": "alice"}, headers=reader)
+    assert found.json()["total"] == 0
+    # A token manager sees it, and finds the reports and the findings by their author
     admin = auth("admin")
     searched = web_sessions.get("/api/v1/reports", params={"search": "alice"}, headers=admin)
     assert [r["author"] for r in searched.json()] == ["alice@example.com"]
+    found = web_sessions.get("/api/v1/findings", params={"search": "alice"}, headers=admin)
+    assert found.json()["total"] == 1
 
 
 def test_update_finding_status(client, reports):

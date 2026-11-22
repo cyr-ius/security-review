@@ -29,7 +29,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
     | Type | To |
     |---|---|
-    | `sql injection` | Search the findings (title, rule, CWE, file, description, project, branch), the reports, the rules, the checklists or the standards for the text (the last three without filter, according to your permissions) |
+    | `sql injection` | Search the findings (title, rule, CWE, file, description, project, branch, token of the report, and its author for a manager of the users or tokens), the reports, the rules, the checklists or the standards for the text (the last three without filter, according to your permissions) |
     | `#R12`, `#report:12` | Open report 12 (the interface numbers the reports `R12` and the findings `F34`) |
     | `xss #R12`, `xss #report:12` | Open report 12, its findings searched for "xss" |
     | `#F34`, `#finding:34` | Open finding 34 among the findings of its project, whatever its status |
@@ -79,7 +79,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, `#report:<number>` for the findings of one report, as in the global search, `#R<number>` for the same, `#F<number>` alone for one finding, `#PY-004` alone for the findings of one rule, a `*` at the end for the numbers or ids starting so (`#F1*`, `#AI*`), as the findings listed on the page of a project link to it) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, token of the report, and its author for a manager of the users or tokens, `#report:<number>` for the findings of one report, as in the global search, `#R<number>` for the same, `#F<number>` alone for one finding, `#PY-004` alone for the findings of one rule, a `*` at the end for the numbers or ids starting so (`#F1*`, `#AI*`), as the findings listed on the page of a project link to it) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 | **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../reference/prompts-tools.md#review-coverage), related reports of a codebase review, scanned files of a [code](../review/analysis/code-scan.md) or [dependency](../review/analysis/dependencies.md) scan, findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 
