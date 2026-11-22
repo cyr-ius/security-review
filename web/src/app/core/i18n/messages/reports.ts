@@ -101,6 +101,10 @@ export const reports = defineMessages({
     'report.scannedComponents': 'Components',
     'report.scannedFindings': 'Findings',
     'report.related': 'Related reports',
+    'report.filesReviewed': 'Files read by the reviewer ({count})',
+    'report.unreviewedLeads': '{count} file(s) with scan leads not read',
+    'report.unreviewedLeadsHelp':
+      'The reviewer neither read these files nor cited them in a finding: their leads were not verified.',
     'report.relatedHelp':
       'Reports of the same codebase review: the scans run by the agent and its review.',
     'report.coverage': 'Review coverage',
@@ -218,6 +222,10 @@ export const reports = defineMessages({
     'report.scannedComponents': 'Composants',
     'report.scannedFindings': 'Findings',
     'report.related': 'Rapports liés',
+    'report.filesReviewed': 'Fichiers lus par le relecteur ({count})',
+    'report.unreviewedLeads': '{count} fichier(s) avec des pistes non lus',
+    'report.unreviewedLeadsHelp':
+      "Le relecteur n'a ni lu ces fichiers ni ne les a cités dans un finding : leurs pistes n'ont pas été vérifiées.",
     'report.relatedHelp':
       "Rapports d'une même revue du code complet : les scans lancés par l'agent et sa revue.",
     'report.coverage': 'Couverture de la revue',
@@ -334,6 +342,10 @@ export const reports = defineMessages({
     'report.scannedComponents': 'Componentes',
     'report.scannedFindings': 'Hallazgos',
     'report.related': 'Informes relacionados',
+    'report.filesReviewed': 'Archivos leídos por el revisor ({count})',
+    'report.unreviewedLeads': '{count} archivo(s) con pistas no leídos',
+    'report.unreviewedLeadsHelp':
+      'El revisor no leyó estos archivos ni los citó en un hallazgo: sus pistas no se verificaron.',
     'report.relatedHelp':
       'Informes de una misma revisión del código completo: los escaneos lanzados por el agente y su revisión.',
     'report.coverage': 'Cobertura de la revisión',

@@ -147,7 +147,8 @@ See [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-toke
   [review coverage](#review-coverage));
 - `review_group`: the one returned by `start_codebase_scan`, which links the report to the
   reports of its scans (see
-  [scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)).
+  [scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan));
+- `files_reviewed`: the files the agent read (see [review coverage](#review-coverage)).
 
 Each field is bounded: `repository` (500 characters), `branch` (200), `commit_sha` (64),
 `reviewer` (200), and each text (`summary`, `scope`, and the `description`, `evidence` and
@@ -233,6 +234,7 @@ tell a clean review from one that skipped the checklist:
 |---|---|
 | `checklist_results` | Each checklist item walked through, with its outcome: `ok` (verified, nothing found), `issue` (reported as a finding), `not_applicable`, `not_verifiable` (the reviewed code was not enough to judge it) |
 | `scan_rules` | The rule id of every lead returned by `scan_code`, confirmed or dismissed: an internal rule (`PY-004`, case-insensitive) or an OpenGrep rule as `scan_code` returns it (`OPENGREP:<id>`, the id keeps its case) |
+| `files_reviewed` | The path of every file the agent actually read, relative to the root of the repository (`codebase-review` prompt) |
 
 The server checks them against the active rules and checklists when it stores the report:
 
@@ -243,9 +245,16 @@ The server checks them against the active rules and checklists when it stores th
   `not_covered`, and listed in `coverage.not_covered` of the answer;
 - a finding `rule_id` that looks like a rule or checklist id (`PY-004`, `ACME-CL-01`) but
   matches neither gets a warning; advisory ids (`GHSA-...`, `CVE-...`) are not checked;
-- a report without any checklist result gets a warning: its coverage is unknown.
+- a report without any checklist result gets a warning: its coverage is unknown;
+- with a `review_group` whose code scan is saved, the files with leads of that scan that the
+  agent neither declared in `files_reviewed` nor cited in a finding are stored as **unread
+  leads**: the answer gives their number and the first ones (`unreviewed_leads`), with a
+  warning. Paths are compared without a leading `./` and with `/` as separator.
 
-At most 500 checklist results and 500 rules per report. The coverage is **declared by the
+At most 500 checklist results, 500 rules and 5,000 files read per report. For a codebase
+review, the report page also shows the counts of the linked scans (files scanned, with leads,
+not scanned), the files read and the unread leads, in collapsible lists; `get_security_report`
+leaves these lists out of its JSON and the Markdown gives their counts. The coverage is **declared by the
 agent**: it shows what the agent says it did, not a proof; a rule of `scan_rules` cited by no
 finding is a lead the agent dismissed. The CLI scans declare no coverage. The report page of the
 [web interface](../usage/index.md) and the Markdown export show it.

@@ -14,6 +14,7 @@ from security_review_mcp.storage.models import (
     FindingCreate,
     FindingStatus,
     ReviewType,
+    ScannedFile,
     SecurityReport,
     Severity,
     utcnow,
@@ -57,14 +58,49 @@ def test_save_and_get_report():
 
 def test_a_review_joins_only_a_review_group_of_its_project():
     group = "0123456789abcdef0123456789abcdef"
-    scan = services.save_report("shop-api", "Code scan", [], review_group=group, from_scan=True)
+    files = [
+        ScannedFile(path="app/db.py", language="python", lines=40, matches=1),
+        ScannedFile(path="app/views.py", language="python", lines=90, matches=3),
+        ScannedFile(path="app/auth.py", language="python", lines=50, matches=2),
+        ScannedFile(path="app/ok.py", language="python", lines=5),
+        ScannedFile(path="blob.bin", reason="binary file"),
+    ]
+    scan = services.save_report(
+        "shop-api",
+        "Code scan",
+        [],
+        review_type=ReviewType.CODE_SCAN,
+        review_group=group,
+        from_scan=True,
+        scanned_files=files,
+    )
     # Another project, a made-up group: the report is saved without it, with a warning
     for project, declared in (("billing", group), ("shop-api", "f" * 32), ("shop-api", "../x")):
         saved = services.save_report(project, "Codebase review", [], review_group=declared)
         assert "review_group" not in saved and "start_codebase_scan" in saved["warnings"][0]
         assert services.get_report(saved["report_id"]).review_group is None
-    review = services.save_report("shop-api", "Codebase review", [], review_group=group.upper())
+    # The agent read app/auth.py and cited app/db.py in a finding: app/views.py was not read
+    review = services.save_report(
+        "shop-api",
+        "Codebase review",
+        [make_finding()],
+        review_group=group.upper(),
+        files_reviewed=["./app/auth.py", "app\\ok.py"],
+    )
     assert review["review_group"] == group
+    assert review["unreviewed_leads"] == {"files": 1, "first": ["app/views.py"]}
+    assert "neither read" in review["warnings"][-1]
+    stored = services.get_report(review["report_id"])
+    assert stored.files_reviewed == ["app/auth.py", "app/ok.py"]
+    assert [(lead.path, lead.matches) for lead in stored.unreviewed_leads] == [("app/views.py", 3)]
+    # The review shows the counts of the scan without reading its list of files
+    [linked_scan] = stored.related_reports
+    assert linked_scan.scan_summary.model_dump() == {
+        "files": 4,
+        "with_matches": 3,
+        "skipped": 1,
+        "unchecked": 0,
+    }
     linked = services.get_report(scan["report_id"]).related_reports
     assert [r.id for r in linked] == [review["report_id"]]
 

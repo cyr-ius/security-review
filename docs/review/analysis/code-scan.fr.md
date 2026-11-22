@@ -180,7 +180,10 @@ qui lit le code dans son espace de travail.
 4. **Traçage.** Il suit les données non fiables de chaque point d'entrée jusqu'aux appels
    sensibles, d'un fichier à l'autre : ce qu'une revue de diff ne voit pas.
 5. **Checklists**, puis **rapport** enregistré une fois (`review_type` : `codebase-review`),
-   avec dans `scope` les fichiers relus et **ceux qui ne l'ont pas été**.
+   avec dans `scope` les fichiers relus et **ceux qui ne l'ont pas été**, et les fichiers lus
+   dans `files_reviewed` : avec le `review_group` des scans, le rapport liste les fichiers avec
+   des pistes que l'agent n'a pas lus
+   ([couverture de la revue](../../reference/prompts-tools.md#couverture-de-la-revue)).
 
 **Prend-il tous les fichiers du dépôt ?** Pas tous d'un coup. Le *scan* couvre tous les fichiers
 éligibles ([sélection des fichiers](#selection-des-fichiers)) ; la *lecture* par l'agent cible

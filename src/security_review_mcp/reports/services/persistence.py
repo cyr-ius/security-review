@@ -19,6 +19,7 @@ from ...storage.models import (
     DISMISSED_STATUSES,
     MAX_BRANCH_CHARS,
     MAX_COMMIT_SHA_CHARS,
+    MAX_FILES_REVIEWED,
     MAX_REPOSITORY_CHARS,
     MAX_REVIEWER_CHARS,
     MAX_SCANNED_PATH_CHARS,
@@ -35,6 +36,7 @@ from ...storage.models import (
     SecurityReport,
     SecurityReportPublic,
     Severity,
+    UnreviewedLead,
     effective_status,
     utcnow,
 )
@@ -52,6 +54,14 @@ from .core import (
     compute_risk_level,
 )
 
+# Lists of files of a report (thousands of paths), loaded only with the report itself
+_DEFERRED_LISTS = (
+    defer(SecurityReport.scanned_files),  # type: ignore[arg-type]
+    defer(SecurityReport.files_reviewed),  # type: ignore[arg-type]
+    defer(SecurityReport.unreviewed_leads),  # type: ignore[arg-type]
+)
+# Files with unread leads listed in the answer to the agent (all are stored)
+MAX_UNREVIEWED_LISTED = 20
 # A review group is the id of a scan ticket (uuid4 hex, see auth.scan_tickets)
 REVIEW_GROUP_PATTERN = re.compile(r"[0-9a-f]{32}")
 
@@ -229,6 +239,30 @@ def _known_group(session: Session, project: str, group: str, warnings: list[str]
     return group
 
 
+def _unreviewed_leads(
+    session: Session,
+    project: str,
+    group: str,
+    reviewed: list[str],
+    findings: list[FindingCreate],
+) -> list[UnreviewedLead] | None:
+    """The files with leads of the latest code scan of the review group that the review did
+    not read, or None when the group has no code scan."""
+    scan = session.exec(
+        select(SecurityReport.scanned_files)
+        .where(
+            SecurityReport.review_group == group,
+            SecurityReport.project == project,
+            SecurityReport.review_type == ReviewType.CODE_SCAN,
+        )
+        .order_by(col(SecurityReport.id).desc())
+    ).first()
+    if scan is None:
+        return None
+    scanned = [ScannedFile.model_validate(item) for item in json.loads(scan)]
+    return coverage.unreviewed_leads(scanned, reviewed, findings)
+
+
 def save_report(
     project: str,
     summary: str,
@@ -247,6 +281,7 @@ def save_report(
     from_scan: bool = False,
     scanned_files: list[ScannedFile] | None = None,
     review_group: str | None = None,
+    files_reviewed: list[str] | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -277,6 +312,9 @@ def save_report(
             the controller for the scans saved with the ticket, declared by the agent for its
             review. A declared group is kept only when a ticket or a report of the project has
             it; otherwise it is dropped with a warning (the report is still saved).
+        files_reviewed: Files the agent declares it read (at most MAX_FILES_REVIEWED). With a
+            review group whose code scan is saved, the files with leads that it neither read
+            nor cited in a finding are stored as ``unreviewed_leads``.
 
     Returns:
         Identifier, risk level and finding counts of the stored report; with declared
@@ -312,6 +350,17 @@ def save_report(
         ),
     )
     author = _check_author(author)
+    if files_reviewed is not None and len(files_reviewed) > MAX_FILES_REVIEWED:
+        raise ValueError(
+            f"Too many files_reviewed ({len(files_reviewed)}); the limit is {MAX_FILES_REVIEWED}"
+        )
+    reviewed = list(
+        dict.fromkeys(
+            coverage.normalize_path(sanitize_untrusted(p))
+            for p in files_reviewed or []
+            if p.strip()
+        )
+    )
     declared = None
     if checklist_results is not None or scan_rules is not None:
         declared = coverage.check(checklist_results or [], scan_rules or [], findings)
@@ -324,6 +373,9 @@ def save_report(
         warnings: list[str] = []
         if review_group is not None and not from_scan:
             review_group = _known_group(session, project, review_group, warnings)
+        missed = None
+        if review_group is not None and not from_scan:
+            missed = _unreviewed_leads(session, project, review_group, reviewed, findings)
         pairs, recurring, carried, kept = _match_occurrences(session, project, rows, now, from_scan)
         risk = compute_risk_level([row.severity for row in rows], risk_level)
         report = SecurityReport(
@@ -354,6 +406,10 @@ def save_report(
                     for item in scanned_files
                 ]
             )
+            report.scan_summary = coverage.summarize(scanned_files).model_dump_json()
+        report.files_reviewed = json.dumps(reviewed)
+        if missed:
+            report.unreviewed_leads = json.dumps([lead.model_dump() for lead in missed])
         session.add(report)
         session.flush()  # assigns ids before the commit
         _supersede(session, pairs)
@@ -374,10 +430,21 @@ def save_report(
                 "checklist_by_outcome": dict(Counter(r.outcome.value for r in declared.checklist)),
                 "not_covered": declared.not_covered,
                 "scan_rules": len(declared.scan_rules),
+                "files_reviewed": len(reviewed),
             }
             warnings = declared.warnings + warnings
         if review_group is not None:
             result["review_group"] = review_group
+        if missed is not None:
+            result["unreviewed_leads"] = {
+                "files": len(missed),
+                "first": [lead.path for lead in missed[:MAX_UNREVIEWED_LISTED]],
+            }
+            if missed:
+                warnings.append(
+                    f"{len(missed)} file(s) with leads of the code scan were neither read "
+                    "(files_reviewed) nor cited in a finding: their leads are not verified"
+                )
         if declared is not None or warnings:
             result["warnings"] = warnings
     logger.info("Report saved: id=%s project=%s risk=%s", result["report_id"], project, risk)
@@ -407,7 +474,7 @@ def get_report(report_id: int) -> SecurityReportPublic:
                     SecurityReport.project == report.project,
                     SecurityReport.id != report.id,
                 )
-                .options(defer(SecurityReport.scanned_files))  # type: ignore[arg-type]
+                .options(*_DEFERRED_LISTS)
                 .order_by(col(SecurityReport.id))
             ).all()
             public.related_reports = [
@@ -461,8 +528,8 @@ def list_reports(
             sort_by = "submitted_by"
 
     with session_scope() as session:
-        # The files of a code scan are not listed: never load them here
-        statement = select(SecurityReport).options(defer(SecurityReport.scanned_files))  # type: ignore[arg-type]
+        # The lists of files are not listed: never load them here
+        statement = select(SecurityReport).options(*_DEFERRED_LISTS)
         if names := [normalize_project(name) for name in _values(project) if name]:
             statement = statement.where(col(SecurityReport.project).in_(names))
         if projects is not None:

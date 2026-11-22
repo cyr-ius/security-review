@@ -191,6 +191,94 @@
             }
           </div>
         }
+        @if (cov.scans.length || cov.filesReviewed.length || cov.unreviewed.length) {
+          <div class="mt-3 d-flex flex-column gap-2">
+            @for (scan of cov.scans; track scan.id) {
+              @if (scan.scan_summary; as summary) {
+                <div class="d-flex flex-wrap align-items-center gap-2 small">
+                  @if (scan.review_type; as scanType) {
+                    <i class="bi {{ reviewTypeMeta[scanType].icon }}" aria-hidden="true"></i>
+                    <a [routerLink]="['/reports', scan.id]">
+                      {{ reviewTypeMeta[scanType].label | t }} · #{{ scan.id }}
+                    </a>
+                  }
+                  <span>{{ 'report.scannedCount' | t: { count: summary.files } }}</span>
+                  @if (summary.with_matches) {
+                    <span class="badge text-bg-warning">
+                      {{
+                        (scan.review_type === 'dependency-scan'
+                          ? 'report.withFindingsCount'
+                          : 'report.withLeadsCount'
+                        ) | t: { count: summary.with_matches }
+                      }}
+                    </span>
+                  }
+                  @if (summary.skipped) {
+                    <span class="badge text-bg-secondary">
+                      {{ 'report.skippedCount' | t: { count: summary.skipped } }}
+                    </span>
+                  }
+                  @if (summary.unchecked) {
+                    <span class="badge text-bg-secondary">
+                      {{ 'report.uncheckedCount' | t: { count: summary.unchecked } }}
+                    </span>
+                  }
+                </div>
+              }
+            }
+            @if (cov.unreviewed.length) {
+              <details (toggle)="onDetailsToggle($event, unreviewedOpen)">
+                <summary class="text-warning-emphasis">
+                  <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                  {{ 'report.unreviewedLeads' | t: { count: cov.unreviewed.length } }}
+                </summary>
+                <p class="text-body-secondary small mt-2 mb-1">
+                  {{ 'report.unreviewedLeadsHelp' | t }}
+                </p>
+                @if (unreviewedOpen()) {
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                      <thead>
+                        <tr>
+                          <th scope="col">{{ 'report.scannedFile' | t }}</th>
+                          <th scope="col" class="text-end">{{ 'report.scannedLeads' | t }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (lead of cov.unreviewed; track lead.path) {
+                          <tr>
+                            <td class="text-break">
+                              <code>{{ lead.path }}</code>
+                            </td>
+                            <td class="text-end">
+                              <span class="badge text-bg-warning">{{ lead.matches }}</span>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </details>
+            }
+            @if (cov.filesReviewed.length) {
+              <details (toggle)="onDetailsToggle($event, filesReviewedOpen)">
+                <summary>
+                  {{ 'report.filesReviewed' | t: { count: cov.filesReviewed.length } }}
+                </summary>
+                @if (filesReviewedOpen()) {
+                  <ul class="list-unstyled small mt-2 mb-0">
+                    @for (path of cov.filesReviewed; track path) {
+                      <li>
+                        <code>{{ path }}</code>
+                      </li>
+                    }
+                  </ul>
+                }
+              </details>
+            }
+          </div>
+        }
       </div>
     </div>
   }
@@ -226,7 +314,7 @@
             </span>
           }
         </div>
-        <details (toggle)="onScannedFilesToggle($event)">
+        <details (toggle)="onDetailsToggle($event, scannedFilesOpen)">
           <summary>{{ 'report.scannedFilesList' | t: { count: scan.files.length } }}</summary>
           @if (scannedFilesOpen()) {
             <div class="table-responsive mt-2">

@@ -150,7 +150,9 @@ Voir [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-per
   [couverture de la revue](#couverture-de-la-revue)) ;
 - `review_group` : celui renvoyé par `start_codebase_scan`, qui lie le rapport aux rapports de
   ses scans (voir
-  [scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)).
+  [scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) ;
+- `files_reviewed` : les fichiers lus par l'agent (voir
+  [couverture de la revue](#couverture-de-la-revue)).
 
 Chaque champ est borné : `repository` (500 caractères), `branch` (200), `commit_sha` (64),
 `reviewer` (200), et chaque texte (`summary`, `scope`, et `description`, `evidence` et
@@ -237,6 +239,7 @@ qu'une personne distingue une revue sans problème d'une revue qui a sauté la c
 |---|---|
 | `checklist_results` | Chaque point de checklist parcouru, avec son résultat : `ok` (vérifié, rien trouvé), `issue` (signalé par un finding), `not_applicable`, `not_verifiable` (le code relu ne suffisait pas pour en juger) |
 | `scan_rules` | L'identifiant de règle de chaque piste renvoyée par `scan_code`, confirmée ou écartée : une règle interne (`PY-004`, sans tenir compte de la casse) ou une règle OpenGrep telle que `scan_code` la renvoie (`OPENGREP:<id>`, l'identifiant garde sa casse) |
+| `files_reviewed` | Le chemin de chaque fichier que l'agent a réellement lu, relatif à la racine du dépôt (prompt `codebase-review`) |
 
 Le serveur les contrôle avec les règles et checklists actives quand il enregistre le rapport :
 
@@ -249,9 +252,18 @@ Le serveur les contrôle avec les règles et checklists actives quand il enregis
   `ACME-CL-01`) sans correspondre à aucun reçoit un avertissement ; les identifiants d'avis
   (`GHSA-...`, `CVE-...`) ne sont pas contrôlés ;
 - un rapport sans aucun résultat de checklist reçoit un avertissement : sa couverture est
-  inconnue.
+  inconnue ;
+- avec un `review_group` dont le scan du code est enregistré, les fichiers avec des pistes de ce
+  scan que l'agent n'a ni déclarés dans `files_reviewed` ni cités dans un finding sont
+  enregistrés comme **pistes non lues** : la réponse donne leur nombre et les premiers
+  (`unreviewed_leads`), avec un avertissement. Les chemins sont comparés sans `./` en tête et
+  avec `/` comme séparateur.
 
-Au plus 500 résultats de checklist et 500 règles par rapport. La couverture est **déclarée par
+Au plus 500 résultats de checklist, 500 règles et 5 000 fichiers lus par rapport. Pour une revue
+du code complet, la page du rapport affiche aussi les compteurs des scans liés (fichiers scannés,
+avec des pistes, non scannés), les fichiers lus et les pistes non lues, dans des listes
+dépliables ; `get_security_report` laisse ces listes hors de son JSON et le Markdown donne leurs
+nombres. La couverture est **déclarée par
 l'agent** : elle montre ce que l'agent dit avoir fait, pas une preuve ; une règle de `scan_rules`
 citée par aucun finding est une piste que l'agent a écartée. Les scans CLI ne déclarent pas de
 couverture. La page du rapport dans l'[interface web](../usage/index.md) et l'export Markdown

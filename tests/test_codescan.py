@@ -170,6 +170,8 @@ async def test_codebase_review_prompt():
     assert "whole codebase" in text and "(python, angular)" in text
     assert '"matches_count": 3' in text
     assert "Coverage" in text and "save_security_report" in text
+    # The files read are declared, so that the unread scan leads can be listed
+    assert "`files_reviewed`" in text and "`review_group`" in text
 
 
 @pytest.mark.anyio

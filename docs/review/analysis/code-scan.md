@@ -176,7 +176,9 @@ in its workspace.
 4. **Tracing.** It follows untrusted data from each entry point to the sensitive calls, across
    files: what a diff review misses.
 5. **Checklists**, then **report** saved once (`review_type`: `codebase-review`), with the
-   files read and **those not read** in `scope`.
+   files read and **those not read** in `scope`, and the files read in `files_reviewed`: with
+   the `review_group` of the scans, the report lists the files with leads the agent did not
+   read ([review coverage](../../reference/prompts-tools.md#review-coverage)).
 
 **Does it take every file of the repository?** Not all at once. The *scan* covers every
 eligible file ([file selection](#file-selection)); the *reading* by the agent targets the

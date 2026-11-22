@@ -8,6 +8,7 @@ import {
   input,
   linkedSignal,
   signal,
+  WritableSignal,
 } from '@angular/core';
 import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -177,10 +178,25 @@ export class ReportDetailComponent {
     })).filter((entry) => entry.count > 0);
     const cited = new Set(data.findings.map((f) => f.rule_id?.trim().toUpperCase()));
     const leads = data.scan_rules.map((rule) => ({ rule, dismissed: !cited.has(rule) }));
-    const declared = items.length > 0 || leads.length > 0;
+    // Scans of the same codebase review (their counts), the files the agent read and the
+    // files with leads it did not read
+    const scans = data.related_reports.filter((r) => r.scan_summary);
+    const filesReviewed = data.files_reviewed;
+    const unreviewed = data.unreviewed_leads;
+    const declared = items.length > 0 || leads.length > 0 || filesReviewed.length > 0;
     const expected = !!data.review_type && PROMPT_REVIEW_TYPES.includes(data.review_type);
-    return declared || expected ? { items, counts, leads, declared } : null;
+    return declared || expected
+      ? { items, counts, leads, declared, scans, filesReviewed, unreviewed }
+      : null;
   });
+  /** The rows of the files read and of the unread leads are only rendered once opened. */
+  readonly filesReviewedOpen = signal(false);
+  readonly unreviewedOpen = signal(false);
+
+  /** Follow the open state of a ``details`` whose rows are rendered lazily. */
+  onDetailsToggle(event: Event, opened: WritableSignal<boolean>): void {
+    opened.set((event.target as HTMLDetailsElement).open);
+  }
 
   /** Files of a code or dependency scan, with their counts. */
   readonly scannedFiles = computed(() => {
@@ -199,10 +215,6 @@ export class ReportDetailComponent {
   });
   /** The rows of the scanned files are only rendered once their section is opened. */
   readonly scannedFilesOpen = signal(false);
-
-  onScannedFilesToggle(event: Event): void {
-    this.scannedFilesOpen.set((event.target as HTMLDetailsElement).open);
-  }
 
   /** Open risks of the report (the unread observations are not open findings). */
   readonly openCount = computed(

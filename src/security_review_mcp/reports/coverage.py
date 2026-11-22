@@ -1,9 +1,10 @@
-"""Review coverage: the checklist results and scan leads declared with a report.
+"""Review coverage: the checklist results, scan leads and files declared with a report.
 
 The reviewer (an agent) declares which checklist items it walked through and which rules
 raised ``scan_code`` leads. They are checked against the active registry when the report is
 saved: unknown ids are dropped and reported as warnings, never refused, so that a review is
-not lost at its last step.
+not lost at its last step. The files it read are compared with the files that have leads in the
+code scan of its review group (see unreviewed_leads).
 """
 
 import re
@@ -17,11 +18,15 @@ from ..storage.database import session_scope
 from ..storage.models import (
     MAX_CHECKLIST_RESULTS,
     MAX_SCAN_RULES,
+    MAX_SCANNED_PATH_CHARS,
     ChecklistOutcome,
     ChecklistResult,
     FindingCreate,
     OpenGrepRule,
+    ScannedFile,
+    ScanSummary,
     StoredChecklistResult,
+    UnreviewedLead,
 )
 
 # Prefix of the rule id of an OpenGrep lead of scan_code (see engines.opengrep)
@@ -136,3 +141,37 @@ def check(
             f"Finding rule_id not found among the rules and checklist items: {_listed(unverified)}"
         )
     return coverage
+
+
+def normalize_path(path: str) -> str:
+    """Compared form of a file path: forward slashes, without a leading ``./``, so that the
+    paths declared by the agent match the paths sent by ``security-review-ci``."""
+    path = path.strip().replace("\\", "/")
+    while path.startswith("./"):
+        path = path[2:]
+    return path[:MAX_SCANNED_PATH_CHARS]
+
+
+def summarize(files: list[ScannedFile]) -> ScanSummary:
+    """Count the files of a scan for the reports linked to it."""
+    return ScanSummary(
+        files=sum(1 for f in files if f.reason is None),
+        with_matches=sum(1 for f in files if f.matches > 0),
+        skipped=sum(1 for f in files if f.reason is not None),
+        unchecked=sum(1 for f in files if f.vulnerability_check not in (None, "performed")),
+    )
+
+
+def unreviewed_leads(
+    scanned: list[ScannedFile], reviewed: Iterable[str], findings: list[FindingCreate]
+) -> list[UnreviewedLead]:
+    """The files with leads of a code scan that the agent neither declared it read nor cited
+    in a finding, the most matches first: leads nobody verified."""
+    read = {normalize_path(p) for p in reviewed}
+    read |= {normalize_path(f.file_path) for f in findings if f.file_path}
+    missed = [
+        UnreviewedLead(path=f.path, matches=f.matches)
+        for f in scanned
+        if f.matches > 0 and normalize_path(f.path) not in read
+    ]
+    return sorted(missed, key=lambda lead: (-lead.matches, lead.path))

@@ -83,6 +83,8 @@ MAX_ITEM_ID_CHARS = 60
 REVIEW_GROUP_CHARS = 32
 # Path of a file listed in the scanned files of a code scan report (as for a finding)
 MAX_SCANNED_PATH_CHARS = 500
+# Files an agent declares it read for a review (see SecurityReport.files_reviewed)
+MAX_FILES_REVIEWED = 5000
 
 
 def as_utc(value: datetime) -> datetime:
@@ -158,6 +160,25 @@ class ScannedFile(SQLModel):
     vulnerability_check: str | None = Field(
         default=None, description="performed, or why the vulnerability check did not run"
     )
+
+
+class ScanSummary(SQLModel):
+    """Counts of the files of a code or dependency scan, stored with its report so that the
+    reports linked to it show them without reading its list of files."""
+
+    files: int = Field(description="Files scanned")
+    with_matches: int = Field(description="Files with leads or findings")
+    skipped: int = Field(default=0, description="Files not scanned (code scan)")
+    unchecked: int = Field(
+        default=0, description="Files whose vulnerability check did not run (dependency scan)"
+    )
+
+
+class UnreviewedLead(SQLModel):
+    """A file with leads of the code scan of a review that the agent did not declare it read."""
+
+    path: str
+    matches: int
 
 
 class FindingBase(SQLModel):
@@ -411,8 +432,14 @@ class SecurityReport(SecurityReportBase, table=True):
     # Review coverage, JSON lists: StoredChecklistResult objects and rule ids of scan leads
     checklist_results: str = Field(default="[]")
     scan_rules: str = Field(default="[]")
-    # Code and dependency scans (security-review-ci): JSON list of ScannedFile objects
+    # Code and dependency scans (security-review-ci): JSON list of ScannedFile objects, and a
+    # JSON ScanSummary of them (None for a review)
     scanned_files: str = Field(default="[]")
+    scan_summary: str | None = Field(default=None)
+    # Review of an agent: JSON lists of the files it declares it read, and of the files with
+    # leads of the code scan of its review group it did not read (computed at save time)
+    files_reviewed: str = Field(default="[]")
+    unreviewed_leads: str = Field(default="[]")
     findings: list[Finding] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -426,6 +453,13 @@ class RelatedReport(SQLModel):
     review_type: ReviewType | None
     risk_level: Severity
     created_at: datetime
+    scan_summary: ScanSummary | None = None
+
+    @field_validator("scan_summary", mode="before")
+    @classmethod
+    def _parse_json(cls, value: object) -> object:
+        """Read the JSON summary stored in the report table."""
+        return json.loads(value) if isinstance(value, str) else value
 
 
 class SecurityReportPublic(SecurityReportBase):
@@ -438,11 +472,22 @@ class SecurityReportPublic(SecurityReportBase):
     checklist_results: list[StoredChecklistResult] = []
     scan_rules: list[str] = []
     scanned_files: list[ScannedFile] = []
+    scan_summary: ScanSummary | None = None
+    files_reviewed: list[str] = []
+    unreviewed_leads: list[UnreviewedLead] = []
     # Filled by services.get_report, not stored
     related_reports: list[RelatedReport] = []
     findings: list[FindingPublic] = []
 
-    @field_validator("checklist_results", "scan_rules", "scanned_files", mode="before")
+    @field_validator(
+        "checklist_results",
+        "scan_rules",
+        "scanned_files",
+        "scan_summary",
+        "files_reviewed",
+        "unreviewed_leads",
+        mode="before",
+    )
     @classmethod
     def _parse_json(cls, value: object) -> object:
         """Read the JSON lists stored in the report table."""

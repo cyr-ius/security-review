@@ -134,12 +134,27 @@ export interface ScannedFile {
   vulnerability_check?: string | null;
 }
 
+/** Counts of the files of a code or dependency scan. */
+export interface ScanSummary {
+  files: number;
+  with_matches: number;
+  skipped: number;
+  unchecked: number;
+}
+
+/** A file with leads of the code scan of a review that the agent did not read. */
+export interface UnreviewedLead {
+  path: string;
+  matches: number;
+}
+
 /** Another report of the same codebase review (scans and review of the agent). */
 export interface RelatedReport {
   id: number;
   review_type: ReviewType | null;
   risk_level: Severity;
   created_at: string;
+  scan_summary: ScanSummary | null;
 }
 
 /** Review types run by an agent with a review prompt: they declare their coverage. */
@@ -1072,6 +1087,10 @@ export interface Report {
   checklist_results: ChecklistResult[];
   scan_rules: string[];
   scanned_files: ScannedFile[];
+  scan_summary: ScanSummary | null;
+  /** Files the agent declares it read, and the files with scan leads it did not read. */
+  files_reviewed: string[];
+  unreviewed_leads: UnreviewedLead[];
   /** Id of the scan ticket of a codebase review, shared by its reports. */
   review_group: string | null;
   related_reports: RelatedReport[];

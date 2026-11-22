@@ -472,7 +472,8 @@ reporting them, unless they ship to production.
 files and areas reviewed, and those NOT reviewed.
 2. Call `save_security_report` exactly once with `review_type` `codebase-review`, and the \
 `review_group` of `start_codebase_scan` if you called it (it links your report to the reports \
-of the scans). \
+of the scans), and in `files_reviewed` the path of every file you actually read, relative to \
+the root of the repository: the server then lists the files with scan leads you did not read. \
 {_AUTHOR_RULE} {_COVERAGE_RULE} Put the coverage in `scope` (for example \
 "Full codebase: src/api, src/auth reviewed; src/legacy not reviewed"). {_REPORT_REQUIRED}
 3. {_RULE_PROPOSAL}

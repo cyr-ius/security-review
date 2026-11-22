@@ -44,10 +44,12 @@ from .storage.models import (
     MAX_BRANCH_CHARS,
     MAX_CHECKLIST_RESULTS,
     MAX_COMMIT_SHA_CHARS,
+    MAX_FILES_REVIEWED,
     MAX_ITEM_ID_CHARS,
     MAX_REPOSITORY_CHARS,
     MAX_REVIEWER_CHARS,
     MAX_SCAN_RULES,
+    MAX_SCANNED_PATH_CHARS,
     MAX_STATUS_REASON_CHARS,
     REVIEW_GROUP_CHARS,
     ChecklistResult,
@@ -872,6 +874,15 @@ def save_security_report(
             "scans for this review: it links this report to theirs. Omit it otherwise",
         ),
     ] = None,
+    files_reviewed: Annotated[
+        list[Annotated[str, Field(max_length=MAX_SCANNED_PATH_CHARS)]] | None,
+        Field(
+            max_length=MAX_FILES_REVIEWED,
+            description="Paths of the files you actually read for this review, relative to the "
+            "root of the repository (as in the scan summary). With review_group, the server "
+            "lists the files with scan leads you neither read nor cited in a finding",
+        ),
+    ] = None,
 ) -> dict:
     """Store a security report and its findings in the database.
 
@@ -910,6 +921,7 @@ def save_security_report(
         checklist_results=checklist_results or [],
         scan_rules=scan_rules or [],
         review_group=review_group,
+        files_reviewed=files_reviewed,
     )
 
 
@@ -925,8 +937,11 @@ def get_security_report(
     report = _visible_report(ctx, report_id)
     if format == "markdown":
         return services.render_report_markdown(report)
-    # The files of a scan (up to SECREVIEW_MAX_SCAN_FILES) stay in the web interface
-    return report.model_dump(mode="json", exclude={"scanned_files"})
+    # The lists of files (up to SECREVIEW_MAX_SCAN_FILES) stay in the web interface: the
+    # Markdown and the summary give their counts
+    return report.model_dump(
+        mode="json", exclude={"scanned_files", "files_reviewed", "unreviewed_leads"}
+    )
 
 
 @mcp.tool(annotations=READ_ONLY)
