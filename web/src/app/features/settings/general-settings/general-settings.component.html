@@ -20,9 +20,9 @@
     <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (settings.value(); as current) {
-  <section class="card setting-card mb-4" aria-labelledby="language-title">
+  <section class="card mb-4" aria-labelledby="language-title">
     <div class="card-body">
-      <h2 id="language-title" class="h5">
+      <h2 id="language-title" class="h6">
         <i class="bi bi-translate me-2" aria-hidden="true"></i>{{ 'settings.languageTitle' | t }}
       </h2>
       <p id="language-help" class="text-body-secondary small">
@@ -112,9 +112,9 @@
       }
     </div>
   </section>
-  <section id="fix-severity" class="card setting-card mb-4" aria-labelledby="fix-title">
+  <section id="fix-severity" class="card mb-4" aria-labelledby="fix-title">
     <div class="card-body">
-      <h2 id="fix-title" class="h5">
+      <h2 id="fix-title" class="h6">
         <i class="bi bi-wrench-adjustable me-2" aria-hidden="true"></i>{{ 'settings.fixTitle' | t }}
       </h2>
       <p class="text-body-secondary small">
@@ -170,13 +170,12 @@
       }
     </div>
   </section>
-  <section
-    id="controller-url"
-    class="card setting-card mb-4"
-    aria-labelledby="controller-url-title"
-  >
+  <section id="controller-url" class="card mb-4" aria-labelledby="controller-url-title">
     <div class="card-body">
-      <h2 id="controller-url-title" class="h5">{{ 'settings.controllerUrlTitle' | t }}</h2>
+      <h2 id="controller-url-title" class="h6">
+        <i class="bi bi-link-45deg me-2" aria-hidden="true"></i
+        >{{ 'settings.controllerUrlTitle' | t }}
+      </h2>
       <p id="controller-url-help" class="text-body-secondary small">
         {{ 'settings.controllerUrlHelp' | t }}
       </p>
@@ -259,9 +258,9 @@
       }
     </div>
   </section>
-  <section class="card setting-card mb-4" aria-labelledby="proxy-title">
+  <section class="card mb-4" aria-labelledby="proxy-title">
     <div class="card-body">
-      <h2 id="proxy-title" class="h5">
+      <h2 id="proxy-title" class="h6">
         <i class="bi bi-router me-2" aria-hidden="true"></i>{{ 'settings.proxyTitle' | t }}
       </h2>
       <p id="proxy-help" class="text-body-secondary small">

@@ -212,11 +212,13 @@ export class AdvisorySettingsComponent extends SettingsPage {
     return this.ecosystemsForm[name] as FieldTree<boolean>;
   }
 
-  async saveEcosystems(event: Event): Promise<void> {
-    event.preventDefault();
+  /** Saved as soon as a box is ticked or unticked (at least one ecosystem stays chosen). */
+  async saveEcosystems(): Promise<void> {
     const chosen = this.supportedEcosystems().filter((name) => this.ecosystemsModel()[name]);
     if (!chosen.length) {
       this.error.set(msg('settings.ecosystemsMissing'));
+      // Tick again the boxes of the stored choice
+      this.reload();
       return;
     }
     await this.run(

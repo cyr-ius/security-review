@@ -9,7 +9,7 @@
 }
 
 <section class="card card-body mb-4" aria-labelledby="role-form-title">
-  <h2 id="role-form-title" class="h5">
+  <h2 id="role-form-title" class="h6">
     <i class="bi bi-shield-check me-2" aria-hidden="true"></i>
     @if (editing(); as role) {
       {{ 'roles.editTitle' | t: { role: role.name } }}
@@ -78,10 +78,11 @@
 </section>
 
 <section class="card card-body mb-4" aria-labelledby="roles-title">
-  <h2 id="roles-title" class="h5">{{ 'layout.roles' | t }}</h2>
   @if (roles.error()) {
+    <h2 id="roles-title" class="h6">{{ 'layout.roles' | t }}</h2>
     <div class="alert alert-danger" role="alert">{{ 'roles.loadError' | t }}</div>
   } @else if (roles.isLoading() && !roles.hasValue()) {
+    <h2 id="roles-title" class="h6">{{ 'layout.roles' | t }}</h2>
     <div class="text-center my-4">
       <span class="spinner-border text-secondary" aria-hidden="true"></span>
       <span class="visually-hidden">{{ 'common.loading' | t }}</span>
@@ -93,7 +94,10 @@
       [multiFilters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
       (multiFilterChange)="onRoleTableFilter($event)"
-    />
+    >
+      <!-- The title on the left of the search and the filters, as the lists of the other pages -->
+      <h2 id="roles-title" class="h6 mb-0 text-body">{{ 'layout.roles' | t }}</h2>
+    </app-table-controls>
     @if (visibleRoles().length) {
       <div class="table-responsive">
         <table class="table table-hover align-middle">

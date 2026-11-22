@@ -46,7 +46,7 @@
     <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (settings.value(); as current) {
-  <div class="card setting-card mb-4">
+  <div class="card mb-4">
     <div class="card-body">
       @if (!current.osv.download_enabled) {
         <div class="alert alert-secondary py-2 small">
@@ -95,26 +95,29 @@
         </div>
       }
 
-      <h3 class="h6">{{ 'settings.downloadTitle' | t }}</h3>
+      <!-- The title above the switch, at the height of the label of the interval -->
       <div class="d-flex flex-wrap align-items-end gap-3 mb-4">
-        <div class="form-check form-switch mb-1">
-          <input
-            id="osv-download"
-            class="form-check-input"
-            type="checkbox"
-            role="switch"
-            [checked]="current.osv.download_enabled"
-            [disabled]="busy() || current.osv.download.env_set"
-            [title]="
-              current.osv.download.env_set
-                ? ('settings.downloadLocked' | t: { variable: 'SECREVIEW_OSV_AUTO_UPDATE' })
-                : ''
-            "
-            (change)="setDownload($event)"
-          />
-          <label class="form-check-label" for="osv-download">{{
-            'settings.downloadSwitch' | t
-          }}</label>
+        <div>
+          <h3 class="h6 mb-2">{{ 'settings.downloadTitle' | t }}</h3>
+          <div class="form-check form-switch mb-1">
+            <input
+              id="osv-download"
+              class="form-check-input"
+              type="checkbox"
+              role="switch"
+              [checked]="current.osv.download_enabled"
+              [disabled]="busy() || current.osv.download.env_set"
+              [title]="
+                current.osv.download.env_set
+                  ? ('settings.downloadLocked' | t: { variable: 'SECREVIEW_OSV_AUTO_UPDATE' })
+                  : ''
+              "
+              (change)="setDownload($event)"
+            />
+            <label class="form-check-label" for="osv-download">{{
+              'settings.downloadSwitch' | t
+            }}</label>
+          </div>
         </div>
         <form
           class="d-flex flex-wrap align-items-end gap-2"
@@ -172,14 +175,14 @@
         </table>
       </div>
 
-      <h3 class="h6">{{ 'settings.ecosystemsTitle' | t }}</h3>
+      <h3 class="h6 mt-4">{{ 'settings.ecosystemsTitle' | t }}</h3>
       <p class="text-body-secondary small">{{ 'settings.ecosystemsHelp' | t }}</p>
       @if (current.osv.ecosystems.env_set) {
         <p class="mb-2">
           {{ 'settings.ecosystems' | t
           }}{{ 'settings.colonValue' | t: { value: current.osv.ecosystems.effective } }}
         </p>
-        <div class="alert alert-info py-2 mb-4" role="status">
+        <div class="alert alert-info py-2 mb-0" role="status">
           <span class="badge text-bg-secondary">
             <i class="bi bi-lock" aria-hidden="true"></i>
             {{ 'settings.variable' | t }}
@@ -202,8 +205,12 @@
           }
         </div>
       } @else {
-        <form class="mb-4" (submit)="saveEcosystems($event)" novalidate>
-          <fieldset class="mb-3">
+        <form
+          class="d-flex flex-wrap align-items-center gap-2"
+          (submit)="$event.preventDefault()"
+          novalidate
+        >
+          <fieldset class="me-auto">
             <legend class="visually-hidden">{{ 'settings.ecosystemsTitle' | t }}</legend>
             @for (name of supportedEcosystems(); track name) {
               <div class="form-check form-check-inline">
@@ -212,41 +219,43 @@
                   type="checkbox"
                   [id]="'osv-ecosystem-' + name"
                   [formField]="ecosystemField(name)"
+                  (change)="saveEcosystems()"
                 />
                 <label class="form-check-label" [for]="'osv-ecosystem-' + name">{{ name }}</label>
               </div>
             }
           </fieldset>
-          <div class="d-flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-sm btn-primary" [disabled]="busy()">
-              <i class="bi bi-check-lg" aria-hidden="true"></i>
-              {{ 'common.save' | t }}
+          @if (current.osv.ecosystems.value !== null) {
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary text-nowrap"
+              [disabled]="busy()"
+              (click)="resetEcosystems()"
+            >
+              {{ 'settings.ecosystemsReset' | t }}
             </button>
-            @if (current.osv.ecosystems.value !== null) {
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-secondary"
-                [disabled]="busy()"
-                (click)="resetEcosystems()"
-              >
-                {{ 'settings.ecosystemsReset' | t }}
-              </button>
-            }
-          </div>
+          }
         </form>
       }
+    </div>
+  </div>
 
-      <h3 class="h6">{{ 'settings.history' | t }}</h3>
+  <div class="card mb-4">
+    <div class="card-body">
       @if (advisories.error()) {
+        <h3 class="h6">{{ 'settings.history' | t }}</h3>
         <div class="alert alert-danger" role="alert">{{ 'settings.historyError' | t }}</div>
       } @else if ((advisories.value()?.updates ?? []).length) {
+        <!-- The title on the left of the search and the filters, as the lists of the other pages -->
         <app-table-controls
           idPrefix="advisory-history"
           [search]="historySearch()"
           [multiFilters]="historyFilters()"
           (searchChange)="historySearch.set($event)"
           (multiFilterChange)="onHistoryFilter($event)"
-        />
+        >
+          <h3 class="h6 mb-0 text-body">{{ 'settings.history' | t }}</h3>
+        </app-table-controls>
         @if (visibleUpdates().length) {
           <div class="table-responsive">
             <table class="table table-hover align-middle small">
@@ -301,6 +310,7 @@
           <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
         }
       } @else if (!advisories.isLoading()) {
+        <h3 class="h6">{{ 'settings.history' | t }}</h3>
         <p class="text-body-secondary mb-0">{{ 'settings.noHistory' | t }}</p>
       }
     </div>
