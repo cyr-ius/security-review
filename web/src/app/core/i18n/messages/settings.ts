@@ -5,8 +5,8 @@ export const settings = defineMessages({
   en: {
     'settings.generalTitle': 'General settings',
     'settings.generalSubtitle':
-      'Language of the reports, address of the Controller server and outgoing proxy',
-    'settings.osvSubtitle': 'Advisories used by the dependency analysis and their updates',
+      'Language of the reports, address of the Controller server and outgoing proxy.',
+    'settings.osvSubtitle': 'Advisories used by the dependency analysis.',
     'settings.loadError': 'Could not load the settings.',
     'settings.languageTitle': 'Report language',
     'settings.languageHelpBefore':
@@ -74,10 +74,11 @@ export const settings = defineMessages({
     'settings.noProxyHelp3': ' for every host; the loopback is always direct.',
     'settings.colonValue': ': {value}',
     'settings.osvTitle': 'OSV vulnerability database',
+    'settings.osvDatabase': 'Local advisory database',
     'settings.updateTitle': 'Download and import the advisories now',
     'settings.updateDisabled': 'Download disabled: turn it on below',
     'settings.updating': 'Update in progress…',
-    'settings.updateNow': 'Update now',
+    'settings.updateNow': 'Update',
     'settings.downloadDisabled':
       'Download disabled on this Controller server. Turn it on below or set',
     'settings.orImport': ', or import the advisories with',
@@ -114,6 +115,9 @@ export const settings = defineMessages({
     'settings.maxSize': 'Maximum size',
     'settings.maxSizeValue': '{size} MB per archive',
     'settings.history': 'Update history',
+    'settings.nextUpdate': 'Next update: {date}',
+    'settings.nextUpdateSoon': 'Next update: due now',
+    'settings.nextUpdateOff': 'No automatic update',
     'settings.historyError': 'Could not load the history.',
     'settings.start': 'Start',
     'settings.trigger': 'Trigger',
@@ -151,8 +155,8 @@ export const settings = defineMessages({
   fr: {
     'settings.generalTitle': 'Paramètres généraux',
     'settings.generalSubtitle':
-      'Langue des rapports, adresse du serveur Controller et proxy sortant',
-    'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances et leurs mises à jour",
+      'Langue des rapports, adresse du serveur Controller et proxy sortant.',
+    'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances.",
     'settings.loadError': 'Impossible de charger les paramètres.',
     'settings.languageTitle': 'Langue des rapports',
     'settings.languageHelpBefore':
@@ -222,10 +226,11 @@ export const settings = defineMessages({
     'settings.noProxyHelp3': ' pour tous les hôtes ; la boucle locale est toujours directe.',
     'settings.colonValue': ' : {value}',
     'settings.osvTitle': 'Base de vulnérabilités OSV',
+    'settings.osvDatabase': 'Base locale des avis',
     'settings.updateTitle': 'Télécharger et importer les avis maintenant',
     'settings.updateDisabled': 'Téléchargement désactivé : activez-le ci-dessous',
     'settings.updating': 'Mise à jour en cours…',
-    'settings.updateNow': 'Mettre à jour maintenant',
+    'settings.updateNow': 'Mettre à jour',
     'settings.downloadDisabled':
       'Téléchargement désactivé sur ce serveur Controller. Activez-le ci-dessous ou définissez',
     'settings.orImport': ', ou importez les avis avec',
@@ -263,6 +268,9 @@ export const settings = defineMessages({
     'settings.maxSize': 'Taille maximale',
     'settings.maxSizeValue': '{size} Mo par archive',
     'settings.history': 'Historique des mises à jour',
+    'settings.nextUpdate': 'Prochaine mise à jour : {date}',
+    'settings.nextUpdateSoon': 'Prochaine mise à jour : imminente',
+    'settings.nextUpdateOff': 'Pas de mise à jour automatique',
     'settings.historyError': "Impossible de charger l'historique.",
     'settings.start': 'Début',
     'settings.trigger': 'Déclenchement',
@@ -306,8 +314,8 @@ export const settings = defineMessages({
   es: {
     'settings.generalTitle': 'Ajustes generales',
     'settings.generalSubtitle':
-      'Idioma de los informes, dirección del servidor Controller y proxy saliente',
-    'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias y sus actualizaciones',
+      'Idioma de los informes, dirección del servidor Controller y proxy saliente.',
+    'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias.',
     'settings.loadError': 'No se pudieron cargar los ajustes.',
     'settings.languageTitle': 'Idioma de los informes',
     'settings.languageHelpBefore':
@@ -378,10 +386,11 @@ export const settings = defineMessages({
     'settings.noProxyHelp3': ' para todos los hosts; el loopback siempre es directo.',
     'settings.colonValue': ': {value}',
     'settings.osvTitle': 'Base de vulnerabilidades OSV',
+    'settings.osvDatabase': 'Base local de avisos',
     'settings.updateTitle': 'Descargar e importar los avisos ahora',
     'settings.updateDisabled': 'Descarga desactivada: actívela abajo',
     'settings.updating': 'Actualización en curso…',
-    'settings.updateNow': 'Actualizar ahora',
+    'settings.updateNow': 'Actualizar',
     'settings.downloadDisabled':
       'Descarga desactivada en este servidor Controller. Actívela abajo o defina',
     'settings.orImport': ', o importe los avisos con',
@@ -418,6 +427,9 @@ export const settings = defineMessages({
     'settings.maxSize': 'Tamaño máximo',
     'settings.maxSizeValue': '{size} MB por archivo',
     'settings.history': 'Historial de actualizaciones',
+    'settings.nextUpdate': 'Próxima actualización: {date}',
+    'settings.nextUpdateSoon': 'Próxima actualización: inminente',
+    'settings.nextUpdateOff': 'Sin actualización automática',
     'settings.historyError': 'No se pudo cargar el historial.',
     'settings.start': 'Inicio',
     'settings.trigger': 'Activación',

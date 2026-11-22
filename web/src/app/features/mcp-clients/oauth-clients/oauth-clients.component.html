@@ -10,11 +10,10 @@
   @let settings = data.settings;
   @let editable = canManage();
   @if (data.enabled || editable || data.grants.length || data.clients.length) {
-    <section class="card card-body" aria-labelledby="oauth-clients-title">
+    <section class="card card-body mb-4" aria-labelledby="oauth-clients-title">
       <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <h2 id="oauth-clients-title" class="h5 mb-0 me-auto">
-          <i class="bi bi-plug" aria-hidden="true"></i>
-          {{ 'oauth.loginTitle' | t }}
+        <h2 id="oauth-clients-title" class="h6 mb-0 me-auto">
+          <i class="bi bi-plug me-2" aria-hidden="true"></i>{{ 'oauth.loginTitle' | t }}
         </h2>
         @if (editable) {
           <div class="form-check form-switch mb-0">
@@ -31,7 +30,6 @@
           </div>
         }
       </div>
-      <p class="text-body-secondary small">{{ 'oauth.adminHelp' | t }}</p>
 
       @if (error(); as text) {
         <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
@@ -64,7 +62,7 @@
         <p class="text-body-secondary small mb-3">{{ 'oauth.off' | t }}</p>
       }
 
-      <dl class="row small mb-3">
+      <dl class="row small mt-3 mb-3">
         <dt class="col-sm-3">
           @if (editable && !settings.mcp_url.env_set) {
             <label for="oauth-mcp-url" class="mb-0">{{ 'oauth.mcpUrl' | t }}</label>
@@ -134,10 +132,15 @@
           <dd class="col-sm-9">{{ data.clients.length }} / {{ data.max_clients }}</dd>
         }
       </dl>
+    </section>
 
-      @if (data.enabled || data.grants.length || data.clients.length) {
+    @if (data.enabled || data.grants.length || data.clients.length) {
+      <section class="card card-body mb-4" aria-labelledby="oauth-grants-title">
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-          <h3 class="h6 mb-0 me-auto">{{ 'oauth.grantsAdminTitle' | t }}</h3>
+          <h2 id="oauth-grants-title" class="h6 mb-0 me-auto">
+            <i class="bi bi-person-check me-2" aria-hidden="true"></i
+            >{{ 'oauth.grantsAdminTitle' | t }}
+          </h2>
           @if (data.grants.length) {
             <button
               type="button"
@@ -198,10 +201,14 @@
             </table>
           </div>
         } @else {
-          <p class="text-body-secondary small">{{ 'oauth.noGrants' | t }}</p>
+          <p class="text-body-secondary small mb-0">{{ 'oauth.noGrants' | t }}</p>
         }
+      </section>
 
-        <h3 class="h6">{{ 'oauth.clientsTitle' | t }}</h3>
+      <section class="card card-body mb-4" aria-labelledby="oauth-registered-title">
+        <h2 id="oauth-registered-title" class="h6">
+          <i class="bi bi-app-indicator me-2" aria-hidden="true"></i>{{ 'oauth.clientsTitle' | t }}
+        </h2>
         @if (data.clients.length) {
           <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -256,8 +263,8 @@
         } @else {
           <p class="text-body-secondary small mb-0">{{ 'oauth.noClients' | t }}</p>
         }
-      }
-    </section>
+      </section>
+    }
   } @else {
     <p class="text-body-secondary">{{ 'oauth.off' | t }}</p>
   }

@@ -122,7 +122,7 @@ The prompts are available to the developer through the agent of their IDE.
 | `security-review` | General review of the code (Python, Java, Go, C#, Rust, PHP, Ruby, Kotlin, TypeScript/Node.js, Angular) |
 | `api-security-review`, `configuration-review` | Review of a REST API (OWASP API Top 10), or of a configuration (Dockerfile, CI/CD, YAML...) |
 | `dependency-review` | Review of the manifests and lockfiles (supply chain) |
-| `codebase-review` | Review of the whole repository, not only a diff |
+| `codebase-review` | Review of the whole repository, not only a diff ([asked of the agent](../usage/projects.md#full-codebase-review) once or periodically) |
 | `triage-report` | Re-qualifies the findings of a stored report |
 
 For an important review, prefer the prompt.

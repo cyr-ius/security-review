@@ -35,9 +35,8 @@ export const oauth = defineMessages({
     'oauth.revokeFailed': 'The access could not be revoked.',
     'oauth.loadError': 'Could not load the connected MCP clients.',
     'oauth.loginTitle': 'OAuth login',
-    'oauth.pageSubtitle': 'The user approves the connection for a login through the browser.',
-    'oauth.adminHelp':
-      'The agents open the browser so that the developer logs in and approves the request.',
+    'oauth.pageSubtitle':
+      'Turns on the OAuth login of the MCP server, so that the user does not have to create an access token in their personal space.',
     'oauth.mcpUrl': 'MCP endpoint',
     'oauth.enabled': 'Enable OAuth login',
     'oauth.mcpUrlHelp':
@@ -111,9 +110,7 @@ export const oauth = defineMessages({
     'oauth.loadError': 'Impossible de charger les clients MCP connectés.',
     'oauth.loginTitle': 'Connexion OAuth',
     'oauth.pageSubtitle':
-      'L’utilisateur approuve la connexion pour une authentification via le navigateur.',
-    'oauth.adminHelp':
-      'Les agents ouvrent le navigateur afin que le développeur s’authentifie et approuve la demande.',
+      'Active l’authentification OAuth du serveur MCP. Évite à l’utilisateur de se créer un jeton d’accès dans son espace personnel.',
     'oauth.mcpUrl': 'Point d’accès MCP',
     'oauth.enabled': 'Activer la connexion OAuth',
     'oauth.mcpUrlHelp':
@@ -187,9 +184,7 @@ export const oauth = defineMessages({
     'oauth.loadError': 'No se pudieron cargar los clientes MCP conectados.',
     'oauth.loginTitle': 'Inicio de sesión OAuth',
     'oauth.pageSubtitle':
-      'El usuario aprueba la conexión para una autenticación a través del navegador.',
-    'oauth.adminHelp':
-      'Los agentes abren el navegador para que el desarrollador se autentique y apruebe la solicitud.',
+      'Activa la autenticación OAuth del servidor MCP. Evita que el usuario tenga que crear un token de acceso en su espacio personal.',
     'oauth.mcpUrl': 'Punto de acceso MCP',
     'oauth.enabled': 'Activar el inicio de sesión OAuth',
     'oauth.mcpUrlHelp':

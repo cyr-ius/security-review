@@ -21,6 +21,7 @@ from .exports import (  # noqa: F401
 )
 from .findings import (  # noqa: F401
     add_finding_comment,
+    findings_to_fix,
     get_project_finding,
     list_finding_comments,
     list_project_findings,

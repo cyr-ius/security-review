@@ -127,7 +127,7 @@
   (`SECREVIEW_OSV_AUTO_UPDATE`, la page **Base OSV**, auditée, ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
-  journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
+  journalisés. Le bouton **Mettre à jour** de l'interface web (permission `settings.manage`) n'est
   accepté que si le téléchargement est activé. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
   la page **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est

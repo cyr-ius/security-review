@@ -73,6 +73,9 @@ class AuditAction(StrEnum):
     PROJECT_JOINED = "project.joined"
     # The autojoin of a project blocked or allowed again (see access_control.set_autojoin_blocked)
     PROJECT_AUTOJOIN_CHANGED = "project.autojoin_changed"
+    # The codebase review asked of the MCP agent on a project (see
+    # access_control.set_codebase_review)
+    PROJECT_CODEBASE_REVIEW_CHANGED = "project.codebase_review_changed"
     # Roles of a user on every project, and on projects (see access_control)
     USER_ROLES_CHANGED = "user.roles_changed"
     USER_PROJECTS_CHANGED = "user.projects_changed"

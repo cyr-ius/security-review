@@ -131,7 +131,7 @@ message de toute autre erreur lui est masqué.
 
 | Outil | Type | Paramètres | Renvoie |
 |---|---|---|---|
-| `request_project` | écriture | `project` | `status` : `accessible`, `created`, `joined` ou `requested` avec `next_steps` ([enrôlement](#enrolement-jeton-personnel-et-demande-de-projet)) ; jamais de jeton |
+| `request_project` | écriture | `project` | `status` : `accessible`, `created`, `joined` ou `requested` avec `next_steps` ([enrôlement](#enrolement-jeton-personnel-et-demande-de-projet)) ; rappels `findings_to_fix` et `codebase_review` ([détails](../../reference/prompts-tools.md#outils)) ; jamais de jeton |
 | `save_security_report` | écriture | `project`, `summary`, `findings` (au plus `SECREVIEW_MAX_FINDINGS_PER_REPORT`) ; facultatifs `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (ne peut que relever le risque calculé), `review_type`, `author`, `checklist_results` (500 au plus), `scan_rules` (500 au plus) | Identifiant du rapport, niveau de risque, comptes par sévérité et couverture de la revue ([rapport enregistré](../../reference/prompts-tools.md#rapport-enregistre)) |
 | `get_security_report` | lecture seule | `report_id`, `format` (`markdown` par défaut, ou `json`) | Le rapport et ses findings, sans son auteur |
 | `list_security_reports` | lecture seule | `project`, `risk_level`, `review_type`, `limit` (1 à 100, `20` par défaut), `offset` | Les rapports, du plus récent au plus ancien, sans leur auteur (`author` : obsolète, ignoré) |

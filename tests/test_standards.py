@@ -33,6 +33,9 @@ def test_create_normalizes_and_lists_without_content():
     assert [item["slug"] for item in listed] == ["python"]
     assert "content" not in listed[0]
     assert listed[0]["content_chars"] == len(created["content"])
+    # The search reads the content too, which the listing leaves out
+    assert [item["slug"] for item in standards.list_standards(search="USE RUFF")] == ["python"]
+    assert standards.list_standards(search="%") == []
 
 
 @pytest.mark.parametrize(

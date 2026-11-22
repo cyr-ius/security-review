@@ -1,0 +1,4 @@
+/* The interval field holds a few digits, its unit appended */
+.interval {
+  width: 9rem;
+}

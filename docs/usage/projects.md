@@ -38,12 +38,11 @@ its triage.
 
 A person with `users.manage` sees the **Members** section at the bottom of the page of the
 project (folded: click its header to unfold it), also opened by the people button of its row on the **Projects**
-page: search accounts, tick them and add them (with the reading), choose the permissions of
-each member (**Write the reports** for those whose agent saves reviews) or remove it, then **Save**. The same projects are given in **Users** ([roles and
+page: type a name and choose the account in the suggested list to add it (with the reading), choose the permissions of
+each member (**Write the reports** for those whose agent saves reviews) or remove it: each change is saved at once. The same projects are given in **Users** ([roles and
 projects of an account](access-control.md#roles-and-projects-of-an-account)), or by approving the
 **Access request** filed by an agent in **Projects**. The accounts that have every project,
-themselves or by an [OIDC mapping](sso.md#oidc-mappings), are listed apart, under **Users who have
-every project**, read only: change their permissions in **Users** or in the mapping.
+themselves or by an [OIDC mapping](sso.md#oidc-mappings), are listed apart, under **Inherited from "All projects"**, read only: change their permissions in **Users** or in the mapping.
 
 ![The members of a project](../assets/screenshots/project-members.png)
 
@@ -103,6 +102,26 @@ for the projects you read: `projects.create` alone neither blocks nor allows the
 shows the **Autojoin blocked** badge; the unlock button allows the autojoin again. The users who
 already joined the project keep their access: remove them from its [members](#members) if
 needed.
+
+## Full codebase review
+
+On the page of a project, the **Full codebase review** card asks the MCP agent to review the
+whole repository, not only a diff:
+
+- **Ask for a one-off full review**: once, for instance after an incident or a new rule;
+- **Periodic request**, number of **days**: again when the latest full review is older
+  than the interval (at once when there is none).
+
+With `findings.triage` on the project, from a session of the web interface only: an agent never
+asks it of itself nor withdraws it. The card, above the open findings, is folded: its header shows the
+latest full review, the next periodic one and a flag while a request is pending; unfold it to see why
+a review is due and to change the settings. The **Projects** page shows a clock icon next to the project; its tooltip explains it.
+
+At the start of its next review, `request_project` tells the agent, which offers the developer
+the `codebase-review` prompt once its task is done. Only a full review that went through the
+Controller server meets the request: a `codebase-review` report linked (`review_group`) to the
+code scan of [`start_codebase_scan`](../review/analysis/code-scan.md), run after the request (a report that reuses the `review_group` of an older review does not count). It is a reminder: the
+[gate](../review/gate.md) does not depend on it.
 
 ## Points to watch
 

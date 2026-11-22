@@ -25,6 +25,7 @@ from security_review_mcp.server import (
 from security_review_mcp.storage import server_instances
 from security_review_mcp.storage.models import (
     FindingCreate,
+    FindingStatus,
     ReviewType,
     ServerKind,
     Severity,
@@ -541,6 +542,58 @@ async def test_agent_tracking_counts_every_request_by_family(monkeypatch):
 
     families = [next((f for f, n in counts.items() if n), None) for counts in running]
     assert families == ["reports", "deps", "reads", "reads", None, None]
+
+
+async def test_request_project_tells_the_agent_when_a_codebase_review_is_due():
+    """A codebase review asked by a person reaches the agent as a fixed reminder of
+    request_project, never as a condition of the review."""
+    services.save_report("shop-api", "Review", [])
+    async with Client(mcp) as client:
+        before = json.loads(
+            text_of(await client.call_tool("request_project", {"project": "shop-api"}))
+        )
+        access_control.set_codebase_review("shop-api", True, None, "user:alice")
+        after = json.loads(
+            text_of(await client.call_tool("request_project", {"project": "shop-api"}))
+        )
+
+    assert "codebase_review" not in before
+    assert after["status"] == "accessible"
+    assert after["codebase_review"]["reasons"] == ["requested"]
+    assert "codebase-review" in after["codebase_review"]["next_steps"]
+
+
+async def test_request_project_tells_the_agent_about_open_findings_to_fix():
+    """Open findings at the configured severity to fix or above reach the agent through
+    request_project; a finding already proposed as fixed or less severe is not counted."""
+    saved = services.save_report(
+        "shop-api",
+        "Review",
+        [
+            FindingCreate(title="SQL injection", severity=Severity.CRITICAL, description="Query"),
+            FindingCreate(title="Weak hash", severity=Severity.HIGH, description="MD5 used"),
+            FindingCreate(title="Verbose error", severity=Severity.LOW, description="Stack trace"),
+        ],
+    )
+    async with Client(mcp) as client:
+        unset = json.loads(
+            text_of(await client.call_tool("request_project", {"project": "shop-api"}))
+        )
+        app_settings.set_fix_min_severity("high", "admin")
+        weak_hash = services.get_report(saved["report_id"]).findings[1]
+        services.propose_finding_status(
+            weak_hash.id, FindingStatus.FIXED, "Hash replaced by argon2", "agent"
+        )
+        result = json.loads(
+            text_of(await client.call_tool("request_project", {"project": "shop-api"}))
+        )
+
+    assert "findings_to_fix" not in unset
+    pending = result["findings_to_fix"]
+    assert pending["total"] == 1
+    assert pending["by_severity"] == {"critical": 1, "high": 0}
+    assert pending["proposed"] == 1
+    assert "export_findings_report" in pending["next_steps"]
 
 
 async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_controller(monkeypatch):

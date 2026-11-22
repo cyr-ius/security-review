@@ -22,7 +22,7 @@ export const acceptances = defineMessages({
     'acceptances.expiresOn': 'Expires on',
     'acceptances.noExpiry': 'No expiry',
     'acceptances.comments': 'Comments',
-    'acceptances.details': 'Details of finding #{id}',
+    'acceptances.details': 'Details of finding F{id}',
     'acceptances.commentsEmpty': 'No comment yet.',
     'acceptances.commentsLoadError': 'Could not load the comments.',
     'acceptances.commentAdd': 'Add a comment',
@@ -37,7 +37,7 @@ export const acceptances = defineMessages({
     'acceptances.removeConfirm':
       'Remove this acceptance? The finding counts as open again; its comments are kept.',
     'acceptances.removeFailed': 'Could not remove the acceptance.',
-    'acceptances.removed': 'Acceptance of finding #{id} removed: the finding is open again.',
+    'acceptances.removed': 'Acceptance of finding F{id} removed: the finding is open again.',
     'acceptances.readOnly': 'Changing an acceptance needs the permission to triage findings.',
   },
   fr: {
@@ -60,7 +60,7 @@ export const acceptances = defineMessages({
     'acceptances.expiresOn': 'Expire le',
     'acceptances.noExpiry': "Sans date d'expiration",
     'acceptances.comments': 'Commentaires',
-    'acceptances.details': 'Détails du finding #{id}',
+    'acceptances.details': 'Détails du finding F{id}',
     'acceptances.commentsEmpty': 'Aucun commentaire.',
     'acceptances.commentsLoadError': 'Impossible de charger les commentaires.',
     'acceptances.commentAdd': 'Ajouter un commentaire',
@@ -76,7 +76,7 @@ export const acceptances = defineMessages({
       'Supprimer cette acceptation ? Le finding redevient ouvert ; ses commentaires sont conservés.',
     'acceptances.removeFailed': "Impossible de supprimer l'acceptation.",
     'acceptances.removed':
-      'Acceptation du finding #{id} supprimée : le finding est de nouveau ouvert.',
+      'Acceptation du finding F{id} supprimée : le finding est de nouveau ouvert.',
     'acceptances.readOnly': 'Modifier une acceptation demande la permission de trier les findings.',
   },
   es: {
@@ -99,7 +99,7 @@ export const acceptances = defineMessages({
     'acceptances.expiresOn': 'Caduca el',
     'acceptances.noExpiry': 'Sin fecha de caducidad',
     'acceptances.comments': 'Comentarios',
-    'acceptances.details': 'Detalles del hallazgo #{id}',
+    'acceptances.details': 'Detalles del hallazgo F{id}',
     'acceptances.commentsEmpty': 'Ningún comentario.',
     'acceptances.commentsLoadError': 'No se pudieron cargar los comentarios.',
     'acceptances.commentAdd': 'Añadir un comentario',
@@ -115,7 +115,7 @@ export const acceptances = defineMessages({
       '¿Eliminar esta aceptación? El hallazgo vuelve a contar como abierto; sus comentarios se conservan.',
     'acceptances.removeFailed': 'No se pudo eliminar la aceptación.',
     'acceptances.removed':
-      'Aceptación del hallazgo #{id} eliminada: el hallazgo vuelve a estar abierto.',
+      'Aceptación del hallazgo F{id} eliminada: el hallazgo vuelve a estar abierto.',
     'acceptances.readOnly': 'Modificar una aceptación requiere el permiso de clasificar hallazgos.',
   },
 });

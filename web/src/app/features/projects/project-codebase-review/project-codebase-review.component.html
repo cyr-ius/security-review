@@ -1,0 +1,170 @@
+<div class="card mb-4">
+  <div class="card-header p-0">
+    <button
+      type="button"
+      class="btn w-100 d-flex flex-wrap align-items-center gap-2 text-start px-3 py-2"
+      aria-controls="codebase-review-body"
+      [attr.aria-expanded]="expanded()"
+      (click)="toggle()"
+    >
+      <span class="fw-semibold"
+        ><i class="bi bi-folder-check me-2" aria-hidden="true"></i
+        >{{ 'project.codebaseReview' | t }}</span
+      >
+      @if (state.value(); as current) {
+        @if (current.requested) {
+          @let asked =
+            'project.codebaseReviewReasonRequested'
+              | t: { date: (current.requested_at | date: 'dd/MM/yyyy') ?? '' };
+          <span class="text-warning-emphasis" [title]="asked">
+            <i class="bi bi-flag-fill" aria-hidden="true"></i>
+            <span class="visually-hidden">{{ asked }}</span>
+          </span>
+        }
+        @if (current.due) {
+          <span class="badge text-bg-warning">
+            <i class="bi bi-clock-history" aria-hidden="true"></i>
+            {{ 'project.codebaseReviewDue' | t }}
+          </span>
+        }
+        <span class="small text-body-secondary ms-sm-auto">
+          {{
+            'project.codebaseReviewLastOn'
+              | t
+                : {
+                    date: current.last_review_at
+                      ? ((current.last_review_at | date: 'dd/MM/yyyy') ?? '')
+                      : ('project.codebaseReviewNever' | t),
+                  }
+          }}
+          @if (current.next_due_at) {
+            ·
+            {{
+              'project.codebaseReviewNextOn'
+                | t: { date: (current.next_due_at | date: 'dd/MM/yyyy') ?? '' }
+            }}
+          }
+        </span>
+      }
+      <i
+        class="bi ms-auto ms-sm-0"
+        [class.bi-chevron-up]="expanded()"
+        [class.bi-chevron-down]="!expanded()"
+        aria-hidden="true"
+      ></i>
+    </button>
+  </div>
+  @if (expanded()) {
+    <div id="codebase-review-body" class="card-body">
+      <p class="small text-body-secondary">{{ 'project.codebaseReviewHelp' | t }}</p>
+      @if (state.error()) {
+        <div class="alert alert-danger py-2" role="alert">
+          {{ 'project.codebaseReviewLoadError' | t }}
+        </div>
+      } @else if (state.value(); as current) {
+        <!-- Last review, next periodic review and the reasons, on one line -->
+        <div class="d-flex flex-wrap align-items-center column-gap-4 row-gap-1 small mb-3">
+          <dl class="d-flex flex-wrap column-gap-4 row-gap-1 mb-0">
+            <div>
+              <dt class="d-inline">{{ 'project.codebaseReviewLast' | t }}</dt>
+              <dd class="d-inline ms-2 mb-0">
+                @if (current.last_review_at) {
+                  {{ current.last_review_at | date: 'dd/MM/yyyy HH:mm' }}
+                } @else {
+                  <span class="text-body-secondary">{{ 'project.codebaseReviewNever' | t }}</span>
+                }
+              </dd>
+            </div>
+            @if (current.next_due_at) {
+              <div>
+                <dt class="d-inline">{{ 'project.codebaseReviewNext' | t }}</dt>
+                <dd class="d-inline ms-2 mb-0">{{ current.next_due_at | date: 'dd/MM/yyyy' }}</dd>
+              </div>
+            }
+          </dl>
+          @for (reason of current.reasons; track reason) {
+            <span class="text-warning-emphasis">
+              <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+              @if (reason === 'requested') {
+                {{
+                  'project.codebaseReviewReasonRequested'
+                    | t: { date: (current.requested_at | date: 'dd/MM/yyyy') ?? '' }
+                }}
+              } @else {
+                {{ 'project.codebaseReviewReasonInterval' | t }}
+              }
+            </span>
+          }
+        </div>
+
+        @if (canEdit()) {
+          @if (error(); as text) {
+            <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+          }
+          @if (message(); as text) {
+            <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+          }
+          <form
+            class="d-flex flex-wrap align-items-center gap-3"
+            (submit)="submit($event)"
+            novalidate
+          >
+            <div class="form-check mb-0">
+              <input
+                id="codebase-review-requested"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="settingsForm.requested"
+                (change)="save()"
+              />
+              <label class="form-check-label" for="codebase-review-requested">
+                {{ 'project.codebaseReviewRequest' | t }}
+              </label>
+            </div>
+            <div class="form-check mb-0">
+              <input
+                id="codebase-review-periodic"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="settingsForm.periodic"
+                (change)="save()"
+              />
+              <label class="form-check-label" for="codebase-review-periodic">
+                {{ 'project.codebaseReviewPeriodic' | t }}
+              </label>
+            </div>
+            <!-- The number of days, its unit appended: the full label stays for screen readers -->
+            <div class="input-group input-group-sm interval">
+              <label class="visually-hidden" for="codebase-review-interval">
+                {{ 'project.codebaseReviewInterval' | t }}
+              </label>
+              <input
+                id="codebase-review-interval"
+                class="form-control"
+                type="number"
+                step="1"
+                aria-describedby="codebase-review-interval-unit"
+                [formField]="settingsForm.interval"
+                (change)="save()"
+              />
+              <span id="codebase-review-interval-unit" class="input-group-text">{{
+                'project.codebaseReviewDays' | t
+              }}</span>
+            </div>
+            @if (saving()) {
+              <span
+                class="spinner-border spinner-border-sm text-secondary"
+                aria-hidden="true"
+              ></span>
+            }
+          </form>
+        }
+      } @else {
+        <div class="text-center">
+          <span class="spinner-border spinner-border-sm text-secondary" aria-hidden="true"></span>
+          <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+        </div>
+      }
+    </div>
+  }
+</div>

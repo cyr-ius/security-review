@@ -74,7 +74,7 @@ titre : une revue et un scan des dépendances signalent une seule fois un paquet
   nouveau scan du serveur Controller (code ou dépendances) suit ses règles, plus bas ou non. Pour
   clore un risque, une personne l'accepte.
 - L'occurrence précédente reste dans son ancien rapport, marquée **Signalé de nouveau : voir le
-  finding #N**, et ne peut plus être triée.
+  finding FN**, et ne peut plus être triée.
 - Les listes, compteurs, gate et tendance ne comptent que la dernière occurrence ; le délai de
   correction part de la première.
 - Un finding qu'un rapport ultérieur ne signale plus n'est **pas** fermé : la revue d'un diff ne

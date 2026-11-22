@@ -1,8 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import {
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+  input,
+  linkedSignal,
+} from '@angular/core';
+import { rxResource, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, pattern, required } from '@angular/forms/signals';
-import { firstValueFrom } from 'rxjs';
+import { debounceTime, firstValueFrom, map } from 'rxjs';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -79,7 +88,9 @@ export class StandardListComponent {
 
   readonly canManage = computed(() => this.auth.can('standards.manage'));
   readonly catalog = rxResource({ stream: () => this.api.devStandards() });
-  readonly query = signal('');
+  /** ``?search=`` of the address (the global search opens a text here), then typed. */
+  readonly searchParam = input<string | undefined>(undefined, { alias: 'search' });
+  readonly query = linkedSignal(() => this.searchParam() ?? '');
   readonly sort = new TableSort<StandardSortKey>(
     'standards',
     ['title', 'technologies', 'files'],
@@ -99,20 +110,43 @@ export class StandardListComponent {
       ],
     },
   ]);
+  /** The search once typing pauses: the server looks for it in the content of the standards. */
+  private readonly settledQuery = toSignal(
+    toObservable(this.query).pipe(
+      debounceTime(300),
+      map((query) => query.trim()),
+    ),
+    { initialValue: '' },
+  );
+  /** Slugs of the standards whose content contains the search (the list has no content). */
+  private readonly contentMatches = rxResource({
+    params: () => this.settledQuery() || undefined,
+    stream: ({ params }) =>
+      this.api.devStandards(params).pipe(map((found) => found.standards.map((s) => s.slug))),
+  });
+
   readonly visibleStandards = computed(() => {
     const status = this.statusFilter();
-    const standards = (this.catalog.value()?.standards ?? []).filter((item) =>
-      matchesFilter(status, item.enabled ? 'enabled' : 'disabled'),
+    const query = this.query().trim().toLocaleLowerCase();
+    // Matches of an older search are not mixed with the new one
+    const settled = this.settledQuery() === this.query().trim();
+    const inContent = new Set(settled ? (this.contentMatches.value() ?? []) : []);
+    const standards = (this.catalog.value()?.standards ?? []).filter(
+      (item) =>
+        matchesFilter(status, item.enabled ? 'enabled' : 'disabled') &&
+        (!query ||
+          inContent.has(item.slug) ||
+          [item.slug, item.title, item.description, ...item.technologies, ...item.file_patterns]
+            .join(' ')
+            .toLocaleLowerCase()
+            .includes(query)),
     );
     const sort = this.sort.key();
     return filterAndSortRows(
       standards,
-      this.query(),
+      '',
       this.sort.direction(),
-      (item) =>
-        [item.slug, item.title, item.description, ...item.technologies, ...item.file_patterns].join(
-          ' ',
-        ),
+      () => '',
       (left, right) => {
         if (sort === 'technologies') {
           return compareTableText(left.technologies.join(', '), right.technologies.join(', '));

@@ -751,6 +751,8 @@ class Project(SQLModel, table=True):
 
     With ``autojoin_blocked``, the holders of ``projects.autojoin`` may not join it at once:
     their requests wait for an approval as the others do (see access_control.request_project).
+    The ``codebase_review_*`` columns ask the MCP agent for a review of the whole repository
+    (see reports.codebase_review).
     """
 
     id: int | None = Field(default=None, primary_key=True)
@@ -758,6 +760,10 @@ class Project(SQLModel, table=True):
     autojoin_blocked: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utcnow)
     created_by: str | None = Field(default=None, max_length=200)
+    # Review of the whole repository asked of the MCP agent (see reports.codebase_review): by
+    # a person since this date (None: not asked), and every that many days (None: never)
+    codebase_review_requested_at: datetime | None = Field(default=None)
+    codebase_review_interval_days: int | None = Field(default=None)
 
 
 # ── Audit log (see audit) ────────────────────────────────────────────────────

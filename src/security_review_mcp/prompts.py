@@ -37,7 +37,9 @@ _PROJECT_CHECK = """\
 ## Before you start
 Call `request_project` once with the project name you will pass to `save_security_report` \
 (usually the repository name). If its `status` is `requested`, stop there: the report could \
-not be saved, so give the user its `next_steps` instead of reviewing."""
+not be saved, so give the user its `next_steps` instead of reviewing. If it returns \
+`findings_to_fix` (open findings to fix in the code) or `codebase_review` (a review of the whole \
+repository is due), follow their `next_steps`."""
 
 # Saving the report is what makes a review count (gate, posture, trends): never optional
 _REPORT_REQUIRED = """\

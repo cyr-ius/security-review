@@ -19,6 +19,7 @@ import { SortHeaderComponent } from '../../../shared/components/sort-header/sort
 import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';
+import { RefreshableTab } from '../../users/users-page/users-page.component';
 
 type RoleSortKey = 'name' | 'permissions' | 'usage';
 
@@ -42,13 +43,21 @@ const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
   templateUrl: './role-list.component.html',
   styleUrl: '../access.css',
 })
-export class RoleListComponent {
+export class RoleListComponent implements RefreshableTab {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
 
   readonly permissionMeta = PERMISSION_META;
   readonly roles = rxResource({ stream: () => this.api.roles() });
   readonly permissions = rxResource({ stream: () => this.api.permissions() });
+
+  /** Refreshed by the button of the Users page header. */
+  readonly refreshing = computed(() => this.roles.isLoading() || this.permissions.isLoading());
+
+  refresh(): void {
+    this.roles.reload();
+    this.permissions.reload();
+  }
   readonly tableSearch = signal('');
   readonly tableSort = new TableSort<RoleSortKey>(
     'roles',

@@ -135,6 +135,11 @@ export class SsoSettingsComponent {
 
   readonly settings = rxResource({ stream: () => this.api.oidcSettings() });
 
+  /** Reload the stored settings (a change not saved yet is dropped). */
+  reload(): void {
+    this.settings.reload();
+  }
+
   /** Effective values, loaded at each (re)load, then edited by the form. */
   readonly draft = linkedSignal<SsoFormModel>(() => {
     const current = this.settings.value();

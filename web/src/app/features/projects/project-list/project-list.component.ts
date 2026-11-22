@@ -13,11 +13,11 @@ import {
   PendingProject,
   ProjectRenamed,
   ProjectSummary,
-  RISK_SEVERITIES,
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
   SeverityCounts,
+  openFindingsQuery,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -110,6 +110,7 @@ export class ProjectListComponent {
 
   readonly severities = SEVERITIES;
   readonly severityMeta = SEVERITY_META;
+  readonly findingsQuery = openFindingsQuery;
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
   /** Projects requested by the MCP agent of a user, approved or rejected by the holders of
@@ -165,11 +166,6 @@ export class ProjectListComponent {
     }
     return totals;
   });
-
-  /** Open findings of every project, shown on the review button (observations left out). */
-  readonly openTotal = computed(() =>
-    RISK_SEVERITIES.reduce((sum, severity) => sum + this.totals()[severity], 0),
-  );
 
   readonly visible = computed(() => {
     const severity = this.severityFilter();

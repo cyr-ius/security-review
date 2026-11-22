@@ -29,19 +29,23 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
     | Type | To |
     |---|---|
-    | `sql injection` | Search the findings (title, rule, CWE, file, description, project, branch), or the reports, for the text |
-    | `#report:12` | Open report 12 |
-    | `xss #report:12` | Open report 12, its findings searched for "xss" |
-    | `#finding:34` | Open finding 34 in its report |
-    | `#report:text`, `xss #finding:*` | Search only the reports, or only the findings |
-    | `#report:*`, `#finding:*`, `*` | List every report, every finding, or offer both |
+    | `sql injection` | Search the findings (title, rule, CWE, file, description, project, branch, token of the report, and its author for a manager of the users or tokens), the reports, the rules, the checklists or the standards for the text (the last three without filter, according to your permissions) |
+    | `#R12`, `#report:12` | Open report 12 (the interface numbers the reports `R12` and the findings `F34`) |
+    | `xss #R12`, `xss #report:12` | Open report 12, its findings searched for "xss" |
+    | `#F34`, `#finding:34` | Open finding 34 among the findings of its project, whatever its status |
+    | `#5` | Offer finding F5 and report R5 |
+    | `#PY-004`, `#PY-01` | Offer the rule, the checklist item and the findings of that id (the rules and checklists need `rules.read`) |
+    | `scan code #GEN-007`, `xss #F12`, `#R12 #PY-004` | The words in the findings of that rule, of that number or of that report (a rule id needs a digit or `*`: `#include` stays text) |
+    | `#F1*`, `#R2*`, `#AI*` | The findings or reports whose number starts with 1 or 2, the rules, checklist items and findings whose id starts with `AI` (`*` after any `#`) |
+    | `#report:text`, `xss #F*` | Search only the reports, or only the findings |
+    | `#R*`, `#F*`, `*` (or `#report:*`, `#finding:*`) | List every report, every finding, or offer both |
     | `sql project:shop` | Only in project `shop` |
     | `severity:high,critical` (or `sev:`) | Only these severities (risk level of the reports) |
-    | `status:accepted` | Findings with this status (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) instead of the open ones |
+    | `status:accepted` | Findings with this status (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) instead of every status (without it, the search finds the findings whatever their status) |
     | `rule:PY-004`, `cwe:89` | Searched as text |
 
-    Filters and text combine in any order: `sql project:shop sev:high #finding:*`. One
-    `#report:` or `#finding:` per search; the rest of the text is searched. An unknown filter
+    Filters and text combine in any order: `sql project:shop sev:high #F*`. One
+    `#report:` or `#finding:` (`#R`, `#F`) per search; the rest of the text is searched. An unknown filter
     value (`sev:urgent`) is searched as text. A project name typed in full comes first. The
     findings need `reports.read`.
 - At the top right, choose the language (English, French, Spanish) and the theme (automatic,
@@ -68,14 +72,14 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Projects** | Every project with its open findings by severity: a tile opens the open findings of that severity in every project, a count of the table those of the project, the number of reports its reports. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
+| **Projects** | Every project with its open findings by severity: a tile opens the open findings of that severity in every project, a count of the table those of the project, the number of reports its reports. The starting point: open a project, approve the **Pending projects** requested by the agents |
 | **Project** | Open findings by severity (a tile opens those of the project), trend, most frequent CWEs as a labeled pie, worst and oldest open findings (the [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) folded in one row), SARIF export, **All reports** of the project |
 
 **Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read); **Reports** for every user (on the projects they read), opened from the search field (`#report:*`) or **All reports** of a project
 
 | Page | What for |
 |---|---|
-| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, token of the report, and its author for a manager of the users or tokens, `#report:<number>` for the findings of one report, as in the global search, `#R<number>` for the same, `#F<number>` alone for one finding, `#PY-004` alone for the findings of one rule, a `*` at the end for the numbers or ids starting so (`#F1*`, `#AI*`), as the findings listed on the page of a project link to it) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 | **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../reference/prompts-tools.md#review-coverage), related reports of a codebase review, scanned files of a [code](../review/analysis/code-scan.md) or [dependency](../review/analysis/dependencies.md) scan, findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 

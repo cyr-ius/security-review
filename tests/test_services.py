@@ -190,6 +190,13 @@ def test_list_reports_filters_and_counts():
     assert [r["project"] for r in services.list_reports(risk_level=Severity.CRITICAL)] == ["a"]
     assert len(services.list_reports(limit=1)) == 1
     assert len(services.list_reports(limit=1, offset=1)) == 1
+    # "#R<n>": the report numbered n; "#R<n>*" and "#R*": the numbers starting with n, every one
+    first_id = everything[1]["report_id"]
+    assert [r["project"] for r in services.list_reports(search=f"#r{first_id}")] == ["a"]
+    assert len(services.list_reports(search="#R*")) == 2
+    assert services.list_reports(search=f"#R{first_id}*")[0]["report_id"] == first_id
+    assert [r["project"] for r in services.list_reports(search=f"report #R{first_id}")] == ["a"]
+    assert services.list_reports(search=f"report b #R{first_id}") == []
 
 
 def test_update_finding_status_and_posture(triage):
@@ -222,7 +229,14 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     services.save_report(
         "shop",
         "second",
-        [make_finding(Severity.CRITICAL, title="RCE", evidence="token = 'ghp_" + "a" * 36 + "'")],
+        [
+            make_finding(
+                Severity.CRITICAL,
+                title="RCE",
+                rule_id="PY-004",
+                evidence="token = 'ghp_" + "a" * 36 + "'",
+            )
+        ],
         commit_sha="abc123",
     )
     services.save_report("other", "other project", [make_finding(Severity.CRITICAL)])
@@ -258,6 +272,30 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert services.list_project_findings("shop", search="main")["total"] == 1
     assert services.list_project_findings("shop", search="%")["total"] == 0
     assert services.list_project_findings("shop", search="APP/DB")["total"] == 2  # file path
+    # "#F<id>" names one finding, numbered F<id> by the web interface
+    by_id = services.list_project_findings("shop", search=f" #f{high['id']} ")
+    assert [f["id"] for f in by_id["findings"]] == [high["id"]]
+    assert services.list_project_findings("other", search=f"#F{high['id']}")["total"] == 0
+    # "#F<id>" shows the finding whatever its status (here an accepted one)
+    assert [
+        f["id"] for f in services.list_project_findings("shop", search=f"#F{low.id}")["findings"]
+    ] == [low.id]
+    # "#F1*": the numbers starting with 1; "#R<n>": the findings of report n; "#<rule>" and
+    # "#<prefix>*": the findings of that rule or of the rules starting with it (not the text)
+    starting = services.list_project_findings("shop", search=f"#F{str(high['id'])[0]}*")
+    assert high["id"] in [f["id"] for f in starting["findings"]]
+    by_report = services.list_project_findings("shop", search=f"#r{first['report_id']}")
+    assert [f["id"] for f in by_report["findings"]] == [high["id"]]
+    assert [
+        f["title"] for f in services.list_project_findings("shop", search="#py-004")["findings"]
+    ] == ["RCE"]
+    assert services.list_project_findings("shop", search="#PY*")["total"] == 1
+    assert services.list_project_findings("shop", search="#AI*")["total"] == 0
+    assert services.list_project_findings("shop", search="#RC*")["total"] == 0  # not the title
+    # Words and "#…" combine: the text in the findings of that rule, that number...
+    assert services.list_project_findings("shop", search="rce #PY-004")["total"] == 1
+    assert services.list_project_findings("shop", search="weak #PY-004")["total"] == 0
+    assert services.list_project_findings("shop", search=f"sql #F{high['id']}")["total"] == 1
     # One report, and the findings with a proposal of an agent
     by_report = services.list_project_findings(None, report_id=first["report_id"])
     assert [f["id"] for f in by_report["findings"]] == [high["id"]]

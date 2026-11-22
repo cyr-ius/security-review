@@ -120,7 +120,7 @@
   (`SECREVIEW_OSV_AUTO_UPDATE`, the **OSV database** page, audited, or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
-  **Update now** button of the web interface (`settings.manage` permission) is only accepted while
+  **Update** button of the web interface (`settings.manage` permission) is only accepted while
   the download is turned on. The outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **General**
   page) serves the OSV download and the OIDC provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,

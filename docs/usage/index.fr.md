@@ -31,19 +31,23 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 
     | Saisie | Pour |
     |---|---|
-    | `sql injection` | Rechercher le texte dans les findings (titre, règle, CWE, fichier, description, projet, branche) ou dans les rapports |
-    | `#report:12` | Ouvrir le rapport 12 |
-    | `xss #report:12` | Ouvrir le rapport 12 en recherchant « xss » dans ses findings |
-    | `#finding:34` | Ouvrir le finding 34 dans son rapport |
-    | `#report:texte`, `xss #finding:*` | Rechercher uniquement dans les rapports, ou dans les findings |
-    | `#report:*`, `#finding:*`, `*` | Lister tous les rapports, tous les findings, ou proposer les deux |
+    | `sql injection` | Rechercher le texte dans les findings (titre, règle, CWE, fichier, description, projet, branche, jeton du rapport, et son auteur pour qui gère les utilisateurs ou les jetons), les rapports, les règles, les checklists ou les normes (ces trois dernières sans filtre, selon vos droits) |
+    | `#R12`, `#report:12` | Ouvrir le rapport 12 (l'interface numérote les rapports `R12` et les findings `F34`) |
+    | `xss #R12`, `xss #report:12` | Ouvrir le rapport 12 en recherchant « xss » dans ses findings |
+    | `#F34`, `#finding:34` | Ouvrir le finding 34 parmi les findings de son projet, quel que soit son statut |
+    | `#5` | Proposer le finding F5 et le rapport R5 |
+    | `#PY-004`, `#PY-01` | Proposer la règle, l'élément de checklist et les findings de cet identifiant (les règles et checklists exigent `rules.read`) |
+    | `scan code #GEN-007`, `xss #F12`, `#R12 #PY-004` | Les mots dans les findings de cette règle, de ce numéro ou de ce rapport (un identifiant de règle exige un chiffre ou `*` : `#include` reste du texte) |
+    | `#F1*`, `#R2*`, `#AI*` | Les findings ou rapports dont le numéro commence par 1 ou 2, les règles, éléments de checklist et findings dont l'identifiant commence par `AI` (`*` après tout `#`) |
+    | `#report:texte`, `xss #F*` | Rechercher uniquement dans les rapports, ou dans les findings |
+    | `#R*`, `#F*`, `*` (ou `#report:*`, `#finding:*`) | Lister tous les rapports, tous les findings, ou proposer les deux |
     | `sql project:shop` | Uniquement dans le projet `shop` |
     | `severity:high,critical` (ou `sev:`) | Uniquement ces sévérités (niveau de risque des rapports) |
-    | `status:accepted` | Les findings de ce statut (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) au lieu des ouverts |
+    | `status:accepted` | Les findings de ce statut (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) au lieu de tous (sans lui, la recherche trouve les findings quel que soit leur statut) |
     | `rule:PY-004`, `cwe:89` | Recherchés comme du texte |
 
-    Filtres et texte se combinent dans n'importe quel ordre : `sql project:shop sev:high #finding:*`.
-    Un seul `#report:` ou `#finding:` par recherche ; le reste du texte est recherché. Une valeur
+    Filtres et texte se combinent dans n'importe quel ordre : `sql project:shop sev:high #F*`.
+    Un seul `#report:` ou `#finding:` (`#R`, `#F`) par recherche ; le reste du texte est recherché. Une valeur
     de filtre inconnue (`sev:urgent`) est recherchée comme du texte. Un nom de projet saisi en
     entier passe en premier. Les findings exigent `reports.read`.
 - En haut à droite, choisissez la langue (anglais, français, espagnol) et le thème
@@ -72,14 +76,14 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 
 | Page | À quoi elle sert |
 |---|---|
-| **Projets** | Tous les projets avec leurs findings ouverts par sévérité : une case ouvre les findings ouverts de cette sévérité dans tous les projets, un chiffre du tableau ceux du projet, le nombre de rapports ses rapports. Le point de départ : ouvrir un projet, **Revoir les findings ouverts** de tous les projets, valider les **Projets en attente** demandés par les agents |
+| **Projets** | Tous les projets avec leurs findings ouverts par sévérité : une case ouvre les findings ouverts de cette sévérité dans tous les projets, un chiffre du tableau ceux du projet, le nombre de rapports ses rapports. Le point de départ : ouvrir un projet, valider les **Projets en attente** demandés par les agents |
 | **Projet** | Findings ouverts par sévérité (une case ouvre ceux du projet), tendance, CWE les plus fréquentes en camembert étiqueté, findings ouverts les plus graves (les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) repliés sur une ligne) et le plus ancien, export SARIF, **Tous les rapports** du projet |
 
 **Revue** : **Findings** et **Acceptations de risque** pour les utilisateurs qui ont `reports.read` (sur les projets qu'ils lisent) ; **Rapports** pour tout utilisateur (sur les projets qu'il lit), ouvert depuis le champ de recherche (`#report:*`) ou **Tous les rapports** d'un projet
 
 | Page | À quoi elle sert |
 |---|---|
-| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, chemin du fichier, description, projet, branche, ou `#report:<n°>` pour les findings d'un rapport, comme dans la recherche générale) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs ; **Possède une proposition** garde les findings dont un agent propose un statut. Les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) sont repliés dans une carte, dont la case les sélectionne tous pour une décision groupée |
+| **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, chemin du fichier, description, projet, branche, jeton du rapport, et son auteur pour qui gère les utilisateurs ou les jetons, `#report:<n°>` pour les findings d'un rapport, comme dans la recherche générale, `#R<n°>` pour la même chose, `#F<n°>` seul pour un seul finding, `#PY-004` seul pour les findings d'une règle, un `*` final pour les numéros ou identifiants qui commencent ainsi (`#F1*`, `#AI*`), comme y mènent les findings listés sur la page d'un projet) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs ; **Possède une proposition** garde les findings dont un agent propose un statut. Les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) sont repliés dans une carte, dont la case les sélectionne tous pour une décision groupée |
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
 | **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../reference/prompts-tools.md#couverture-de-la-revue), rapports liés d'une revue du code complet, fichiers scannés d'un scan de [code](../review/analysis/code-scan.md) ou de [dépendances](../review/analysis/dependencies.md), findings (recherche par texte, filtres de sévérité et de statut, avis d'une même dépendance vulnérable regroupés), téléchargement Markdown et SARIF |
 

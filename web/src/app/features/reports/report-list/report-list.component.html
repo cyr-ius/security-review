@@ -1,3 +1,18 @@
+<!-- Only for one project: the way back to it, as on its findings and risk acceptances -->
+@if (singleProject(); as name) {
+  <nav [attr.aria-label]="'common.breadcrumb' | t">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a routerLink="/projects">{{ 'layout.projects' | t }}</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a [routerLink]="['/projects', name]">{{ name }}</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">{{ 'layout.reports' | t }}</li>
+    </ol>
+  </nav>
+}
+
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <h1 class="h3 mb-0">{{ 'layout.reports' | t }}</h1>
   <app-refresh-button [loading]="reports.isLoading()" (refresh)="reports.reload()" />

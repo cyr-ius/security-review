@@ -1,52 +1,140 @@
 <section class="card" [class.mb-4]="!embedded()" aria-labelledby="project-members-title">
-  <div class="card-body">
-    <div
-      class="d-flex align-items-start gap-2"
-      [class.mb-2]="open()"
-      [class.foldable]="!embedded()"
-      (click)="onHeaderClick($event)"
-    >
+  @if (embedded()) {
+    <div class="card-body pb-2 d-flex align-items-start gap-2">
       <h2 id="project-members-title" class="h5 mb-0 text-break">
-        @if (embedded()) {
-          <i class="bi bi-people me-2" aria-hidden="true"></i>
-          {{ 'projects.members' | t: { project: project() } }}
-        } @else {
-          <button
-            type="button"
-            class="btn btn-link p-0 text-reset text-decoration-none fs-5 text-start"
-            aria-controls="project-members-body"
-            [attr.aria-expanded]="expanded()"
-          >
-            <i class="bi bi-people me-2" aria-hidden="true"></i>
-            {{ 'projectMembers.title' | t }}
-          </button>
-        }
+        <i class="bi bi-people me-2" aria-hidden="true"></i>
+        {{ 'projects.members' | t: { project: project() } }}
         <app-help-link topic="projectMembers" />
       </h2>
       <div class="ms-auto">
-        @if (embedded()) {
-          <ng-content />
-        } @else {
-          <i
-            class="bi"
-            [class.bi-chevron-up]="expanded()"
-            [class.bi-chevron-down]="!expanded()"
-            aria-hidden="true"
-          ></i>
-        }
+        <ng-content />
       </div>
     </div>
-    @if (open()) {
-      <div id="project-members-body">
-        <p class="text-body-secondary small">{{ 'projectMembers.help' | t }}</p>
+  } @else {
+    <div class="card-header p-0 d-flex align-items-center">
+      <button
+        type="button"
+        class="btn flex-grow-1 d-flex align-items-center gap-2 text-start px-3 py-2"
+        aria-controls="project-members-body"
+        [attr.aria-expanded]="expanded()"
+        (click)="toggle()"
+      >
+        <span id="project-members-title" class="fw-semibold"
+          ><i class="bi bi-people me-2" aria-hidden="true"></i
+          >{{ 'projectMembers.title' | t }}</span
+        >
+        <i
+          class="bi ms-auto"
+          [class.bi-chevron-up]="expanded()"
+          [class.bi-chevron-down]="!expanded()"
+          aria-hidden="true"
+        ></i>
+      </button>
+      <app-help-link class="pe-3" topic="projectMembers" />
+    </div>
+  }
+  @if (open()) {
+    <div id="project-members-body" class="card-body" [class.pt-0]="embedded()">
+      @if (error(); as text) {
+        <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+      }
+      @if (message(); as text) {
+        <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+      }
 
-        @if (error(); as text) {
-          <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
-        }
-        @if (message(); as text) {
-          <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
-        }
+      <!-- Suggestions while typing: a user chosen in the list becomes a member at once -->
+      <div
+        class="d-flex flex-wrap align-items-center gap-2 mb-3"
+        (focusout)="onSearchFocusOut($event)"
+      >
+        <label class="small fw-semibold text-nowrap" for="project-members-search">{{
+          'projectMembers.searchUsers' | t
+        }}</label>
+        <!-- The list of suggestions opens below the field, as wide as it -->
+        <div class="member-search flex-grow-1">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            <input
+              #searchField
+              id="project-members-search"
+              type="search"
+              class="form-control form-control-sm"
+              role="combobox"
+              maxlength="64"
+              autocomplete="off"
+              aria-autocomplete="list"
+              aria-controls="project-members-suggestions"
+              [attr.aria-expanded]="suggestionsOpen()"
+              [attr.aria-activedescendant]="
+                suggestionsOpen() && choices().length ? 'project-member-option-' + active() : null
+              "
+              [placeholder]="'projectMembers.searchPlaceholder' | t"
+              [value]="search()"
+              (input)="onSearch($event)"
+              (keydown)="onSearchKeydown($event)"
+              (focus)="suggestionsOpen.set(true)"
+            />
+            <button
+              type="button"
+              class="btn search-clear"
+              [hidden]="!search()"
+              [attr.aria-label]="'common.clearSearch' | t"
+              [title]="'common.clearSearch' | t"
+              (click)="clearSearch(searchField)"
+            >
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          </div>
+          <!-- mousedown keeps the focus in the field, so that a click is not lost on blur -->
+          <div
+            class="dropdown-menu w-100 shadow-sm"
+            [class.show]="suggestionsOpen()"
+            (mousedown)="$event.preventDefault()"
+          >
+            <div
+              id="project-members-suggestions"
+              role="listbox"
+              [attr.aria-label]="'projectMembers.searchUsers' | t"
+            >
+              @for (user of choices(); track user.id; let index = $index) {
+                <button
+                  type="button"
+                  class="dropdown-item d-flex align-items-center gap-2"
+                  role="option"
+                  tabindex="-1"
+                  [id]="'project-member-option-' + index"
+                  [class.active]="index === active()"
+                  [attr.aria-selected]="index === active()"
+                  (click)="add(user.id)"
+                  (mouseenter)="activeIndex.set(index)"
+                >
+                  <i class="bi bi-person-plus" aria-hidden="true"></i>
+                  <span class="access-name text-truncate">{{ user.username }}</span>
+                </button>
+              }
+            </div>
+            @for (member of matchingMembers(); track member.id) {
+              <div
+                class="dropdown-item-text d-flex align-items-center gap-2 text-body-secondary small"
+              >
+                <i class="bi bi-person-check" aria-hidden="true"></i>
+                <span class="access-name text-truncate me-auto">{{ member.username }}</span>
+                <span class="badge text-bg-secondary">{{
+                  'projectMembers.alreadyMember' | t
+                }}</span>
+              </div>
+            }
+            @if (!choices().length && !matchingMembers().length && !users.isLoading()) {
+              <p class="dropdown-item-text small text-body-secondary mb-0">
+                {{ 'projectMembers.noUserFound' | t }}
+              </p>
+            }
+          </div>
+        </div>
+      </div>
 
+      <!-- Each change is saved at once: nothing is edited while it is saved and reloaded -->
+      <fieldset [disabled]="locked()" [attr.aria-busy]="locked()">
         @if (members.error()) {
           <div class="alert alert-danger" role="alert">{{ 'projectMembers.loadError' | t }}</div>
         } @else if (rows().length) {
@@ -93,8 +181,7 @@
         }
 
         @if (allProjects().length) {
-          <h3 class="h6 mt-3">{{ 'projectMembers.allProjects' | t }}</h3>
-          <p class="text-body-secondary small">{{ 'projectMembers.allProjectsHelp' | t }}</p>
+          <h3 class="small fw-semibold mt-4 mb-2">{{ 'projectMembers.allProjects' | t }}</h3>
           <div class="table-responsive mb-3">
             <table class="table table-sm align-middle mb-0">
               <thead>
@@ -114,85 +201,7 @@
             </table>
           </div>
         }
-
-        <div class="border rounded p-2 mb-2">
-          <div class="row g-2 align-items-end">
-            <div class="col-md-8">
-              <label class="form-label small" for="project-members-search">{{
-                'projectMembers.searchUsers' | t
-              }}</label>
-              <div class="input-group input-group-sm">
-                <span class="input-group-text"
-                  ><i class="bi bi-search" aria-hidden="true"></i
-                ></span>
-                <input
-                  #searchField
-                  id="project-members-search"
-                  type="search"
-                  class="form-control form-control-sm"
-                  maxlength="64"
-                  autocomplete="off"
-                  [value]="search()"
-                  (input)="onSearch($event)"
-                />
-                <button
-                  type="button"
-                  class="btn search-clear"
-                  [hidden]="!search()"
-                  [attr.aria-label]="'common.clearSearch' | t"
-                  [title]="'common.clearSearch' | t"
-                  (click)="clearSearch(searchField)"
-                >
-                  <i class="bi bi-x-lg" aria-hidden="true"></i>
-                </button>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-primary w-100"
-                [disabled]="!picked().length"
-                (click)="add()"
-              >
-                <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                {{ 'projectMembers.addUsers' | t: { count: picked().length } }}
-              </button>
-            </div>
-          </div>
-          @if (choices().length) {
-            <div class="d-flex flex-wrap gap-3 mt-2">
-              @for (user of choices(); track user.id) {
-                <div class="form-check">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    [id]="'project-member-pick-' + user.id"
-                    [checked]="picked().includes(user.id)"
-                    (change)="togglePick(user.id, $event)"
-                  />
-                  <label
-                    class="form-check-label access-name"
-                    [for]="'project-member-pick-' + user.id"
-                  >
-                    {{ user.username }}
-                  </label>
-                </div>
-              }
-            </div>
-          } @else if (!users.isLoading()) {
-            <div class="form-text mt-2">{{ 'projectMembers.noUserFound' | t }}</div>
-          }
-        </div>
-
-        <button
-          type="button"
-          class="btn btn-sm btn-primary"
-          [disabled]="busy() || !changed() || !complete()"
-          (click)="save()"
-        >
-          <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'common.save' | t }}
-        </button>
-      </div>
-    }
-  </div>
+      </fieldset>
+    </div>
+  }
 </section>

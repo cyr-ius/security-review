@@ -129,7 +129,7 @@ error is hidden from it.
 
 | Tool | Type | Parameters | Returns |
 |---|---|---|---|
-| `request_project` | write | `project` | `status`: `accessible`, `created`, `joined` or `requested` with `next_steps` ([enrollment](#enrollment-personal-token-and-project-requests)); never a token |
+| `request_project` | write | `project` | `status`: `accessible`, `created`, `joined` or `requested` with `next_steps` ([enrollment](#enrollment-personal-token-and-project-requests)); reminders `findings_to_fix` and `codebase_review` ([details](../../reference/prompts-tools.md#tools)); never a token |
 | `save_security_report` | write | `project`, `summary`, `findings` (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`); optional `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (can only raise the computed risk), `review_type`, `author`, `checklist_results` (at most 500), `scan_rules` (at most 500) | Report id, risk level, counts by severity and review coverage ([stored report](../../reference/prompts-tools.md#stored-report)) |
 | `get_security_report` | read-only | `report_id`, `format` (`markdown` by default, or `json`) | The report and its findings, without its author |
 | `list_security_reports` | read-only | `project`, `risk_level`, `review_type`, `limit` (1 to 100, `20` by default), `offset` | Reports, newest first, without their author (`author`: deprecated, ignored) |

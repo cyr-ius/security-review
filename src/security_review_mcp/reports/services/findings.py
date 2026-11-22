@@ -1,6 +1,7 @@
 """Projects, their findings, risk acceptances and comments."""
 
 import logging
+import re
 from collections.abc import Collection, Iterable
 from datetime import datetime
 
@@ -37,7 +38,7 @@ from .core import (
     _values,
     compute_risk_level,
 )
-from .persistence import _contains_pattern
+from .persistence import _contains_pattern, _id_filter, _number_filter, _split_search
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -117,6 +118,49 @@ def project_posture(project: str) -> dict:
     return {"project": project, "reports_total": reports_total, **_open_summary(by_severity)}
 
 
+def findings_to_fix(project: str, min_severity: str) -> dict | None:
+    """Open findings of a project at ``min_severity`` or above, still to fix in the code.
+
+    Returns None when none is left to fix. ``by_severity`` counts those without a proposal,
+    which the agent must fix; ``proposed`` those carrying a status proposed by an agent, which
+    wait for a person (an expired acceptance counts as open, as in the gate).
+    """
+    project = normalize_project(project)
+    wanted = [s for s in Severity if SEVERITY_RANK[s] >= SEVERITY_RANK[Severity(min_severity)]]
+    with session_scope() as session:
+        rows = session.exec(
+            select(
+                Finding.severity,
+                col(Finding.proposed_status).is_not(None),
+                func.count(),
+            )
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(
+                SecurityReport.project == project,
+                _status_is(FindingStatus.OPEN),
+                _current(),
+                col(Finding.severity).in_(wanted),
+            )
+            .group_by(Finding.severity, col(Finding.proposed_status).is_not(None))  # type: ignore[arg-type]
+        ).all()
+    by_severity = {severity.value: 0 for severity in wanted}
+    proposed = 0
+    for severity, has_proposal, number in rows:
+        if has_proposal:
+            proposed += number
+        else:
+            by_severity[severity.value] += number
+    total = sum(by_severity.values())
+    if not total:
+        return None
+    return {
+        "min_severity": min_severity,
+        "total": total,
+        "by_severity": by_severity,
+        "proposed": proposed,
+    }
+
+
 def _open_summary(by_severity: dict[str, int]) -> dict:
     """Open findings of a project from its open counts by severity.
 
@@ -146,6 +190,22 @@ def _status_filter(value: FindingStatusFilter | str, now: datetime) -> ColumnEle
     return _status_is(FindingStatus(value.value), now)
 
 
+# "#F12": one finding by its number (its status is not filtered then)
+_EXACT_FINDING = re.compile(r"#[Ff]\d{1,18}")
+
+
+def _search_word(word: str) -> ColumnElement[bool] | None:
+    """The word ``#F12`` / ``#F1*`` (finding number), ``#R7`` / ``#R7*`` (report number), else
+    ``#PY-004`` / ``#AI*`` (rule id); None for a word searched as text."""
+    for by_number in (
+        _number_filter(word, "F", Finding.id),
+        _number_filter(word, "R", Finding.report_id),
+    ):
+        if by_number is not None:
+            return by_number
+    return _id_filter(word, Finding.rule_id)
+
+
 def list_project_findings(
     project: str | None,
     status: FindingStatusFilter | Collection[FindingStatusFilter] | None = FindingStatusFilter.OPEN,
@@ -157,6 +217,7 @@ def list_project_findings(
     search: str | None = None,
     report_id: int | None = None,
     proposed: bool = False,
+    with_author: bool = False,
 ) -> dict:
     """List the findings of a project (or of every project) across all reports, for a review.
 
@@ -170,7 +231,14 @@ def list_project_findings(
     None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
     ``search`` keeps the findings whose title, rule, CWE, file, description, project or branch
-    contains it (case-insensitive, first 200 characters). ``report_id`` keeps the findings of
+    contains it (case-insensitive, first 200 characters); ``#F12`` alone keeps the finding 12 (the
+    link of a finding to the findings of its project), ``#F1*`` the findings whose number starts
+    with 1, ``#R7`` / ``#R7*`` the findings of the reports so numbered, ``#PY-004`` / ``#AI*`` the
+    findings of that rule or of the rules starting with AI; these words combine with each other
+    and with the text (``scan code #GEN-007``). With ``#F12``, the status is not filtered: a
+    link to a finding shows it whatever its status. The text is also searched in the token label
+    of the report, and in its author with ``with_author`` (a caller who may see it), as for the
+    reports. ``report_id`` keeps the findings of
     that report; ``proposed`` keeps the findings carrying a status proposed by an agent.
     """
     settings = get_settings()
@@ -178,7 +246,10 @@ def list_project_findings(
     offset = max(0, offset)
     statuses = _values(status) or [FindingStatusFilter.OPEN]
     now = utcnow()
-    filters = [or_(*(_status_filter(s, now) for s in statuses)), _current()]
+    filters = [_current()]
+    # "#F12" names one finding: shown whatever its status (a link opens it there)
+    if not any(_EXACT_FINDING.fullmatch(word) for word in (search or "")[:200].split()):
+        filters.append(or_(*(_status_filter(s, now) for s in statuses)))
     if project is not None:
         filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:
@@ -191,8 +262,10 @@ def list_project_findings(
         filters.append(Finding.report_id == report_id)
     if proposed:
         filters.append(col(Finding.proposed_status).is_not(None))
-    if search and search.strip():
-        pattern = _contains_pattern(search.strip())
+    by_id, text = _split_search(search or "", _search_word)
+    filters.extend(by_id)
+    if text:
+        pattern = _contains_pattern(text)
         searched = [
             Finding.title,
             Finding.rule_id,
@@ -201,7 +274,10 @@ def list_project_findings(
             Finding.description,
             SecurityReport.project,
             SecurityReport.branch,
+            SecurityReport.submitted_by,
         ]
+        if with_author:
+            searched.append(SecurityReport.author)
         filters.append(or_(*(col(column).ilike(pattern, escape="\\") for column in searched)))
     rank = case(*((Finding.severity == s, r) for s, r in SEVERITY_RANK.items()), else_=0)
 

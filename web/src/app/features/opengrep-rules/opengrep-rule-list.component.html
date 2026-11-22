@@ -1,5 +1,5 @@
-<!-- Title and subtitle are given by the Rules page, above the tabs -->
-<div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
+<!-- Title and subtitle are given by the Rules page, which shows these buttons on their line -->
+<ng-template #headerActions>
   <div class="d-flex flex-wrap gap-2">
     <app-refresh-button [loading]="catalog.isLoading()" (refresh)="reload()" />
     @if (canManage()) {
@@ -9,7 +9,7 @@
       </button>
     }
   </div>
-</div>
+</ng-template>
 
 <!-- While the editor is open, its messages are shown in it -->
 @if (!editorOpen()) {

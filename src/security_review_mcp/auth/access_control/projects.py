@@ -12,6 +12,7 @@ from sqlmodel import Session, col, func, or_, select
 from ... import app_settings
 from ...config import get_settings
 from ...observability import audit
+from ...reports import codebase_review
 from ...reports.sarif import issue_fingerprint
 from ...reports.services import NotFoundError
 from ...storage import projects as project_store
@@ -420,6 +421,48 @@ def set_autojoin_blocked(project: str, blocked: bool, actor: str | None = None) 
             {"blocked": blocked},
         )
         return {"project": cleaned, "autojoin_blocked": blocked}
+
+
+# ── Codebase review asked of the MCP agent ─────────────────────────────────────
+
+
+def set_codebase_review(
+    project: str, requested: bool, interval_days: int | None, actor: str | None = None
+) -> dict[str, Any]:
+    """Ask the MCP agent for a review of the whole repository of ``project``: once
+    (``requested``, met by the next codebase review) and/or every ``interval_days`` days after
+    the latest one (None: never). Asking again while a request is pending keeps its date;
+    ``requested`` false withdraws it. A change is audited, a repeated one is not.
+
+    Raises:
+        ValueError: Invalid name or interval.
+        NotFoundError: If the project is not known (see project_exists).
+    """
+    if interval_days is not None and not 1 <= interval_days <= codebase_review.MAX_INTERVAL_DAYS:
+        raise ValueError(f"interval_days must be between 1 and {codebase_review.MAX_INTERVAL_DAYS}")
+    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    with session_scope() as session:
+        row = session.exec(select(Project).where(Project.name == cleaned)).first()
+        if row is None:
+            raise NotFoundError(f"Project '{cleaned}' not found")
+        last = codebase_review.last_reviews(session, [cleaned]).get(cleaned)
+        before = codebase_review.review_state(row, last)
+        if requested == before["requested"] and interval_days == row.codebase_review_interval_days:
+            return before
+        if requested != before["requested"]:
+            row.codebase_review_requested_at = utcnow() if requested else None
+        row.codebase_review_interval_days = interval_days
+        session.add(row)
+        audit.record(
+            session,
+            audit.AuditAction.PROJECT_CODEBASE_REVIEW_CHANGED,
+            actor,
+            "project",
+            cleaned,
+            cleaned,
+            {"requested": requested, "interval_days": interval_days},
+        )
+        return codebase_review.review_state(row, last)
 
 
 def _autojoin(session: Session, user_id: int, project: str, actor: str | None) -> None:

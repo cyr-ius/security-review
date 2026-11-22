@@ -4,11 +4,11 @@ import json
 import logging
 import re
 from collections import Counter
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 
-from sqlalchemy import and_, case, func, or_, update
+from sqlalchemy import ColumnElement, String, and_, case, cast, func, or_, update
 from sqlalchemy.orm import defer, selectinload
 from sqlmodel import Session, col, select
 
@@ -483,6 +483,60 @@ def get_report(report_id: int) -> SecurityReportPublic:
         return public
 
 
+# "#F12" / "#R7": a finding or a report by its number, as the web interface shows it (F12, R7);
+# "#F1*": the numbers starting with 1. The "#" tells them from words such as "F5" (at most 18
+# digits: within a 64-bit integer).
+_NUMBER_SEARCH = re.compile(r"#([FR])(\d{0,18})(\*?)", re.IGNORECASE)
+
+
+def _number_filter(word: str, letter: str, column: Any) -> ColumnElement[bool] | None:
+    """Filter of the word ``#<letter><n>`` (that number) or ``#<letter><n>*`` (numbers starting
+    with n); None for another word (searched as text)."""
+    found = _NUMBER_SEARCH.fullmatch(word)
+    if found is None or found.group(1).upper() != letter:
+        return None
+    digits, wildcard = found.group(2), found.group(3)
+    if wildcard:
+        # Digits only: nothing to escape in the LIKE pattern
+        return cast(col(column), String).like(f"{digits}%")
+    return col(column) == int(digits) if digits else None
+
+
+# "#PY-004", "#AI*": a rule (or checklist item) id, or the ids starting with the text before "*"
+# (letters first, then letters, digits and the separators of the rule ids; at most 60
+# characters). A digit or the "*" is required: "#include" or "#todo" stay text.
+_ID_SEARCH = re.compile(r"#([A-Za-z][A-Za-z0-9_.:-]{0,59})(\*?)")
+
+
+def _id_filter(word: str, column: Any) -> ColumnElement[bool] | None:
+    """Filter of the word ``#<id>`` (that id) or ``#<prefix>*`` (the ids starting with it),
+    case-insensitive; None for another word (searched as text)."""
+    found = _ID_SEARCH.fullmatch(word)
+    if found is None or not (found.group(2) or any(c.isdigit() for c in found.group(1))):
+        return None
+    name, wildcard = found.group(1).upper(), found.group(2)
+    if wildcard:
+        escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return func.upper(col(column)).like(f"{escaped}%", escape="\\")
+    return func.upper(col(column)) == name
+
+
+def _split_search(
+    search: str, to_filter: Callable[[str], ColumnElement[bool] | None]
+) -> tuple[list[ColumnElement[bool]], str]:
+    """The filters of the ``#…`` words of ``search`` that ``to_filter`` reads (``xss #F12``,
+    ``scan code #GEN-007``) and the rest of the words, searched as text."""
+    filters: list[ColumnElement[bool]] = []
+    words: list[str] = []
+    for word in search[:200].split():
+        found = to_filter(word) if word.startswith("#") else None
+        if found is None:
+            words.append(word)
+        else:
+            filters.append(found)
+    return filters, " ".join(words)
+
+
 def _contains_pattern(search: str) -> str:
     """ILIKE pattern matching ``search`` anywhere (first 200 characters, wildcards escaped)."""
     escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -540,8 +594,13 @@ def list_reports(
             statement = statement.where(col(SecurityReport.review_type).in_(types))
         if author:
             statement = statement.where(SecurityReport.author == author)
-        if search:
-            pattern = _contains_pattern(search)
+        by_number, text = _split_search(
+            search or "", lambda word: _number_filter(word, "R", SecurityReport.id)
+        )
+        if by_number:
+            statement = statement.where(*by_number)
+        if text:
+            pattern = _contains_pattern(text)
             searched = [
                 SecurityReport.project,
                 SecurityReport.branch,

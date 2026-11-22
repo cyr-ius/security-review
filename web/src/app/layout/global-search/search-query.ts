@@ -26,8 +26,8 @@ export interface SearchFilters {
 export type SearchTarget =
   /** The page of one report, its findings searched for ``text`` ('': all of them). */
   | { kind: 'report'; id: number; text: string }
-  /** The report holding one finding, scrolled to it (``reportId`` when already known). */
-  | { kind: 'finding'; id: number; reportId?: number }
+  /** One finding among the findings of its project (``project`` when already known). */
+  | { kind: 'finding'; id: number; project?: string }
   /** The list of the reports, searched for ``text`` ('': every report). */
   | { kind: 'reports'; text: string; filters: SearchFilters }
   /** The list of the findings, searched for ``text`` ('': every finding). */
@@ -37,7 +37,13 @@ export type SearchTarget =
   /** The findings of a project. */
   | { kind: 'projectFindings'; name: string }
   /** The reports of a project. */
-  | { kind: 'projectReports'; name: string };
+  | { kind: 'projectReports'; name: string }
+  /** The rules, searched for a text, an id (``#PY-004``) or the ids starting so (``#AI*``). */
+  | { kind: 'rules'; search: string }
+  /** The checklists, searched the same way (``#PY-01``). */
+  | { kind: 'checklists'; search: string }
+  /** The development standards, searched for a text. */
+  | { kind: 'standards'; search: string };
 
 /** ``#report:<value>`` or ``#finding:<value>`` (case-insensitive). */
 const QUALIFIER = /^#(report|finding)s?:(.*)$/i;
@@ -48,8 +54,49 @@ const FILTER = /^(project|severity|sev|status|rule|cwe):(.+)$/i;
 /** A number of a report or a finding (no sign, no decimals, within the safe integers). */
 const ID = /^#?(\d{1,15})$/;
 
+/**
+ * ``#R7`` / ``#F12`` (report 7, finding 12, numbered as the interface shows them) and ``#R*`` /
+ * ``#F*``: short for ``#report:`` and ``#finding:`` (case-insensitive); the ``#`` tells them from
+ * words such as "R2" or "F5".
+ */
+const SHORT_QUALIFIER = /^#([RF])(\*|\d{1,15})$/i;
+
+/** A word with ``#R``/``#F`` written out as ``#report:``/``#finding:``. */
+function expand(word: string): string {
+  const short = SHORT_QUALIFIER.exec(word);
+  if (!short) {
+    return word;
+  }
+  return `#${short[1].toUpperCase() === 'R' ? 'report' : 'finding'}:${short[2]}`;
+}
+
+/** ``#F1*`` / ``#R2*``: the findings or the reports whose number starts with 1 or 2. */
+const NUMBER_PREFIX = /^#([RF])\d{1,15}\*$/i;
+
+/**
+ * ``#PY-004`` alone: the id of a scan rule or of a checklist item, ``#AI*`` the ids starting with
+ * AI (a letter first, then letters, digits and the separators of the ids); a rule has three
+ * digits or more by convention, a checklist item two. ``#F…`` / ``#R…`` numbers excluded.
+ */
+const RULE_ID = /^#([A-Z][\w.:-]{0,59}\*?)$/i;
+const NUMBER_LIKE = /^#[RF]\d*\*?$/i;
+
+/** ``#GEN-007``, ``#AI*``: a rule id (a digit or the ``*`` required: "#include" stays text). */
+function isRuleId(word: string): boolean {
+  const found = NUMBER_LIKE.test(word) || QUALIFIER.test(word) ? null : RULE_ID.exec(word);
+  return !!found && /[\d*]/.test(found[1]);
+}
+
+/** ``#F12``: a finding by its number, searched with other words (``xss #F12``). */
+const FINDING_NUMBER = /^#F\d{1,15}$/i;
+
+/** ``#5`` alone: a number without its letter, either the finding or the report. */
+const BARE_ID = /^#(\d{1,15})$/;
+
 /** What the user typed, split into its parts. */
 interface ParsedSearch {
+  /** A ``#…`` word only the findings have (rule id, finding number), sent with the text. */
+  findingsOnly?: boolean;
   /** ``#report:`` or ``#finding:``, with its value (the first one only). */
   qualifier?: { scope: 'report' | 'finding'; value: string };
   filters: SearchFilters;
@@ -71,7 +118,25 @@ function parse(raw: string): ParsedSearch {
   const words: string[] = [];
   let qualifier: ParsedSearch['qualifier'];
   let plain = true;
-  for (const word of raw.trim().split(/\s+/).filter(Boolean)) {
+  let findingsOnly = false;
+  const typedWords = raw.trim().split(/\s+/).filter(Boolean);
+  for (const typed of typedWords) {
+    if (typedWords.length > 1 && (isRuleId(typed) || FINDING_NUMBER.test(typed))) {
+      // "scan code #GEN-007", "xss #F12": the server reads the word, with the text
+      words.push(typed.toUpperCase());
+      findingsOnly = true;
+      plain = false;
+      continue;
+    }
+    if (NUMBER_PREFIX.test(typed) && !qualifier) {
+      // "#F1*": the findings (or reports) numbered from 1, a search the server reads
+      const scope = typed[1].toUpperCase() === 'R' ? 'report' : 'finding';
+      qualifier = { scope, value: '*' };
+      plain = false;
+      words.push(typed.toUpperCase());
+      continue;
+    }
+    const word = expand(typed);
     const prefixed = QUALIFIER.exec(word);
     if (prefixed && !qualifier) {
       const scope = prefixed[1].toLowerCase() === 'report' ? 'report' : 'finding';
@@ -113,11 +178,14 @@ function parse(raw: string): ParsedSearch {
   }
   const joined = words.join(' ');
   const text = joined === '*' ? '' : joined.slice(0, MAX_SEARCH_CHARS);
-  return { qualifier, filters, text, plain };
+  return { qualifier, filters, text, plain, findingsOnly };
 }
 
 /**
- * Targets of what the user typed, the first one opened by Enter. One qualifier, anywhere:
+ * Targets of what the user typed, the first one opened by Enter. ``#R7`` alone opens report 7
+ * and ``#F12`` alone finding 12, as the interface numbers them; ``#5`` alone offers finding 5
+ * and report 5; ``#PY-004`` alone offers the rule, the checklist item and the findings of that
+ * id; plain text also offers the rules, the checklists and the standards containing it. One qualifier, anywhere:
  * - ``#report:<number>``: that report, its findings searched for the rest of the text
  *   (``xss #report:1``: "xss" in report 1);
  * - ``#finding:<number>``: that finding, in its report;
@@ -134,7 +202,35 @@ export function parseSearch(raw: string): SearchTarget[] {
   if (!raw.trim()) {
     return [];
   }
-  const { qualifier, filters, text } = parse(raw);
+  const typed = raw.trim();
+  const ruleId = isRuleId(typed) ? RULE_ID.exec(typed) : null;
+  if (ruleId) {
+    // A rule or a checklist item: both offered, the likely one first, then the findings of the
+    // rule (the server reads "#PY-004" and "#AI*" as rule ids, not as text)
+    const id = ruleId[1].toUpperCase();
+    const rule: SearchTarget = { kind: 'rules', search: `#${id}` };
+    const item: SearchTarget = { kind: 'checklists', search: `#${id}` };
+    const likelyItem = /-\d{1,2}$/.test(id);
+    return [
+      ...(likelyItem ? [item, rule] : [rule, item]),
+      { kind: 'findings', text: `#${id}`, filters: { severity: [], status: [] } },
+    ];
+  }
+  const bare = BARE_ID.exec(raw.trim());
+  if (bare) {
+    // "#5" alone: finding F5 or report R5, both offered (findings first, as for a text)
+    const id = Number(bare[1]);
+    return [
+      { kind: 'finding', id },
+      { kind: 'report', id, text: '' },
+    ];
+  }
+  const { qualifier, filters, text, findingsOnly, plain } = parse(raw);
+  if (findingsOnly) {
+    // "#R12 #PY-004": the findings of report 12 for that rule, all read by the server
+    const report = qualifier?.scope === 'report' ? ID.exec(qualifier.value) : null;
+    return [{ kind: 'findings', text: report ? `#R${report[1]} ${text}` : text, filters }];
+  }
   const id = qualifier && ID.exec(qualifier.value);
   if (qualifier && id) {
     return qualifier.scope === 'report'
@@ -148,22 +244,28 @@ export function parseSearch(raw: string): SearchTarget[] {
     // A status only applies to the findings
     return [{ kind: 'findings', text, filters }];
   }
-  return [
-    { kind: 'findings', text, filters },
-    { kind: 'reports', text, filters },
-  ];
+  // Plain text: also the rules, the checklists and the standards (their pages search it)
+  const references: SearchTarget[] =
+    plain && text
+      ? [
+          { kind: 'rules', search: text },
+          { kind: 'checklists', search: text },
+          { kind: 'standards', search: text },
+        ]
+      : [];
+  return [{ kind: 'findings', text, filters }, { kind: 'reports', text, filters }, ...references];
 }
 
 /**
- * ``#report:<number>`` typed in the search of a list of findings, anywhere: the number of that
- * report and the rest of the text (``xss #report:12``: "xss" in report 12). Without it, or
- * with another value, the whole text is searched.
+ * ``#report:<number>`` or ``#R<number>`` typed in the search of a list of findings, anywhere: the
+ * number of that report and the rest of the text (``xss #R12``: "xss" in report 12). Without it,
+ * or with another value, the whole text is searched (``#F12`` alone: finding 12, by the server).
  */
 export function reportSearch(raw: string): { reportId?: number; text: string } {
   let reportId: number | undefined;
   const words: string[] = [];
   for (const word of raw.trim().split(/\s+/).filter(Boolean)) {
-    const prefixed = QUALIFIER.exec(word);
+    const prefixed = QUALIFIER.exec(expand(word));
     const id = prefixed?.[1].toLowerCase() === 'report' ? ID.exec(prefixed[2]) : null;
     if (id && reportId === undefined) {
       reportId = Number(id[1]);

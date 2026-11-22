@@ -4,7 +4,7 @@ import { defineMessages } from '../catalog';
 export const audit = defineMessages({
   en: {
     'audit.subtitle':
-      'Triage decisions, agent proposals, tokens and project requests, newest first',
+      'Triage decisions, agent proposals, tokens and project requests, newest first.',
     'audit.action': 'Event',
     'audit.allActions': 'All events',
     'audit.allProjects': 'All projects',
@@ -42,6 +42,7 @@ export const audit = defineMessages({
     'audit.action.project.renamed': 'Project renamed',
     'audit.action.project.joined': 'Project joined',
     'audit.action.project.autojoin_changed': 'Autojoin of a project changed',
+    'audit.action.project.codebase_review_changed': 'Codebase review of a project asked or changed',
     'audit.action.user.roles_changed': 'Roles of a user changed',
     'audit.action.user.projects_changed': 'Roles of a user on projects changed',
     'audit.action.oidc.mappings_changed': 'OIDC mappings changed',
@@ -93,7 +94,7 @@ export const audit = defineMessages({
   },
   fr: {
     'audit.subtitle':
-      'Décisions de triage, propositions des agents, jetons et demandes de projet, du plus récent au plus ancien',
+      'Décisions de triage, propositions des agents, jetons et demandes de projet, du plus récent au plus ancien.',
     'audit.action': 'Événement',
     'audit.allActions': 'Tous les événements',
     'audit.allProjects': 'Tous les projets',
@@ -131,6 +132,8 @@ export const audit = defineMessages({
     'audit.action.project.renamed': 'Projet renommé',
     'audit.action.project.joined': 'Projet rejoint',
     'audit.action.project.autojoin_changed': 'Adhésion automatique d’un projet modifiée',
+    'audit.action.project.codebase_review_changed':
+      'Revue complète du code d’un projet demandée ou modifiée',
     'audit.action.user.roles_changed': 'Rôles d’un utilisateur modifiés',
     'audit.action.user.projects_changed': 'Rôles d’un utilisateur sur des projets modifiés',
     'audit.action.oidc.mappings_changed': 'Correspondances OIDC modifiées',
@@ -182,7 +185,7 @@ export const audit = defineMessages({
   },
   es: {
     'audit.subtitle':
-      'Decisiones de triaje, propuestas de los agentes, tokens y solicitudes de proyecto, de la más reciente a la más antigua',
+      'Decisiones de triaje, propuestas de los agentes, tokens y solicitudes de proyecto, de la más reciente a la más antigua.',
     'audit.action': 'Evento',
     'audit.allActions': 'Todos los eventos',
     'audit.allProjects': 'Todos los proyectos',
@@ -220,6 +223,8 @@ export const audit = defineMessages({
     'audit.action.project.renamed': 'Proyecto renombrado',
     'audit.action.project.joined': 'Unión a un proyecto',
     'audit.action.project.autojoin_changed': 'Adhesión automática de un proyecto modificada',
+    'audit.action.project.codebase_review_changed':
+      'Revisión completa del código de un proyecto solicitada o modificada',
     'audit.action.user.roles_changed': 'Roles de un usuario modificados',
     'audit.action.user.projects_changed': 'Roles de un usuario en proyectos modificados',
     'audit.action.oidc.mappings_changed': 'Correspondencias OIDC modificadas',

@@ -142,6 +142,16 @@ export class GeneralSettingsComponent extends SettingsPage {
     );
   }
 
+  /** "Chosen by the agent" needs nothing else: it is saved at once, a custom language on submit. */
+  async languageModeChanged(): Promise<void> {
+    if (this.languageMode() === 'agent') {
+      await this.run(
+        () => firstValueFrom(this.api.setReportLanguage(null)),
+        msg('settings.languageSaved'),
+      );
+    }
+  }
+
   /** Delete the stored value that SECREVIEW_REPORT_LANGUAGE hides. */
   async deleteStoredLanguage(): Promise<void> {
     await this.run(
@@ -175,8 +185,8 @@ export class GeneralSettingsComponent extends SettingsPage {
     this.fixLabel(this.settings.value()?.fix_min_severity.effective as Severity | ''),
   );
 
-  async saveFixSeverity(event: Event): Promise<void> {
-    event.preventDefault();
+  /** Saved as soon as another severity is chosen: the form has no other field. */
+  async saveFixSeverity(): Promise<void> {
     const { severity } = this.fixModel();
     await this.run(
       () => firstValueFrom(this.api.setFixSeverity(severity || null)),

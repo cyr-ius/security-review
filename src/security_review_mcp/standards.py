@@ -17,6 +17,7 @@ import tomllib
 from collections.abc import Iterable
 
 import tomlkit
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
@@ -144,12 +145,28 @@ def _full(row: DevStandard) -> dict:
     return _summary(row) | {"content": row.content, "created_at": row.created_at.isoformat()}
 
 
-def list_standards(include_disabled: bool = False) -> list[dict]:
-    """Return the standards without their content, ordered by slug."""
+def list_standards(include_disabled: bool = False, search: str | None = None) -> list[dict]:
+    """Return the standards without their content, ordered by slug.
+
+    ``search`` keeps the standards whose slug, title, description or content contains it
+    (case-insensitive, first 200 characters): the web interface searches the content it does
+    not load.
+    """
     with session_scope() as session:
         query = select(DevStandard).order_by(col(DevStandard.slug))
         if not include_disabled:
             query = query.where(col(DevStandard.enabled).is_(True))
+        if search and search.strip():
+            text = search.strip()[:200]
+            escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            searched = (DevStandard.slug, DevStandard.title, DevStandard.description)
+            query = query.where(
+                or_(
+                    *(col(column).ilike(pattern, escape="\\") for column in searched),
+                    col(DevStandard.content).ilike(pattern, escape="\\"),
+                )
+            )
         return [_summary(row) for row in session.exec(query).all()]
 
 

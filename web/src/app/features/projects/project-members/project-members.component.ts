@@ -16,7 +16,7 @@ interface MemberDraft {
   permissions: Permission[];
 }
 
-/** Users listed by a search. */
+/** Users suggested by a search. */
 const SEARCH_LIMIT = 50;
 
 /**
@@ -29,8 +29,7 @@ const SEARCH_LIMIT = 50;
   selector: 'app-project-members',
   imports: [HelpLinkComponent, ProjectPermissionsComponent, TranslatePipe],
   templateUrl: './project-members.component.html',
-  // The header of the folding card of the project page: the whole row folds or unfolds it
-  styles: '.foldable { cursor: pointer; }',
+  styleUrl: './project-members.component.css',
 })
 export class ProjectMembersComponent {
   private readonly api = inject(ApiService);
@@ -44,14 +43,8 @@ export class ProjectMembersComponent {
   readonly expanded = signal(false);
   readonly open = computed(() => this.embedded() || this.expanded());
 
-  /**
-   * A click anywhere on the header folds or unfolds the card (its title button included, which
-   * serves the keyboard), except on the help link.
-   */
-  onHeaderClick(event: MouseEvent): void {
-    if (this.embedded() || (event.target as HTMLElement | null)?.closest('a')) {
-      return;
-    }
+  /** Folds or unfolds the card of the project page (the modal of the Projects page stays open). */
+  toggle(): void {
     this.expanded.update((expanded) => !expanded);
   }
 
@@ -76,7 +69,9 @@ export class ProjectMembersComponent {
     (this.members.value()?.data ?? []).filter((item) => item.all_projects_permissions.length),
   );
   readonly search = signal('');
-  readonly picked = signal<number[]>([]);
+  /** The list of suggestions under the search field. */
+  readonly suggestionsOpen = signal(false);
+  readonly activeIndex = signal(0);
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
@@ -93,6 +88,21 @@ export class ProjectMembersComponent {
       .filter((user) => !given.has(user.id) && user.username.toLowerCase().includes(text))
       .slice(0, SEARCH_LIMIT);
   });
+
+  /** Members whose name contains the search: shown greyed in the suggestions, not addable. */
+  readonly matchingMembers = computed(() => {
+    const text = this.search().trim().toLowerCase();
+    return this.drafts()
+      .map((item) => ({ id: item.userId, username: this.username(item.userId) }))
+      .filter((user) => user.username.toLowerCase().includes(text))
+      .sort((left, right) => left.username.localeCompare(right.username))
+      .slice(0, SEARCH_LIMIT);
+  });
+
+  /** Suggestion chosen by Enter, kept within the list. */
+  readonly active = computed(() =>
+    Math.min(this.activeIndex(), Math.max(this.choices().length - 1, 0)),
+  );
 
   readonly rows = computed(() =>
     [...this.drafts()].sort((left, right) =>
@@ -123,40 +133,74 @@ export class ProjectMembersComponent {
 
   onSearch(event: Event): void {
     this.search.set((event.target as HTMLInputElement).value);
-    this.picked.set([]);
+    this.activeIndex.set(0);
+    this.suggestionsOpen.set(true);
   }
 
   /** Empty the search and give the focus back to its field. */
   clearSearch(field: HTMLInputElement): void {
     this.search.set('');
-    this.picked.set([]);
+    this.activeIndex.set(0);
     field.focus();
   }
 
-  togglePick(userId: number, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.picked.update((items) =>
-      checked ? [...items, userId] : items.filter((item) => item !== userId),
-    );
+  /** Close the suggestions when the focus leaves the field and its list. */
+  onSearchFocusOut(event: FocusEvent): void {
+    const next = event.relatedTarget as Node | null;
+    if (!next || !(event.currentTarget as HTMLElement).contains(next)) {
+      this.suggestionsOpen.set(false);
+    }
   }
 
-  add(): void {
-    const allowed = new Set(this.choices().map((user) => user.id));
-    const picked = this.picked().filter((userId) => allowed.has(userId));
-    if (!picked.length) {
+  onSearchKeydown(event: KeyboardEvent): void {
+    const count = this.choices().length;
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        this.suggestionsOpen.set(true);
+        this.activeIndex.set(count ? (this.active() + 1) % count : 0);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        this.activeIndex.set(count ? (this.active() - 1 + count) % count : 0);
+        break;
+      case 'Enter': {
+        event.preventDefault();
+        const chosen = this.choices()[this.active()];
+        if (this.suggestionsOpen() && chosen) {
+          this.add(chosen.id);
+        }
+        break;
+      }
+      case 'Escape':
+        if (this.suggestionsOpen()) {
+          // A modal of the Projects page closes on Escape too: the list closes first
+          event.stopPropagation();
+          this.suggestionsOpen.set(false);
+        }
+        break;
+    }
+  }
+
+  /** Add a suggested user as a member (with the reading); the search is emptied for the next. */
+  add(userId: number): void {
+    if (this.locked() || !this.choices().some((user) => user.id === userId)) {
       return;
     }
     this.drafts.update((items) => [
       ...items,
-      ...picked.map((userId) => ({ userId, permissions: ['reports.read' as Permission] })),
+      { userId, permissions: ['reports.read' as Permission] },
     ]);
-    this.picked.set([]);
+    this.search.set('');
+    this.activeIndex.set(0);
+    void this.save();
   }
 
   setPermissions(row: MemberDraft, permissions: Permission[]): void {
     this.drafts.update((items) =>
       items.map((item) => (item.userId === row.userId ? { ...item, permissions } : item)),
     );
+    void this.save();
   }
 
   /** Every row gives at least one permission. */
@@ -164,10 +208,20 @@ export class ProjectMembersComponent {
 
   remove(row: MemberDraft): void {
     this.drafts.update((items) => items.filter((item) => item.userId !== row.userId));
+    void this.save();
   }
 
-  async save(): Promise<void> {
-    if (this.busy()) {
+  /** Saving, or reloading the saved members: the rows wait for it, a suggestion is not taken. */
+  readonly locked = computed(() => this.busy() || this.members.isLoading());
+
+  /** Each change is saved at once; a member without any permission waits for one (or removal). */
+  private async save(): Promise<void> {
+    if (this.busy() || !this.changed()) {
+      return;
+    }
+    if (!this.complete()) {
+      this.message.set(null);
+      this.error.set(msg('projectMembers.permissionRequired'));
       return;
     }
     this.busy.set(true);

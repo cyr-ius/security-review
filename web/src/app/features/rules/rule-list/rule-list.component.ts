@@ -1,6 +1,16 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  TemplateRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+  input,
+  linkedSignal,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -31,8 +41,10 @@ import {
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { ruleSearchText } from '../../../shared/utils/reference-search';
 import { TableSort } from '../../../shared/utils/table-sort';
-import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
+import { compareTableText, filterAndSortRows, idSearch } from '../../../shared/utils/table-utils';
+import { TabWithHeaderActions } from '../../../shared/utils/tab-header';
 
 interface RuleFormModel {
   id: string;
@@ -76,7 +88,10 @@ const RULE_ORIGINS: readonly RuleOrigin[] = ['builtin', 'custom'];
   templateUrl: './rule-list.component.html',
   styleUrl: './rule-list.component.css',
 })
-export class RuleListComponent {
+export class RuleListComponent implements TabWithHeaderActions {
+  /** Its buttons, shown by the Rules page on the line of its title. */
+  readonly headerActions = viewChild<TemplateRef<unknown>>('headerActions');
+
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
@@ -90,7 +105,9 @@ export class RuleListComponent {
   readonly catalog = rxResource({ stream: () => this.api.customRules() });
   /** Origin filter of the table ('' shows every rule). */
   readonly originFilter = signal<RuleOrigin[]>([]);
-  readonly search = signal('');
+  /** ``?search=`` of the address (the global search opens ``#PY-004`` here), then typed. */
+  readonly searchParam = input<string | undefined>(undefined, { alias: 'search' });
+  readonly search = linkedSignal(() => this.searchParam() ?? '');
   readonly sort = new TableSort<RuleSortKey>('rules', ['id', 'severity', 'updated'], 'id', 'asc');
   readonly severityFilter = signal<Severity[]>([]);
   readonly filters = computed<TableControlMultiFilter[]>(() => [
@@ -119,18 +136,20 @@ export class RuleListComponent {
     const rules = this.catalog.value()?.rules ?? [];
     const origin = this.originFilter();
     const severity = this.severityFilter();
+    // "#PY-004" / "#AI*": that id, or the ids starting with AI (the global search opens it)
+    const byId = idSearch(this.search());
     const filtered = rules.filter(
-      (rule) => matchesFilter(origin, rule.origin) && matchesFilter(severity, rule.severity),
+      (rule) =>
+        matchesFilter(origin, rule.origin) &&
+        matchesFilter(severity, rule.severity) &&
+        (!byId || byId(rule.id)),
     );
     const sort = this.sort.key();
     return filterAndSortRows(
       filtered,
-      this.search(),
+      byId ? '' : this.search(),
       this.sort.direction(),
-      (rule) =>
-        [rule.id, rule.title, rule.cwe, rule.languages.join(' '), rule.pattern, rule.advice].join(
-          ' ',
-        ),
+      ruleSearchText,
       (left, right) => {
         if (sort === 'severity') {
           return SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity];

@@ -1,10 +1,4 @@
-<!-- Title and subtitle are given by the Users page, above the tabs -->
-<div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
-  <app-refresh-button
-    [loading]="users.isLoading() || revoked.isLoading()"
-    (refresh)="users.reload()"
-  />
-</div>
+<!-- Title, subtitle and refresh button are given by the Users page, above the tabs -->
 
 <p class="text-body-secondary small">{{ 'users.help' | t }}</p>
 
@@ -32,7 +26,7 @@
 }
 
 <section class="card card-body mb-4" aria-labelledby="user-form-title">
-  <h2 id="user-form-title" class="h5">
+  <h2 id="user-form-title" class="h6">
     <i class="bi bi-people me-2" aria-hidden="true"></i>
     @if (editing(); as user) {
       {{ 'users.editTitle' | t: { user: user.username } }}
@@ -171,7 +165,7 @@
 </section>
 
 <section class="card card-body mb-4" aria-labelledby="users-title">
-  <h2 id="users-title" class="h5">
+  <h2 id="users-title" class="h6">
     <i class="bi bi-people me-2" aria-hidden="true"></i>{{ 'users.accounts' | t }}
   </h2>
   @if (users.error()) {
@@ -183,7 +177,9 @@
       [multiFilters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
       (multiFilterChange)="onUserTableFilter($event)"
-    />
+    >
+      <span aria-live="polite">{{ 'users.count' | t: { count: visibleUsers().length } }}</span>
+    </app-table-controls>
     @if (visibleUsers().length) {
       <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -249,8 +245,19 @@
                   }
                 </td>
                 <td class="small">
-                  @for (project of describeProjects(user); track project) {
-                    <div class="text-nowrap">{{ project }}</div>
+                  <!-- The permissions of each project as a bulleted list: no long line -->
+                  @for (project of projectEntries(user); track $index) {
+                    <div class="text-nowrap">
+                      {{ project.name }}
+                      @if (project.claim) {
+                        <span class="text-body-secondary">← {{ project.claim }}</span>
+                      }
+                    </div>
+                    <ul class="mb-1 ps-3">
+                      @for (permission of project.permissions; track permission) {
+                        <li class="text-nowrap">{{ permission }}</li>
+                      }
+                    </ul>
                   } @empty {
                     —
                   }
@@ -313,7 +320,7 @@
 
 @if ((revoked.value() ?? []).length) {
   <section class="card card-body mb-4" aria-labelledby="revoked-title">
-    <h2 id="revoked-title" class="h5">
+    <h2 id="revoked-title" class="h6">
       <i class="bi bi-people me-2" aria-hidden="true"></i>{{ 'users.revokedTitle' | t }}
     </h2>
     <p class="text-body-secondary small">{{ 'users.revokedHelp' | t }}</p>
