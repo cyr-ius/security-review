@@ -308,6 +308,8 @@
     @for (node of controllerNodes(); track node.instance.id) {
       <g
         class="node"
+        [class.outage-refuse]="outage() === 'refuse'"
+        [class.outage-local]="outage() === 'local'"
         (pointerenter)="hovered.set('controller:' + node.instance.id)"
         (pointerleave)="hovered.set(null)"
       >

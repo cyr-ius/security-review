@@ -2,12 +2,27 @@
 
 The **Activity** page (permission `settings.manage`) shows what runs now and reloads itself every
 2 seconds while it is visible. It has three sections: the activity diagram, the delegation of the
-code scans and the scan engines.
+code scans and the scan engines, after an alert when no scan engine is online.
 
 ![Activity diagram: agents, pipelines, MCP servers, Controller servers and scan engines](../assets/screenshots/activity-diagram.png)
 
 The **Audit log** button, next to **Refresh**, opens the [audit log](audit-metrics.md)
 (`audit.read`). The former address `/ui/scan-engines` leads to this page.
+
+## No scan engine online
+
+When the engines are on (`SECREVIEW_SCAN_ENGINE_TOKEN`) but none is active, the page opens with
+an alert, the ring of the Controller server node and its fallback label turn red or yellow, and
+the **Activity** entry of the menu shows a warning badge, on every page:
+
+- **red**, fallback `refuse` (default): the code scans of the pipelines, of the agents
+  (`start_codebase_scan`) and the delegated `scan_code` are refused (503); the agents fall back to
+  the rules of the MCP server, without OpenGrep. Start a scan engine, or set
+  `SECREVIEW_SCAN_ENGINE_FALLBACK=local`;
+- **yellow**, fallback `local`: the Controller server runs the code scans itself.
+
+To be alerted outside the web interface, watch the `unavailable` outcome of
+[`secreview_scan_engine_requests_total`](../reference/metrics.md).
 
 ## Activity diagram
 

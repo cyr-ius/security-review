@@ -16,6 +16,9 @@ export const layout = defineMessages({
     'layout.rules': 'Rules',
     'layout.pendingProposals': '{count} proposed rules awaiting review',
     'layout.pendingProjects': '{count} requested projects awaiting a decision',
+    'layout.noScanEngineRefuse': 'No scan engine online: the code scans are refused',
+    'layout.noScanEngineLocal':
+      'No scan engine online: the Controller server scans the code itself',
     'layout.checklists': 'Checklists',
     'layout.standards': 'Standards',
     'layout.users': 'Users',
@@ -77,6 +80,9 @@ export const layout = defineMessages({
     'layout.rules': 'Règles',
     'layout.pendingProposals': '{count} règles proposées en attente d’examen',
     'layout.pendingProjects': '{count} projets demandés en attente de décision',
+    'layout.noScanEngineRefuse': 'Aucun moteur de scan en ligne : les scans de code sont refusés',
+    'layout.noScanEngineLocal':
+      'Aucun moteur de scan en ligne : le serveur Controller scanne le code lui-même',
     'layout.checklists': 'Checklists',
     'layout.standards': 'Normes',
     'layout.users': 'Utilisateurs',
@@ -139,6 +145,10 @@ export const layout = defineMessages({
     'layout.rules': 'Reglas',
     'layout.pendingProposals': '{count} reglas propuestas pendientes de revisión',
     'layout.pendingProjects': '{count} proyectos solicitados pendientes de decisión',
+    'layout.noScanEngineRefuse':
+      'Ningún motor de escaneo en línea: los escaneos de código se rechazan',
+    'layout.noScanEngineLocal':
+      'Ningún motor de escaneo en línea: el servidor Controller escanea el código él mismo',
     'layout.checklists': 'Listas de control',
     'layout.standards': 'Normas',
     'layout.users': 'Usuarios',

@@ -10,6 +10,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { HelpLinkComponent } from '../../shared/components/help-link/help-link.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import { scanEngineOutage } from '../../shared/utils/scan-engine-outage';
 import { describeError } from '../settings/settings-page';
 import { ScanEngineFlowComponent } from './scan-engine-flow/scan-engine-flow.component';
 
@@ -46,6 +47,8 @@ export class ScanEngineListComponent {
   readonly settings = rxResource({ stream: () => this.api.appSettings() });
 
   readonly engineList = signal<ScanEngineList | null>(null);
+  /** The engines are on but none is active (see scanEngineOutage). */
+  readonly outage = scanEngineOutage;
   readonly initialLoading = signal(true);
   readonly manualRefreshing = signal(false);
   readonly loadError = signal(false);

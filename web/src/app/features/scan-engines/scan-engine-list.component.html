@@ -21,6 +21,20 @@
 }
 
 @if (engineList(); as data) {
+  @if (outage(data); as fallback) {
+    <!-- The engines are on but none is active: the code scans are refused or run here -->
+    <div
+      class="alert py-2 d-flex gap-2"
+      [class.alert-danger]="fallback === 'refuse'"
+      [class.alert-warning]="fallback === 'local'"
+      role="alert"
+    >
+      <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+      <span>{{
+        (fallback === 'refuse' ? 'scanEngines.outageRefuse' : 'scanEngines.outageLocal') | t
+      }}</span>
+    </div>
+  }
   <!-- Shown without any engine too: the agents, the MCP servers and the Controller server -->
   <section class="card card-body mb-3" aria-labelledby="scan-engines-flow-title">
     <h2 id="scan-engines-flow-title" class="h6">{{ 'scanEngines.flowTitle' | t }}</h2>

@@ -2,12 +2,29 @@
 
 La page **Activité** (permission `settings.manage`) montre ce qui tourne en ce moment et se
 recharge toutes les 2 secondes tant qu'elle est visible. Elle a trois sections : le diagramme
-d'activité, la délégation des scans de code et les moteurs de scan.
+d'activité, la délégation des scans de code et les moteurs de scan, après une alerte quand aucun
+moteur de scan n'est en ligne.
 
 ![Diagramme d'activité : agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan](../assets/screenshots/activity-diagram.png)
 
 Le bouton **Journal d'audit**, à côté d'**Actualiser**, ouvre le [journal d'audit](audit-metrics.md)
 (`audit.read`). L'ancienne adresse `/ui/scan-engines` mène à cette page.
+
+## Aucun moteur de scan en ligne
+
+Quand les moteurs sont activés (`SECREVIEW_SCAN_ENGINE_TOKEN`) mais qu'aucun n'est actif, la page
+s'ouvre sur une alerte, l'anneau du nœud du serveur Controller et son libellé de repli passent en
+rouge ou en jaune, et l'entrée **Activité** du menu affiche un badge d'alerte, sur toutes les
+pages :
+
+- **rouge**, repli `refuse` (par défaut) : les scans de code des pipelines, des agents
+  (`start_codebase_scan`) et le `scan_code` délégué sont refusés (503) ; les agents se rabattent
+  sur les règles du serveur MCP, sans OpenGrep. Démarrez un moteur de scan, ou définissez
+  `SECREVIEW_SCAN_ENGINE_FALLBACK=local` ;
+- **jaune**, repli `local` : le serveur Controller exécute lui-même les scans de code.
+
+Pour être alerté hors de l'interface web, surveillez le résultat `unavailable` de
+[`secreview_scan_engine_requests_total`](../reference/metrics.md).
 
 ## Diagramme d'activité
 

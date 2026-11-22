@@ -7,6 +7,10 @@ export const scanEngines = defineMessages({
       'The agents, pipelines, MCP servers, Controller servers and scan engines at work.',
     'scanEngines.title': 'Scan engines',
     'scanEngines.subtitle': 'Engines that run the rules in place of the Controller server.',
+    'scanEngines.outageRefuse':
+      'No scan engine is online while the engines are on (SECREVIEW_SCAN_ENGINE_TOKEN): the code scans of the pipelines, of the agents (start_codebase_scan) and the delegated scan_code are refused (503). Start a scan engine, or set SECREVIEW_SCAN_ENGINE_FALLBACK=local so that the Controller server scans them itself.',
+    'scanEngines.outageLocal':
+      'No scan engine is online while the engines are on (SECREVIEW_SCAN_ENGINE_TOKEN): the Controller server runs the code scans itself (SECREVIEW_SCAN_ENGINE_FALLBACK=local). Start a scan engine to take this load off it.',
     'scanEngines.enabled':
       'The code scans go to the active engines, the one with the most free slots first.',
     'scanEngines.disabled':
@@ -102,6 +106,10 @@ export const scanEngines = defineMessages({
       'Les agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan à l’œuvre.',
     'scanEngines.title': 'Moteurs de scan',
     'scanEngines.subtitle': 'Moteurs qui exécutent les règles à la place du serveur Controller.',
+    'scanEngines.outageRefuse':
+      "Aucun moteur de scan n'est en ligne alors que les moteurs sont activés (SECREVIEW_SCAN_ENGINE_TOKEN) : les scans de code des pipelines, des agents (start_codebase_scan) et le scan_code délégué sont refusés (503). Démarrez un moteur de scan, ou définissez SECREVIEW_SCAN_ENGINE_FALLBACK=local pour que le serveur Controller les exécute lui-même.",
+    'scanEngines.outageLocal':
+      "Aucun moteur de scan n'est en ligne alors que les moteurs sont activés (SECREVIEW_SCAN_ENGINE_TOKEN) : le serveur Controller exécute lui-même les scans de code (SECREVIEW_SCAN_ENGINE_FALLBACK=local). Démarrez un moteur de scan pour le décharger.",
     'scanEngines.enabled':
       'Les scans de code partent vers les moteurs actifs, celui qui a le plus de créneaux libres d’abord.',
     'scanEngines.disabled':
@@ -196,6 +204,10 @@ export const scanEngines = defineMessages({
       'Los agentes, pipelines, servidores MCP, servidores Controller y motores de escaneo en funcionamiento.',
     'scanEngines.title': 'Motores de escaneo',
     'scanEngines.subtitle': 'Motores que ejecutan las reglas en lugar del servidor Controller.',
+    'scanEngines.outageRefuse':
+      'Ningún motor de escaneo está en línea mientras los motores están activados (SECREVIEW_SCAN_ENGINE_TOKEN): los escaneos de código de los pipelines, de los agentes (start_codebase_scan) y el scan_code delegado se rechazan (503). Inicie un motor de escaneo o defina SECREVIEW_SCAN_ENGINE_FALLBACK=local para que el servidor Controller los ejecute él mismo.',
+    'scanEngines.outageLocal':
+      'Ningún motor de escaneo está en línea mientras los motores están activados (SECREVIEW_SCAN_ENGINE_TOKEN): el servidor Controller ejecuta él mismo los escaneos de código (SECREVIEW_SCAN_ENGINE_FALLBACK=local). Inicie un motor de escaneo para descargarlo.',
     'scanEngines.enabled':
       'Los escaneos de código van a los motores activos, primero el que tiene más huecos libres.',
     'scanEngines.disabled':
