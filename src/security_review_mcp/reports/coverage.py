@@ -7,17 +7,27 @@ not lost at its last step.
 """
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from sqlmodel import select
+
 from ..rules import registry
+from ..storage.database import session_scope
 from ..storage.models import (
     MAX_CHECKLIST_RESULTS,
     MAX_SCAN_RULES,
     ChecklistOutcome,
     ChecklistResult,
     FindingCreate,
+    OpenGrepRule,
     StoredChecklistResult,
 )
+
+# Prefix of the rule id of an OpenGrep lead of scan_code (see engines.opengrep)
+OPENGREP_PREFIX = "OPENGREP:"
+# Length of the rule_id of a finding, to which the id of an OpenGrep lead is cut
+MAX_RULE_ID_CHARS = 60
 
 # Shape of a scan rule or checklist item id (PY-004, ACME-CL-01); advisory ids such as
 # GHSA-xxxx-xxxx-xxxx or CVE-2024-1234 do not match it and are not checked
@@ -42,6 +52,28 @@ def _listed(ids: list[str]) -> str:
     """Join ids for a warning, bounded."""
     more = f" and {len(ids) - _MAX_LISTED} more" if len(ids) > _MAX_LISTED else ""
     return ", ".join(ids[:_MAX_LISTED]) + more
+
+
+def _rule_key(value: str) -> str:
+    """Compared form of a declared rule id: an internal rule id in upper case (PY-004); an
+    OpenGrep lead (``OPENGREP:<id>``, see engines.opengrep) keeps the case of its id."""
+    value = value.strip()
+    prefix, _, rule_id = value.partition(":")
+    if rule_id and prefix.upper() == OPENGREP_PREFIX.rstrip(":"):
+        return OPENGREP_PREFIX + rule_id.strip()
+    return value.upper()
+
+
+def _opengrep_rule_ids(declared: Iterable[str]) -> frozenset[str]:
+    """The declared OpenGrep leads that name an installed OpenGrep rule, as scan_code returns
+    them (``OPENGREP:<id>`` cut to the length of a finding rule_id)."""
+    wanted = set(declared)
+    if not wanted:
+        return frozenset()
+    with session_scope() as session:
+        installed = session.exec(select(OpenGrepRule.id)).all()
+    leads = {f"{OPENGREP_PREFIX}{rule_id}"[:MAX_RULE_ID_CHARS] for rule_id in installed}
+    return frozenset(wanted & leads)
 
 
 def check(
@@ -89,9 +121,10 @@ def check(
     coverage.checklist = [*results.values(), *missing]
 
     rules = registry.known_rule_ids()
-    declared = list(dict.fromkeys(x.strip().upper() for x in scan_rules if x.strip()))
-    coverage.scan_rules = sorted(x for x in declared if x in rules)
-    if unknown_rules := [x for x in declared if x not in rules]:
+    declared = list(dict.fromkeys(_rule_key(x) for x in scan_rules if x.strip()))
+    known = rules | _opengrep_rule_ids(x for x in declared if x.startswith(OPENGREP_PREFIX))
+    coverage.scan_rules = sorted(x for x in declared if x in known)
+    if unknown_rules := [x for x in declared if x not in known]:
         coverage.warnings.append(f"Unknown scan rules ignored: {_listed(unknown_rules)}")
 
     cited = {(f.rule_id or "").strip().upper() for f in findings}

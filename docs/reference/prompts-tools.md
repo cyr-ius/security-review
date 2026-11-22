@@ -228,7 +228,7 @@ tell a clean review from one that skipped the checklist:
 | Field | Content |
 |---|---|
 | `checklist_results` | Each checklist item walked through, with its outcome: `ok` (verified, nothing found), `issue` (reported as a finding), `not_applicable`, `not_verifiable` (the reviewed code was not enough to judge it) |
-| `scan_rules` | The rule id of every lead returned by `scan_code`, confirmed or dismissed |
+| `scan_rules` | The rule id of every lead returned by `scan_code`, confirmed or dismissed: an internal rule (`PY-004`, case-insensitive) or an OpenGrep rule as `scan_code` returns it (`OPENGREP:<id>`, the id keeps its case) |
 
 The server checks them against the active rules and checklists when it stores the report:
 

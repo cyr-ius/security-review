@@ -232,7 +232,7 @@ qu'une personne distingue une revue sans problème d'une revue qui a sauté la c
 | Champ | Contenu |
 |---|---|
 | `checklist_results` | Chaque point de checklist parcouru, avec son résultat : `ok` (vérifié, rien trouvé), `issue` (signalé par un finding), `not_applicable`, `not_verifiable` (le code relu ne suffisait pas pour en juger) |
-| `scan_rules` | L'identifiant de règle de chaque piste renvoyée par `scan_code`, confirmée ou écartée |
+| `scan_rules` | L'identifiant de règle de chaque piste renvoyée par `scan_code`, confirmée ou écartée : une règle interne (`PY-004`, sans tenir compte de la casse) ou une règle OpenGrep telle que `scan_code` la renvoie (`OPENGREP:<id>`, l'identifiant garde sa casse) |
 
 Le serveur les contrôle avec les règles et checklists actives quand il enregistre le rapport :
 
