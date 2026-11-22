@@ -116,7 +116,7 @@ whole repository, not only a diff:
 With `findings.triage` on the project, from a session of the web interface only: an agent never
 asks it of itself nor withdraws it. The card, above the open findings, is folded: its header shows the
 latest full review, the next periodic one and a flag while a request is pending; unfold it to see why
-a review is due and to change the settings. The **Projects** page shows the **Full review due** badge.
+a review is due and to change the settings. The **Projects** page shows a clock icon next to the project; its tooltip explains it.
 
 At the start of its next review, `request_project` tells the agent, which offers the developer
 the `codebase-review` prompt once its task is done. Only a full review that went through the

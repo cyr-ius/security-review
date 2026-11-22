@@ -198,11 +198,11 @@
                   }
                   @if (project.codebase_review_due) {
                     <span
-                      class="badge text-bg-warning text-wrap text-start ms-1"
+                      class="text-warning-emphasis ms-1"
                       [attr.title]="'projects.codebaseReviewDueHelp' | t"
                     >
                       <i class="bi bi-clock-history" aria-hidden="true"></i>
-                      {{ 'projects.codebaseReviewDue' | t }}
+                      <span class="visually-hidden">{{ 'projects.codebaseReviewDue' | t }}</span>
                     </span>
                   }
                 </td>

@@ -120,8 +120,8 @@ Avec `findings.triage` sur le projet, depuis une session de l'interface web uniq
 ne se la demande jamais lui-même et ne la retire pas. La carte, au-dessus des findings ouverts, est
 repliée : son bandeau affiche la dernière revue complète, la prochaine revue périodique et un drapeau
 tant qu'une demande est en attente ; dépliez-la pour voir pourquoi une revue est attendue et changer
-les réglages. La page **Projets** affiche le badge **Revue
-complète attendue**.
+les réglages. La page **Projets** affiche une icône d'horloge à côté du projet ; son
+infobulle l'explique.
 
 Au début de sa revue suivante, `request_project` prévient l'agent, qui propose au développeur le
 prompt `codebase-review` une fois sa tâche terminée. Seule une revue complète passée par le
