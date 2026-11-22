@@ -915,7 +915,7 @@ def get_security_report(
     report = _visible_report(ctx, report_id)
     if format == "markdown":
         return services.render_report_markdown(report)
-    # The files of a code scan (up to SECREVIEW_MAX_SCAN_FILES) stay in the web interface
+    # The files of a scan (up to SECREVIEW_MAX_SCAN_FILES) stay in the web interface
     return report.model_dump(mode="json", exclude={"scanned_files"})
 
 

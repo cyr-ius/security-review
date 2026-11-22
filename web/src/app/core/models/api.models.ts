@@ -121,13 +121,17 @@ export interface ChecklistResult {
   outcome: ChecklistOutcome;
 }
 
-/** One file of a code scan report: scanned (language, lines, matches) or not (reason). */
+/** One file of a scan report: a source file of a code scan (language, lines, matches) or not
+ * scanned (reason), or a manifest of a dependency scan (ecosystem, components, matches). */
 export interface ScannedFile {
   path: string;
   language?: string | null;
   lines?: number | null;
   matches?: number;
   reason?: string | null;
+  ecosystem?: string | null;
+  components?: number | null;
+  vulnerability_check?: string | null;
 }
 
 /** Review types run by an agent with a review prompt: they declare their coverage. */

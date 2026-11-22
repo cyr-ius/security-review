@@ -238,7 +238,7 @@ def save_report(
             depscan), never from a reviewer: their severity may be lower than the previous
             occurrence of an issue. A review keeps that severity instead; ``review_type`` is
             declared by the client and does not tell them apart.
-        scanned_files: Files of a code scan of the controller, scanned or not (bounded by
+        scanned_files: Files of a code or dependency scan of the controller (bounded by
             SECREVIEW_MAX_SCAN_FILES); their paths are masked and cut like those of findings.
 
     Returns:

@@ -182,7 +182,7 @@ export class ReportDetailComponent {
     return declared || expected ? { items, counts, leads, declared } : null;
   });
 
-  /** Files of a code scan: the scanned ones and the ones not scanned, with their counts. */
+  /** Files of a code or dependency scan, with their counts. */
   readonly scannedFiles = computed(() => {
     const files = this.report.value()?.scanned_files ?? [];
     if (!files.length) {
@@ -190,7 +190,12 @@ export class ReportDetailComponent {
     }
     const skipped = files.filter((f) => f.reason).length;
     const withLeads = files.filter((f) => (f.matches ?? 0) > 0).length;
-    return { files, scanned: files.length - skipped, skipped, withLeads };
+    // A dependency scan lists manifests: ecosystem and components instead of language and lines
+    const dependencies = files.some((f) => f.components != null);
+    const unchecked = files.filter(
+      (f) => f.vulnerability_check && f.vulnerability_check !== 'performed',
+    ).length;
+    return { files, scanned: files.length - skipped, skipped, withLeads, dependencies, unchecked };
   });
   /** The rows of the scanned files are only rendered once their section is opened. */
   readonly scannedFilesOpen = signal(false);

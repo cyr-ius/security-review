@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 
 from ..config import get_settings
 from ..reports import services
-from ..storage.models import SEVERITY_RANK, FindingCreate, ReviewType, Severity
+from ..storage.models import SEVERITY_RANK, FindingCreate, ReviewType, ScannedFile, Severity
 from .advisories import Query, advisory_status, find_vulnerabilities, severity_or_default
 from .dependencies import Parsed, parse_dependency_file
 
@@ -290,5 +290,21 @@ def save(
         author=author,
         submitted_by=submitted_by,
         from_scan=True,
+        scanned_files=scanned_files(results),
         **report_content(results),
     )
+
+
+def scanned_files(results: Sequence[dict]) -> list[ScannedFile]:
+    """List the dependency files of a scan for its report, sorted by path."""
+    files = [
+        ScannedFile(
+            path=r["file"],
+            ecosystem=r["ecosystem"],
+            components=r["components_total"],
+            matches=r["vulnerabilities_count"] + r["hygiene_count"],
+            vulnerability_check=r["vulnerability_check"],
+        )
+        for r in results
+    ]
+    return sorted(files, key=lambda f: f.path)

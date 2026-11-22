@@ -142,14 +142,20 @@ class StoredChecklistResult(ChecklistResult):
 
 
 class ScannedFile(SQLModel):
-    """A file of a code scan report: scanned (language, lines, matches) or not, with the
-    reason."""
+    """A file of a scan report: a source file of a code scan (language, lines, matches) or not
+    scanned (reason), or a manifest of a dependency scan (ecosystem, components, matches and
+    whether the vulnerability check ran)."""
 
     path: str
     language: str | None = None
     lines: int | None = None
     matches: int = 0
     reason: str | None = Field(default=None, description="Why the file was not scanned")
+    ecosystem: str | None = None
+    components: int | None = None
+    vulnerability_check: str | None = Field(
+        default=None, description="performed, or why the vulnerability check did not run"
+    )
 
 
 class FindingBase(SQLModel):
@@ -400,7 +406,7 @@ class SecurityReport(SecurityReportBase, table=True):
     # Review coverage, JSON lists: StoredChecklistResult objects and rule ids of scan leads
     checklist_results: str = Field(default="[]")
     scan_rules: str = Field(default="[]")
-    # Code scans (security-review-ci scan-code): JSON list of ScannedFile objects
+    # Code and dependency scans (security-review-ci): JSON list of ScannedFile objects
     scanned_files: str = Field(default="[]")
     findings: list[Finding] = Relationship(
         back_populates="report",

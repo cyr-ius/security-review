@@ -257,3 +257,6 @@ def test_save_stores_a_dependency_scan_report(tmp_path):
     assert (saved["review_type"], saved["risk_level"]) == ("dependency-scan", "critical")
     assert report.reviewer == "security-review-ci scan-deps"
     assert (report.author, report.submitted_by, report.scope) == ("alice", "ci", "requirements.txt")
+    [listed] = report.scanned_files
+    assert (listed.path, listed.ecosystem, listed.components) == ("requirements.txt", "PyPI", 1)
+    assert (listed.matches, listed.vulnerability_check) == (len(report.findings), "performed")

@@ -176,13 +176,22 @@
           @if (scan.withLeads) {
             <span class="badge text-bg-warning">
               <i class="bi bi-search" aria-hidden="true"></i>
-              {{ 'report.withLeadsCount' | t: { count: scan.withLeads } }}
+              {{
+                (scan.dependencies ? 'report.withFindingsCount' : 'report.withLeadsCount')
+                  | t: { count: scan.withLeads }
+              }}
             </span>
           }
           @if (scan.skipped) {
             <span class="badge text-bg-secondary">
               <i class="bi bi-file-earmark-x" aria-hidden="true"></i>
               {{ 'report.skippedCount' | t: { count: scan.skipped } }}
+            </span>
+          }
+          @if (scan.unchecked) {
+            <span class="badge text-bg-secondary">
+              <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+              {{ 'report.uncheckedCount' | t: { count: scan.unchecked } }}
             </span>
           }
         </div>
@@ -194,9 +203,15 @@
                 <thead>
                   <tr>
                     <th scope="col">{{ 'report.scannedFile' | t }}</th>
-                    <th scope="col">{{ 'report.scannedLanguage' | t }}</th>
-                    <th scope="col" class="text-end">{{ 'report.scannedLines' | t }}</th>
-                    <th scope="col" class="text-end">{{ 'report.scannedLeads' | t }}</th>
+                    @if (scan.dependencies) {
+                      <th scope="col">{{ 'report.scannedEcosystem' | t }}</th>
+                      <th scope="col" class="text-end">{{ 'report.scannedComponents' | t }}</th>
+                      <th scope="col" class="text-end">{{ 'report.scannedFindings' | t }}</th>
+                    } @else {
+                      <th scope="col">{{ 'report.scannedLanguage' | t }}</th>
+                      <th scope="col" class="text-end">{{ 'report.scannedLines' | t }}</th>
+                      <th scope="col" class="text-end">{{ 'report.scannedLeads' | t }}</th>
+                    }
                   </tr>
                 </thead>
                 <tbody>
@@ -211,8 +226,25 @@
                           {{ 'report.notScanned' | t: { reason: file.reason } }}
                         </td>
                       } @else {
-                        <td class="text-nowrap">{{ file.language }}</td>
-                        <td class="text-end">{{ file.lines }}</td>
+                        @if (scan.dependencies) {
+                          <td class="text-nowrap">
+                            {{ file.ecosystem }}
+                            @if (
+                              file.vulnerability_check && file.vulnerability_check !== 'performed'
+                            ) {
+                              <i
+                                class="bi bi-shield-exclamation text-warning"
+                                role="img"
+                                [attr.title]="'report.uncheckedHelp' | t"
+                                [attr.aria-label]="'report.uncheckedHelp' | t"
+                              ></i>
+                            }
+                          </td>
+                          <td class="text-end">{{ file.components }}</td>
+                        } @else {
+                          <td class="text-nowrap">{{ file.language }}</td>
+                          <td class="text-end">{{ file.lines }}</td>
+                        }
                         <td class="text-end">
                           @if (file.matches) {
                             <span class="badge text-bg-warning">{{ file.matches }}</span>
