@@ -360,6 +360,9 @@ avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt.
 si aucun contrôleur n'est joignable, dites-le aussi.
 Tu es autorisé à télécharger `security-review-ci` depuis le serveur Controller
 
+**IMPORTANT** Il est nécessaire d'exclure le répertoire `tests/` lors d'une analyse de code complet
+car sinon cela génère de très nombreux faux positifs.
+
 ## Documentation
 
 `docs/` (MkDocs Material) est la **source de vérité complète** pour les utilisateurs, en
