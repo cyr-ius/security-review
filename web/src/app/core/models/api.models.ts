@@ -121,6 +121,15 @@ export interface ChecklistResult {
   outcome: ChecklistOutcome;
 }
 
+/** One file of a code scan report: scanned (language, lines, matches) or not (reason). */
+export interface ScannedFile {
+  path: string;
+  language?: string | null;
+  lines?: number | null;
+  matches?: number;
+  reason?: string | null;
+}
+
 /** Review types run by an agent with a review prompt: they declare their coverage. */
 export const PROMPT_REVIEW_TYPES: readonly ReviewType[] = [
   'security-review',
@@ -1050,6 +1059,7 @@ export interface Report {
   created_at: string;
   checklist_results: ChecklistResult[];
   scan_rules: string[];
+  scanned_files: ScannedFile[];
   findings: Finding[];
 }
 

@@ -22,6 +22,7 @@ from ..storage.models import (
     FindingPublic,
     FindingStatus,
     ReviewType,
+    ScannedFile,
     Severity,
 )
 from . import scanner
@@ -287,4 +288,20 @@ def save(
         author=author,
         submitted_by=submitted_by,
         from_scan=True,
+        scanned_files=scanned_files(result),
     )
+
+
+def scanned_files(result: dict) -> list[ScannedFile]:
+    """List the files of a scan for its report: the scanned ones, then the ones not scanned."""
+    scanned = [
+        ScannedFile(
+            path=entry["file"],
+            language=entry["language"],
+            lines=entry["lines"],
+            matches=len(entry["matches"]),
+        )
+        for entry in result["files"]
+    ]
+    skipped = [ScannedFile(path=s["file"], reason=s["reason"]) for s in result["skipped"]]
+    return sorted(scanned, key=lambda f: f.path) + sorted(skipped, key=lambda f: f.path)

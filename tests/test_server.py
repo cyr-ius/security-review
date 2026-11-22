@@ -218,6 +218,8 @@ async def test_the_author_of_a_report_is_stored_but_never_read_back():
     rows = listed.structured_content["result"]
     assert [r["author"] for r in rows] == [None, None]
     assert json.loads(text_of(as_json))["author"] is None
+    # The files of a code scan, up to SECREVIEW_MAX_SCAN_FILES, never reach the model
+    assert "scanned_files" not in json.loads(text_of(as_json))
     for text in (
         text_of(as_markdown),
         resource.contents[0].text,

@@ -79,6 +79,8 @@ MAX_REVIEWER_CHARS = 200
 MAX_CHECKLIST_RESULTS = 500
 MAX_SCAN_RULES = 500
 MAX_ITEM_ID_CHARS = 60
+# Path of a file listed in the scanned files of a code scan report (as for a finding)
+MAX_SCANNED_PATH_CHARS = 500
 
 
 def as_utc(value: datetime) -> datetime:
@@ -137,6 +139,17 @@ class StoredChecklistResult(ChecklistResult):
 
     title: str = ""
     domain: str = ""
+
+
+class ScannedFile(SQLModel):
+    """A file of a code scan report: scanned (language, lines, matches) or not, with the
+    reason."""
+
+    path: str
+    language: str | None = None
+    lines: int | None = None
+    matches: int = 0
+    reason: str | None = Field(default=None, description="Why the file was not scanned")
 
 
 class FindingBase(SQLModel):
@@ -387,6 +400,8 @@ class SecurityReport(SecurityReportBase, table=True):
     # Review coverage, JSON lists: StoredChecklistResult objects and rule ids of scan leads
     checklist_results: str = Field(default="[]")
     scan_rules: str = Field(default="[]")
+    # Code scans (security-review-ci scan-code): JSON list of ScannedFile objects
+    scanned_files: str = Field(default="[]")
     findings: list[Finding] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -402,9 +417,10 @@ class SecurityReportPublic(SecurityReportBase):
     submitted_by: str | None = None
     checklist_results: list[StoredChecklistResult] = []
     scan_rules: list[str] = []
+    scanned_files: list[ScannedFile] = []
     findings: list[FindingPublic] = []
 
-    @field_validator("checklist_results", "scan_rules", mode="before")
+    @field_validator("checklist_results", "scan_rules", "scanned_files", mode="before")
     @classmethod
     def _parse_json(cls, value: object) -> object:
         """Read the JSON lists stored in the report table."""

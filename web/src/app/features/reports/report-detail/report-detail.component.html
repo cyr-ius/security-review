@@ -164,6 +164,74 @@
     </div>
   }
 
+  @if (scannedFiles(); as scan) {
+    <div class="card mb-4">
+      <div class="card-header fw-semibold">{{ 'report.scannedFiles' | t }}</div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <span class="badge text-bg-success">
+            <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
+            {{ 'report.scannedCount' | t: { count: scan.scanned } }}
+          </span>
+          @if (scan.withLeads) {
+            <span class="badge text-bg-warning">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              {{ 'report.withLeadsCount' | t: { count: scan.withLeads } }}
+            </span>
+          }
+          @if (scan.skipped) {
+            <span class="badge text-bg-secondary">
+              <i class="bi bi-file-earmark-x" aria-hidden="true"></i>
+              {{ 'report.skippedCount' | t: { count: scan.skipped } }}
+            </span>
+          }
+        </div>
+        <details (toggle)="onScannedFilesToggle($event)">
+          <summary>{{ 'report.scannedFilesList' | t: { count: scan.files.length } }}</summary>
+          @if (scannedFilesOpen()) {
+            <div class="table-responsive mt-2">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ 'report.scannedFile' | t }}</th>
+                    <th scope="col">{{ 'report.scannedLanguage' | t }}</th>
+                    <th scope="col" class="text-end">{{ 'report.scannedLines' | t }}</th>
+                    <th scope="col" class="text-end">{{ 'report.scannedLeads' | t }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (file of scan.files; track file.path) {
+                    <tr>
+                      <td class="text-break">
+                        <code>{{ file.path }}</code>
+                      </td>
+                      @if (file.reason) {
+                        <td colspan="3" class="text-body-secondary">
+                          <i class="bi bi-file-earmark-x" aria-hidden="true"></i>
+                          {{ 'report.notScanned' | t: { reason: file.reason } }}
+                        </td>
+                      } @else {
+                        <td class="text-nowrap">{{ file.language }}</td>
+                        <td class="text-end">{{ file.lines }}</td>
+                        <td class="text-end">
+                          @if (file.matches) {
+                            <span class="badge text-bg-warning">{{ file.matches }}</span>
+                          } @else {
+                            <span class="text-body-secondary">0</span>
+                          }
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </details>
+      </div>
+    </div>
+  }
+
   <app-table-controls
     idPrefix="report-findings"
     [search]="searchInput()"

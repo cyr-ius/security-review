@@ -82,7 +82,10 @@ Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre 
   l'utilisateur d'un jeton `ci` personnel en est l'auteur, sinon `--author` ajoute le nom
   d'utilisateur du développeur (voir
   [auteur d'un rapport](../../reference/prompts-tools.md#auteur-dun-rapport)), `--repository`,
-  `--branch` et `--commit` le contexte.
+  `--branch` et `--commit` le contexte. La page **Rapport** liste les fichiers du scan dans une
+  section dépliable **Fichiers scannés** : langage, lignes et nombre de pistes de chaque fichier
+  scanné, et motif de chaque fichier non scanné (cette liste n'est pas renvoyée par
+  `get_security_report`).
 - Avec `--save --format sarif`, le journal SARIF porte les identifiants des findings
   enregistrés.
 

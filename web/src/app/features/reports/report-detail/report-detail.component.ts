@@ -182,6 +182,23 @@ export class ReportDetailComponent {
     return declared || expected ? { items, counts, leads, declared } : null;
   });
 
+  /** Files of a code scan: the scanned ones and the ones not scanned, with their counts. */
+  readonly scannedFiles = computed(() => {
+    const files = this.report.value()?.scanned_files ?? [];
+    if (!files.length) {
+      return null;
+    }
+    const skipped = files.filter((f) => f.reason).length;
+    const withLeads = files.filter((f) => (f.matches ?? 0) > 0).length;
+    return { files, scanned: files.length - skipped, skipped, withLeads };
+  });
+  /** The rows of the scanned files are only rendered once their section is opened. */
+  readonly scannedFilesOpen = signal(false);
+
+  onScannedFilesToggle(event: Event): void {
+    this.scannedFilesOpen.set((event.target as HTMLDetailsElement).open);
+  }
+
   /** Open risks of the report (the unread observations are not open findings). */
   readonly openCount = computed(
     () => this.findings().filter((f) => statusFilterOf(f) === 'open').length,

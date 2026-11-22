@@ -79,7 +79,10 @@ The client chooses the files; the Controller server never reads its own disk.
   not analyzed in `scope` and the label of the token as the device that saved it; the user of a
   personal `ci` token is the author, else `--author` adds the username of the developer (see
   [author of a report](../../reference/prompts-tools.md#author-of-a-report)), `--repository`,
-  `--branch` and `--commit` the context.
+  `--branch` and `--commit` the context. The **Report** page lists the files of the scan in a
+  collapsible **Scanned files** section: language, lines and number of leads of each scanned
+  file, and the reason of each file not scanned (this list is not returned by
+  `get_security_report`).
 - With `--save --format sarif`, the SARIF log carries the ids of the stored findings.
 
 !!! warning "Triage before blocking"

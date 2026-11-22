@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import and_, case, func, or_, update
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, selectinload
 from sqlmodel import Session, col, select
 
 from ...config import MAX_RETENTION_DAYS, get_settings
@@ -20,6 +20,7 @@ from ...storage.models import (
     MAX_COMMIT_SHA_CHARS,
     MAX_REPOSITORY_CHARS,
     MAX_REVIEWER_CHARS,
+    MAX_SCANNED_PATH_CHARS,
     SEVERITY_RANK,
     ChecklistResult,
     Finding,
@@ -27,6 +28,7 @@ from ...storage.models import (
     FindingCreate,
     FindingStatus,
     ReviewType,
+    ScannedFile,
     SecurityReport,
     SecurityReportPublic,
     Severity,
@@ -188,6 +190,13 @@ def _supersede(session: Session, pairs: list[tuple[Finding, Finding]]) -> None:
         session.add(previous)
 
 
+def _sanitize_scanned(item: ScannedFile) -> ScannedFile:
+    """Mask the secrets of a scanned file entry and cut its path to the column size."""
+    path = sanitize_untrusted(item.path)[:MAX_SCANNED_PATH_CHARS]
+    reason = sanitize_untrusted(item.reason)[:MAX_SCANNED_PATH_CHARS] if item.reason else None
+    return item.model_copy(update={"path": path, "reason": reason})
+
+
 def save_report(
     project: str,
     summary: str,
@@ -204,6 +213,7 @@ def save_report(
     checklist_results: list[ChecklistResult] | None = None,
     scan_rules: list[str] | None = None,
     from_scan: bool = False,
+    scanned_files: list[ScannedFile] | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -228,6 +238,8 @@ def save_report(
             depscan), never from a reviewer: their severity may be lower than the previous
             occurrence of an issue. A review keeps that severity instead; ``review_type`` is
             declared by the client and does not tell them apart.
+        scanned_files: Files of a code scan of the controller, scanned or not (bounded by
+            SECREVIEW_MAX_SCAN_FILES); their paths are masked and cut like those of findings.
 
     Returns:
         Identifier, risk level and finding counts of the stored report; with declared
@@ -294,6 +306,13 @@ def save_report(
         if declared is not None:
             report.checklist_results = json.dumps([r.model_dump() for r in declared.checklist])
             report.scan_rules = json.dumps(declared.scan_rules)
+        if scanned_files:
+            report.scanned_files = json.dumps(
+                [
+                    _sanitize_scanned(item).model_dump(exclude_defaults=True)
+                    for item in scanned_files
+                ]
+            )
         session.add(report)
         session.flush()  # assigns ids before the commit
         _supersede(session, pairs)
@@ -382,7 +401,8 @@ def list_reports(
             sort_by = "submitted_by"
 
     with session_scope() as session:
-        statement = select(SecurityReport)
+        # The files of a code scan are not listed: never load them here
+        statement = select(SecurityReport).options(defer(SecurityReport.scanned_files))  # type: ignore[arg-type]
         if names := [normalize_project(name) for name in _values(project) if name]:
             statement = statement.where(col(SecurityReport.project).in_(names))
         if projects is not None:
