@@ -559,6 +559,7 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
             "expires_at": "2026-11-12T10:10:00+00:00",
             "controller_url": "https://sr.example/;id" if len(sent) == 2 else "https://sr.example",
             "client_download": True,
+            "review_group": "0123456789abcdef0123456789abcdef",
         }
 
     monkeypatch.setattr(server.remote_scan, "request_ticket", controller)
@@ -587,6 +588,9 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
     # The ticket of a dependency review opens the dependency scan only
     assert sent[2][3] == "deps"
     assert unsafe.is_error and "unsafe in a shell" in text_of(unsafe)
+    # The agent passes it to save_security_report: its review is linked to the scans
+    assert result["review_group"] == "0123456789abcdef0123456789abcdef"
+    assert "review_group" in result["note"]
     command = result["scan_code_command"]
     # The ticket goes on stdin, never as an argument
     assert command.startswith("echo 'secreview_scan_abc' | uvx --no-index --find-links ")

@@ -81,7 +81,7 @@ fix" section of the prompt takes precedence, including a severity given with the
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin`, `terraform`, `api`, `config`, `cicd`, `dependencies` and internal domains |
 | `scan_code` | Quick line-by-line pattern scan (leads to check, **not** a full SAST; data flows are followed by OpenGrep during a scan of the codebase, or by `scan_code` when it is [delegated to the Controller server](../review/analysis/opengrep.md#fragment-scans-scan_code)). Masked excerpts, invisible characters shown as `<U+XXXX>` |
-| `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
+| `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); its `review_group` links the reports of the scans and of the review; HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type, with pagination |
@@ -144,7 +144,10 @@ See [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-toke
 - `author`: not needed, the server takes the user of a personal token (see
   [author of a report](#author-of-a-report));
 - `checklist_results` and `scan_rules`: the coverage of the review (see
-  [review coverage](#review-coverage)).
+  [review coverage](#review-coverage));
+- `review_group`: the one returned by `start_codebase_scan`, which links the report to the
+  reports of its scans (see
+  [scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)).
 
 Each field is bounded: `repository` (500 characters), `branch` (200), `commit_sha` (64),
 `reviewer` (200), and each text (`summary`, `scope`, and the `description`, `evidence` and

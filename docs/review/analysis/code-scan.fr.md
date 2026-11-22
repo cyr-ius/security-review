@@ -153,6 +153,14 @@ qui peut enregistrer des rapports sur le projet (`reports.write`) en obtient un.
 contexte du modèle, qui le recopie dans la commande : il ne vaut plus rien une fois utilisé ou
 expiré ([sécurité](../../reference/security.md#securite-du-serveur-lui-meme)).
 
+L'outil renvoie aussi un `review_group` : l'identifiant du ticket, qui n'est pas un secret. Les
+rapports des scans enregistrés avec le ticket le portent, et l'agent le passe à
+`save_security_report` pour sa propre revue : la page **Rapport** de chacun affiche alors les
+autres sous **Rapports liés** (par exemple le `code-scan`, le `dependency-scan` et le
+`codebase-review` d'une même revue). Le serveur ne garde un `review_group` déclaré par l'agent
+que si un ticket ou un rapport du même projet le porte ; sinon il enregistre le rapport sans
+lui, avec un avertissement.
+
 ### Ce que fait `codebase-review`
 
 Le prompt ne lit lui-même aucun fichier : il donne une **méthode** à l'agent, et c'est l'agent

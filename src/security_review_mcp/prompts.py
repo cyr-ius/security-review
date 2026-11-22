@@ -393,7 +393,8 @@ contain the exact resolved versions, including transitive dependencies.
 2. If you can run shell commands, call `start_codebase_scan` with the project and `scope` \
 `deps`, and run the command it gives at the root of the repository: it finds the dependency \
 files, sends them to the Controller server exactly as they are (without you reading them nor \
-the size limit of a tool call) and saves the scan. If that tool is not available or fails, \
+the size limit of a tool call) and saves the scan; keep the `review_group` it returns for the \
+report. If that tool is not available or fails, \
 and `security-review-ci` is set up (`SECREVIEW_CONTROLLER_URL` and a personal ci token in \
 `SECREVIEW_CI_TOKEN`), run `security-review-ci scan-deps . --project <name> --format json`. \
 Otherwise call the `scan_dependencies` tool for each file with its content and its file name.
@@ -413,7 +414,8 @@ that exist on public registries (dependency confusion), abandoned or typosquatte
 
 ## Deliverable
 Reply with a short summary and the findings, then call `save_security_report` once with \
-`review_type` `dependency-review`. {_AUTHOR_RULE} Pass in `checklist_results` every \
+`review_type` `dependency-review`, and the `review_group` of `start_codebase_scan` if you \
+called it. {_AUTHOR_RULE} Pass in `checklist_results` every \
 checklist item you walked through with its outcome (`ok`, `issue`, `not_applicable`, \
 `not_verifiable`). Use category `dependency`, the `advisory_id` returned by the tool (not \
 an alias) or the hygiene `rule_id` as `rule_id`, `CWE-1395` for vulnerable components and the \
@@ -439,7 +441,8 @@ vendored dependencies and build output). Identify the languages, frameworks, ent
 2. **Leads.** If scan results are given below, start from them. Otherwise, if you can run \
 shell commands, call `start_codebase_scan` with the project and run the commands it gives at \
 the root of the repository: the Controller server scans every file as it is, without you \
-reading them, and the summary lists the files and rules to verify first. If that tool is not \
+reading them, and the summary lists the files and rules to verify first; keep the \
+`review_group` it returns for the report. If that tool is not \
 available or fails, and `security-review-ci` is set up (`SECREVIEW_CONTROLLER_URL` and a \
 personal ci token in `SECREVIEW_CI_TOKEN`), run \
 `security-review-ci scan-code . --project <name> --format summary` yourself, or ask the user \
@@ -467,7 +470,9 @@ reporting them, unless they ship to production.
 ## Deliverable
 1. Reply with a short summary, the findings (most severe first) and a coverage section: \
 files and areas reviewed, and those NOT reviewed.
-2. Call `save_security_report` exactly once with `review_type` `codebase-review`. \
+2. Call `save_security_report` exactly once with `review_type` `codebase-review`, and the \
+`review_group` of `start_codebase_scan` if you called it (it links your report to the reports \
+of the scans). \
 {_AUTHOR_RULE} {_COVERAGE_RULE} Put the coverage in `scope` (for example \
 "Full codebase: src/api, src/auth reviewed; src/legacy not reviewed"). {_REPORT_REQUIRED}
 3. {_RULE_PROPOSAL}

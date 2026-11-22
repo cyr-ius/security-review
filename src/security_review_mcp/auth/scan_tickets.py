@@ -57,7 +57,8 @@ def issue(project: str, state: Mapping[str, Any], scope: Scope = "all") -> dict[
     other scan is marked as used at once: the ticket opens no scan the agent did not ask for.
 
     Returns:
-        ``ticket`` (shown once), ``project`` and ``expires_at``.
+        ``ticket`` (shown once), ``project``, ``expires_at`` and ``review_group`` (the id of the
+        ticket, stored with the reports of its scans).
 
     Raises:
         ValueError: If the project name is invalid, the caller may not save reports on it, is
@@ -115,7 +116,13 @@ def issue(project: str, state: Mapping[str, Any], scope: Scope = "all") -> dict[
             project=project,
             details={"expires_at": row.expires_at.isoformat(), "scope": scope},
         )
-        return {"ticket": secret, "project": project, "expires_at": row.expires_at.isoformat()}
+        return {
+            "ticket": secret,
+            "project": project,
+            "expires_at": row.expires_at.isoformat(),
+            # Not a credential: links the reports of the scans to the review of the agent
+            "review_group": row.id,
+        }
 
 
 def _token_reaches(session: Session, token_id: str, project: str) -> bool:

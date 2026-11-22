@@ -97,6 +97,37 @@
     </div>
   </div>
 
+  @if (data.related_reports.length) {
+    <div class="card mb-4">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-link-45deg" aria-hidden="true"></i>
+        {{ 'report.related' | t }}
+      </div>
+      <div class="card-body">
+        <p class="text-body-secondary small mb-2">{{ 'report.relatedHelp' | t }}</p>
+        <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+          @for (related of data.related_reports; track related.id) {
+            <li class="d-flex flex-wrap align-items-center gap-2">
+              <app-severity-badge [severity]="related.risk_level" />
+              <a [routerLink]="['/reports', related.id]">
+                {{ 'report.title' | t: { id: related.id } }}
+              </a>
+              @if (related.review_type; as relatedType) {
+                <span>
+                  <i class="bi {{ reviewTypeMeta[relatedType].icon }}" aria-hidden="true"></i>
+                  {{ reviewTypeMeta[relatedType].label | t }}
+                </span>
+              }
+              <span class="text-body-secondary small">
+                {{ related.created_at | date: 'dd/MM/yyyy HH:mm' }}
+              </span>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+  }
+
   @if (coverage(); as cov) {
     <div class="card mb-4">
       <div class="card-header fw-semibold">{{ 'report.coverage' | t }}</div>

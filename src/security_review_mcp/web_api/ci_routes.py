@@ -111,7 +111,7 @@ async def ci_trend(
 async def _ticket_use(request: Request, kind: scan_tickets.Kind) -> AsyncIterator[None]:
     """Use the scan ticket of the request, if any, for one scan of this ``kind``: 401 when it
     was already used for it; given back when the scan fails (the client may retry)."""
-    ticket_id = (request.scope.get("state") or {}).get("auth_ticket_id")
+    ticket_id = _ticket_id(request)
     if ticket_id is None:
         yield
         return
@@ -132,7 +132,15 @@ def _verdict(blocking: int, request: CodeScanRequest | DependencyScanRequest) ->
     return {"fail_on": request.fail_on, "blocked": blocking > 0, "blocking_findings": blocking}
 
 
-def _code_scan(request: CodeScanRequest, client: str, owner: str | None) -> dict:
+def _ticket_id(request: Request) -> str | None:
+    """Id of the scan ticket that authenticated the request (start_codebase_scan), if any: the
+    review group of the report it saves."""
+    return (request.scope.get("state") or {}).get("auth_ticket_id")
+
+
+def _code_scan(
+    request: CodeScanRequest, client: str, owner: str | None, group: str | None = None
+) -> dict:
     """Scan the files of a code scan request, store the report with ``save`` (authored by the
     ``owner`` of a personal token, else by the declared author)."""
     result = codescan.scan_files(
@@ -155,6 +163,7 @@ def _code_scan(request: CodeScanRequest, client: str, owner: str | None) -> dict
             request.project,
             author=owner or request.author,
             submitted_by=client,
+            review_group=group,
             **fields,
         )
     log = codescan.to_sarif(result, request.project, saved, **fields) if request.sarif else None
@@ -162,7 +171,9 @@ def _code_scan(request: CodeScanRequest, client: str, owner: str | None) -> dict
     return result | _verdict(blocking, request) | {"saved_report": saved, "sarif": log}
 
 
-def _dependency_scan(request: DependencyScanRequest, client: str, owner: str | None) -> dict:
+def _dependency_scan(
+    request: DependencyScanRequest, client: str, owner: str | None, group: str | None = None
+) -> dict:
     """Scan the files of a dependency scan request, store the report with ``save`` (authored by
     the ``owner`` of a personal token, else by the declared author)."""
     results = depscan.scan_files(
@@ -178,6 +189,7 @@ def _dependency_scan(request: DependencyScanRequest, client: str, owner: str | N
             commit_sha=request.commit_sha,
             author=owner or request.author,
             submitted_by=client,
+            review_group=group,
         )
     blocking = depscan.blocking_count(results, request.fail_on)
     slim = [{k: v for k, v in r.items() if k != "components"} for r in results]
@@ -204,7 +216,9 @@ async def ci_code_scan(
     try:
         async with _ticket_use(http_request, "code"):
             with server_instances.track("pipeline"):
-                result = await run_in_threadpool(_code_scan, request, identity.client, owner)
+                result = await run_in_threadpool(
+                    _code_scan, request, identity.client, owner, _ticket_id(http_request)
+                )
     except ValueError as exc:
         raise unprocessable(exc) from exc
     except OpenGrepError as exc:
@@ -242,7 +256,9 @@ async def ci_dependency_scan(
     try:
         async with _ticket_use(http_request, "deps"):
             with server_instances.track("pipeline"):
-                result = await run_in_threadpool(_dependency_scan, request, identity.client, owner)
+                result = await run_in_threadpool(
+                    _dependency_scan, request, identity.client, owner, _ticket_id(http_request)
+                )
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info(

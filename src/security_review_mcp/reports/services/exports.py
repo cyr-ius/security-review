@@ -121,6 +121,13 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
         ("Author", report.author),
         ("Submitted by", report.submitted_by),
         ("Scope", report.scope),
+        (
+            "Related reports",
+            ", ".join(
+                f"#{r.id} ({r.review_type.value if r.review_type else 'review'})"
+                for r in report.related_reports
+            ),
+        ),
     ):
         if value:
             lines.append(f"- **{label}**: {value}")

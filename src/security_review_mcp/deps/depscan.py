@@ -276,8 +276,10 @@ def save(
     commit_sha: str | None = None,
     author: str | None = None,
     submitted_by: str | None = None,
+    review_group: str | None = None,
 ) -> dict:
     """Store the vulnerabilities and hygiene issues of the scans as one report.
+    ``review_group`` is the id of the scan ticket that sent the files, if any.
 
     Raises:
         ValueError: Too many findings or invalid report fields (author...).
@@ -291,6 +293,7 @@ def save(
         submitted_by=submitted_by,
         from_scan=True,
         scanned_files=scanned_files(results),
+        review_group=review_group,
         **report_content(results),
     )
 

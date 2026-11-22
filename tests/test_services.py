@@ -55,6 +55,20 @@ def test_save_and_get_report():
     assert all(f.status == FindingStatus.OPEN for f in report.findings)
 
 
+def test_a_review_joins_only_a_review_group_of_its_project():
+    group = "0123456789abcdef0123456789abcdef"
+    scan = services.save_report("shop-api", "Code scan", [], review_group=group, from_scan=True)
+    # Another project, a made-up group: the report is saved without it, with a warning
+    for project, declared in (("billing", group), ("shop-api", "f" * 32), ("shop-api", "../x")):
+        saved = services.save_report(project, "Codebase review", [], review_group=declared)
+        assert "review_group" not in saved and "start_codebase_scan" in saved["warnings"][0]
+        assert services.get_report(saved["report_id"]).review_group is None
+    review = services.save_report("shop-api", "Codebase review", [], review_group=group.upper())
+    assert review["review_group"] == group
+    linked = services.get_report(scan["report_id"]).related_reports
+    assert [r.id for r in linked] == [review["report_id"]]
+
+
 def test_empty_report_is_info_risk():
     saved = services.save_report("clean", "Nothing found", [])
     assert saved["risk_level"] == "info"

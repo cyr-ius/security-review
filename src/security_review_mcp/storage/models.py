@@ -79,6 +79,8 @@ MAX_REVIEWER_CHARS = 200
 MAX_CHECKLIST_RESULTS = 500
 MAX_SCAN_RULES = 500
 MAX_ITEM_ID_CHARS = 60
+# Id of a review group: the id (uuid4 hex) of a scan ticket (see SecurityReportBase.review_group)
+REVIEW_GROUP_CHARS = 32
 # Path of a file listed in the scanned files of a code scan report (as for a finding)
 MAX_SCANNED_PATH_CHARS = 500
 
@@ -393,6 +395,9 @@ class SecurityReportBase(SQLModel):
         description="Kind of review: the prompt used (security-review...) or the CLI scan",
     )
     summary: str = Field(min_length=3, description="Executive summary of the review")
+    # Reports of one codebase review: the id of the scan ticket of start_codebase_scan, stored
+    # with the scans saved with that ticket and with the review the agent saves after them
+    review_group: str | None = Field(default=None, index=True, max_length=REVIEW_GROUP_CHARS)
 
 
 class SecurityReport(SecurityReportBase, table=True):
@@ -414,6 +419,15 @@ class SecurityReport(SecurityReportBase, table=True):
     )
 
 
+class RelatedReport(SQLModel):
+    """Another report of the same review group (see SecurityReportBase.review_group)."""
+
+    id: int
+    review_type: ReviewType | None
+    risk_level: Severity
+    created_at: datetime
+
+
 class SecurityReportPublic(SecurityReportBase):
     """Report as returned to the host (with its findings)."""
 
@@ -424,6 +438,8 @@ class SecurityReportPublic(SecurityReportBase):
     checklist_results: list[StoredChecklistResult] = []
     scan_rules: list[str] = []
     scanned_files: list[ScannedFile] = []
+    # Filled by services.get_report, not stored
+    related_reports: list[RelatedReport] = []
     findings: list[FindingPublic] = []
 
     @field_validator("checklist_results", "scan_rules", "scanned_files", mode="before")

@@ -150,6 +150,14 @@ save reports on the project (`reports.write`) gets one. It passes through the co
 model, which copies it into the command: it is worth nothing once used or expired
 ([security](../../reference/security.md#security-of-the-server-itself)).
 
+The tool also returns a `review_group`: the id of the ticket, which is not a credential. The
+reports of the scans saved with the ticket carry it, and the agent passes it to
+`save_security_report` for its own review: the **Report** page of each of them then shows the
+others under **Related reports** (for example the `code-scan`, the `dependency-scan` and the
+`codebase-review` of one review). The server keeps a `review_group` declared by the agent only
+when a ticket or a report of the same project has it; otherwise it saves the report without it,
+with a warning.
+
 ### What `codebase-review` does
 
 The prompt reads no file itself: it gives the agent a **method**, and the agent reads the code

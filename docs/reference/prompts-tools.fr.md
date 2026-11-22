@@ -84,7 +84,7 @@ to fix » du prompt prévaut, y compris une sévérité donnée par l'argument `
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin`, `terraform`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
 | `scan_code` | Scan rapide par motifs ligne par ligne (pistes à vérifier, **pas** un SAST complet ; les flux de données sont suivis par OpenGrep lors d'un scan du dépôt, ou par `scan_code` quand il est [délégué au serveur Controller](../review/analysis/opengrep.md#scans-de-fragments-scan_code)). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
-| `start_codebase_scan` | Donne à l'agent les commandes qui font scanner **tout le dépôt** par le serveur Controller (`security-review-ci` lancé avec `uvx`, ticket à usage unique), sans que l'agent lise les fichiers ni que le développeur crée de jeton `ci` ; `scope` `deps` ne donne que le scan des dépendances (prompt `dependency-review`) ; serveur MCP HTTP avec la délégation de `scan_code` uniquement ([scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
+| `start_codebase_scan` | Donne à l'agent les commandes qui font scanner **tout le dépôt** par le serveur Controller (`security-review-ci` lancé avec `uvx`, ticket à usage unique), sans que l'agent lise les fichiers ni que le développeur crée de jeton `ci` ; `scope` `deps` ne donne que le scan des dépendances (prompt `dependency-review`) ; son `review_group` lie les rapports des scans et de la revue ; serveur MCP HTTP avec la délégation de `scan_code` uniquement ([scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
@@ -147,7 +147,10 @@ Voir [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-per
 - `author` : inutile, le serveur prend l'utilisateur d'un jeton personnel (voir
   [auteur d'un rapport](#auteur-dun-rapport)) ;
 - `checklist_results` et `scan_rules` : la couverture de la revue (voir
-  [couverture de la revue](#couverture-de-la-revue)).
+  [couverture de la revue](#couverture-de-la-revue)) ;
+- `review_group` : celui renvoyé par `start_codebase_scan`, qui lie le rapport aux rapports de
+  ses scans (voir
+  [scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)).
 
 Chaque champ est borné : `repository` (500 caractères), `branch` (200), `commit_sha` (64),
 `reviewer` (200), et chaque texte (`summary`, `scope`, et `description`, `evidence` et

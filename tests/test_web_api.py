@@ -3363,8 +3363,22 @@ def test_a_scan_ticket_runs_each_scan_once_on_its_project_only(secured, reports)
     assert (report.author, report.submitted_by) == ("alice", "alice:agent:ticket")
     # Once per scan
     assert secured.post("/api/v1/ci/scan/code", json=body, headers=ticket).status_code == 401
-    assert secured.post("/api/v1/ci/scan/deps", json=deps, headers=ticket).status_code == 200
+    deps_saved = secured.post("/api/v1/ci/scan/deps", json=deps | {"save": True}, headers=ticket)
+    assert deps_saved.status_code == 200
     assert secured.post("/api/v1/ci/scan/deps", json=deps, headers=ticket).status_code == 401
+    # The reports of the scans and the review of the agent share the id of the ticket
+    group = issued.json()["review_group"]
+    review = services.save_report("shop-api", "Codebase review", [], review_group=group)
+    scans = (saved.json()["saved_report"], deps_saved.json()["saved_report"])
+    assert [r.review_group for r in map(services.get_report, (s["report_id"] for s in scans))] == [
+        group,
+        group,
+    ]
+    linked = services.get_report(review["report_id"]).related_reports
+    assert [(r.id, r.review_type) for r in linked] == [
+        (scans[0]["report_id"], "code-scan"),
+        (scans[1]["report_id"], "dependency-scan"),
+    ]
     # A ticket follows the token that asked for it
     revoked = secured.post(
         "/api/v1/scan/tickets", json={"project": "shop-api"}, headers=_bearer(agent["token"])

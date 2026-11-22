@@ -254,8 +254,10 @@ def save(
     commit_sha: str | None = None,
     author: str | None = None,
     submitted_by: str | None = None,
+    review_group: str | None = None,
 ) -> dict:
     """Store the matches as a report; keep the most severe ones when there are too many.
+    ``review_group`` is the id of the scan ticket that sent the files, if any.
 
     Raises:
         ValueError: Invalid report fields (author...).
@@ -289,6 +291,7 @@ def save(
         submitted_by=submitted_by,
         from_scan=True,
         scanned_files=scanned_files(result),
+        review_group=review_group,
     )
 
 

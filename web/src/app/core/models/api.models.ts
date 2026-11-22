@@ -134,6 +134,14 @@ export interface ScannedFile {
   vulnerability_check?: string | null;
 }
 
+/** Another report of the same codebase review (scans and review of the agent). */
+export interface RelatedReport {
+  id: number;
+  review_type: ReviewType | null;
+  risk_level: Severity;
+  created_at: string;
+}
+
 /** Review types run by an agent with a review prompt: they declare their coverage. */
 export const PROMPT_REVIEW_TYPES: readonly ReviewType[] = [
   'security-review',
@@ -1064,6 +1072,9 @@ export interface Report {
   checklist_results: ChecklistResult[];
   scan_rules: string[];
   scanned_files: ScannedFile[];
+  /** Id of the scan ticket of a codebase review, shared by its reports. */
+  review_group: string | null;
+  related_reports: RelatedReport[];
   findings: Finding[];
 }
 

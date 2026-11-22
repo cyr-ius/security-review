@@ -100,6 +100,9 @@ export const reports = defineMessages({
     'report.scannedEcosystem': 'Ecosystem',
     'report.scannedComponents': 'Components',
     'report.scannedFindings': 'Findings',
+    'report.related': 'Related reports',
+    'report.relatedHelp':
+      'Reports of the same codebase review: the scans run by the agent and its review.',
     'report.coverage': 'Review coverage',
     'report.coverageNone': 'The reviewer did not declare which checklist items it walked through.',
     'report.coverageItems': 'Checklist items ({count})',
@@ -214,6 +217,9 @@ export const reports = defineMessages({
     'report.scannedEcosystem': 'Écosystème',
     'report.scannedComponents': 'Composants',
     'report.scannedFindings': 'Findings',
+    'report.related': 'Rapports liés',
+    'report.relatedHelp':
+      "Rapports d'une même revue du code complet : les scans lancés par l'agent et sa revue.",
     'report.coverage': 'Couverture de la revue',
     'report.coverageNone': "Le relecteur n'a pas déclaré les points de checklist qu'il a vérifiés.",
     'report.coverageItems': 'Points de checklist ({count})',
@@ -327,6 +333,9 @@ export const reports = defineMessages({
     'report.scannedEcosystem': 'Ecosistema',
     'report.scannedComponents': 'Componentes',
     'report.scannedFindings': 'Hallazgos',
+    'report.related': 'Informes relacionados',
+    'report.relatedHelp':
+      'Informes de una misma revisión del código completo: los escaneos lanzados por el agente y su revisión.',
     'report.coverage': 'Cobertura de la revisión',
     'report.coverageNone': 'El revisor no declaró qué puntos de la lista de verificación revisó.',
     'report.coverageItems': 'Puntos de la lista de verificación ({count})',

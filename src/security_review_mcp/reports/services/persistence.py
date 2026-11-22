@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from collections import Counter
 from collections.abc import Collection
 from datetime import datetime, timedelta
@@ -27,8 +28,10 @@ from ...storage.models import (
     FindingComment,
     FindingCreate,
     FindingStatus,
+    RelatedReport,
     ReviewType,
     ScannedFile,
+    ScanTicket,
     SecurityReport,
     SecurityReportPublic,
     Severity,
@@ -48,6 +51,9 @@ from .core import (
     _values,
     compute_risk_level,
 )
+
+# A review group is the id of a scan ticket (uuid4 hex, see auth.scan_tickets)
+REVIEW_GROUP_PATTERN = re.compile(r"[0-9a-f]{32}")
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -197,6 +203,32 @@ def _sanitize_scanned(item: ScannedFile) -> ScannedFile:
     return item.model_copy(update={"path": path, "reason": reason})
 
 
+def _known_group(session: Session, project: str, group: str, warnings: list[str]) -> str | None:
+    """Return the review group declared by an agent when a scan ticket or a report of
+    ``project`` has it, None with a warning otherwise (an agent cannot join another project's
+    reports, nor make up a group)."""
+    group = group.strip().lower()
+    known = REVIEW_GROUP_PATTERN.fullmatch(group) is not None and (
+        session.exec(
+            select(ScanTicket.id).where(ScanTicket.id == group, ScanTicket.project == project)
+        ).first()
+        is not None
+        or session.exec(
+            select(SecurityReport.id).where(
+                SecurityReport.review_group == group, SecurityReport.project == project
+            )
+        ).first()
+        is not None
+    )
+    if not known:
+        warnings.append(
+            "review_group is not the one given by start_codebase_scan for this project: "
+            "the report is saved without it"
+        )
+        return None
+    return group
+
+
 def save_report(
     project: str,
     summary: str,
@@ -214,6 +246,7 @@ def save_report(
     scan_rules: list[str] | None = None,
     from_scan: bool = False,
     scanned_files: list[ScannedFile] | None = None,
+    review_group: str | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -240,6 +273,10 @@ def save_report(
             declared by the client and does not tell them apart.
         scanned_files: Files of a code or dependency scan of the controller (bounded by
             SECREVIEW_MAX_SCAN_FILES); their paths are masked and cut like those of findings.
+        review_group: Id of the scan ticket of a codebase review (start_codebase_scan): set by
+            the controller for the scans saved with the ticket, declared by the agent for its
+            review. A declared group is kept only when a ticket or a report of the project has
+            it; otherwise it is dropped with a warning (the report is still saved).
 
     Returns:
         Identifier, risk level and finding counts of the stored report; with declared
@@ -284,6 +321,9 @@ def save_report(
 
     with session_scope() as session:
         ensure_project(session, project, submitted_by)
+        warnings: list[str] = []
+        if review_group is not None and not from_scan:
+            review_group = _known_group(session, project, review_group, warnings)
         pairs, recurring, carried, kept = _match_occurrences(session, project, rows, now, from_scan)
         risk = compute_risk_level([row.severity for row in rows], risk_level)
         report = SecurityReport(
@@ -300,6 +340,7 @@ def save_report(
             risk_level=risk,
             findings=rows,
             created_at=now,
+            review_group=review_group,
         )
         for row in rows:
             row.first_seen_at = row.first_seen_at or now
@@ -334,7 +375,11 @@ def save_report(
                 "not_covered": declared.not_covered,
                 "scan_rules": len(declared.scan_rules),
             }
-            result["warnings"] = declared.warnings
+            warnings = declared.warnings + warnings
+        if review_group is not None:
+            result["review_group"] = review_group
+        if declared is not None or warnings:
+            result["warnings"] = warnings
     logger.info("Report saved: id=%s project=%s risk=%s", result["report_id"], project, risk)
     return result
 
@@ -353,7 +398,22 @@ def get_report(report_id: int) -> SecurityReportPublic:
         ).first()
         if report is None:
             raise NotFoundError(f"Report {report_id} not found")
-        return SecurityReportPublic.model_validate(report, from_attributes=True)
+        public = SecurityReportPublic.model_validate(report, from_attributes=True)
+        if report.review_group:
+            related = session.exec(
+                select(SecurityReport)
+                .where(
+                    SecurityReport.review_group == report.review_group,
+                    SecurityReport.project == report.project,
+                    SecurityReport.id != report.id,
+                )
+                .options(defer(SecurityReport.scanned_files))  # type: ignore[arg-type]
+                .order_by(col(SecurityReport.id))
+            ).all()
+            public.related_reports = [
+                RelatedReport.model_validate(r, from_attributes=True) for r in related
+            ]
+        return public
 
 
 def _contains_pattern(search: str) -> str:

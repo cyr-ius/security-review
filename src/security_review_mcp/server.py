@@ -49,6 +49,7 @@ from .storage.models import (
     MAX_REVIEWER_CHARS,
     MAX_SCAN_RULES,
     MAX_STATUS_REASON_CHARS,
+    REVIEW_GROUP_CHARS,
     ChecklistResult,
     FindingCreate,
     FindingStatus,
@@ -863,6 +864,14 @@ def save_security_report(
             description="Rule ids of every lead returned by scan_code, confirmed or dismissed",
         ),
     ] = None,
+    review_group: Annotated[
+        str | None,
+        Field(
+            max_length=REVIEW_GROUP_CHARS,
+            description="The review_group returned by start_codebase_scan, when you ran its "
+            "scans for this review: it links this report to theirs. Omit it otherwise",
+        ),
+    ] = None,
 ) -> dict:
     """Store a security report and its findings in the database.
 
@@ -900,6 +909,7 @@ def save_security_report(
         # An empty list still checks the coverage: a review without it gets a warning
         checklist_results=checklist_results or [],
         scan_rules=scan_rules or [],
+        review_group=review_group,
     )
 
 
@@ -1385,6 +1395,8 @@ def start_codebase_scan(
     )
     args = (public_url, ticket["client_download"], ticket["project"], ticket["ticket"])
     result: dict = {"project": ticket["project"], "expires_at": ticket["expires_at"]}
+    if ticket["review_group"]:
+        result["review_group"] = ticket["review_group"]
     if scope in ("all", "code"):
         result["scan_code_command"] = _ci_command(*args, "scan-code . --format summary")
     if scope in ("all", "deps"):
@@ -1396,6 +1408,11 @@ def start_codebase_scan(
         "works once per command until expires_at; call start_codebase_scan again for a new "
         "one. Do not read the files to scan them: the output gives the leads to verify."
     )
+    if ticket["review_group"]:
+        result["note"] += (
+            " Pass review_group to save_security_report: the report of your review is then "
+            "linked to the reports of these scans."
+        )
     return result
 
 
