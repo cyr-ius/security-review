@@ -58,6 +58,13 @@ export class OidcMappingsComponent {
   readonly stored = computed(() => this.catalog.value()?.data);
   readonly roles = rxResource({ stream: () => this.api.roles() });
 
+  readonly loading = computed(() => this.catalog.isLoading() || this.roles.isLoading());
+
+  reload(): void {
+    this.catalog.reload();
+    this.roles.reload();
+  }
+
   readonly mappingModel = signal<MappingFormModel>({ ...EMPTY_MAPPING });
   readonly mappingForm = form(this.mappingModel, (path) => {
     required(path.claim);

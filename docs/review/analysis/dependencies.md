@@ -131,7 +131,7 @@ The proxy can also be chosen by an administrator in the **Outgoing proxy of the 
 section of the [**General**](../../usage/index.md#pages) page of the web interface, for the variables that are not set: `HTTPS_PROXY` (else
 `HTTP_PROXY`) and `NO_PROXY`, when set, take precedence over the values of the page. They
 apply to the next download. The **OSV database** page shows the state of the database, the history of the updates
-(scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
+(scheduled, CLI or web) and an **Update** button (run in the background, one update at a
 time), only available while the download is turned on.
 
 To trigger an update on demand (or from a `CronJob` rather than from the Controller server), with the

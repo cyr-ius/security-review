@@ -133,8 +133,7 @@ Le proxy peut aussi être choisi par un administrateur dans la section
 **Proxy sortant du serveur Controller** de la page [**Général**](../../usage/index.md#pages) de l'interface web, pour les variables
 non définies : `HTTPS_PROXY` (sinon `HTTP_PROXY`) et `NO_PROXY`, quand elles sont définies,
 sont prioritaires sur les valeurs de la page. Elles s'appliquent au téléchargement suivant. La page **Base OSV** affiche l'état de
-la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
-maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
+la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
 le téléchargement est activé.
 
 Pour déclencher une mise à jour à la demande (ou depuis un `CronJob` plutôt que depuis le

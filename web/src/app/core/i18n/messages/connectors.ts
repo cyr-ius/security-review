@@ -4,7 +4,7 @@ import { defineMessages } from '../catalog';
 export const connectors = defineMessages({
   en: {
     'connectors.title': 'Connectors',
-    'connectors.subtitle': 'Send findings to the tools of your teams',
+    'connectors.subtitle': 'Send findings to the tools of your teams.',
     'connectors.loadError': 'Could not load the connectors.',
     'connectors.locked':
       'SECREVIEW_CONNECTORS_ENABLED is false: the operator locked every connector off.',
@@ -57,7 +57,7 @@ export const connectors = defineMessages({
   },
   fr: {
     'connectors.title': 'Connecteurs',
-    'connectors.subtitle': 'Envoyez les findings vers les outils de vos équipes',
+    'connectors.subtitle': 'Envoyez les findings vers les outils de vos équipes.',
     'connectors.loadError': 'Impossible de charger les connecteurs.',
     'connectors.locked':
       "SECREVIEW_CONNECTORS_ENABLED vaut false : l'opérateur a verrouillé tous les connecteurs.",
@@ -111,7 +111,7 @@ export const connectors = defineMessages({
   },
   es: {
     'connectors.title': 'Conectores',
-    'connectors.subtitle': 'Envíe los hallazgos a las herramientas de sus equipos',
+    'connectors.subtitle': 'Envíe los hallazgos a las herramientas de sus equipos.',
     'connectors.loadError': 'No se pudieron cargar los conectores.',
     'connectors.locked':
       'SECREVIEW_CONNECTORS_ENABLED vale false: el operador bloqueó todos los conectores.',

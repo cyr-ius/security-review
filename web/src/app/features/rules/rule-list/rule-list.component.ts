@@ -1,6 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  TemplateRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -33,6 +41,7 @@ import {
 import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
 import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
+import { TabWithHeaderActions } from '../../../shared/utils/tab-header';
 
 interface RuleFormModel {
   id: string;
@@ -76,7 +85,10 @@ const RULE_ORIGINS: readonly RuleOrigin[] = ['builtin', 'custom'];
   templateUrl: './rule-list.component.html',
   styleUrl: './rule-list.component.css',
 })
-export class RuleListComponent {
+export class RuleListComponent implements TabWithHeaderActions {
+  /** Its buttons, shown by the Rules page on the line of its title. */
+  readonly headerActions = viewChild<TemplateRef<unknown>>('headerActions');
+
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);

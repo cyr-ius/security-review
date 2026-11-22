@@ -3,32 +3,10 @@
     <h1 class="h3 mb-0">{{ 'settings.osvTitle' | t }} <app-help-link topic="osv" /></h1>
     <p class="text-body-secondary mb-0">{{ 'settings.osvSubtitle' | t }}</p>
   </div>
-  <div class="d-flex gap-2">
-    <button
-      type="button"
-      class="btn btn-sm btn-primary"
-      [disabled]="busy() || !settings.value()?.osv?.download_enabled || advisories.value()?.running"
-      [title]="
-        (settings.value()?.osv?.download_enabled
-          ? 'settings.updateTitle'
-          : 'settings.updateDisabled'
-        ) | t
-      "
-      (click)="startUpdate()"
-    >
-      @if (advisories.value()?.running) {
-        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-        {{ 'settings.updating' | t }}
-      } @else {
-        <i class="bi bi-cloud-download" aria-hidden="true"></i>
-        {{ 'settings.updateNow' | t }}
-      }
-    </button>
-    <app-refresh-button
-      [loading]="settings.isLoading() || advisories.isLoading()"
-      (refresh)="reload()"
-    />
-  </div>
+  <app-refresh-button
+    [loading]="settings.isLoading() || advisories.isLoading()"
+    (refresh)="reload()"
+  />
 </div>
 
 @if (error(); as text) {
@@ -46,8 +24,35 @@
     <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (settings.value(); as current) {
-  <div class="card mb-4">
+  <section class="card mb-4" aria-labelledby="osv-database-title">
     <div class="card-body">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <h2 id="osv-database-title" class="h6 mb-0 me-auto">
+          <i class="bi bi-database me-2" aria-hidden="true"></i>{{ 'settings.osvDatabase' | t }}
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          [disabled]="
+            busy() || !settings.value()?.osv?.download_enabled || advisories.value()?.running
+          "
+          [title]="
+            (settings.value()?.osv?.download_enabled
+              ? 'settings.updateTitle'
+              : 'settings.updateDisabled'
+            ) | t
+          "
+          (click)="startUpdate()"
+        >
+          @if (advisories.value()?.running) {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            {{ 'settings.updating' | t }}
+          } @else {
+            <i class="bi bi-cloud-download" aria-hidden="true"></i>
+            {{ 'settings.updateNow' | t }}
+          }
+        </button>
+      </div>
       @if (!current.osv.download_enabled) {
         <div class="alert alert-secondary py-2 small">
           {{ 'settings.downloadDisabled' | t }} <code>SECREVIEW_OSV_AUTO_UPDATE=true</code
@@ -238,15 +243,17 @@
         </form>
       }
     </div>
-  </div>
+  </section>
 
   <div class="card mb-4">
     <div class="card-body">
+      <h2 class="h6">
+        <i class="bi bi-clock-history me-2" aria-hidden="true"></i>{{ 'settings.history' | t }}
+      </h2>
       @if (advisories.error()) {
-        <h3 class="h6">{{ 'settings.history' | t }}</h3>
         <div class="alert alert-danger" role="alert">{{ 'settings.historyError' | t }}</div>
       } @else if ((advisories.value()?.updates ?? []).length) {
-        <!-- The title on the left of the search and the filters, as the lists of the other pages -->
+        <!-- The next automatic update on the left of the search, where other lists give a count -->
         <app-table-controls
           idPrefix="advisory-history"
           [search]="historySearch()"
@@ -254,7 +261,16 @@
           (searchChange)="historySearch.set($event)"
           (multiFilterChange)="onHistoryFilter($event)"
         >
-          <h3 class="h6 mb-0 text-body">{{ 'settings.history' | t }}</h3>
+          @let next = nextUpdate();
+          @if (next.kind === 'off') {
+            <span>{{ 'settings.nextUpdateOff' | t }}</span>
+          } @else if (next.kind === 'soon') {
+            <span>{{ 'settings.nextUpdateSoon' | t }}</span>
+          } @else {
+            <span>{{
+              'settings.nextUpdate' | t: { date: (next.at | date: 'dd/MM/yyyy HH:mm') ?? '' }
+            }}</span>
+          }
         </app-table-controls>
         @if (visibleUpdates().length) {
           <div class="table-responsive">
@@ -310,7 +326,6 @@
           <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
         }
       } @else if (!advisories.isLoading()) {
-        <h3 class="h6">{{ 'settings.history' | t }}</h3>
         <p class="text-body-secondary mb-0">{{ 'settings.noHistory' | t }}</p>
       }
     </div>

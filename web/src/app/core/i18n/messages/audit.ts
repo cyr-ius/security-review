@@ -4,7 +4,7 @@ import { defineMessages } from '../catalog';
 export const audit = defineMessages({
   en: {
     'audit.subtitle':
-      'Triage decisions, agent proposals, tokens and project requests, newest first',
+      'Triage decisions, agent proposals, tokens and project requests, newest first.',
     'audit.action': 'Event',
     'audit.allActions': 'All events',
     'audit.allProjects': 'All projects',
@@ -94,7 +94,7 @@ export const audit = defineMessages({
   },
   fr: {
     'audit.subtitle':
-      'Décisions de triage, propositions des agents, jetons et demandes de projet, du plus récent au plus ancien',
+      'Décisions de triage, propositions des agents, jetons et demandes de projet, du plus récent au plus ancien.',
     'audit.action': 'Événement',
     'audit.allActions': 'Tous les événements',
     'audit.allProjects': 'Tous les projets',
@@ -185,7 +185,7 @@ export const audit = defineMessages({
   },
   es: {
     'audit.subtitle':
-      'Decisiones de triaje, propuestas de los agentes, tokens y solicitudes de proyecto, de la más reciente a la más antigua',
+      'Decisiones de triaje, propuestas de los agentes, tokens y solicitudes de proyecto, de la más reciente a la más antigua.',
     'audit.action': 'Evento',
     'audit.allActions': 'Todos los eventos',
     'audit.allProjects': 'Todos los proyectos',

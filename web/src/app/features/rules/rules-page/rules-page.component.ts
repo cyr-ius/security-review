@@ -1,4 +1,5 @@
-import { Component, computed, inject } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, TemplateRef, computed, inject, signal } from '@angular/core';
 import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
@@ -7,6 +8,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { HelpLinkComponent } from '../../../shared/components/help-link/help-link.component';
+import { hasHeaderActions } from '../../../shared/utils/tab-header';
 
 /**
  * Rules page: one title and subtitle, then the pattern rules and the OpenGrep rules, one tab
@@ -14,7 +16,14 @@ import { HelpLinkComponent } from '../../../shared/components/help-link/help-lin
  */
 @Component({
   selector: 'app-rules-page',
-  imports: [HelpLinkComponent, RouterLink, RouterLinkActive, RouterOutlet, TranslatePipe],
+  imports: [
+    HelpLinkComponent,
+    NgTemplateOutlet,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    TranslatePipe,
+  ],
   templateUrl: './rules-page.component.html',
 })
 export class RulesPageComponent {
@@ -29,6 +38,13 @@ export class RulesPageComponent {
     ),
     { initialValue: this.router.url },
   );
+
+  /** Buttons of the open tab, shown on the line of the title. */
+  readonly headerActions = signal<(() => TemplateRef<unknown> | undefined) | null>(null);
+
+  onActivate(component: object): void {
+    this.headerActions.set(hasHeaderActions(component) ? component.headerActions : null);
+  }
 
   /** The help link opens the documentation of the open tab. */
   readonly helpTopic = computed<DocTopic>(() =>

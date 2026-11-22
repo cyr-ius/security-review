@@ -20,7 +20,6 @@ import {
   ProjectDraft,
   ProjectPickerComponent,
 } from '../../shared/components/project-picker/project-picker.component';
-import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlMultiFilter,
   TableControlMultiFilterChange,
@@ -32,6 +31,7 @@ import { SortHeaderComponent } from '../../shared/components/sort-header/sort-he
 import { TableSort } from '../../shared/utils/table-sort';
 import { describeGrants } from '../../shared/utils/permission-utils';
 import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
+import { RefreshableTab } from './users-page/users-page.component';
 
 /** Account type, name and password of the user being created (or edited: name only). */
 interface UserFormModel {
@@ -61,7 +61,6 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
     MultiSelectDropdownComponent,
     PasswordPolicyComponent,
     ProjectPickerComponent,
-    RefreshButtonComponent,
     SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,
@@ -69,7 +68,7 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
 })
-export class UserListComponent {
+export class UserListComponent implements RefreshableTab {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
@@ -77,6 +76,14 @@ export class UserListComponent {
   readonly users = rxResource({ stream: () => this.api.users() });
   /** Deleted OIDC users, never created again by a login. */
   readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
+
+  /** Refreshed by the button of the Users page header. */
+  readonly refreshing = computed(() => this.users.isLoading() || this.revoked.isLoading());
+
+  refresh(): void {
+    this.users.reload();
+    this.revoked.reload();
+  }
   readonly roles = rxResource({ stream: () => this.api.roles() });
   /** Login methods of the controller: tells whether OIDC users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
@@ -279,6 +286,32 @@ export class UserListComponent {
     return [
       ...user.roles.map((role) => role.name),
       ...user.oidc.flatMap((item) => item.roles.map((role) => `${role} ← ${item.claim}`)),
+    ];
+  }
+
+  /** Projects of a user, each with its permissions listed apart (the OIDC ones name their claim). */
+  projectEntries(user: WebUser): { name: string; permissions: string[]; claim?: string }[] {
+    const all = this.i18n.translate('reports.allProjects');
+    const labels = (permissions: Permission[]) =>
+      permissions.map((permission) => this.i18n.translate(PERMISSION_META[permission].label));
+    return [
+      ...(user.all_projects_permissions.length
+        ? [{ name: all, permissions: labels(user.all_projects_permissions) }]
+        : []),
+      ...user.projects.map((item) => ({
+        name: item.project,
+        permissions: labels(item.permissions),
+      })),
+      ...user.oidc.flatMap((item) => [
+        ...(item.all_projects_permissions.length
+          ? [{ name: all, permissions: labels(item.all_projects_permissions), claim: item.claim }]
+          : []),
+        ...item.projects.map((project) => ({
+          name: project.project,
+          permissions: labels(project.permissions),
+          claim: item.claim,
+        })),
+      ]),
     ];
   }
 

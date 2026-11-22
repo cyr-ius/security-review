@@ -159,6 +159,22 @@ export class AdvisorySettingsComponent extends SettingsPage {
     ),
   );
 
+  /**
+   * Next automatic download, as the Controller server schedules it (advisory_sync): the last
+   * import plus the interval, at once when the database is empty or older than the interval.
+   */
+  readonly nextUpdate = computed<{ kind: 'off' } | { kind: 'soon' } | { kind: 'at'; at: Date }>(
+    () => {
+      const osv = this.settings.value()?.osv;
+      const last = this.advisories.value()?.database.last_imported_at;
+      if (!osv?.download_enabled) {
+        return { kind: 'off' };
+      }
+      const at = last ? new Date(Date.parse(last) + osv.update_interval_hours * 3_600_000) : null;
+      return at && at.getTime() > Date.now() ? { kind: 'at', at } : { kind: 'soon' };
+    },
+  );
+
   /** Ecosystems that can be downloaded, in the order of the server. */
   readonly supportedEcosystems = computed(
     () => this.settings.value()?.osv.ecosystems.supported ?? [],

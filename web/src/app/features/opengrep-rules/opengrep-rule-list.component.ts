@@ -1,6 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  TemplateRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, pattern, readonly, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -28,6 +36,7 @@ import {
 import { TableSort } from '../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
 import { OpenGrepRuleSummary, summarizeRule } from './opengrep-rule-summary';
+import { TabWithHeaderActions } from '../../shared/utils/tab-header';
 
 /** Bounds of the API: rule id (rules.opengrep_rule_store.RULE_ID), YAML file, rejection reason. */
 const RULE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,79}$/;
@@ -81,7 +90,10 @@ const RULE_SEVERITIES: readonly Severity[] = SEVERITIES.filter((severity) =>
   templateUrl: './opengrep-rule-list.component.html',
   styleUrl: './opengrep-rule-list.component.css',
 })
-export class OpenGrepRuleListComponent {
+export class OpenGrepRuleListComponent implements TabWithHeaderActions {
+  /** Its buttons, shown by the Rules page on the line of its title. */
+  readonly headerActions = viewChild<TemplateRef<unknown>>('headerActions');
+
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);

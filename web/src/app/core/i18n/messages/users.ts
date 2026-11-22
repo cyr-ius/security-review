@@ -3,7 +3,8 @@ import { defineMessages } from '../catalog';
 /** Users screen. */
 export const users = defineMessages({
   en: {
-    'users.pageSubtitle': 'Accounts of the web interface, the roles they hold and the OIDC sign-in',
+    'users.pageSubtitle':
+      'Accounts of the web interface, the roles they hold and the OIDC sign-in.',
     'users.tabs': 'User management',
     'users.tabAccounts': 'Accounts',
     'users.tabSso': 'OIDC sign-in',
@@ -28,6 +29,7 @@ export const users = defineMessages({
     'users.passwordHelp': 'Left empty, a password is generated and shown once.',
     'users.accounts': 'Accounts',
     'users.loadError': 'Could not load the users.',
+    'users.count': '{count} account(s)',
     'users.type': 'Type',
     'users.lastLogin': 'Last login',
     'users.you': 'you',
@@ -75,7 +77,7 @@ export const users = defineMessages({
     'users.oidcAccess': 'Roles and projects of its OIDC mappings (last login):',
   },
   fr: {
-    'users.pageSubtitle': "Comptes de l'interface web, leurs rôles et la connexion OIDC",
+    'users.pageSubtitle': "Comptes de l'interface web, leurs rôles et la connexion OIDC.",
     'users.tabs': 'Gestion des utilisateurs',
     'users.tabAccounts': 'Comptes',
     'users.tabSso': 'Connexion OIDC',
@@ -100,6 +102,7 @@ export const users = defineMessages({
     'users.passwordHelp': 'Laissé vide, un mot de passe est généré et affiché une fois.',
     'users.accounts': 'Comptes',
     'users.loadError': 'Impossible de charger les utilisateurs.',
+    'users.count': '{count} compte(s)',
     'users.type': 'Type',
     'users.lastLogin': 'Dernière connexion',
     'users.you': 'vous',
@@ -150,7 +153,7 @@ export const users = defineMessages({
     'users.oidcAccess': 'Rôles et projets de ses correspondances OIDC (dernière connexion) :',
   },
   es: {
-    'users.pageSubtitle': 'Cuentas de la interfaz web, sus roles y el inicio de sesión OIDC',
+    'users.pageSubtitle': 'Cuentas de la interfaz web, sus roles y el inicio de sesión OIDC.',
     'users.tabs': 'Gestión de usuarios',
     'users.tabAccounts': 'Cuentas',
     'users.tabSso': 'Inicio de sesión OIDC',
@@ -175,6 +178,7 @@ export const users = defineMessages({
     'users.passwordHelp': 'Si se deja vacía, se genera una contraseña y se muestra una vez.',
     'users.accounts': 'Cuentas',
     'users.loadError': 'No se pudieron cargar los usuarios.',
+    'users.count': '{count} cuenta(s)',
     'users.type': 'Tipo',
     'users.lastLogin': 'Último inicio de sesión',
     'users.you': 'usted',
