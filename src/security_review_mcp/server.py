@@ -44,11 +44,14 @@ from .storage.models import (
     MAX_BRANCH_CHARS,
     MAX_CHECKLIST_RESULTS,
     MAX_COMMIT_SHA_CHARS,
+    MAX_FILES_REVIEWED,
     MAX_ITEM_ID_CHARS,
     MAX_REPOSITORY_CHARS,
     MAX_REVIEWER_CHARS,
     MAX_SCAN_RULES,
+    MAX_SCANNED_PATH_CHARS,
     MAX_STATUS_REASON_CHARS,
+    REVIEW_GROUP_CHARS,
     ChecklistResult,
     FindingCreate,
     FindingStatus,
@@ -863,6 +866,23 @@ def save_security_report(
             description="Rule ids of every lead returned by scan_code, confirmed or dismissed",
         ),
     ] = None,
+    review_group: Annotated[
+        str | None,
+        Field(
+            max_length=REVIEW_GROUP_CHARS,
+            description="The review_group returned by start_codebase_scan, when you ran its "
+            "scans for this review: it links this report to theirs. Omit it otherwise",
+        ),
+    ] = None,
+    files_reviewed: Annotated[
+        list[Annotated[str, Field(max_length=MAX_SCANNED_PATH_CHARS)]] | None,
+        Field(
+            max_length=MAX_FILES_REVIEWED,
+            description="Paths of the files you actually read for this review, relative to the "
+            "root of the repository (as in the scan summary). With review_group, the server "
+            "lists the files with scan leads you neither read nor cited in a finding",
+        ),
+    ] = None,
 ) -> dict:
     """Store a security report and its findings in the database.
 
@@ -900,6 +920,8 @@ def save_security_report(
         # An empty list still checks the coverage: a review without it gets a warning
         checklist_results=checklist_results or [],
         scan_rules=scan_rules or [],
+        review_group=review_group,
+        files_reviewed=files_reviewed,
     )
 
 
@@ -915,7 +937,11 @@ def get_security_report(
     report = _visible_report(ctx, report_id)
     if format == "markdown":
         return services.render_report_markdown(report)
-    return report.model_dump(mode="json")
+    # The lists of files (up to SECREVIEW_MAX_SCAN_FILES) stay in the web interface: the
+    # Markdown and the summary give their counts
+    return report.model_dump(
+        mode="json", exclude={"scanned_files", "files_reviewed", "unreviewed_leads"}
+    )
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -956,7 +982,10 @@ def propose_finding_status(
     finding_id: int,
     status: Annotated[
         Literal["fixed", "accepted", "false_positive"],
-        Field(description="Status you propose: fixed, accepted or false_positive"),
+        Field(
+            description="Status you propose: fixed, accepted or false_positive (an info "
+            "finding is an observation: never accepted)"
+        ),
     ],
     reason: Annotated[
         str,
@@ -1381,6 +1410,8 @@ def start_codebase_scan(
     )
     args = (public_url, ticket["client_download"], ticket["project"], ticket["ticket"])
     result: dict = {"project": ticket["project"], "expires_at": ticket["expires_at"]}
+    if ticket["review_group"]:
+        result["review_group"] = ticket["review_group"]
     if scope in ("all", "code"):
         result["scan_code_command"] = _ci_command(*args, "scan-code . --format summary")
     if scope in ("all", "deps"):
@@ -1392,6 +1423,11 @@ def start_codebase_scan(
         "works once per command until expires_at; call start_codebase_scan again for a new "
         "one. Do not read the files to scan them: the output gives the leads to verify."
     )
+    if ticket["review_group"]:
+        result["note"] += (
+            " Pass review_group to save_security_report: the report of your review is then "
+            "linked to the reports of these scans."
+        )
     return result
 
 
@@ -1477,8 +1513,11 @@ FindingIdsArg = Annotated[
     ),
 ]
 DecisionArg = Annotated[
-    Literal["fixed", "accepted", "false_positive"],
-    Field(description="The decision the developer stated"),
+    Literal["fixed", "accepted", "false_positive", "acknowledged"],
+    Field(
+        description="The decision the developer stated: acknowledged (read) only for an info "
+        "finding, which is an observation and is never accepted"
+    ),
 ]
 DecisionReasonArg = Annotated[
     str | None,

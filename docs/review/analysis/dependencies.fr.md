@@ -192,7 +192,11 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 - Avec `--save`, l'utilisateur d'un jeton `ci` personnel est l'auteur du rapport, sinon
   `--author` enregistre le nom d'utilisateur du développeur avec lui (voir
   [auteur d'un rapport](../../reference/prompts-tools.md#auteur-dun-rapport)), `--repository`,
-  `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil.
+  `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil. La
+  page **Rapport** liste les fichiers scannés dans une section dépliable **Fichiers scannés** :
+  écosystème, nombre de composants et de findings de chaque fichier, et les fichiers dont la
+  vérification des vulnérabilités n'a pas pu avoir lieu (cette liste n'est pas renvoyée par
+  `get_security_report`).
 - Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur Controller, la requête à
   `SECREVIEW_MAX_SCAN_REQUEST_MB`. Les liens symboliques ne sont pas lus.
 

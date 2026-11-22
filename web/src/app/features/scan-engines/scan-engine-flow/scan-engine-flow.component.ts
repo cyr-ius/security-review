@@ -18,6 +18,7 @@ import {
   ScanEngineList,
   ServerInstance,
 } from '../../../core/models/api.models';
+import { scanEngineOutage } from '../../../shared/utils/scan-engine-outage';
 
 /** Geometry of the diagram, in the units of its viewBox (it shrinks with the card, at most 1 unit = 1px). */
 const HEIGHT = 430;
@@ -291,6 +292,9 @@ export class ScanEngineFlowComponent {
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
 
   readonly data = input.required<ScanEngineList>();
+
+  /** The engines are on but none is active: the Controller node shows it (see the page alert). */
+  readonly outage = computed(() => scanEngineOutage(this.data()));
 
   /**
    * Node under the pointer ("engine:<id>", "mcp:<id>"...) and the pointer, in the frame of the

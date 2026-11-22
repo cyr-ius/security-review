@@ -189,6 +189,25 @@ svg {
   stroke: var(--bs-secondary-color);
 }
 
+/* The engines are on but none is active: the Controller node and its fallback label stand out */
+.node.outage-refuse .ring-track {
+  stroke: var(--bs-danger);
+}
+
+.node.outage-refuse .label.detail {
+  fill: var(--bs-danger-text-emphasis);
+  font-weight: 600;
+}
+
+.node.outage-local .ring-track {
+  stroke: var(--bs-warning);
+}
+
+.node.outage-local .label.detail {
+  fill: var(--bs-warning-text-emphasis);
+  font-weight: 600;
+}
+
 /* An engine without a recent heartbeat recedes, and says so in its label */
 .node.inactive {
   opacity: 0.4;

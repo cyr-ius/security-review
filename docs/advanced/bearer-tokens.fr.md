@@ -118,12 +118,13 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 ```
 
 Ses changements de statut se limitent à `open` et `fixed`, comme ceux d'un jeton `api` avec
-`findings.triage` : `accepted` et `false_positive` exigent une session
+`findings.triage` : `accepted`, `false_positive` et `acknowledged` exigent une session
 ([triage par l'API REST](reports/triage-api.md)).
 
 L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, chacun répétable :
-l'une des valeurs suffit ; `search`, 200 caractères au plus, garde les findings dont le titre,
+l'une des valeurs suffit ; `status=open` garde les risques ouverts et `status=unread` les
+findings `info` ouverts, les observations que personne n'a encore lues ; `search`, 200 caractères au plus, garde les findings dont le titre,
 la règle, la CWE, le fichier, la description, le projet ou la branche le contient, sans
 distinguer majuscules et minuscules ; `report_id` garde les findings d'un rapport et `proposed=true` ceux qui portent un statut proposé par un agent ; `limit` plafonné par `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
 Sans `project`, elle liste les findings de tous les projets que lit l'appelant

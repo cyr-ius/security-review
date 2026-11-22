@@ -15,6 +15,7 @@ single-use ticket of a codebase scan (see auth.scan_tickets), which it gives to 
 
 import http.client
 import json
+import re
 import urllib.error
 import urllib.request
 from typing import Any
@@ -26,6 +27,8 @@ MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_REFUSAL_BYTES = 4096
 MAX_REFUSAL_CHARS = 300
 ENGINES = frozenset({"rules", "opengrep"})
+# Review group of a ticket: its id, a uuid4 hex (see auth.scan_tickets)
+_GROUP = re.compile(r"[0-9a-f]{32}")
 
 
 class RemoteScanError(Exception):
@@ -138,8 +141,8 @@ def request_ticket(
     ``code`` or ``deps``) limits the scans the ticket opens.
 
     Returns:
-        ``ticket``, ``project``, ``expires_at``, ``controller_url`` (public URL, may be None)
-        and ``client_download``.
+        ``ticket``, ``project``, ``expires_at``, ``controller_url`` (public URL, may be None),
+        ``client_download`` and ``review_group`` (may be None).
 
     Raises:
         RemoteScanError: If the controller cannot be reached, refuses or answers unexpectedly.
@@ -150,7 +153,10 @@ def request_ticket(
     if not all(isinstance(document.get(name), str) for name in fields):
         raise RemoteScanError("the controller sent an unexpected answer")
     url = document.get("controller_url")
+    group = document.get("review_group")
     return {name: document[name] for name in fields} | {
         "controller_url": url if isinstance(url, str) else None,
         "client_download": document.get("client_download") is True,
+        # An older Controller server sends none: the reports are then not linked
+        "review_group": group if isinstance(group, str) and _GROUP.fullmatch(group) else None,
     }

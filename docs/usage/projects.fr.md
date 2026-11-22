@@ -24,6 +24,9 @@ leur saisie (voir [nom du projet](../reference/prompts-tools.md#nom-du-projet)).
 
 Un projet créé sans rapport affiche **Aucun rapport** jusqu'à sa première revue.
 
+Tant que des demandes attendent une décision, l'entrée **Projets** du menu affiche leur nombre
+dans un badge, pour les utilisateurs qui peuvent les valider (`projects.create`).
+
 ![La page Projets avec un projet demandé par l'agent d'un développeur](../assets/screenshots/projects-pending.png)
 
 ## Membres

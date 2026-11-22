@@ -14,6 +14,7 @@ from security_review_mcp.storage.models import (
     FindingCreate,
     FindingStatus,
     ReviewType,
+    ScannedFile,
     SecurityReport,
     Severity,
     utcnow,
@@ -53,6 +54,55 @@ def test_save_and_get_report():
     assert len(report.findings) == 2
     assert report.findings[0].cwe == "CWE-89"  # normalized
     assert all(f.status == FindingStatus.OPEN for f in report.findings)
+
+
+def test_a_review_joins_only_a_review_group_of_its_project():
+    group = "0123456789abcdef0123456789abcdef"
+    files = [
+        ScannedFile(path="app/db.py", language="python", lines=40, matches=1),
+        ScannedFile(path="app/views.py", language="python", lines=90, matches=3),
+        ScannedFile(path="app/auth.py", language="python", lines=50, matches=2),
+        ScannedFile(path="app/ok.py", language="python", lines=5),
+        ScannedFile(path="blob.bin", reason="binary file"),
+    ]
+    scan = services.save_report(
+        "shop-api",
+        "Code scan",
+        [],
+        review_type=ReviewType.CODE_SCAN,
+        review_group=group,
+        from_scan=True,
+        scanned_files=files,
+    )
+    # Another project, a made-up group: the report is saved without it, with a warning
+    for project, declared in (("billing", group), ("shop-api", "f" * 32), ("shop-api", "../x")):
+        saved = services.save_report(project, "Codebase review", [], review_group=declared)
+        assert "review_group" not in saved and "start_codebase_scan" in saved["warnings"][0]
+        assert services.get_report(saved["report_id"]).review_group is None
+    # The agent read app/auth.py and cited app/db.py in a finding: app/views.py was not read
+    review = services.save_report(
+        "shop-api",
+        "Codebase review",
+        [make_finding()],
+        review_group=group.upper(),
+        files_reviewed=["./app/auth.py", "app\\ok.py"],
+    )
+    assert review["review_group"] == group
+    assert review["unreviewed_leads"] == {"files": 1, "first": ["app/views.py"]}
+    assert "neither read" in review["warnings"][-1]
+    stored = services.get_report(review["report_id"])
+    assert stored.files_reviewed == ["app/auth.py", "app/ok.py"]
+    assert [(lead.path, lead.matches) for lead in stored.unreviewed_leads] == [("app/views.py", 3)]
+    # The review shows the counts of the scan without reading its list of files
+    [linked_scan] = stored.related_reports
+    assert linked_scan.scan_summary.model_dump() == {
+        "files": 4,
+        "with_matches": 3,
+        "skipped": 1,
+        "unchecked": 0,
+    }
+    linked = services.get_report(scan["report_id"]).related_reports
+    assert [r.id for r in linked] == [review["report_id"]]
 
 
 def test_empty_report_is_info_risk():
@@ -332,13 +382,16 @@ def test_a_dependency_review_and_a_dependency_scan_report_an_issue_once():
             ),
         ],
         review_type=ReviewType.DEPENDENCY_SCAN,
+        from_scan=True,
     )
-    # The agent writes its own titles, cites the manifest and the same advisory in lower case
+    # The agent writes its own titles, cites the manifest and the same advisory in lower case,
+    # and reports it lower than the scan did
     review = services.save_report(
         "shop",
         "Dependency review",
         [
             make_finding(
+                Severity.LOW,
                 title="python-jose : contournement de la protection",
                 rule_id="ghsa-3qf3-8w2g-rqmx",
                 file_path="pyproject.toml",
@@ -356,6 +409,21 @@ def test_a_dependency_review_and_a_dependency_scan_report_an_issue_once():
     )
     assert review["recurring_findings"] == 2
     assert services.list_project_findings("shop")["total"] == 2
+    # A review never lowers an issue below the gate: it keeps the severity of the scan
+    assert review["kept_severities"] == 1
+    advisory = services.get_report(review["report_id"]).findings[0]
+    assert (advisory.severity, advisory.original_severity) == (Severity.HIGH, None)
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is False
+    # A new scan follows its rules, lower or not
+    rescan = services.save_report(
+        "shop",
+        "Dependency scan",
+        [make_finding(Severity.LOW, rule_id="GHSA-3qf3-8w2g-rqmx", **dependency)],
+        review_type=ReviewType.DEPENDENCY_SCAN,
+        from_scan=True,
+    )
+    assert rescan["kept_severities"] == 0
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is True
 
 
 def test_review_type_is_stored_listed_and_filtered():
@@ -480,7 +548,11 @@ def test_blank_project_or_summary_is_rejected():
 
 def test_list_projects(triage):
     assert services.list_projects() == []
-    services.save_report("shop", "First", [make_finding(Severity.HIGH), make_finding(Severity.LOW)])
+    services.save_report(
+        "shop",
+        "First",
+        [make_finding(Severity.HIGH), make_finding(Severity.LOW), make_finding(Severity.INFO)],
+    )
     clean = services.save_report("billing", "Clean", [])
     report = services.get_report(services.list_reports(project="shop")[0]["report_id"])
     triage(report.findings[0].id, FindingStatus.FIXED)
@@ -492,6 +564,9 @@ def test_list_projects(triage):
     assert shop["open_findings_total"] == 1
     assert shop["open_findings_by_severity"]["low"] == 1
     assert shop["worst_open_severity"] == "low"
+    # An info finding is an observation: counted apart, never the worst open severity
+    assert shop["open_findings_by_severity"]["info"] == shop["open_observations"] == 1
+    assert services.project_posture("shop")["open_findings_total"] == 1
     billing = projects["billing"]
     assert billing["open_findings_total"] == 0
     assert billing["worst_open_severity"] is None
@@ -515,6 +590,7 @@ def test_list_projects_adds_the_known_projects_without_report():
         "open_findings_total": 0,
         "open_findings_by_severity": {severity.value: 0 for severity in Severity},
         "worst_open_severity": None,
+        "open_observations": 0,
     }
 
 
@@ -704,6 +780,61 @@ def test_risk_below_the_threshold_is_accepted_without_reason_or_expiry(monkeypat
     monkeypatch.setattr(get_settings(), "risk_acceptance_min_severity", None)
     with pytest.raises(ValueError, match="reason is required"):
         services.update_finding_status(low, FindingStatus.ACCEPTED, "alice")
+
+
+def test_info_finding_is_acknowledged_never_accepted_until_its_severity_is_raised():
+    saved = services.save_report(
+        "shop", "summary", [make_finding(Severity.INFO), make_finding(Severity.LOW)]
+    )
+    info, low = (f.id for f in services.get_report(saved["report_id"]).findings)
+
+    for decide, refused in (
+        (lambda: services.update_finding_status(info, FindingStatus.ACCEPTED, "alice"), "cannot"),
+        (
+            lambda: services.update_findings_status([low, info], FindingStatus.ACCEPTED, "alice"),
+            "cannot",
+        ),
+        (
+            lambda: services.propose_finding_status(
+                info, FindingStatus.ACCEPTED, "Not worth fixing now", "agent"
+            ),
+            "cannot",
+        ),
+        # Only an observation is acknowledged, and only by a person
+        (lambda: services.update_finding_status(low, FindingStatus.ACKNOWLEDGED, "alice"), "Only"),
+        (
+            lambda: services.propose_finding_status(
+                info, FindingStatus.ACKNOWLEDGED, "Seen it, nothing to do", "agent"
+            ),
+            "Only these statuses",
+        ),
+    ):
+        with pytest.raises(ValueError, match=refused):
+            decide()
+    # Nothing saved, the bulk decision included (all or nothing)
+    report = services.get_report(saved["report_id"])
+    assert {(f.status, f.proposed_status) for f in report.findings} == {(FindingStatus.OPEN, None)}
+
+    # An unread observation is listed apart from the open risks, which the lists show by default
+    def listed(*statuses):
+        page = services.list_project_findings("shop", statuses or None)
+        return [finding["id"] for finding in page["findings"]]
+
+    assert (listed(), listed("unread"), listed("open", "unread")) == ([low], [info], [low, info])
+
+    # An observation is read: closed with no reason nor expiry, and still read in the next report
+    seen = services.update_finding_status(info, FindingStatus.ACKNOWLEDGED, "alice")
+    assert (listed("unread"), listed("acknowledged")) == ([], [info])
+    assert (seen.status, seen.status_expires_at) == (FindingStatus.ACKNOWLEDGED, None)
+    again = services.save_report("shop", "again", [make_finding(Severity.INFO)])
+    (info,) = (f.id for f in services.get_report(again["report_id"]).findings)
+    assert services.project_posture("shop")["open_observations"] == 0
+    # ... until its severity is raised: a risk is open again, and can then be accepted
+    raised = services.update_finding_severity(info, Severity.LOW, "alice", "Leaks the version")
+    assert (raised.status, raised.status_approver) == (FindingStatus.OPEN, None)
+    assert services.update_finding_status(info, FindingStatus.ACCEPTED, "alice").status == (
+        FindingStatus.ACCEPTED
+    )
 
 
 def test_triage_decision_masks_its_reason_and_clears_the_proposal():

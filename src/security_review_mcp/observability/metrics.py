@@ -80,12 +80,13 @@ def render() -> str:
     tokens = token_store.token_counts(TOKEN_EXPIRY_WARNING)
     advisory = advisories.advisory_status()
     last_update = _last_advisory_update()
-    severities = [severity.value for severity in Severity]
+    # The info findings are observations, not risks: counted apart from the open findings
+    severities = [severity.value for severity in Severity if severity != Severity.INFO]
 
     open_by_severity = dict.fromkeys(severities, 0)
     for project in projects:
-        for severity, count in project["open_findings_by_severity"].items():
-            open_by_severity[severity] += count
+        for severity in severities:
+            open_by_severity[severity] += project["open_findings_by_severity"].get(severity, 0)
 
     lines: list[str] = []
     lines += _family(
@@ -114,6 +115,12 @@ def render() -> str:
         "gauge",
         "Open findings by severity.",
         [(open_by_severity[severity], {"severity": severity}) for severity in severities],
+    )
+    lines += _family(
+        "secreview_open_observations",
+        "gauge",
+        "Open info findings (observations, not counted as open findings).",
+        [(sum(project["open_observations"] for project in projects), None)],
     )
     lines += _family(
         "secreview_project_open_findings",

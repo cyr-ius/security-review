@@ -12,19 +12,21 @@ capacity and its counters), and the departure of an engine that stops (``DELETE 
 ``settings.manage`` (Scan engines page).
 """
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 
+from .. import app_settings
 from ..auth import engine_clients
 from ..config import get_settings, secret_value
 from ..engines.protocol import manifest_digest
 from ..rules import opengrep_rule_store, registry, rules_loader
 from ..storage import server_instances
 from ..storage.models import ServerKind
-from .deps import Permission, actor_of, engine_identity, require
+from .deps import Permission, actor_of, engine_identity, require, unprocessable
 from .schemas import (
     EngineHeartbeat,
     EngineOpenGrepContents,
@@ -32,10 +34,13 @@ from .schemas import (
     EngineOpenGrepManifest,
     EngineRuleSet,
     Identity,
+    ScanEngineFallbackUpdate,
     ScanEngineList,
     ScanEnginePublic,
     ServerInstancePublic,
 )
+
+logger = logging.getLogger("security_review_mcp")
 
 engine_router = APIRouter(
     prefix="/api/v1/engine", tags=["scan-engines"], dependencies=[Depends(engine_identity)]
@@ -110,7 +115,8 @@ def list_scan_engines(_identity: EngineManager) -> ScanEngineList:
     settings = get_settings()
     return ScanEngineList(
         enabled=secret_value(settings.scan_engine_token) is not None,
-        fallback=settings.scan_engine_fallback,
+        fallback=app_settings.scan_engine_fallback(settings),
+        fallback_locked=app_settings.env_set(settings, app_settings.SCAN_ENGINE_FALLBACK),
         networks=settings.scan_engine_networks.split(","),
         access_token_minutes=settings.scan_engine_access_token_minutes,
         retention_days=settings.scan_engine_retention_days,
@@ -123,6 +129,20 @@ def list_scan_engines(_identity: EngineManager) -> ScanEngineList:
         ],
         engines=[ScanEnginePublic(**row) for row in engine_clients.list_engines()],
     )
+
+
+@router.put("/fallback")
+def set_scan_engine_fallback(
+    body: ScanEngineFallbackUpdate, identity: EngineManager
+) -> ScanEngineList:
+    """Set what the controller does when no scan engine scanned the files: refuse the scan
+    (503) or scan the files itself. 422 while SECREVIEW_SCAN_ENGINE_FALLBACK is set (audited)."""
+    try:
+        app_settings.set_scan_engine_fallback(body.fallback, actor_of(identity))
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Scan engine fallback set to %s by %s", body.fallback, identity.client)
+    return list_scan_engines(identity)
 
 
 @router.delete("/{engine_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -2,8 +2,9 @@
 
 import logging
 from collections.abc import Collection, Iterable
+from datetime import datetime
 
-from sqlalchemy import case, func, or_
+from sqlalchemy import ColumnElement, and_, case, func, or_
 from sqlmodel import col, select
 
 from ...config import get_settings
@@ -18,6 +19,7 @@ from ...storage.models import (
     FindingCommentPublic,
     FindingPublic,
     FindingStatus,
+    FindingStatusFilter,
     ReviewType,
     SecurityReport,
     Severity,
@@ -69,17 +71,12 @@ def list_projects(known: Iterable[str] = ()) -> list[dict]:
 
     projects = []
     for name, reports_total, last_report_at in report_rows:
-        by_severity = open_counts[name]
-        open_total = sum(by_severity.values())
-        worst = compute_risk_level([Severity(k) for k, v in by_severity.items() if v > 0])
         projects.append(
             {
                 "project": name,
                 "reports_total": reports_total,
                 "last_report_at": last_report_at.isoformat(),
-                "open_findings_total": open_total,
-                "open_findings_by_severity": by_severity,
-                "worst_open_severity": worst.value if open_total else None,
+                **_open_summary(open_counts[name]),
             }
         )
     with_reports = {item["project"] for item in projects}
@@ -89,9 +86,7 @@ def list_projects(known: Iterable[str] = ()) -> list[dict]:
             "project": name,
             "reports_total": 0,
             "last_report_at": None,
-            "open_findings_total": 0,
-            "open_findings_by_severity": {severity.value: 0 for severity in Severity},
-            "worst_open_severity": None,
+            **_open_summary({severity.value: 0 for severity in Severity}),
         }
         for name in sorted(set(known) - with_reports)
     )
@@ -119,20 +114,41 @@ def project_posture(project: str) -> dict:
     by_severity = {severity.value: 0 for severity in Severity}
     for severity, number in rows:
         by_severity[severity.value] = number
-    open_total = sum(by_severity.values())
-    worst = compute_risk_level([Severity(k) for k, v in by_severity.items() if v > 0])
+    return {"project": project, "reports_total": reports_total, **_open_summary(by_severity)}
+
+
+def _open_summary(by_severity: dict[str, int]) -> dict:
+    """Open findings of a project from its open counts by severity.
+
+    The ``info`` findings are observations, not risks: ``open_findings_total`` and
+    ``worst_open_severity`` leave them out and ``open_observations`` counts them;
+    ``open_findings_by_severity`` keeps every severity.
+    """
+    risks = {k: v for k, v in by_severity.items() if k != Severity.INFO.value and v > 0}
     return {
-        "project": project,
-        "reports_total": reports_total,
-        "open_findings_total": open_total,
+        "open_findings_total": sum(risks.values()),
         "open_findings_by_severity": by_severity,
-        "worst_open_severity": worst.value if open_total else None,
+        "worst_open_severity": compute_risk_level([Severity(k) for k in risks]).value
+        if risks
+        else None,
+        "open_observations": by_severity.get(Severity.INFO.value, 0),
     }
+
+
+def _status_filter(value: FindingStatusFilter | str, now: datetime) -> ColumnElement[bool]:
+    """SQL condition of a status filter: ``open`` and ``unread`` split the open findings into
+    risks and ``info`` observations."""
+    value = FindingStatusFilter(value)
+    if value == FindingStatusFilter.OPEN:
+        return and_(_status_is(FindingStatus.OPEN, now), Finding.severity != Severity.INFO)
+    if value == FindingStatusFilter.UNREAD:
+        return and_(_status_is(FindingStatus.OPEN, now), Finding.severity == Severity.INFO)
+    return _status_is(FindingStatus(value.value), now)
 
 
 def list_project_findings(
     project: str | None,
-    status: FindingStatus | Collection[FindingStatus] | None = FindingStatus.OPEN,
+    status: FindingStatusFilter | Collection[FindingStatusFilter] | None = FindingStatusFilter.OPEN,
     severity: Severity | Collection[Severity] | None = None,
     limit: int = 100,
     offset: int = 0,
@@ -149,7 +165,8 @@ def list_project_findings(
     SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every matching finding, for paging. Each finding
     carries the project, branch, commit, review type and date of its report; ``review_type``
     keeps only the findings of the reports of that type. ``status``, ``severity`` and
-    ``review_type`` take one value or several (any of them matches; no status: open). ``project``
+    ``review_type`` take one value or several (any of them matches; no status: open). The
+    ``open`` status keeps the open risks and ``unread`` the open ``info`` findings. ``project``
     None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
     ``search`` keeps the findings whose title, rule, CWE, file, description, project or branch
@@ -159,9 +176,9 @@ def list_project_findings(
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
-    statuses = _values(status) or [FindingStatus.OPEN]
+    statuses = _values(status) or [FindingStatusFilter.OPEN]
     now = utcnow()
-    filters = [or_(*(_status_is(s, now) for s in statuses)), _current()]
+    filters = [or_(*(_status_filter(s, now) for s in statuses)), _current()]
     if project is not None:
         filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:

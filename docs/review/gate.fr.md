@@ -17,8 +17,8 @@ Le client, son installation, le jeton `ci` et des exemples de pipeline pour GitH
 GitLab CI, Jenkins, Azure Pipelines, Bitbucket Pipelines et CircleCI : voir
 [Client de pipeline (CI/CD)](../advanced/architecture/ci.md).
 
-Un finding sort du blocage quand une personne le passe à `fixed`, `accepted` ou
-`false_positive` dans l'[interface web](../usage/triage.md) : la
+Un finding sort du blocage quand une personne le passe à `fixed`, `accepted`, `false_positive`
+ou `acknowledged` (une observation `info` lue) dans l'[interface web](../usage/triage.md) : la
 décision reste tracée en base avec son motif et son approbateur. Un agent peut seulement
 proposer un statut (`propose_finding_status`), ce qui ne débloque pas la gate. Une acceptation
 ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau. Quatorze jours avant, la

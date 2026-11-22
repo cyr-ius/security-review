@@ -16,9 +16,9 @@ from pydantic import SecretStr
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, http_server, web_api
+from security_review_mcp import app_settings, cli, http_server, web_api
 from security_review_mcp.auth import engine_clients, token_store
-from security_review_mcp.config import get_settings
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.engines import (
     backend,
     controller_client,
@@ -283,7 +283,12 @@ def test_without_engine_the_scan_is_refused_or_run_on_the_controller(engines, mo
     with pytest.raises(opengrep.OpenGrepBusyError):
         codescan.scan_files(FILES)
 
-    monkeypatch.setattr(get_settings(), "scan_engine_fallback", "local")
+    # The fallback set on the Activity page applies; SECREVIEW_SCAN_ENGINE_FALLBACK locks it
+    with pytest.raises(ValueError, match="SECREVIEW_SCAN_ENGINE_FALLBACK is set"):
+        app_settings.set_scan_engine_fallback(
+            "local", "admin", Settings(scan_engine_fallback="refuse")
+        )
+    app_settings.set_scan_engine_fallback("local", "admin")
     assert codescan.scan_files(FILES)["matches_count"] > 0
     assert (backend.ENGINE_REQUESTS["unavailable"], backend.ENGINE_REQUESTS["fallback"]) == (1, 1)
 
@@ -469,6 +474,13 @@ def test_an_engine_enrolls_and_reads_the_rules_of_the_controller_without_a_datab
         (engine.client_id, "engine-1", True)
     ]
     assert "secret" not in json.dumps(listed)
+    assert (response["fallback"], response["fallback_locked"]) == ("refuse", False)
+    changed = controller.put(
+        "/api/v1/scan-engines/fallback", json={"fallback": "local"}, headers=admin
+    )
+    assert changed.status_code == 200 and changed.json()["fallback"] == "local"
+    wrong = controller.put("/api/v1/scan-engines/fallback", json={"fallback": "x"}, headers=admin)
+    assert wrong.status_code == 422
     revoked = controller.delete(f"/api/v1/scan-engines/{engine.client_id}", headers=admin)
     assert revoked.status_code == 204
     with pytest.raises(opengrep.OpenGrepError, match="revoked"), cache.use():

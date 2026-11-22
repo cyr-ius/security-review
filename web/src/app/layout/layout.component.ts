@@ -14,6 +14,7 @@ import { ThemeService } from '../core/services/theme.service';
 import { LanguageSelectComponent } from '../shared/components/language-select/language-select.component';
 import { ThemeButtonComponent } from '../shared/components/theme-button/theme-button.component';
 import { describeGrants } from '../shared/utils/permission-utils';
+import { scanEngineOutage } from '../shared/utils/scan-engine-outage';
 import { GlobalSearchComponent } from './global-search/global-search.component';
 import { SessionExpiredComponent } from './session-expired/session-expired.component';
 
@@ -69,7 +70,12 @@ export class LayoutComponent {
   private readonly i18n = inject(I18nService);
 
   readonly mainNav: readonly NavItem[] = [
-    { path: '/projects', label: 'layout.projects', icon: 'bi-grid-1x2' },
+    {
+      path: '/projects',
+      label: 'layout.projects',
+      icon: 'bi-grid-1x2',
+      badgeTitle: 'layout.pendingProjects',
+    },
   ];
 
   /** Review of the findings, in the projects whose reports the user reads. */
@@ -183,6 +189,7 @@ export class LayoutComponent {
   private readonly openFindings = rxResource({
     params: () => (this.auth.can('reports.read') ? { navigation: this.navigations() } : undefined),
     stream: () =>
+      // No status: the open risks, the unread observations left out
       this.api.projectFindings({ status: [], severity: [], reviewType: [], limit: 1, offset: 0 }),
   });
 
@@ -192,10 +199,38 @@ export class LayoutComponent {
     stream: () => this.api.opengrepProposals(),
   });
 
+  /** Projects requested by MCP agents and waiting for a decision (only projects.create
+   * approves or rejects them, on the Projects page). */
+  private readonly pendingProjects = rxResource({
+    params: () =>
+      this.auth.can('projects.create') ? { navigation: this.navigations() } : undefined,
+    stream: () => this.api.pendingProjects(),
+  });
+
+  /** Scan engines on but none active (settings.manage reads them): the Activity entry warns. */
+  private readonly engines = rxResource({
+    params: () =>
+      this.auth.can('settings.manage') ? { navigation: this.navigations() } : undefined,
+    stream: () => this.api.scanEngines(),
+  });
+
+  /** Warning shown next to an entry of the sidebar: the code scans are refused (``refuse``) or
+   * run by the Controller server (``local``) because no scan engine is active. */
+  alert(item: NavItem): 'refuse' | 'local' | null {
+    if (item.path === '/activity' && this.engines.hasValue()) {
+      return scanEngineOutage(this.engines.value());
+    }
+    return null;
+  }
+
   /** Number shown next to an entry of the sidebar (null: no badge). */
   badge(item: NavItem): number | null {
     if (item.path === '/findings') {
       return this.openFindings.hasValue() ? this.openFindings.value().total : null;
+    }
+    if (item.path === '/projects' && this.pendingProjects.hasValue()) {
+      // Shown only while requests wait for a decision
+      return this.pendingProjects.value().length || null;
     }
     if (item.path === '/rules' && this.pendingProposals.hasValue()) {
       // Shown only while proposals wait for a review

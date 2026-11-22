@@ -189,7 +189,10 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 - With `--save`, the user of a personal `ci` token is the author of the report, else
   `--author` stores the username of the developer with it (see
   [author of a report](../../reference/prompts-tools.md#author-of-a-report)), `--repository`,
-  `--branch` and `--commit` the context; the label of the token is stored as the device.
+  `--branch` and `--commit` the context; the label of the token is stored as the device. The
+  **Report** page lists the scanned files in a collapsible **Scanned files** section: ecosystem,
+  number of components and of findings of each file, and the files whose vulnerability check
+  could not run (this list is not returned by `get_security_report`).
 - Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the Controller server, the request
   to `SECREVIEW_MAX_SCAN_REQUEST_MB`. Symbolic links are not read.
 

@@ -31,6 +31,12 @@ _SECURITY_SEVERITY = {
     Severity.LOW: "3.0",
     Severity.INFO: "0.1",
 }
+# Findings closed without a fix: reported as suppressed, with the decision as justification
+_JUSTIFICATIONS = {
+    FindingStatus.ACCEPTED: "Risk accepted",
+    FindingStatus.FALSE_POSITIVE: "False positive",
+    FindingStatus.ACKNOWLEDGED: "Observation acknowledged",
+}
 _ADVISORY_PREFIXES = ("GHSA-", "PYSEC-", "CVE-", "OSV-", "RUSTSEC-", "GO-", "MAL-")
 
 
@@ -151,10 +157,8 @@ def _result(item: SarifItem, rule_index: int) -> dict:
 
     if finding.status == FindingStatus.FIXED:
         result["baselineState"] = "absent"
-    elif finding.status in (FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE):
-        justification = (
-            "False positive" if finding.status == FindingStatus.FALSE_POSITIVE else "Risk accepted"
-        )
+    elif finding.status in _JUSTIFICATIONS:
+        justification = _JUSTIFICATIONS[FindingStatus(finding.status)]
         result["suppressions"] = [
             {"kind": "external", "status": "accepted", "justification": justification}
         ]

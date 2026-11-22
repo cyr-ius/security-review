@@ -231,7 +231,9 @@
   local](prompts-tools.md#decision-du-developpeur-en-mode-local)). Une décision reprise sur le même problème signalé par un
   rapport ultérieur (mêmes projet, règle, fichier et titre : [finding signalé de
   nouveau](../usage/triage.md#finding-signale-de-nouveau)) garde son approbateur et sa
-  date d'expiration : un nouveau rapport ne la prolonge jamais. Pages servies avec une CSP
+  date d'expiration : un nouveau rapport ne la prolonge jamais. Une revue ne baisse pas non plus
+  la sévérité d'un problème signalé de nouveau : seuls les scans du serveur Controller le font.
+  Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking, et chaque réponse du serveur Controller (API, refus
   compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
   `X-Frame-Options: DENY`, une CSP fermée quand la route n'en définit pas et, en HTTPS (TLS du

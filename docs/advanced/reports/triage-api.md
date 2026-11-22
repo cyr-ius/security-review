@@ -32,7 +32,9 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
   https://secreview.example.com/api/v1/findings/42/proposal    # reject the agent proposal
 ```
 
-**Open** and **Fixed** take an optional reason. A reason that is missing or too short, an
+**Open**, **Fixed** and **Read** (`acknowledged`, an `info` finding only, `422` for a risk,
+`403` with a bearer token) take an optional reason and no expiry date. An `info` finding
+cannot be `accepted` (`422`). A reason that is missing or too short, an
 expiry date in the past or too far away, or an expiry date for `open` / `fixed` gets `422`.
 Without `expires_on`, a false positive never expires, nor does an acceptance, unless
 `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns
@@ -68,11 +70,16 @@ hygiene rule (`DEP-*`) by its id and the file name. When a rule matches several 
 the occurrences are paired in line order if their number is unchanged (the code moved), else
 only on the same line: a new occurrence never inherits the decision taken on another one, it
 is open. A pending agent proposal of an acceptance or a false positive is carried over too.
+A paired finding of a review reported with a lower severity keeps the severity of its previous
+report (before any raise by a person); only the scans of the Controller server (pipeline code and
+dependency scans) may lower it. The `review_type` is declared by the client and does not tell
+them apart.
 
 The previous occurrence can no longer be triaged (`422`) nor sent through a connector (`409`).
 The trend and the time to remediate start at the first occurrence (`first_seen_at`).
 `save_security_report` and the pipeline scans return `recurring_findings` (findings already
-raised by a previous report) and `carried_decisions` (decisions carried to them).
+raised by a previous report), `carried_decisions` (decisions carried to them) and
+`kept_severities` (findings reported lower that kept their previous severity).
 
 ## Severity of a finding
 

@@ -2,7 +2,7 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 /** Lifecycle status of a finding. */
-export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
+export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive' | 'acknowledged';
 
 /** Role of a bearer token: tokens are for machines, a person signs in with a web user. */
 export type TokenRole = 'mcp' | 'admin' | 'ci' | 'api';
@@ -33,11 +33,50 @@ export function plainAcceptance(severity: Severity, minSeverity: Severity | null
   return minSeverity !== null && SEVERITY_RANK[severity] < SEVERITY_RANK[minSeverity];
 }
 
+/** Severities of the risks: an ``info`` finding is an observation, never counted as open. */
+export const RISK_SEVERITIES: readonly Severity[] = SEVERITIES.filter((s) => s !== 'info');
+
+/**
+ * Whether ``status`` suits a finding of this severity (same rule as the server): an ``info``
+ * finding is an observation, never accepted (raise its severity first), and only an
+ * observation is acknowledged (seen).
+ */
+export function fitsSeverity(status: FindingStatus, severity: Severity): boolean {
+  if (status === 'accepted') {
+    return severity !== 'info';
+  }
+  return status !== 'acknowledged' || severity === 'info';
+}
+
+/**
+ * Status filter of the finding lists: ``open`` keeps the open risks and ``unread`` the open
+ * ``info`` findings (observations nobody has read yet), as on the server.
+ */
+export type FindingStatusFilter = FindingStatus | 'unread';
+
+/** Status filter of one finding: an open ``info`` finding is unread. */
+export function statusFilterOf(finding: {
+  status: FindingStatus;
+  severity: Severity;
+}): FindingStatusFilter {
+  return finding.status === 'open' && finding.severity === 'info' ? 'unread' : finding.status;
+}
+
 export const FINDING_STATUSES: readonly FindingStatus[] = [
   'open',
   'fixed',
   'accepted',
   'false_positive',
+  'acknowledged',
+];
+
+export const FINDING_STATUS_FILTERS: readonly FindingStatusFilter[] = [
+  'open',
+  'unread',
+  'fixed',
+  'accepted',
+  'false_positive',
+  'acknowledged',
 ];
 
 /** Kind of review that produced a report: the MCP prompt used or the CLI scan. */
@@ -80,6 +119,42 @@ export interface ChecklistResult {
   title: string;
   domain: string;
   outcome: ChecklistOutcome;
+}
+
+/** One file of a scan report: a source file of a code scan (language, lines, matches) or not
+ * scanned (reason), or a manifest of a dependency scan (ecosystem, components, matches). */
+export interface ScannedFile {
+  path: string;
+  language?: string | null;
+  lines?: number | null;
+  matches?: number;
+  reason?: string | null;
+  ecosystem?: string | null;
+  components?: number | null;
+  vulnerability_check?: string | null;
+}
+
+/** Counts of the files of a code or dependency scan. */
+export interface ScanSummary {
+  files: number;
+  with_matches: number;
+  skipped: number;
+  unchecked: number;
+}
+
+/** A file with leads of the code scan of a review that the agent did not read. */
+export interface UnreviewedLead {
+  path: string;
+  matches: number;
+}
+
+/** Another report of the same codebase review (scans and review of the agent). */
+export interface RelatedReport {
+  id: number;
+  review_type: ReviewType | null;
+  risk_level: Severity;
+  created_at: string;
+  scan_summary: ScanSummary | null;
 }
 
 /** Review types run by an agent with a review prompt: they declare their coverage. */
@@ -325,6 +400,7 @@ export type AuditAction =
   | 'audit_syslog.changed'
   | 'controller_url.changed'
   | 'mcp_scan_delegation.changed'
+  | 'scan_engine_fallback.changed'
   | 'osv_download.changed'
   | 'finding.exported'
   | 'connector.target_changed'
@@ -381,6 +457,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'audit_syslog.changed',
   'controller_url.changed',
   'mcp_scan_delegation.changed',
+  'scan_engine_fallback.changed',
   'osv_download.changed',
   'finding.exported',
   'connector.target_changed',
@@ -706,9 +783,13 @@ export interface ProjectSummary {
   reports_total: number;
   /** Null for a project without any report yet. */
   last_report_at: string | null;
+  /** Open findings above ``info`` (the info findings are observations). */
   open_findings_total: number;
   open_findings_by_severity: SeverityCounts;
+  /** Worst open severity above ``info``. */
   worst_open_severity: Severity | null;
+  /** Open ``info`` findings. */
+  open_observations: number;
   /** The holders of projects.autojoin may not join this project at once. */
   autojoin_blocked: boolean;
 }
@@ -974,8 +1055,8 @@ export interface FindingComment {
 export interface ProjectFindingQuery {
   /** Omitted: the findings of every project in the scope of the caller. */
   project?: string;
-  /** Any of these statuses (empty: open). */
-  status: readonly FindingStatus[];
+  /** Any of these statuses (empty: open, the open risks). */
+  status: readonly FindingStatusFilter[];
   /** Any of these severities (empty: every severity). */
   severity: readonly Severity[];
   /** Any of these review types (empty: every type). */
@@ -1007,6 +1088,14 @@ export interface Report {
   created_at: string;
   checklist_results: ChecklistResult[];
   scan_rules: string[];
+  scanned_files: ScannedFile[];
+  scan_summary: ScanSummary | null;
+  /** Files the agent declares it read, and the files with scan leads it did not read. */
+  files_reviewed: string[];
+  unreviewed_leads: UnreviewedLead[];
+  /** Id of the scan ticket of a codebase review, shared by its reports. */
+  review_group: string | null;
+  related_reports: RelatedReport[];
   findings: Finding[];
 }
 
@@ -1362,6 +1451,8 @@ export interface ScanEngineList {
   enabled: boolean;
   /** When no engine scanned the files: refuse the scan (503) or scan on the Controller server. */
   fallback: 'refuse' | 'local';
+  /** SECREVIEW_SCAN_ENGINE_FALLBACK is set: it wins, the fallback cannot be changed here. */
+  fallback_locked: boolean;
   /** Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS). */
   networks: string[];
   access_token_minutes: number;

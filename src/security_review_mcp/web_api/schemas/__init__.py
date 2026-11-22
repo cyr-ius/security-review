@@ -60,6 +60,7 @@ from .engines import (  # noqa: F401
     EngineOpenGrepManifest,
     EngineRuleSet,
     ProcessingPublic,
+    ScanEngineFallbackUpdate,
     ScanEngineList,
     ScanEnginePublic,
     ServerInstancePublic,

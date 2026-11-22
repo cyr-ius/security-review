@@ -29,8 +29,9 @@ scrape_configs:
 | `secreview_projects` | | Projets ayant des rapports |
 | `secreview_reports` | | Rapports stockés |
 | `secreview_findings` | `status` | Findings par statut effectif (une décision expirée compte comme `open`) |
-| `secreview_open_findings` | `severity` | Findings ouverts par sévérité |
-| `secreview_project_open_findings` | `project`, `severity` | Findings ouverts de chaque projet |
+| `secreview_open_findings` | `severity` | Findings ouverts par sévérité, `info` exclus |
+| `secreview_open_observations` | | Findings `info` ouverts (observations, non comptées comme findings ouverts) |
+| `secreview_project_open_findings` | `project`, `severity` | Findings ouverts de chaque projet, `info` exclus |
 | `secreview_finding_proposals_pending` | | Propositions d'agents en attente d'une personne |
 | `secreview_tokens` | `role`, `state` | Jetons par rôle et état (`active`, `expired`) |
 | `secreview_tokens_expiring_soon` | | Jetons actifs qui expirent dans les 14 jours |

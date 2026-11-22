@@ -23,8 +23,17 @@ Pour utiliser l'API REST, voir [Triage par l'API REST](../advanced/reports/triag
     - **Rejeter** supprime la proposition.
     - Sur la page **Findings à revoir**, **Possède une proposition** liste les findings
       qui attendent cette vérification.
-- **Les findings peu graves** (`low` et `info` par défaut) s'acceptent par une simple
+- **Les findings peu graves** (`low` par défaut) s'acceptent par une simple
   validation, sans motif ni date.
+- **Un finding `info` est une observation, pas un risque** : il ne peut pas être accepté.
+  Marquez-le **Lu** (`acknowledged`, sans motif ni date, conservé dans les rapports suivants
+  tant qu'il reste `info`), **Corrigé** ou **Faux positif**, ou relevez d'abord sa sévérité (il
+  s'accepte ensuite comme tout risque ; une observation lue relevée en risque redevient
+  ouverte). Seul un finding `info` peut être marqué **Lu** ; d'ici là, un finding `info` ouvert s'affiche
+  **Non lu**, et les listes de findings ne l'affichent pas par défaut : choisissez **Non lu**
+  dans le filtre de statut pour le voir. Les compteurs des projets, la posture, le badge **Findings** et
+  les métriques comptent à part les findings `info` ouverts, comme des observations : ce ne
+  sont pas des findings ouverts.
 - **Une acceptation expirée compte de nouveau comme ouverte** partout : listes, posture,
   [gate](../review/gate.md), SARIF, tendance. La carte indique que la décision a expiré.
 - La personne qui décide est enregistrée comme **approbateur**, et chaque décision est inscrite
@@ -43,7 +52,8 @@ Sur la page **Findings à revoir**, un trieur coche les findings à traiter (ou
 **Sélectionner les findings chargés**), choisit un **Nouveau statut** puis clique sur
 **Appliquer à N finding(s)**. La barre demande ce que demande une décision unique : un
 **Motif** et une **Date d'expiration** pour accepter un risque quand l'un des findings les
-exige, un **Motif** facultatif pour un faux positif. La décision est enregistrée pour tous les
+exige, un **Motif** facultatif pour un faux positif. Elle refuse d'accepter une sélection qui
+contient un finding `info`, et de marquer **Lu** une sélection qui contient un risque. La décision est enregistrée pour tous les
 findings ou pour aucun : si un finding est refusé, rien ne change et le message le désigne.
 Chaque finding a sa propre entrée au journal d'audit.
 
@@ -59,6 +69,10 @@ titre : une revue et un scan des dépendances signalent une seule fois un paquet
   approbateur et sa date d'expiration, de même que les commentaires et une criticité relevée.
   La gate ne bloque pas de nouveau.
 - Un finding **corrigé** qui revient est de nouveau **ouvert**.
+- Une revue (agent) qui signale le problème avec une **sévérité plus faible** ne la baisse pas :
+  le finding garde la sévérité de son rapport précédent, et la gate continue de bloquer. Seul un
+  nouveau scan du serveur Controller (code ou dépendances) suit ses règles, plus bas ou non. Pour
+  clore un risque, une personne l'accepte.
 - L'occurrence précédente reste dans son ancien rapport, marquée **Signalé de nouveau : voir le
   finding #N**, et ne peut plus être triée.
 - Les listes, compteurs, gate et tendance ne comptent que la dernière occurrence ; le délai de

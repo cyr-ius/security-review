@@ -81,14 +81,14 @@ fix" section of the prompt takes precedence, including a severity given with the
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin`, `terraform`, `api`, `config`, `cicd`, `dependencies` and internal domains |
 | `scan_code` | Quick line-by-line pattern scan (leads to check, **not** a full SAST; data flows are followed by OpenGrep during a scan of the codebase, or by `scan_code` when it is [delegated to the Controller server](../review/analysis/opengrep.md#fragment-scans-scan_code)). Masked excerpts, invisible characters shown as `<U+XXXX>` |
-| `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
+| `start_codebase_scan` | Gives the agent the commands that have the Controller server scan the **whole repository** (`security-review-ci` run with `uvx`, single-use ticket), without the agent reading the files nor the developer creating a `ci` token; `scope` `deps` only gives the dependency scan (`dependency-review` prompt); its `review_group` links the reports of the scans and of the review; HTTP MCP server with the delegation of `scan_code` only ([scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan)) |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type, with pagination |
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
 | `decide_finding_status` | **Local mode (stdio) only**: applies a triage decision the developer stated in the conversation, once they confirm it in the host ([decision of the developer in local mode](#decision-of-the-developer-in-local-mode)) |
 | `propose_opengrep_rule` | **Proposes** an [OpenGrep rule](../review/analysis/opengrep.md#rules-proposed-by-agents) for a vulnerable pattern the scan missed; installed only once a person approves it |
-| `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
+| `get_project_security_posture` | Open findings by severity, `info` observations counted apart (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
 | `export_findings_report` | Current findings of a project as one Markdown document (`detail`: `compact` by default, one line per finding, or `full`), shown to the developer or written by the agent to `SECURITY_REPORT.md` ([findings report](../getting-started/stdio.md#findings-report-security_reportmd)) |
@@ -144,7 +144,11 @@ See [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-toke
 - `author`: not needed, the server takes the user of a personal token (see
   [author of a report](#author-of-a-report));
 - `checklist_results` and `scan_rules`: the coverage of the review (see
-  [review coverage](#review-coverage)).
+  [review coverage](#review-coverage));
+- `review_group`: the one returned by `start_codebase_scan`, which links the report to the
+  reports of its scans (see
+  [scan started by the agent](../review/analysis/code-scan.md#scan-started-by-the-agent-start_codebase_scan));
+- `files_reviewed`: the files the agent read (see [review coverage](#review-coverage)).
 
 Each field is bounded: `repository` (500 characters), `branch` (200), `commit_sha` (64),
 `reviewer` (200), and each text (`summary`, `scope`, and the `description`, `evidence` and
@@ -155,7 +159,8 @@ The **risk level** of the report is computed (highest severity of the findings).
 `risk_level` parameter can only raise it, never lower it.
 
 A finding already raised by a previous report of the project replaces it and keeps the
-decision taken on it: the result gives `recurring_findings` and `carried_decisions` (see
+decision taken on it; reported with a lower severity, it keeps the severity of the previous
+report. The result gives `recurring_findings`, `carried_decisions` and `kept_severities` (see
 [finding reported again](../usage/triage.md#finding-reported-again)).
 
 ### Project name
@@ -228,7 +233,8 @@ tell a clean review from one that skipped the checklist:
 | Field | Content |
 |---|---|
 | `checklist_results` | Each checklist item walked through, with its outcome: `ok` (verified, nothing found), `issue` (reported as a finding), `not_applicable`, `not_verifiable` (the reviewed code was not enough to judge it) |
-| `scan_rules` | The rule id of every lead returned by `scan_code`, confirmed or dismissed |
+| `scan_rules` | The rule id of every lead returned by `scan_code`, confirmed or dismissed: an internal rule (`PY-004`, case-insensitive) or an OpenGrep rule as `scan_code` returns it (`OPENGREP:<id>`, the id keeps its case) |
+| `files_reviewed` | The path of every file the agent actually read, relative to the root of the repository (`codebase-review` prompt) |
 
 The server checks them against the active rules and checklists when it stores the report:
 
@@ -239,9 +245,16 @@ The server checks them against the active rules and checklists when it stores th
   `not_covered`, and listed in `coverage.not_covered` of the answer;
 - a finding `rule_id` that looks like a rule or checklist id (`PY-004`, `ACME-CL-01`) but
   matches neither gets a warning; advisory ids (`GHSA-...`, `CVE-...`) are not checked;
-- a report without any checklist result gets a warning: its coverage is unknown.
+- a report without any checklist result gets a warning: its coverage is unknown;
+- with a `review_group` whose code scan is saved, the files with leads of that scan that the
+  agent neither declared in `files_reviewed` nor cited in a finding are stored as **unread
+  leads**: the answer gives their number and the first ones (`unreviewed_leads`), with a
+  warning. Paths are compared without a leading `./` and with `/` as separator.
 
-At most 500 checklist results and 500 rules per report. The coverage is **declared by the
+At most 500 checklist results, 500 rules and 5,000 files read per report. For a codebase
+review, the report page also shows the counts of the linked scans (files scanned, with leads,
+not scanned), the files read and the unread leads, in collapsible lists; `get_security_report`
+leaves these lists out of its JSON and the Markdown gives their counts. The coverage is **declared by the
 agent**: it shows what the agent says it did, not a proof; a rule of `scan_rules` cited by no
 finding is a lead the agent dismissed. The CLI scans declare no coverage. The report page of the
 [web interface](../usage/index.md) and the Markdown export show it.
@@ -258,6 +271,9 @@ what it hands back to the agent and reports injected instructions
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The
   status, the posture and the gate do not change. A new proposal replaces the previous one. It
   is written to the [audit log](../usage/audit-metrics.md), like the decision that follows.
+  An `info` finding is an observation, not a risk: `accepted` is refused for it (an error,
+  like with `decide_finding_status`). Only a person marks it `acknowledged` (read): an agent
+  cannot propose it.
 - A person with the `findings.triage` permission on the project applies or rejects it in the
   [web interface](../usage/triage.md). `accepted` and `false_positive` need a
   reason, an approver (the logged-in user) and an expiry date; from that date the finding counts
@@ -271,7 +287,8 @@ changes a status.
 In [local mode (stdio)](../getting-started/stdio.md) there is no web interface, but the
 developer sits at the host. When they state a decision in the conversation (*"line 12 of
 app/db.py is a false positive, the query is bound"*), the agent calls `decide_finding_status`
-with the findings, the status (`fixed`, `accepted` or `false_positive`), the reason and, to
+with the findings, the status (`fixed`, `accepted`, `false_positive`, or `acknowledged` for an
+`info` finding), the reason and, to
 accept a risk, the expiry date the developer gave (at most 50 findings at once). The status
 does not change yet: the server asks the developer to confirm through the host (MCP
 **elicitation**), with a message that lists the findings, the status, the reason and the

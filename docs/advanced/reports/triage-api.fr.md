@@ -32,7 +32,9 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
   https://secreview.example.com/api/v1/findings/42/proposal    # rejette la proposition de l'agent
 ```
 
-**Ouvert** et **Corrigé** acceptent un motif facultatif. Un motif absent ou trop court, une date
+**Ouvert**, **Corrigé** et **Lu** (`acknowledged`, finding `info` uniquement, `422` pour un
+risque, `403` avec un jeton Bearer) acceptent un motif facultatif et aucune date d'expiration.
+Un finding `info` ne peut pas être `accepted` (`422`). Un motif absent ou trop court, une date
 d'expiration passée ou trop lointaine, ou une date d'expiration pour `open` / `fixed` reçoit
 `422`. Sans `expires_on`, un faux positif n'expire jamais, une acceptation non plus, sauf si
 `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
@@ -68,12 +70,17 @@ manifeste), et une règle d'hygiène (`DEP-*`) à son identifiant et au nom du f
 fichier, les occurrences sont appariées dans l'ordre des lignes si leur nombre n'a pas changé
 (le code a bougé), sinon seulement sur la même ligne : une nouvelle occurrence n'hérite jamais de
 la décision prise sur une autre, elle est ouverte. Une proposition d'agent en attente
-(acceptation ou faux positif) est reprise aussi.
+(acceptation ou faux positif) est reprise aussi. Un finding apparié d'une revue signalé avec
+une sévérité plus faible garde la sévérité de son rapport précédent (avant toute hausse par une
+personne) ; seuls les scans du serveur Controller (scans du code et des dépendances du pipeline)
+peuvent la baisser. Le `review_type` est déclaré par le client et ne permet pas de les
+distinguer.
 
 L'occurrence précédente ne peut plus être triée (`422`) ni envoyée par un connecteur (`409`). La
 tendance et le délai de correction partent de la première occurrence (`first_seen_at`).
 `save_security_report` et les scans du pipeline renvoient `recurring_findings` (findings déjà
-signalés par un rapport précédent) et `carried_decisions` (décisions reprises sur eux).
+signalés par un rapport précédent), `carried_decisions` (décisions reprises sur eux) et
+`kept_severities` (findings signalés plus bas qui ont gardé leur sévérité précédente).
 
 ## Criticité d'un finding
 

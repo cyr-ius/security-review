@@ -2,13 +2,14 @@
 
 import json
 import logging
+import re
 from collections import Counter
 from collections.abc import Collection
 from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import and_, case, func, or_, update
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, selectinload
 from sqlmodel import Session, col, select
 
 from ...config import MAX_RETENTION_DAYS, get_settings
@@ -18,18 +19,24 @@ from ...storage.models import (
     DISMISSED_STATUSES,
     MAX_BRANCH_CHARS,
     MAX_COMMIT_SHA_CHARS,
+    MAX_FILES_REVIEWED,
     MAX_REPOSITORY_CHARS,
     MAX_REVIEWER_CHARS,
+    MAX_SCANNED_PATH_CHARS,
     SEVERITY_RANK,
     ChecklistResult,
     Finding,
     FindingComment,
     FindingCreate,
     FindingStatus,
+    RelatedReport,
     ReviewType,
+    ScannedFile,
+    ScanTicket,
     SecurityReport,
     SecurityReportPublic,
     Severity,
+    UnreviewedLead,
     effective_status,
     utcnow,
 )
@@ -46,6 +53,17 @@ from .core import (
     _values,
     compute_risk_level,
 )
+
+# Lists of files of a report (thousands of paths), loaded only with the report itself
+_DEFERRED_LISTS = (
+    defer(SecurityReport.scanned_files),  # type: ignore[arg-type]
+    defer(SecurityReport.files_reviewed),  # type: ignore[arg-type]
+    defer(SecurityReport.unreviewed_leads),  # type: ignore[arg-type]
+)
+# Files with unread leads listed in the answer to the agent (all are stored)
+MAX_UNREVIEWED_LISTED = 20
+# A review group is the id of a scan ticket (uuid4 hex, see auth.scan_tickets)
+REVIEW_GROUP_PATTERN = re.compile(r"[0-9a-f]{32}")
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -69,8 +87,9 @@ def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: date
 
     A pending acceptance or false positive is carried with its reason, approver and expiry
     date, as is a proposal of one of them and a severity raised above the one of the new
-    report. A fixed issue that comes back is open, seen for the first time again. Return True
-    when a decision was carried.
+    report. An acknowledged observation is carried while it is still ``info``. A fixed issue
+    that comes back is open, seen for the first time again. Return True when a decision was
+    carried.
     """
     status = effective_status(previous.status, previous.status_expires_at, now)
     row.first_seen_at = None if status == FindingStatus.FIXED else first_seen
@@ -87,7 +106,9 @@ def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: date
         row.proposed_reason = previous.proposed_reason
         row.proposed_by = previous.proposed_by
         row.proposed_at = previous.proposed_at
-    if status not in DISMISSED_STATUSES:
+    # An acknowledged observation stays read while it is still an observation
+    seen = status == FindingStatus.ACKNOWLEDGED and row.severity == Severity.INFO
+    if status not in DISMISSED_STATUSES and not seen:
         return False
     row.status = previous.status
     row.status_changed_at = previous.status_changed_at
@@ -97,23 +118,36 @@ def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: date
     return True
 
 
+def _keep_severity(previous: Finding, row: Finding) -> bool:
+    """Keep on the new occurrence of an issue the severity its previous report gave it, when a
+    reviewer reports it lower: an agent never lowers a finding below the gate by reporting it
+    again (a person accepts the risk instead). Return True when the severity was kept."""
+    reported = Severity(previous.original_severity or previous.severity)
+    if SEVERITY_RANK[reported] <= SEVERITY_RANK[row.severity]:
+        return False
+    row.severity = reported
+    return True
+
+
 def _match_occurrences(
-    session: Session, project: str, rows: list[Finding], now: datetime
-) -> tuple[list[tuple[Finding, Finding]], int, int]:
+    session: Session, project: str, rows: list[Finding], now: datetime, from_scan: bool = False
+) -> tuple[list[tuple[Finding, Finding]], int, int, int]:
     """Pair the findings of a new report with the current occurrences of the same issues.
 
     A rule may match several lines of a file: occurrences of one fingerprint are paired in line
     order when their number is unchanged (the code moved), else only on the same line, so that
     a new occurrence never inherits the decision taken on another one. A current occurrence
-    left unpaired is replaced, without carry, by the first new one. Return the (previous, new)
-    pairs, the number of new findings paired and the number of decisions carried.
+    left unpaired is replaced, without carry, by the first new one. Unless the report comes
+    ``from_scan``, a paired finding keeps the severity of its previous report when it is
+    reported lower (see _keep_severity). Return the (previous, new) pairs, the number of new
+    findings paired, of decisions carried and of severities kept.
     """
     reported: dict[str, list[Finding]] = {}
     for row in rows:
         row.fingerprint = issue_fingerprint(project, row)
         reported.setdefault(row.fingerprint, []).append(row)
     if not reported:
-        return [], 0, 0
+        return [], 0, 0, 0
     current: dict[str, list[tuple[Finding, datetime]]] = {}
     for previous, created_at in session.exec(
         select(Finding, SecurityReport.created_at)
@@ -128,7 +162,7 @@ def _match_occurrences(
         current.setdefault(str(previous.fingerprint), []).append((previous, created_at))
 
     pairs: list[tuple[Finding, Finding]] = []
-    recurring = carried = 0
+    recurring = carried = kept = 0
     for digest, previous_rows in current.items():
         new_rows = sorted(
             reported[digest], key=lambda row: (row.line_start is None, row.line_start or 0)
@@ -146,10 +180,12 @@ def _match_occurrences(
             row = matched.get(index)
             if row is not None:
                 recurring += 1
+                if not from_scan:
+                    kept += _keep_severity(previous, row)
                 first_seen = previous.first_seen_at or created_at
                 carried += _carry_over(previous, first_seen, row, now)
             pairs.append((previous, row or new_rows[0]))
-    return pairs, recurring, carried
+    return pairs, recurring, carried, kept
 
 
 def _supersede(session: Session, pairs: list[tuple[Finding, Finding]]) -> None:
@@ -170,6 +206,63 @@ def _supersede(session: Session, pairs: list[tuple[Finding, Finding]]) -> None:
         session.add(previous)
 
 
+def _sanitize_scanned(item: ScannedFile) -> ScannedFile:
+    """Mask the secrets of a scanned file entry and cut its path to the column size."""
+    path = sanitize_untrusted(item.path)[:MAX_SCANNED_PATH_CHARS]
+    reason = sanitize_untrusted(item.reason)[:MAX_SCANNED_PATH_CHARS] if item.reason else None
+    return item.model_copy(update={"path": path, "reason": reason})
+
+
+def _known_group(session: Session, project: str, group: str, warnings: list[str]) -> str | None:
+    """Return the review group declared by an agent when a scan ticket or a report of
+    ``project`` has it, None with a warning otherwise (an agent cannot join another project's
+    reports, nor make up a group)."""
+    group = group.strip().lower()
+    known = REVIEW_GROUP_PATTERN.fullmatch(group) is not None and (
+        session.exec(
+            select(ScanTicket.id).where(ScanTicket.id == group, ScanTicket.project == project)
+        ).first()
+        is not None
+        or session.exec(
+            select(SecurityReport.id).where(
+                SecurityReport.review_group == group, SecurityReport.project == project
+            )
+        ).first()
+        is not None
+    )
+    if not known:
+        warnings.append(
+            "review_group is not the one given by start_codebase_scan for this project: "
+            "the report is saved without it"
+        )
+        return None
+    return group
+
+
+def _unreviewed_leads(
+    session: Session,
+    project: str,
+    group: str,
+    reviewed: list[str],
+    findings: list[FindingCreate],
+) -> list[UnreviewedLead] | None:
+    """The files with leads of the latest code scan of the review group that the review did
+    not read, or None when the group has no code scan."""
+    scan = session.exec(
+        select(SecurityReport.scanned_files)
+        .where(
+            SecurityReport.review_group == group,
+            SecurityReport.project == project,
+            SecurityReport.review_type == ReviewType.CODE_SCAN,
+        )
+        .order_by(col(SecurityReport.id).desc())
+    ).first()
+    if scan is None:
+        return None
+    scanned = [ScannedFile.model_validate(item) for item in json.loads(scan)]
+    return coverage.unreviewed_leads(scanned, reviewed, findings)
+
+
 def save_report(
     project: str,
     summary: str,
@@ -185,6 +278,10 @@ def save_report(
     submitted_by: str | None = None,
     checklist_results: list[ChecklistResult] | None = None,
     scan_rules: list[str] | None = None,
+    from_scan: bool = False,
+    scanned_files: list[ScannedFile] | None = None,
+    review_group: str | None = None,
+    files_reviewed: list[str] | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -205,6 +302,19 @@ def save_report(
         checklist_results: Checklist items walked through by the reviewer, with their
             outcome; None for a report without declared coverage (CLI scans).
         scan_rules: Rules that raised scan_code leads, confirmed or not.
+        from_scan: The findings come from the rules of a scan of the controller (codescan,
+            depscan), never from a reviewer: their severity may be lower than the previous
+            occurrence of an issue. A review keeps that severity instead; ``review_type`` is
+            declared by the client and does not tell them apart.
+        scanned_files: Files of a code or dependency scan of the controller (bounded by
+            SECREVIEW_MAX_SCAN_FILES); their paths are masked and cut like those of findings.
+        review_group: Id of the scan ticket of a codebase review (start_codebase_scan): set by
+            the controller for the scans saved with the ticket, declared by the agent for its
+            review. A declared group is kept only when a ticket or a report of the project has
+            it; otherwise it is dropped with a warning (the report is still saved).
+        files_reviewed: Files the agent declares it read (at most MAX_FILES_REVIEWED). With a
+            review group whose code scan is saved, the files with leads that it neither read
+            nor cited in a finding are stored as ``unreviewed_leads``.
 
     Returns:
         Identifier, risk level and finding counts of the stored report; with declared
@@ -240,6 +350,17 @@ def save_report(
         ),
     )
     author = _check_author(author)
+    if files_reviewed is not None and len(files_reviewed) > MAX_FILES_REVIEWED:
+        raise ValueError(
+            f"Too many files_reviewed ({len(files_reviewed)}); the limit is {MAX_FILES_REVIEWED}"
+        )
+    reviewed = list(
+        dict.fromkeys(
+            coverage.normalize_path(sanitize_untrusted(p))
+            for p in files_reviewed or []
+            if p.strip()
+        )
+    )
     declared = None
     if checklist_results is not None or scan_rules is not None:
         declared = coverage.check(checklist_results or [], scan_rules or [], findings)
@@ -249,7 +370,13 @@ def save_report(
 
     with session_scope() as session:
         ensure_project(session, project, submitted_by)
-        pairs, recurring, carried = _match_occurrences(session, project, rows, now)
+        warnings: list[str] = []
+        if review_group is not None and not from_scan:
+            review_group = _known_group(session, project, review_group, warnings)
+        missed = None
+        if review_group is not None and not from_scan:
+            missed = _unreviewed_leads(session, project, review_group, reviewed, findings)
+        pairs, recurring, carried, kept = _match_occurrences(session, project, rows, now, from_scan)
         risk = compute_risk_level([row.severity for row in rows], risk_level)
         report = SecurityReport(
             project=project,
@@ -265,12 +392,24 @@ def save_report(
             risk_level=risk,
             findings=rows,
             created_at=now,
+            review_group=review_group,
         )
         for row in rows:
             row.first_seen_at = row.first_seen_at or now
         if declared is not None:
             report.checklist_results = json.dumps([r.model_dump() for r in declared.checklist])
             report.scan_rules = json.dumps(declared.scan_rules)
+        if scanned_files:
+            report.scanned_files = json.dumps(
+                [
+                    _sanitize_scanned(item).model_dump(exclude_defaults=True)
+                    for item in scanned_files
+                ]
+            )
+            report.scan_summary = coverage.summarize(scanned_files).model_dump_json()
+        report.files_reviewed = json.dumps(reviewed)
+        if missed:
+            report.unreviewed_leads = json.dumps([lead.model_dump() for lead in missed])
         session.add(report)
         session.flush()  # assigns ids before the commit
         _supersede(session, pairs)
@@ -284,14 +423,30 @@ def save_report(
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
             "recurring_findings": recurring,
             "carried_decisions": carried,
+            "kept_severities": kept,
         }
         if declared is not None:
             result["coverage"] = {
                 "checklist_by_outcome": dict(Counter(r.outcome.value for r in declared.checklist)),
                 "not_covered": declared.not_covered,
                 "scan_rules": len(declared.scan_rules),
+                "files_reviewed": len(reviewed),
             }
-            result["warnings"] = declared.warnings
+            warnings = declared.warnings + warnings
+        if review_group is not None:
+            result["review_group"] = review_group
+        if missed is not None:
+            result["unreviewed_leads"] = {
+                "files": len(missed),
+                "first": [lead.path for lead in missed[:MAX_UNREVIEWED_LISTED]],
+            }
+            if missed:
+                warnings.append(
+                    f"{len(missed)} file(s) with leads of the code scan were neither read "
+                    "(files_reviewed) nor cited in a finding: their leads are not verified"
+                )
+        if declared is not None or warnings:
+            result["warnings"] = warnings
     logger.info("Report saved: id=%s project=%s risk=%s", result["report_id"], project, risk)
     return result
 
@@ -310,7 +465,22 @@ def get_report(report_id: int) -> SecurityReportPublic:
         ).first()
         if report is None:
             raise NotFoundError(f"Report {report_id} not found")
-        return SecurityReportPublic.model_validate(report, from_attributes=True)
+        public = SecurityReportPublic.model_validate(report, from_attributes=True)
+        if report.review_group:
+            related = session.exec(
+                select(SecurityReport)
+                .where(
+                    SecurityReport.review_group == report.review_group,
+                    SecurityReport.project == report.project,
+                    SecurityReport.id != report.id,
+                )
+                .options(*_DEFERRED_LISTS)
+                .order_by(col(SecurityReport.id))
+            ).all()
+            public.related_reports = [
+                RelatedReport.model_validate(r, from_attributes=True) for r in related
+            ]
+        return public
 
 
 def _contains_pattern(search: str) -> str:
@@ -358,7 +528,8 @@ def list_reports(
             sort_by = "submitted_by"
 
     with session_scope() as session:
-        statement = select(SecurityReport)
+        # The lists of files are not listed: never load them here
+        statement = select(SecurityReport).options(*_DEFERRED_LISTS)
         if names := [normalize_project(name) for name in _values(project) if name]:
             statement = statement.where(col(SecurityReport.project).in_(names))
         if projects is not None:

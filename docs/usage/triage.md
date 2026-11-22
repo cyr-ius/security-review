@@ -21,8 +21,16 @@ Worth knowing:
     - **Reject** removes the proposal.
     - On the **Findings to review** page, **With a proposal only** lists the findings waiting
       for such a check.
-- **Low-severity findings** (`low` and `info` by default) are accepted by a plain validation,
+- **Low-severity findings** (`low` by default) are accepted by a plain validation,
   with no reason and no date.
+- **An `info` finding is an observation, not a risk**: it cannot be accepted. Mark it
+  **Read** (`acknowledged`, no reason nor date, kept in the next reports while it stays
+  `info`), **Fixed** or **False positive**, or raise its severity first (it can then be
+  accepted like any risk; a read observation raised to a risk is open again). Only an `info`
+  finding can be marked **Read**; until then, an open `info` finding is shown as
+  **Unread**, and the finding lists leave it out by default: choose **Unread** in the status
+  filter to see it. The project counters, the posture, the **Findings** badge and the metrics count
+  the open `info` findings apart, as observations: they are not open findings.
 - **An expired acceptance counts as open again** everywhere: lists, posture, [gate](../review/gate.md),
   SARIF, trend. The card says that the decision has expired.
 - The person who decides is recorded as the **approver**, and every decision is written to the
@@ -39,7 +47,8 @@ Worth knowing:
 On the **Findings to review** page, a triager ticks the findings to decide on (or
 **Select the loaded findings**), then chooses a **New status** and clicks **Apply to N
 finding(s)**. The bar asks what a single decision asks: a **Reason** and an **Expiry date** to
-accept a risk when one of the findings needs them, an optional **Reason** for a false positive.
+accept a risk when one of the findings needs them, an optional **Reason** for a false positive. It refuses to accept a selection that holds an
+`info` finding, and to mark as **Read** a selection that holds a risk.
 The decision is saved for all the findings or for none: when one finding is refused, nothing
 changes and the message names it. Each finding gets its own entry in the audit log.
 
@@ -54,6 +63,10 @@ dependency scan report a vulnerable package once.
 - A still valid **acceptance** or **false positive** is carried over, with its reason, approver
   and expiry date, as are the comments and a raised severity. The gate does not block again.
 - A **fixed** finding that comes back is **open** again.
+- A review (agent) that reports the issue with a **lower severity** does not lower it: the
+  finding keeps the severity of its previous report, so the gate keeps blocking. Only a new
+  scan of the Controller server (code or dependencies) follows its rules, lower or not. To close
+  a risk, a person accepts it.
 - The previous occurrence stays in its old report, marked **Reported again: see finding #N**,
   and can no longer be triaged.
 - Lists, counters, gate and trend only count the latest occurrence; the time to remediate

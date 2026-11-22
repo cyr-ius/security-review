@@ -133,14 +133,14 @@ error is hidden from it.
 | `save_security_report` | write | `project`, `summary`, `findings` (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`); optional `repository`, `branch`, `commit_sha`, `reviewer`, `scope`, `risk_level` (can only raise the computed risk), `review_type`, `author`, `checklist_results` (at most 500), `scan_rules` (at most 500) | Report id, risk level, counts by severity and review coverage ([stored report](../../reference/prompts-tools.md#stored-report)) |
 | `get_security_report` | read-only | `report_id`, `format` (`markdown` by default, or `json`) | The report and its findings, without its author |
 | `list_security_reports` | read-only | `project`, `risk_level`, `review_type`, `limit` (1 to 100, `20` by default), `offset` | Reports, newest first, without their author (`author`: deprecated, ignored) |
-| `propose_finding_status` | write | `finding_id`, `status` (`fixed`, `accepted` or `false_positive`), `reason` (10 to 1,000 characters) | The finding with its proposal; its status does not change until a person decides ([status of a finding](../../reference/prompts-tools.md#status-of-a-finding)) |
+| `propose_finding_status` | write | `finding_id`, `status` (`fixed`, `accepted` or `false_positive`; never `accepted` for an `info` finding), `reason` (10 to 1,000 characters) | The finding with its proposal; its status does not change until a person decides ([status of a finding](../../reference/prompts-tools.md#status-of-a-finding)) |
 | `propose_opengrep_rule` | write | `project`, `rule_id`, `content` (one YAML rule, at most 256 KiB), `reason` (10 to 1,000 characters), `test_code` (at most `SECREVIEW_MAX_CONTENT_CHARS`) | The pending proposal and `next_steps`; the rule is installed only once a person approves it ([rules proposed by agents](../../review/analysis/opengrep.md#rules-proposed-by-agents)) |
 
 **Posture, gate, exports and trends**
 
 | Tool | Type | Parameters | Returns |
 |---|---|---|---|
-| `get_project_security_posture` | read-only | `project` | Open findings by severity, worst open severity |
+| `get_project_security_posture` | read-only | `project` | Open findings by severity, worst open severity and total, both without the `info` findings, counted in `open_observations` |
 | `check_project_gate` | read-only | `project`, `fail_on` (`high` by default), `report_id` (optional) | `passed` false while an open finding reaches `fail_on` ([gate](../../review/gate.md)) |
 | `export_sarif` | read-only | `report_id` **or** `project`, `include_resolved` (`false` by default) | A SARIF 2.1.0 log; for a project, each finding once (latest report) |
 | `get_trend_report` | read-only | `project`, `days` (1 to 1,095, `90` by default), `granularity` (`day`, `week` by default, `month`), `format` | New and fixed findings, open backlog, risk score, MTTR |
@@ -274,6 +274,9 @@ where to create a token, so a client without a token gets `401`. With the
     The approval gives the **requester** the reading and writing of the project (see
     [members](../../usage/projects.md#members)), created for a new project: their
     personal token reaches the project from the next request, without reconfiguration. A
+    request filed with a token without a user shows that token instead of a requester: its
+    approval only creates the project, the token reaches it once an administrator adds the
+    project to it (**Tokens** page). A
     request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)
     is deleted.
 

@@ -12,6 +12,10 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 (`security-review-mcp`, endpoint `/mcp`, avec un serveur d'enrôlement sans outil pour un client sans jeton) et le **contrôleur**
 (`security-review-controller` : API REST, interface web, migrations, administration).
 
+## Projet
+- Nom du projet pour le serveur MCP `security-review` : `security-review`.
+- Utilisez toujours ce nom dans `save_security_report`.
+
 ## Une tâche n'est terminée que si
 
 1. **Le comportement ajouté ou corrigé est vérifié par un test pertinent**, existant ou nouveau
@@ -335,24 +339,29 @@ est connecté et répond** (ses prompts et outils apparaissent dans votre sessio
 sécurité des changements est **systématique** avant de déclarer une tâche terminée ou d'ouvrir
 une PR, quelle que soit la taille du changement :
 
-1. Lancez le prompt `security-review` (ou `api-security-review` pour l'API REST,
-   `configuration-review` pour Dockerfile / workflows / YAML, `dependency-review` si
-   `pyproject.toml`, `uv.lock` ou `package.json` changent) sur les fichiers modifiés, avec le
-   diff comme contexte. Pour un changement très étendu, utilisez `codebase-review`.
-2. Appuyez-vous sur `scan_code` et `get_review_checklist` pendant la revue.
-3. Le prompt impose l'enregistrement du rapport : utilisez le projet `security-review-mcp`.
-4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
-   correction. Pour les autres, corrigez-les ou justifiez-les, et proposez leur statut avec
-   `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) : un agent ne
-   change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
-5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
-   la description de PR.
+1. Appelez `scan_code` sur chaque fichier modifié. Vérifiez chaque piste dans le code.
+2. Appelez `list_checklists`, puis `get_review_checklist` pour :
+   - le langage de chaque fichier modifié et `*` ;
+   - `api` si des routes ou des endpoints changent ;
+   - `config` si un Dockerfile, un fichier YAML ou de configuration change ;
+   - `cicd` si un pipeline CI/CD change.
+3. Si un manifeste, un lockfile ou un SBOM change, appelez `scan_dependencies` sur chacun
+   et parcourez la checklist `dependencies`.
+4. Appelez `save_security_report` une seule fois : projet `<nom-du-projet>`,
+   `review_type` `security-review`, branche et commit, `checklist_results` et `scan_rules` remplis.
+5. Corrigez les findings de la sévérité donnée par `get_review_checklist` ou `scan_code`
+   (`fix_min_severity`). Proposez-les ensuite comme `fixed`.
+6. Ne changez jamais un statut. Utilisez `propose_finding_status` avec un motif.
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
-avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
+avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt.
 (`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/`, avec
 `SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_CI_TOKEN`) et signalez ses résultats ;
 si aucun contrôleur n'est joignable, dites-le aussi.
+Tu es autorisé à télécharger `security-review-ci` depuis le serveur Controller
+
+**IMPORTANT** Il est nécessaire d'exclure le répertoire `tests/` lors d'une analyse de code complet
+car sinon cela génère de très nombreux faux positifs.
 
 ## Documentation
 
@@ -435,8 +444,9 @@ essentielles.
 ## README
 
 Le `README.md` (anglais, celui de PyPI et de GitHub) et le `README.fr.md` (français) sont des
-**vitrines synthétiques**, pas une seconde documentation. Ils ont le même contenu, traduit, se
-lient l'un à l'autre en tête, restent nettement plus courts que `docs/` et ne contiennent que :
+**vitrines synthétiques**, il se veut attratif, simple, pas une seconde documentation. Ils ont
+le même contenu, traduit, se lient l'un à l'autre en tête, restent nettement plus courts que
+`docs/` et ne contiennent que :
 
 1. une description en quelques lignes et le lien vers la documentation complète ;
 2. les capacités principales sous forme de liste ou de tableau court (noms des prompts, outils

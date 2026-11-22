@@ -84,14 +84,14 @@ to fix » du prompt prévaut, y compris une sévérité donnée par l'argument `
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `php`, `ruby`, `kotlin`, `terraform`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
 | `scan_code` | Scan rapide par motifs ligne par ligne (pistes à vérifier, **pas** un SAST complet ; les flux de données sont suivis par OpenGrep lors d'un scan du dépôt, ou par `scan_code` quand il est [délégué au serveur Controller](../review/analysis/opengrep.md#scans-de-fragments-scan_code)). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
-| `start_codebase_scan` | Donne à l'agent les commandes qui font scanner **tout le dépôt** par le serveur Controller (`security-review-ci` lancé avec `uvx`, ticket à usage unique), sans que l'agent lise les fichiers ni que le développeur crée de jeton `ci` ; `scope` `deps` ne donne que le scan des dépendances (prompt `dependency-review`) ; serveur MCP HTTP avec la délégation de `scan_code` uniquement ([scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
+| `start_codebase_scan` | Donne à l'agent les commandes qui font scanner **tout le dépôt** par le serveur Controller (`security-review-ci` lancé avec `uvx`, ticket à usage unique), sans que l'agent lise les fichiers ni que le développeur crée de jeton `ci` ; `scope` `deps` ne donne que le scan des dépendances (prompt `dependency-review`) ; son `review_group` lie les rapports des scans et de la revue ; serveur MCP HTTP avec la délégation de `scan_code` uniquement ([scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
 | `decide_finding_status` | **Mode local (stdio) uniquement** : applique une décision de triage énoncée par le développeur dans la conversation, une fois qu'il l'a confirmée dans l'hôte ([décision du développeur en mode local](#decision-du-developpeur-en-mode-local)) |
 | `propose_opengrep_rule` | **Propose** une [règle OpenGrep](../review/analysis/opengrep.md#regles-proposees-par-les-agents) pour un motif vulnérable que le scan n'a pas relevé ; installée seulement après l'approbation d'une personne |
-| `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
+| `get_project_security_posture` | Findings ouverts par sévérité, observations `info` comptées à part (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
 | `export_findings_report` | Findings actuels d'un projet en un document Markdown (`detail` : `compact` par défaut, une ligne par finding, ou `full`), affiché au développeur ou écrit par l'agent dans `SECURITY_REPORT.md` ([rapport des findings](../getting-started/stdio.md#rapport-des-findings-security_reportmd)) |
@@ -147,6 +147,11 @@ Voir [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-per
 - `author` : inutile, le serveur prend l'utilisateur d'un jeton personnel (voir
   [auteur d'un rapport](#auteur-dun-rapport)) ;
 - `checklist_results` et `scan_rules` : la couverture de la revue (voir
+  [couverture de la revue](#couverture-de-la-revue)) ;
+- `review_group` : celui renvoyé par `start_codebase_scan`, qui lie le rapport aux rapports de
+  ses scans (voir
+  [scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan)) ;
+- `files_reviewed` : les fichiers lus par l'agent (voir
   [couverture de la revue](#couverture-de-la-revue)).
 
 Chaque champ est borné : `repository` (500 caractères), `branch` (200), `commit_sha` (64),
@@ -158,7 +163,8 @@ Le **niveau de risque** du rapport est calculé (sévérité maximale des findin
 `risk_level` peut seulement le relever, jamais le baisser.
 
 Un finding déjà signalé par un rapport précédent du projet le remplace et garde la décision
-prise sur lui : le résultat donne `recurring_findings` et `carried_decisions` (voir
+prise sur lui ; signalé avec une sévérité plus faible, il garde la sévérité du rapport
+précédent. Le résultat donne `recurring_findings`, `carried_decisions` et `kept_severities` (voir
 [finding signalé de nouveau](../usage/triage.md#finding-signale-de-nouveau)).
 
 ### Nom du projet
@@ -232,7 +238,8 @@ qu'une personne distingue une revue sans problème d'une revue qui a sauté la c
 | Champ | Contenu |
 |---|---|
 | `checklist_results` | Chaque point de checklist parcouru, avec son résultat : `ok` (vérifié, rien trouvé), `issue` (signalé par un finding), `not_applicable`, `not_verifiable` (le code relu ne suffisait pas pour en juger) |
-| `scan_rules` | L'identifiant de règle de chaque piste renvoyée par `scan_code`, confirmée ou écartée |
+| `scan_rules` | L'identifiant de règle de chaque piste renvoyée par `scan_code`, confirmée ou écartée : une règle interne (`PY-004`, sans tenir compte de la casse) ou une règle OpenGrep telle que `scan_code` la renvoie (`OPENGREP:<id>`, l'identifiant garde sa casse) |
+| `files_reviewed` | Le chemin de chaque fichier que l'agent a réellement lu, relatif à la racine du dépôt (prompt `codebase-review`) |
 
 Le serveur les contrôle avec les règles et checklists actives quand il enregistre le rapport :
 
@@ -245,9 +252,18 @@ Le serveur les contrôle avec les règles et checklists actives quand il enregis
   `ACME-CL-01`) sans correspondre à aucun reçoit un avertissement ; les identifiants d'avis
   (`GHSA-...`, `CVE-...`) ne sont pas contrôlés ;
 - un rapport sans aucun résultat de checklist reçoit un avertissement : sa couverture est
-  inconnue.
+  inconnue ;
+- avec un `review_group` dont le scan du code est enregistré, les fichiers avec des pistes de ce
+  scan que l'agent n'a ni déclarés dans `files_reviewed` ni cités dans un finding sont
+  enregistrés comme **pistes non lues** : la réponse donne leur nombre et les premiers
+  (`unreviewed_leads`), avec un avertissement. Les chemins sont comparés sans `./` en tête et
+  avec `/` comme séparateur.
 
-Au plus 500 résultats de checklist et 500 règles par rapport. La couverture est **déclarée par
+Au plus 500 résultats de checklist, 500 règles et 5 000 fichiers lus par rapport. Pour une revue
+du code complet, la page du rapport affiche aussi les compteurs des scans liés (fichiers scannés,
+avec des pistes, non scannés), les fichiers lus et les pistes non lues, dans des listes
+dépliables ; `get_security_report` laisse ces listes hors de son JSON et le Markdown donne leurs
+nombres. La couverture est **déclarée par
 l'agent** : elle montre ce que l'agent dit avoir fait, pas une preuve ; une règle de `scan_rules`
 citée par aucun finding est une piste que l'agent a écartée. Les scans CLI ne déclarent pas de
 couverture. La page du rapport dans l'[interface web](../usage/index.md) et l'export Markdown
@@ -266,6 +282,9 @@ injectées ([injection de prompt](security.md#securite-du-serveur-lui-meme)).
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
   remplace la précédente. Elle est écrite dans le [journal d'audit](../usage/audit-metrics.md),
   comme la décision qui suit.
+  Un finding `info` est une observation, pas un risque : `accepted` est refusé pour lui (une
+  erreur, comme avec `decide_finding_status`). Seule une personne le marque `acknowledged`
+  (lu) : un agent ne peut pas le proposer.
 - Une personne qui a la permission `findings.triage` sur le projet l'applique ou la rejette dans
   l'[interface web](../usage/triage.md). `accepted` et `false_positive`
   exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir
@@ -279,7 +298,8 @@ outil qui change un statut.
 En [mode local (stdio)](../getting-started/stdio.md), il n'y a pas d'interface web, mais le
 développeur est devant l'hôte. Quand il énonce une décision dans la conversation (*« la
 ligne 12 de app/db.py est un faux positif, la requête est paramétrée »*), l'agent appelle
-`decide_finding_status` avec les findings, le statut (`fixed`, `accepted` ou `false_positive`),
+`decide_finding_status` avec les findings, le statut (`fixed`, `accepted`, `false_positive`, ou
+`acknowledged` pour un finding `info`),
 le motif et, pour accepter un risque, la date d'expiration donnée par le développeur (50
 findings au plus à la fois). Le statut ne change pas encore : le serveur demande au développeur
 de confirmer par l'hôte (**elicitation** MCP), avec un message qui liste les findings, le

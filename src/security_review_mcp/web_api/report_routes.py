@@ -21,6 +21,7 @@ from ..storage.models import (
     FindingCommentPublic,
     FindingPublic,
     FindingStatus,
+    FindingStatusFilter,
     ReviewType,
     SecurityReportPublic,
     Severity,
@@ -283,7 +284,8 @@ async def project_findings(
     identity: CurrentIdentity,
     project: Annotated[ProjectName | None, Query()] = None,
     finding_status: Annotated[
-        list[FindingStatus] | None, Query(alias="status", max_length=len(FindingStatus))
+        list[FindingStatusFilter] | None,
+        Query(alias="status", max_length=len(FindingStatusFilter)),
     ] = None,
     severity: Annotated[list[Severity] | None, Query(max_length=len(Severity))] = None,
     review_type: Annotated[list[ReviewType] | None, Query(max_length=len(ReviewType))] = None,
@@ -296,7 +298,8 @@ async def project_findings(
     """Findings of a project across all its reports (open by default), worst first.
 
     Gives an expert the whole list to review; without ``project``, lists the findings of every
-    project in the scope of the caller. ``status``, ``severity`` and ``review_type`` may be
+    project in the scope of the caller. ``open`` keeps the open risks, ``unread`` the open
+    ``info`` findings (observations). ``status``, ``severity`` and ``review_type`` may be
     repeated (any of the values matches); ``search`` keeps the findings whose title, rule, CWE,
     file, description, project or branch contains it; ``report_id`` keeps the findings of one
     report and ``proposed`` those carrying a status proposed by an agent. limit is capped by
@@ -449,13 +452,17 @@ async def report_markdown(report_id: int, identity: CurrentIdentity) -> PlainTex
 
 
 def _check_dismissal_session(identity: Identity, finding_status: FindingStatus) -> None:
-    """Refuse an acceptance or a false positive decided with a bearer token (an agent may hold
-    one): only a person logged in to the web interface may make them."""
-    if finding_status in DISMISSED_STATUSES and identity.auth_source is None:
+    """Refuse an acceptance, a false positive or an acknowledged observation decided with a
+    bearer token (an agent may hold one): only a person logged in to the web interface may
+    make them."""
+    person_only = finding_status in DISMISSED_STATUSES or (
+        finding_status == FindingStatus.ACKNOWLEDGED
+    )
+    if person_only and identity.auth_source is None:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "Only a person logged in to the web interface can accept a risk or mark a "
-            "false positive",
+            "Only a person logged in to the web interface can accept a risk, mark a "
+            "false positive or acknowledge an observation",
         )
 
 
@@ -498,8 +505,8 @@ async def update_finding(
 ) -> FindingPublic:
     """Record a triage decision; the caller is stored as its approver and logged.
 
-    Only a person logged in to the web interface may accept a risk or mark a false positive:
-    a bearer token, which an agent may hold, is refused.
+    Only a person logged in to the web interface may accept a risk, mark a false positive or
+    acknowledge an observation: a bearer token, which an agent may hold, is refused.
     """
     _check_dismissal_session(identity, body.status)
     await run_in_threadpool(

@@ -218,6 +218,8 @@ async def test_the_author_of_a_report_is_stored_but_never_read_back():
     rows = listed.structured_content["result"]
     assert [r["author"] for r in rows] == [None, None]
     assert json.loads(text_of(as_json))["author"] is None
+    # The files of a code scan, up to SECREVIEW_MAX_SCAN_FILES, never reach the model
+    assert "scanned_files" not in json.loads(text_of(as_json))
     for text in (
         text_of(as_markdown),
         resource.contents[0].text,
@@ -271,8 +273,19 @@ async def test_save_report_checks_and_stores_the_review_coverage():
             {"item_id": "PY-02", "outcome": "not_applicable"},
             {"item_id": "BOGUS-01", "outcome": "ok"},
         ],
-        "scan_rules": ["PY-004", "PY-008", "ZZ-999"],
+        "scan_rules": [
+            "PY-004",
+            "PY-008",
+            "ZZ-999",
+            "OPENGREP:acme.python.Demo-rule",
+            "OPENGREP:acme.python.ghost",
+        ],
     }
+    from security_review_mcp.storage.database import session_scope
+    from security_review_mcp.storage.models import OpenGrepRule
+
+    with session_scope() as session:
+        session.add(OpenGrepRule(id="acme.python.Demo-rule", content="rules: []", digest="0" * 64))
     async with Client(mcp) as client:
         saved = json.loads(text_of(await client.call_tool("save_security_report", report)))
         stored = await client.call_tool(
@@ -290,6 +303,8 @@ async def test_save_report_checks_and_stores_the_review_coverage():
     warnings = " ".join(saved["warnings"])
     assert "BOGUS-01" in warnings and "ZZ-999" in warnings and "XX-001" in warnings
     assert "CVE-2024-1" not in warnings
+    # An OpenGrep lead of an installed rule is kept with the case of its id
+    assert "OPENGREP:acme.python.ghost" in warnings and "Demo-rule" not in warnings
     assert saved["coverage"]["checklist_by_outcome"]["issue"] == 1
     assert "PY-03" in saved["coverage"]["not_covered"]
     data = json.loads(text_of(stored))
@@ -297,8 +312,8 @@ async def test_save_report_checks_and_stores_the_review_coverage():
     assert results["PY-01"]["outcome"] == "issue" and results["PY-01"]["title"]
     assert results["PY-03"]["outcome"] == "not_covered"  # skipped item of a used domain
     assert "JV-01" not in results and "BOGUS-01" not in results
-    assert data["scan_rules"] == ["PY-004", "PY-008"]
-    assert "Dismissed (no finding): PY-008." in text_of(markdown)
+    assert data["scan_rules"] == ["OPENGREP:acme.python.Demo-rule", "PY-004", "PY-008"]
+    assert "Dismissed (no finding): OPENGREP:acme.python.Demo-rule, PY-008." in text_of(markdown)
     assert "No checklist result" in " ".join(json.loads(text_of(bare))["warnings"])
     assert too_many.is_error
 
@@ -544,6 +559,7 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
             "expires_at": "2026-11-12T10:10:00+00:00",
             "controller_url": "https://sr.example/;id" if len(sent) == 2 else "https://sr.example",
             "client_download": True,
+            "review_group": "0123456789abcdef0123456789abcdef",
         }
 
     monkeypatch.setattr(server.remote_scan, "request_ticket", controller)
@@ -572,6 +588,9 @@ async def test_start_codebase_scan_gives_commands_with_a_ticket_from_the_control
     # The ticket of a dependency review opens the dependency scan only
     assert sent[2][3] == "deps"
     assert unsafe.is_error and "unsafe in a shell" in text_of(unsafe)
+    # The agent passes it to save_security_report: its review is linked to the scans
+    assert result["review_group"] == "0123456789abcdef0123456789abcdef"
+    assert "review_group" in result["note"]
     command = result["scan_code_command"]
     # The ticket goes on stdin, never as an argument
     assert command.startswith("echo 'secreview_scan_abc' | uvx --no-index --find-links ")

@@ -14,6 +14,7 @@ from ...storage.models import (
     Finding,
     FindingPublic,
     FindingStatus,
+    FindingStatusFilter,
     SecurityReport,
     SecurityReportPublic,
     Severity,
@@ -33,11 +34,41 @@ from .findings import list_project_findings, project_posture
 from .scope import check_project_scope
 
 
+def _files_markdown(report: SecurityReportPublic) -> list[str]:
+    """Render the files a review read and the scan leads it left unread (counts, and the files
+    with the most unread leads)."""
+    lines: list[str] = []
+    scans = [r for r in report.related_reports if r.scan_summary]
+    for related in scans:
+        summary = related.scan_summary
+        kind = related.review_type.value if related.review_type else "scan"
+        lines.append(
+            f"Linked {kind} #{related.id}: {summary.files} file(s), "
+            f"{summary.with_matches} with leads or findings."
+        )
+    if report.files_reviewed:
+        lines.append(f"Files read by the reviewer: {len(report.files_reviewed)}.")
+    if report.unreviewed_leads:
+        first = report.unreviewed_leads[:MAX_UNREVIEWED_IN_MARKDOWN]
+        more = len(report.unreviewed_leads) - len(first)
+        lines.append(
+            f"Files with scan leads not read ({len(report.unreviewed_leads)}): "
+            + ", ".join(f"{lead.path} ({lead.matches})" for lead in first)
+            + (f" and {more} more." if more else ".")
+        )
+    return ["", *lines] if lines else []
+
+
+# Files with unread scan leads listed in the Markdown of a review
+MAX_UNREVIEWED_IN_MARKDOWN = 20
+
+
 def _coverage_markdown(report: SecurityReportPublic) -> list[str]:
     """Render the declared coverage of a report (nothing when none was declared)."""
-    if not report.checklist_results and not report.scan_rules:
+    files = _files_markdown(report) if report.scanned_files == [] else []
+    if not report.checklist_results and not report.scan_rules and not files:
         return []
-    lines = ["", "## Coverage"]
+    lines = ["", "## Coverage", *files]
     if report.checklist_results:
         counts = Counter(r.outcome.value for r in report.checklist_results)
         lines += [
@@ -120,6 +151,13 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
         ("Author", report.author),
         ("Submitted by", report.submitted_by),
         ("Scope", report.scope),
+        (
+            "Related reports",
+            ", ".join(
+                f"#{r.id} ({r.review_type.value if r.review_type else 'review'})"
+                for r in report.related_reports
+            ),
+        ),
     ):
         if value:
             lines.append(f"- **{label}**: {value}")
@@ -155,7 +193,11 @@ def render_findings_markdown(
     """
     project = normalize_project(project)
     check_project_scope(projects, project)
-    statuses = list(FindingStatus) if include_resolved else [FindingStatus.OPEN]
+    statuses = (
+        list(FindingStatusFilter)
+        if include_resolved
+        else [FindingStatusFilter.OPEN, FindingStatusFilter.UNREAD]
+    )
     posture = project_posture(project)
     listed = list_project_findings(
         project, statuses, limit=get_settings().max_list_limit, projects=projects
@@ -169,6 +211,7 @@ def render_findings_markdown(
         f"- **Reports**: {posture['reports_total']}",
         f"- **Open findings**: {posture['open_findings_total']}"
         + (f" (worst: {worst.upper()})" if worst else ""),
+        f"- **Observations (info)**: {posture['open_observations']}",
         "",
         "| Severity | Open |",
         "|---|---|",

@@ -126,6 +126,8 @@ class ScanTicketResult(BaseModel):
     ticket: str
     project: str
     expires_at: str
+    # Id of the ticket (not a credential), stored with the reports of its scans
+    review_group: str
     # Public URL of the controller (None when unknown) and whether it serves the client
     controller_url: str | None
     client_download: bool

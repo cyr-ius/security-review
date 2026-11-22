@@ -79,7 +79,10 @@ The client chooses the files; the Controller server never reads its own disk.
   not analyzed in `scope` and the label of the token as the device that saved it; the user of a
   personal `ci` token is the author, else `--author` adds the username of the developer (see
   [author of a report](../../reference/prompts-tools.md#author-of-a-report)), `--repository`,
-  `--branch` and `--commit` the context.
+  `--branch` and `--commit` the context. The **Report** page lists the files of the scan in a
+  collapsible **Scanned files** section: language, lines and number of leads of each scanned
+  file, and the reason of each file not scanned (this list is not returned by
+  `get_security_report`).
 - With `--save --format sarif`, the SARIF log carries the ids of the stored findings.
 
 !!! warning "Triage before blocking"
@@ -147,6 +150,14 @@ save reports on the project (`reports.write`) gets one. It passes through the co
 model, which copies it into the command: it is worth nothing once used or expired
 ([security](../../reference/security.md#security-of-the-server-itself)).
 
+The tool also returns a `review_group`: the id of the ticket, which is not a credential. The
+reports of the scans saved with the ticket carry it, and the agent passes it to
+`save_security_report` for its own review: the **Report** page of each of them then shows the
+others under **Related reports** (for example the `code-scan`, the `dependency-scan` and the
+`codebase-review` of one review). The server keeps a `review_group` declared by the agent only
+when a ticket or a report of the same project has it; otherwise it saves the report without it,
+with a warning.
+
 ### What `codebase-review` does
 
 The prompt reads no file itself: it gives the agent a **method**, and the agent reads the code
@@ -165,7 +176,9 @@ in its workspace.
 4. **Tracing.** It follows untrusted data from each entry point to the sensitive calls, across
    files: what a diff review misses.
 5. **Checklists**, then **report** saved once (`review_type`: `codebase-review`), with the
-   files read and **those not read** in `scope`.
+   files read and **those not read** in `scope`, and the files read in `files_reviewed`: with
+   the `review_group` of the scans, the report lists the files with leads the agent did not
+   read ([review coverage](../../reference/prompts-tools.md#review-coverage)).
 
 **Does it take every file of the repository?** Not all at once. The *scan* covers every
 eligible file ([file selection](#file-selection)); the *reading* by the agent targets the

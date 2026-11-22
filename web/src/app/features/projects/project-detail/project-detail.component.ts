@@ -85,6 +85,7 @@ export class ProjectDetailComponent {
     params: () => ({
       project: this.project(),
       status: ['open' as const],
+      // The open risks: the unread observations are not among the worst open findings
       severity: [],
       reviewType: [],
       limit: TOP_OPEN_FINDINGS,

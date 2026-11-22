@@ -159,7 +159,7 @@ def serve(argv: list[str]) -> None:
     if settings.scan_engine_token is not None:
         logger.info(
             "Scan engines on: they enroll here and scan the code (fallback: %s)",
-            settings.scan_engine_fallback,
+            app_settings.scan_engine_fallback(settings),
         )
     oidc_login = web_app.state.oidc.current()
     # Always running: the download may be turned on in the web interface at any time

@@ -13,6 +13,7 @@ import {
   PendingProject,
   ProjectRenamed,
   ProjectSummary,
+  RISK_SEVERITIES,
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
@@ -119,6 +120,12 @@ export class ProjectListComponent {
   });
   readonly deciding = signal(false);
 
+  /** Label of the token that filed a request without a user (``token:<label>`` in the
+   * request), or null. */
+  tokenLabel(requestedWith: string | null): string | null {
+    return requestedWith?.startsWith('token:') ? requestedWith.slice('token:'.length) : null;
+  }
+
   constructor() {
     reloadOnReturn(() => this.reload());
   }
@@ -159,9 +166,9 @@ export class ProjectListComponent {
     return totals;
   });
 
-  /** Open findings of every project, shown on the review button. */
+  /** Open findings of every project, shown on the review button (observations left out). */
   readonly openTotal = computed(() =>
-    SEVERITIES.reduce((sum, severity) => sum + this.totals()[severity], 0),
+    RISK_SEVERITIES.reduce((sum, severity) => sum + this.totals()[severity], 0),
   );
 
   readonly visible = computed(() => {

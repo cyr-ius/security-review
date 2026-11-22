@@ -213,7 +213,7 @@ Variables lues par les moteurs eux-mêmes : voir [Moteurs de scan (`security-rev
 | `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Serveur Controller et moteurs : secret partagé (32 caractères au moins), obligatoire des deux côtés. Défini sur le serveur Controller, il active les [moteurs de scan](../advanced/architecture/scan-engine.md) : ils s'enrôlent avec leur propre adresse et les scans de code partent vers les moteurs actifs ; absent : le serveur Controller scanne lui-même |
 | `SECREVIEW_SCAN_ENGINE_NETWORKS` | réseaux privés et de bouclage | Serveur Controller : réseaux (CIDR séparés par des virgules) où les moteurs peuvent [annoncer leur adresse](../advanced/architecture/scan-engine.md#comment-les-scans-parviennent-aux-moteurs), une adresse IP uniquement |
 | `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Serveur Controller : durée maximale d'un scan par un moteur (1 à 7200) |
-| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Serveur Controller : quand aucun moteur ne répond, refuser le scan (`refuse`, `503` avec `Retry-After`) ou scanner localement (`local`) |
+| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Serveur Controller : quand aucun moteur ne répond, refuser le scan (`refuse`, `503` avec `Retry-After`) ou scanner localement (`local`) ; non définie, réglée dans la page [**Activité**](../usage/activity.md#moteurs-de-scan) |
 | `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES` | `15` | Serveur Controller : durée de validité du jeton d'accès OAuth d'un [moteur enrôlé](../advanced/architecture/scan-engine.md#enrolement-et-jetons-dacces) (1 à 1440) |
 | `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` | `7` | Serveur Controller : un moteur enrôlé absent depuis ce nombre de jours est supprimé (1 à 365) |
 

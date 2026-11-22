@@ -21,6 +21,20 @@
 }
 
 @if (engineList(); as data) {
+  @if (outage(data); as fallback) {
+    <!-- The engines are on but none is active: the code scans are refused or run here -->
+    <div
+      class="alert py-2 d-flex gap-2"
+      [class.alert-danger]="fallback === 'refuse'"
+      [class.alert-warning]="fallback === 'local'"
+      role="alert"
+    >
+      <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+      <span class="pre-line">{{
+        (fallback === 'refuse' ? 'scanEngines.outageRefuse' : 'scanEngines.outageLocal') | t
+      }}</span>
+    </div>
+  }
   <!-- Shown without any engine too: the agents, the MCP servers and the Controller server -->
   <section class="card card-body mb-3" aria-labelledby="scan-engines-flow-title">
     <h2 id="scan-engines-flow-title" class="h6">{{ 'scanEngines.flowTitle' | t }}</h2>
@@ -85,6 +99,30 @@
       <p class="small mb-1">
         {{ 'scanEngines.networks' | t: { networks: data.networks.join(', ') } }}
       </p>
+      <div class="form-check form-switch my-2">
+        <input
+          id="scan-engine-fallback"
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          [attr.aria-describedby]="data.fallback_locked ? 'scan-engine-fallback-help' : null"
+          [checked]="data.fallback === 'local'"
+          [disabled]="busy() || data.fallback_locked"
+          (change)="setFallback($event)"
+        />
+        <label class="form-check-label small" for="scan-engine-fallback">
+          @if (outage(data) === 'refuse') {
+            <!-- The red alert is shown: this switch is the way out, it blinks to be found -->
+            <i class="bi bi-exclamation-triangle-fill text-warning blink" aria-hidden="true"></i>
+          }
+          {{ 'scanEngines.fallbackLabel' | t }}
+        </label>
+        @if (data.fallback_locked) {
+          <div id="scan-engine-fallback-help" class="form-text">
+            {{ 'scanEngines.fallbackLocked' | t: { variable: 'SECREVIEW_SCAN_ENGINE_FALLBACK' } }}
+          </div>
+        }
+      </div>
     } @else {
       <div class="alert alert-warning py-2 small" role="status">
         {{ 'scanEngines.disabled' | t }}

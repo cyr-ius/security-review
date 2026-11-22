@@ -41,6 +41,20 @@ class FindingStatus(StrEnum):
     FIXED = "fixed"
     ACCEPTED = "accepted"
     FALSE_POSITIVE = "false_positive"
+    # An info finding (an observation, not a risk) a person has read: closed, with no expiry
+    ACKNOWLEDGED = "acknowledged"
+
+
+class FindingStatusFilter(StrEnum):
+    """Status filter of the finding lists: a status, where ``open`` keeps the open risks and
+    ``unread`` the open ``info`` findings (observations nobody has read yet)."""
+
+    OPEN = "open"
+    UNREAD = "unread"
+    FIXED = "fixed"
+    ACCEPTED = "accepted"
+    FALSE_POSITIVE = "false_positive"
+    ACKNOWLEDGED = "acknowledged"
 
 
 # Statuses that close a finding without a fix: a person decides them, with a reason and an
@@ -65,6 +79,12 @@ MAX_REVIEWER_CHARS = 200
 MAX_CHECKLIST_RESULTS = 500
 MAX_SCAN_RULES = 500
 MAX_ITEM_ID_CHARS = 60
+# Id of a review group: the id (uuid4 hex) of a scan ticket (see SecurityReportBase.review_group)
+REVIEW_GROUP_CHARS = 32
+# Path of a file listed in the scanned files of a code scan report (as for a finding)
+MAX_SCANNED_PATH_CHARS = 500
+# Files an agent declares it read for a review (see SecurityReport.files_reviewed)
+MAX_FILES_REVIEWED = 5000
 
 
 def as_utc(value: datetime) -> datetime:
@@ -123,6 +143,42 @@ class StoredChecklistResult(ChecklistResult):
 
     title: str = ""
     domain: str = ""
+
+
+class ScannedFile(SQLModel):
+    """A file of a scan report: a source file of a code scan (language, lines, matches) or not
+    scanned (reason), or a manifest of a dependency scan (ecosystem, components, matches and
+    whether the vulnerability check ran)."""
+
+    path: str
+    language: str | None = None
+    lines: int | None = None
+    matches: int = 0
+    reason: str | None = Field(default=None, description="Why the file was not scanned")
+    ecosystem: str | None = None
+    components: int | None = None
+    vulnerability_check: str | None = Field(
+        default=None, description="performed, or why the vulnerability check did not run"
+    )
+
+
+class ScanSummary(SQLModel):
+    """Counts of the files of a code or dependency scan, stored with its report so that the
+    reports linked to it show them without reading its list of files."""
+
+    files: int = Field(description="Files scanned")
+    with_matches: int = Field(description="Files with leads or findings")
+    skipped: int = Field(default=0, description="Files not scanned (code scan)")
+    unchecked: int = Field(
+        default=0, description="Files whose vulnerability check did not run (dependency scan)"
+    )
+
+
+class UnreviewedLead(SQLModel):
+    """A file with leads of the code scan of a review that the agent did not declare it read."""
+
+    path: str
+    matches: int
 
 
 class FindingBase(SQLModel):
@@ -360,6 +416,9 @@ class SecurityReportBase(SQLModel):
         description="Kind of review: the prompt used (security-review...) or the CLI scan",
     )
     summary: str = Field(min_length=3, description="Executive summary of the review")
+    # Reports of one codebase review: the id of the scan ticket of start_codebase_scan, stored
+    # with the scans saved with that ticket and with the review the agent saves after them
+    review_group: str | None = Field(default=None, index=True, max_length=REVIEW_GROUP_CHARS)
 
 
 class SecurityReport(SecurityReportBase, table=True):
@@ -373,10 +432,34 @@ class SecurityReport(SecurityReportBase, table=True):
     # Review coverage, JSON lists: StoredChecklistResult objects and rule ids of scan leads
     checklist_results: str = Field(default="[]")
     scan_rules: str = Field(default="[]")
+    # Code and dependency scans (security-review-ci): JSON list of ScannedFile objects, and a
+    # JSON ScanSummary of them (None for a review)
+    scanned_files: str = Field(default="[]")
+    scan_summary: str | None = Field(default=None)
+    # Review of an agent: JSON lists of the files it declares it read, and of the files with
+    # leads of the code scan of its review group it did not read (computed at save time)
+    files_reviewed: str = Field(default="[]")
+    unreviewed_leads: str = Field(default="[]")
     findings: list[Finding] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
+
+class RelatedReport(SQLModel):
+    """Another report of the same review group (see SecurityReportBase.review_group)."""
+
+    id: int
+    review_type: ReviewType | None
+    risk_level: Severity
+    created_at: datetime
+    scan_summary: ScanSummary | None = None
+
+    @field_validator("scan_summary", mode="before")
+    @classmethod
+    def _parse_json(cls, value: object) -> object:
+        """Read the JSON summary stored in the report table."""
+        return json.loads(value) if isinstance(value, str) else value
 
 
 class SecurityReportPublic(SecurityReportBase):
@@ -388,9 +471,23 @@ class SecurityReportPublic(SecurityReportBase):
     submitted_by: str | None = None
     checklist_results: list[StoredChecklistResult] = []
     scan_rules: list[str] = []
+    scanned_files: list[ScannedFile] = []
+    scan_summary: ScanSummary | None = None
+    files_reviewed: list[str] = []
+    unreviewed_leads: list[UnreviewedLead] = []
+    # Filled by services.get_report, not stored
+    related_reports: list[RelatedReport] = []
     findings: list[FindingPublic] = []
 
-    @field_validator("checklist_results", "scan_rules", mode="before")
+    @field_validator(
+        "checklist_results",
+        "scan_rules",
+        "scanned_files",
+        "scan_summary",
+        "files_reviewed",
+        "unreviewed_leads",
+        mode="before",
+    )
     @classmethod
     def _parse_json(cls, value: object) -> object:
         """Read the JSON lists stored in the report table."""

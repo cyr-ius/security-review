@@ -127,6 +127,11 @@ def test_save_stores_a_code_scan_report():
     assert "Codebase shop" in report.scope and "not scanned: blob.py" in report.scope
     assert {f.file_path for f in report.findings} >= {"app/views.py"}
     assert "Sup3rSecret99" not in json.dumps(report.model_dump(mode="json"))
+    # The files of the scan, scanned ones first, are listed with the report
+    files = {f.path: f for f in report.scanned_files}
+    assert report.scanned_files[-1].path == "blob.py" and files["blob.py"].reason == "binary file"
+    assert files["app/views.py"].language == "python" and files["app/views.py"].matches >= 1
+    assert files["app/ok.py"].matches == 0 and files["app/ok.py"].reason is None
 
 
 def test_save_keeps_most_severe_within_limit(monkeypatch):
@@ -165,6 +170,8 @@ async def test_codebase_review_prompt():
     assert "whole codebase" in text and "(python, angular)" in text
     assert '"matches_count": 3' in text
     assert "Coverage" in text and "save_security_report" in text
+    # The files read are declared, so that the unread scan leads can be listed
+    assert "`files_reviewed`" in text and "`review_group`" in text
 
 
 @pytest.mark.anyio

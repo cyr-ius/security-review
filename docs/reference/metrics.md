@@ -29,8 +29,9 @@ scrape_configs:
 | `secreview_projects` | | Projects with reports |
 | `secreview_reports` | | Stored reports |
 | `secreview_findings` | `status` | Findings by effective status (an expired dismissal counts as `open`) |
-| `secreview_open_findings` | `severity` | Open findings by severity |
-| `secreview_project_open_findings` | `project`, `severity` | Open findings of each project |
+| `secreview_open_findings` | `severity` | Open findings by severity, `info` excluded |
+| `secreview_open_observations` | | Open `info` findings (observations, not counted as open findings) |
+| `secreview_project_open_findings` | `project`, `severity` | Open findings of each project, `info` excluded |
 | `secreview_finding_proposals_pending` | | Agent proposals waiting for a person |
 | `secreview_tokens` | `role`, `state` | Tokens by role and state (`active`, `expired`) |
 | `secreview_tokens_expiring_soon` | | Active tokens that expire within 14 days |

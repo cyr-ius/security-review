@@ -1,12 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
-import { SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
+import { SEVERITY_META, STATUS_META, findingStatusMeta } from '../../../core/constants/labels';
 import { I18nService } from '../../../core/i18n/i18n.service';
+import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   DISMISSED_STATUSES,
   FINDING_STATUSES,
+  fitsSeverity,
   Finding,
   FindingDecision,
   FindingStatus,
@@ -100,8 +102,20 @@ export class FindingCardComponent {
   /** The finding is picked (true) or left (false) for a bulk decision. */
   readonly selectedChange = output<boolean>();
 
-  readonly statuses = FINDING_STATUSES;
+  /** Statuses offered: an info finding is seen, never accepted; only it is seen (the current
+   * status always stays listed). */
+  readonly statuses = computed(() => {
+    const finding = this.finding();
+    return FINDING_STATUSES.filter(
+      (status) => fitsSeverity(status, finding.severity) || finding.status === status,
+    );
+  });
   readonly statusMeta = STATUS_META;
+
+  /** Label of ``status`` for this finding: an open ``info`` finding reads as unread. */
+  statusLabel(status: FindingStatus): MessageKey {
+    return findingStatusMeta(status, this.finding().severity).label;
+  }
   readonly severityMeta = SEVERITY_META;
 
   /** Name of a connector. */

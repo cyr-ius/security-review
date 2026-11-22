@@ -69,6 +69,29 @@ def _check_expiry(expires_at: datetime, now: datetime, longest: int) -> datetime
     return expires_at
 
 
+def _check_fits_severity(severity: Severity | str, status: FindingStatus) -> None:
+    """Check that ``status`` suits a finding of this severity.
+
+    An ``info`` finding is an observation, not a risk: it is never ``accepted`` (it is
+    ``acknowledged``, ``fixed`` or ``false_positive``, or its severity is raised first), and
+    only an ``info`` finding is ``acknowledged``.
+
+    Raises:
+        ValueError: For ``accepted`` on an ``info`` finding, or ``acknowledged`` on a risk.
+    """
+    info = Severity(severity) == Severity.INFO
+    if status == FindingStatus.ACCEPTED and info:
+        raise ValueError(
+            "An info finding is an observation, not a risk: it cannot be accepted. Mark it "
+            "acknowledged, fixed or false_positive, or raise its severity first"
+        )
+    if status == FindingStatus.ACKNOWLEDGED and not info:
+        raise ValueError(
+            "Only an info finding (an observation) can be acknowledged: accept the risk, or "
+            "mark it fixed or false_positive"
+        )
+
+
 def needs_formal_acceptance(severity: Severity | str) -> bool:
     """Whether accepting the risk of a finding of this severity needs a reason and an expiry.
 
@@ -186,6 +209,7 @@ def _apply_status(
         ValueError: If the reason or the expiry date is missing or invalid for this finding.
     """
     _check_current(finding)
+    _check_fits_severity(finding.severity, status)
     if status in DISMISSED_STATUSES:
         settings = get_settings()
         plain = status == FindingStatus.ACCEPTED and not needs_formal_acceptance(finding.severity)
@@ -255,7 +279,8 @@ def update_finding_severity(
 
     The new severity must be above the one given by the report, or equal to it to undo an
     escalation: a finding is never made less severe than its report says (accepting a risk is
-    the way to close it). The justification is required. The severity of the report is kept
+    the way to close it). The justification is required. An ``acknowledged`` observation
+    becomes a risk: it is open again. The severity of the report is kept
     in ``original_severity`` and its risk level is raised with the finding. The change is
     written to the audit log (``actor``, default the analyst).
 
@@ -289,6 +314,13 @@ def update_finding_severity(
         finding.severity_reason = checked
         finding.severity_changed_by = analyst[:200]
         finding.severity_changed_at = now
+        # An acknowledged observation raised to a risk is open again: seen is not accepted
+        reopened = finding.status == FindingStatus.ACKNOWLEDGED
+        if reopened:
+            finding.status = FindingStatus.OPEN
+            finding.status_changed_at = now
+            finding.status_reason = None
+            finding.status_approver = None
         report = finding.report
         if SEVERITY_RANK[severity] > SEVERITY_RANK[Severity(report.risk_level)]:
             report.risk_level = severity
@@ -306,6 +338,7 @@ def update_finding_severity(
                 "severity": severity.value,
                 "original_severity": original.value,
                 "reason": checked,
+                "reopened": reopened,
             },
         )
         session.flush()
@@ -339,6 +372,7 @@ def propose_finding_status(
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
         _check_current(finding)
+        _check_fits_severity(finding.severity, status)
         finding.proposed_status = status
         finding.proposed_reason = checked
         finding.proposed_by = (proposed_by.strip() or "unknown")[:200]

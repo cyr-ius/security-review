@@ -23,6 +23,9 @@ export const projects = defineMessages({
     'projects.pendingHelp':
       'Projects requested by the MCP agent of a user who may not create projects, and requests to access an existing project. Check the requester: approving gives the requester the reading and writing of the reports of the project (created for a new project); a request not approved before its expiry is deleted.',
     'projects.requester': 'Requested by',
+    'projects.requesterToken': 'Token {token}',
+    'projects.requesterTokenHelp':
+      'Token without a user: approving creates the project but gives access to nobody.',
     'projects.address': 'Address',
     'projects.requestedAt': 'Requested on',
     'projects.expiresAt': 'Expires on',
@@ -127,6 +130,10 @@ export const projects = defineMessages({
     'projectFindings.bulkFailed': 'Nothing was saved: the decision could not be recorded.',
     'projectFindings.bulkTooMany':
       'At most {max} findings per decision: narrow the selection with the filters or clear it.',
+    'projectFindings.bulkInfoNotAcceptable':
+      'An info finding is an observation, not a risk: it cannot be accepted. Mark it as read, fixed or false positive, or raise its severity first.',
+    'projectFindings.bulkOnlyInfoRead':
+      'Only an info finding (an observation) can be marked as read: accept the risk of the others, or mark them as fixed or false positive.',
     'projects.approvedNoUser': 'Project {project} approved (no user to give access to).',
   },
   fr: {
@@ -150,6 +157,9 @@ export const projects = defineMessages({
     'projects.pendingHelp':
       "Projets demandés par l'agent MCP d'un utilisateur qui ne peut pas créer de projet, et demandes d'accès à un projet existant. Vérifiez le demandeur : valider lui donne la lecture et l'écriture des rapports du projet (créé pour un nouveau projet) ; une demande non validée avant son expiration est supprimée.",
     'projects.requester': 'Demandé par',
+    'projects.requesterToken': 'Jeton {token}',
+    'projects.requesterTokenHelp':
+      "Jeton sans utilisateur : la validation crée le projet mais ne donne l'accès à personne.",
     'projects.address': 'Adresse',
     'projects.requestedAt': 'Demandé le',
     'projects.expiresAt': 'Expire le',
@@ -255,6 +265,10 @@ export const projects = defineMessages({
       "Rien n'a été enregistré : la décision n'a pas pu être enregistrée.",
     'projectFindings.bulkTooMany':
       'Au plus {max} findings par décision : réduisez la sélection avec les filtres ou videz-la.',
+    'projectFindings.bulkInfoNotAcceptable':
+      "Un finding info est une observation, pas un risque : il ne peut pas être accepté. Marquez-le lu, corrigé ou faux positif, ou relevez d'abord sa sévérité.",
+    'projectFindings.bulkOnlyInfoRead':
+      'Seul un finding info (une observation) peut être marqué lu : acceptez le risque des autres, ou marquez-les corrigés ou faux positifs.',
     'projects.approvedNoUser': 'Projet {project} validé (aucun utilisateur à qui donner accès).',
   },
   es: {
@@ -278,6 +292,9 @@ export const projects = defineMessages({
     'projects.pendingHelp':
       'Proyectos solicitados por el agente MCP de un usuario que no puede crear proyectos, y solicitudes de acceso a un proyecto existente. Compruebe el solicitante: aprobar le da la lectura y la escritura de los informes del proyecto (creado para un proyecto nuevo); una solicitud no aprobada antes de su caducidad se elimina.',
     'projects.requester': 'Solicitado por',
+    'projects.requesterToken': 'Token {token}',
+    'projects.requesterTokenHelp':
+      'Token sin usuario: la aprobación crea el proyecto pero no da acceso a nadie.',
     'projects.address': 'Dirección',
     'projects.requestedAt': 'Solicitado el',
     'projects.expiresAt': 'Caduca el',
@@ -382,6 +399,10 @@ export const projects = defineMessages({
     'projectFindings.bulkFailed': 'No se guardó nada: no se pudo registrar la decisión.',
     'projectFindings.bulkTooMany':
       'Como máximo {max} hallazgos por decisión: reduzca la selección con los filtros o vacíela.',
+    'projectFindings.bulkInfoNotAcceptable':
+      'Un hallazgo info es una observación, no un riesgo: no se puede aceptar. Márquelo como leído, corregido o falso positivo, o eleve antes su severidad.',
+    'projectFindings.bulkOnlyInfoRead':
+      'Solo un hallazgo info (una observación) puede marcarse como leído: acepte el riesgo de los demás, o márquelos como corregidos o falsos positivos.',
     'projects.approvedNoUser': 'Proyecto {project} aprobado (ningún usuario al que dar acceso).',
   },
 });

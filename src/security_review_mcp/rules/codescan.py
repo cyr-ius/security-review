@@ -22,6 +22,7 @@ from ..storage.models import (
     FindingPublic,
     FindingStatus,
     ReviewType,
+    ScannedFile,
     Severity,
 )
 from . import scanner
@@ -253,8 +254,10 @@ def save(
     commit_sha: str | None = None,
     author: str | None = None,
     submitted_by: str | None = None,
+    review_group: str | None = None,
 ) -> dict:
     """Store the matches as a report; keep the most severe ones when there are too many.
+    ``review_group`` is the id of the scan ticket that sent the files, if any.
 
     Raises:
         ValueError: Invalid report fields (author...).
@@ -286,4 +289,22 @@ def save(
         review_type=ReviewType.CODE_SCAN,
         author=author,
         submitted_by=submitted_by,
+        from_scan=True,
+        scanned_files=scanned_files(result),
+        review_group=review_group,
     )
+
+
+def scanned_files(result: dict) -> list[ScannedFile]:
+    """List the files of a scan for its report: the scanned ones, then the ones not scanned."""
+    scanned = [
+        ScannedFile(
+            path=entry["file"],
+            language=entry["language"],
+            lines=entry["lines"],
+            matches=len(entry["matches"]),
+        )
+        for entry in result["files"]
+    ]
+    skipped = [ScannedFile(path=s["file"], reason=s["reason"]) for s in result["skipped"]]
+    return sorted(scanned, key=lambda f: f.path) + sorted(skipped, key=lambda f: f.path)

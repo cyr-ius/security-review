@@ -13,7 +13,8 @@ Le journal d'un seul rapport est exporté par l'outil MCP `export_sarif` ou par 
 schéma officiel).
 
 - Seuls les findings **ouverts** sont exportés ; `--include-resolved` ajoute les autres
-  (`baselineState: absent` pour les corrigés, `suppressions` pour les acceptés / faux positifs).
+  (`baselineState: absent` pour les corrigés, `suppressions` pour les acceptés / faux positifs /
+  observations lues).
   Une acceptation ou un faux positif expiré est exporté comme ouvert.
 - Pour un projet, un finding signalé dans plusieurs rapports n'apparaît qu'une fois (sa
   dernière occurrence, voir [finding signalé de nouveau](../../usage/triage.md#finding-signale-de-nouveau)).

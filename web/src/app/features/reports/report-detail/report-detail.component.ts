@@ -8,6 +8,7 @@ import {
   input,
   linkedSignal,
   signal,
+  WritableSignal,
 } from '@angular/core';
 import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -16,11 +17,13 @@ import {
   CHECKLIST_OUTCOME_META,
   REVIEW_TYPE_META,
   SEVERITY_META,
-  STATUS_META,
+  STATUS_FILTER_META,
 } from '../../../core/constants/labels';
 import {
   CHECKLIST_OUTCOMES,
-  FINDING_STATUSES,
+  FINDING_STATUS_FILTERS,
+  FindingStatusFilter,
+  statusFilterOf,
   Finding,
   FindingStatus,
   PROMPT_REVIEW_TYPES,
@@ -107,7 +110,7 @@ export class ReportDetailComponent {
   readonly searchInput = linkedSignal(() => this.search() ?? '');
 
   readonly severityFilter = signal<Severity[]>([]);
-  readonly statusFilter = signal<FindingStatus[]>([]);
+  readonly statusFilter = signal<FindingStatusFilter[]>([]);
 
   /** Filters of the findings of the report (ids report-findings-filter-severity and -status). */
   readonly filters = computed<TableControlMultiFilter[]>(() => [
@@ -126,9 +129,9 @@ export class ReportDetailComponent {
       label: this.i18n.translate('report.filterStatus'),
       allLabel: this.i18n.translate('report.allStatuses'),
       values: this.statusFilter(),
-      options: FINDING_STATUSES.map((status) => ({
+      options: FINDING_STATUS_FILTERS.map((status) => ({
         value: status,
-        label: this.i18n.translate(STATUS_META[status].label),
+        label: this.i18n.translate(STATUS_FILTER_META[status].label),
       })),
     },
   ]);
@@ -144,7 +147,7 @@ export class ReportDetailComponent {
   readonly visibleFindings = computed(() =>
     this.findings()
       .filter((f) => matchesFilter(this.severityFilter(), f.severity))
-      .filter((f) => matchesFilter(this.statusFilter(), f.status))
+      .filter((f) => matchesFilter(this.statusFilter(), statusFilterOf(f)))
       .filter((f) => matches(f, this.searchInput()))
       .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.id - b.id),
   );
@@ -175,12 +178,48 @@ export class ReportDetailComponent {
     })).filter((entry) => entry.count > 0);
     const cited = new Set(data.findings.map((f) => f.rule_id?.trim().toUpperCase()));
     const leads = data.scan_rules.map((rule) => ({ rule, dismissed: !cited.has(rule) }));
-    const declared = items.length > 0 || leads.length > 0;
+    // Scans of the same codebase review (their counts), the files the agent read and the
+    // files with leads it did not read
+    const scans = data.related_reports.filter((r) => r.scan_summary);
+    const filesReviewed = data.files_reviewed;
+    const unreviewed = data.unreviewed_leads;
+    const declared = items.length > 0 || leads.length > 0 || filesReviewed.length > 0;
     const expected = !!data.review_type && PROMPT_REVIEW_TYPES.includes(data.review_type);
-    return declared || expected ? { items, counts, leads, declared } : null;
+    return declared || expected
+      ? { items, counts, leads, declared, scans, filesReviewed, unreviewed }
+      : null;
   });
+  /** The rows of the files read and of the unread leads are only rendered once opened. */
+  readonly filesReviewedOpen = signal(false);
+  readonly unreviewedOpen = signal(false);
 
-  readonly openCount = computed(() => this.findings().filter((f) => f.status === 'open').length);
+  /** Follow the open state of a ``details`` whose rows are rendered lazily. */
+  onDetailsToggle(event: Event, opened: WritableSignal<boolean>): void {
+    opened.set((event.target as HTMLDetailsElement).open);
+  }
+
+  /** Files of a code or dependency scan, with their counts. */
+  readonly scannedFiles = computed(() => {
+    const files = this.report.value()?.scanned_files ?? [];
+    if (!files.length) {
+      return null;
+    }
+    const skipped = files.filter((f) => f.reason).length;
+    const withLeads = files.filter((f) => (f.matches ?? 0) > 0).length;
+    // A dependency scan lists manifests: ecosystem and components instead of language and lines
+    const dependencies = files.some((f) => f.components != null);
+    const unchecked = files.filter(
+      (f) => f.vulnerability_check && f.vulnerability_check !== 'performed',
+    ).length;
+    return { files, scanned: files.length - skipped, skipped, withLeads, dependencies, unchecked };
+  });
+  /** The rows of the scanned files are only rendered once their section is opened. */
+  readonly scannedFilesOpen = signal(false);
+
+  /** Open risks of the report (the unread observations are not open findings). */
+  readonly openCount = computed(
+    () => this.findings().filter((f) => statusFilterOf(f) === 'open').length,
+  );
 
   /** Finding a link points to, from the URL fragment ``#finding-<id>``. */
   private readonly fragment = toSignal(inject(ActivatedRoute).fragment);
@@ -214,7 +253,7 @@ export class ReportDetailComponent {
     if (key === 'severity') {
       this.severityFilter.set(knownValues(values, SEVERITIES));
     } else if (key === 'status') {
-      this.statusFilter.set(knownValues(values, FINDING_STATUSES));
+      this.statusFilter.set(knownValues(values, FINDING_STATUS_FILTERS));
     }
   }
 

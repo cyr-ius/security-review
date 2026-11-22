@@ -37,7 +37,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
     | `#report:*`, `#finding:*`, `*` | List every report, every finding, or offer both |
     | `sql project:shop` | Only in project `shop` |
     | `severity:high,critical` (or `sev:`) | Only these severities (risk level of the reports) |
-    | `status:accepted` | Findings with this status (`open`, `fixed`, `accepted`, `false_positive`) instead of the open ones |
+    | `status:accepted` | Findings with this status (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) instead of the open ones |
     | `rule:PY-004`, `cwe:89` | Searched as text |
 
     Filters and text combine in any order: `sql project:shop sev:high #finding:*`. One
@@ -77,7 +77,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
 |---|---|
 | **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
-| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../reference/prompts-tools.md#review-coverage), findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
+| **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../reference/prompts-tools.md#review-coverage), related reports of a codebase review, scanned files of a [code](../review/analysis/code-scan.md) or [dependency](../review/analysis/dependencies.md) scan, findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 
 **Reference**, edited by the administrators (**Export** and **Import** exchange the rules, checklists and standards as TOML files)
 

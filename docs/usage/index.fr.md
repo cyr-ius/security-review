@@ -39,7 +39,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
     | `#report:*`, `#finding:*`, `*` | Lister tous les rapports, tous les findings, ou proposer les deux |
     | `sql project:shop` | Uniquement dans le projet `shop` |
     | `severity:high,critical` (ou `sev:`) | Uniquement ces sévérités (niveau de risque des rapports) |
-    | `status:accepted` | Les findings de ce statut (`open`, `fixed`, `accepted`, `false_positive`) au lieu des ouverts |
+    | `status:accepted` | Les findings de ce statut (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) au lieu des ouverts |
     | `rule:PY-004`, `cwe:89` | Recherchés comme du texte |
 
     Filtres et texte se combinent dans n'importe quel ordre : `sql project:shop sev:high #finding:*`.
@@ -81,7 +81,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
 |---|---|
 | **Findings** (**Findings à revoir**) | Tous les findings ouverts d'un projet ou de tous les projets, une seule fois chacun, du plus grave au moins grave : c'est là que se fait le triage. Le champ de recherche (titre, règle, CWE, chemin du fichier, description, projet, branche, ou `#report:<n°>` pour les findings d'un rapport, comme dans la recherche générale) restreint la liste ; les filtres de statut, de sévérité et de type de revue acceptent plusieurs valeurs ; **Possède une proposition** garde les findings dont un agent propose un statut. Les [avis d'une même dépendance vulnérable](../review/analysis/dependencies.md#lire-le-resultat) sont repliés dans une carte, dont la case les sélectionne tous pour une décision groupée |
 | **Acceptations de risque** | Les risques acceptés, avec leur date d'expiration, filtrés par état et par sévérité (plusieurs valeurs chacun) |
-| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../reference/prompts-tools.md#couverture-de-la-revue), findings (recherche par texte, filtres de sévérité et de statut, avis d'une même dépendance vulnérable regroupés), téléchargement Markdown et SARIF |
+| **Rapports**, **Rapport** | Toutes les revues enregistrées, filtrées par un ou plusieurs projets et niveaux de risque, et le détail de chacune : résumé, [couverture de la revue](../reference/prompts-tools.md#couverture-de-la-revue), rapports liés d'une revue du code complet, fichiers scannés d'un scan de [code](../review/analysis/code-scan.md) ou de [dépendances](../review/analysis/dependencies.md), findings (recherche par texte, filtres de sévérité et de statut, avis d'une même dépendance vulnérable regroupés), téléchargement Markdown et SARIF |
 
 **Référentiel**, modifié par les administrateurs (**Exporter** et **Importer** échangent les règles, checklists et normes en fichiers TOML)
 

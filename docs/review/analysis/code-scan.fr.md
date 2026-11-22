@@ -82,7 +82,10 @@ Le client choisit les fichiers ; le serveur Controller ne lit jamais son propre 
   l'utilisateur d'un jeton `ci` personnel en est l'auteur, sinon `--author` ajoute le nom
   d'utilisateur du développeur (voir
   [auteur d'un rapport](../../reference/prompts-tools.md#auteur-dun-rapport)), `--repository`,
-  `--branch` et `--commit` le contexte.
+  `--branch` et `--commit` le contexte. La page **Rapport** liste les fichiers du scan dans une
+  section dépliable **Fichiers scannés** : langage, lignes et nombre de pistes de chaque fichier
+  scanné, et motif de chaque fichier non scanné (cette liste n'est pas renvoyée par
+  `get_security_report`).
 - Avec `--save --format sarif`, le journal SARIF porte les identifiants des findings
   enregistrés.
 
@@ -150,6 +153,14 @@ qui peut enregistrer des rapports sur le projet (`reports.write`) en obtient un.
 contexte du modèle, qui le recopie dans la commande : il ne vaut plus rien une fois utilisé ou
 expiré ([sécurité](../../reference/security.md#securite-du-serveur-lui-meme)).
 
+L'outil renvoie aussi un `review_group` : l'identifiant du ticket, qui n'est pas un secret. Les
+rapports des scans enregistrés avec le ticket le portent, et l'agent le passe à
+`save_security_report` pour sa propre revue : la page **Rapport** de chacun affiche alors les
+autres sous **Rapports liés** (par exemple le `code-scan`, le `dependency-scan` et le
+`codebase-review` d'une même revue). Le serveur ne garde un `review_group` déclaré par l'agent
+que si un ticket ou un rapport du même projet le porte ; sinon il enregistre le rapport sans
+lui, avec un avertissement.
+
 ### Ce que fait `codebase-review`
 
 Le prompt ne lit lui-même aucun fichier : il donne une **méthode** à l'agent, et c'est l'agent
@@ -169,7 +180,10 @@ qui lit le code dans son espace de travail.
 4. **Traçage.** Il suit les données non fiables de chaque point d'entrée jusqu'aux appels
    sensibles, d'un fichier à l'autre : ce qu'une revue de diff ne voit pas.
 5. **Checklists**, puis **rapport** enregistré une fois (`review_type` : `codebase-review`),
-   avec dans `scope` les fichiers relus et **ceux qui ne l'ont pas été**.
+   avec dans `scope` les fichiers relus et **ceux qui ne l'ont pas été**, et les fichiers lus
+   dans `files_reviewed` : avec le `review_group` des scans, le rapport liste les fichiers avec
+   des pistes que l'agent n'a pas lus
+   ([couverture de la revue](../../reference/prompts-tools.md#couverture-de-la-revue)).
 
 **Prend-il tous les fichiers du dépôt ?** Pas tous d'un coup. Le *scan* couvre tous les fichiers
 éligibles ([sélection des fichiers](#selection-des-fichiers)) ; la *lecture* par l'agent cible

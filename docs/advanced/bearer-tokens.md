@@ -115,12 +115,13 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 ```
 
 Its status changes are limited to `open` and `fixed`, like those of an `api` token with
-`findings.triage`: `accepted` and `false_positive` need a session
+`findings.triage`: `accepted`, `false_positive` and `acknowledged` need a session
 ([triage through the REST API](reports/triage-api.md)).
 
 The REST API lists the findings of a project across all its reports, open by default, worst
 first (`status`, `severity` and `review_type` filter, each repeatable: any of the values
-matches; `search`, at most 200 characters, keeps the findings whose title, rule, CWE, file,
+matches; `status=open` keeps the open risks and `status=unread` the open `info` findings, the
+observations nobody has read yet; `search`, at most 200 characters, keeps the findings whose title, rule, CWE, file,
 description, project or branch contains it, case-insensitive; `report_id` keeps the findings of one report and `proposed=true` those carrying a status proposed by an agent; `limit` is capped by `SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
 `project`, it lists the findings of every project the caller reads (`"project": null`):
 

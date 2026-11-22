@@ -21,7 +21,9 @@
     <button
       type="submit"
       class="btn btn-sm btn-primary"
-      [disabled]="saving() || !findings().length || tooMany() || bulkForm().invalid()"
+      [disabled]="
+        saving() || !findings().length || tooMany() || severityRefusal() || bulkForm().invalid()
+      "
     >
       {{ 'projectFindings.bulkApply' | t: { count: findings().length } }}
     </button>
@@ -33,6 +35,12 @@
   @if (tooMany()) {
     <div class="alert alert-warning small py-2 mt-2 mb-0" role="alert">
       {{ 'projectFindings.bulkTooMany' | t: { max: maxFindings } }}
+    </div>
+  }
+
+  @if (severityRefusal(); as refusal) {
+    <div class="alert alert-warning small py-2 mt-2 mb-0" role="alert">
+      {{ refusal | t }}
     </div>
   }
 

@@ -2,11 +2,13 @@ import { MessageKey } from '../i18n/messages';
 import {
   ChecklistOutcome,
   FindingStatus,
+  FindingStatusFilter,
   Permission,
   ReviewType,
   Role,
   Severity,
   TokenRole,
+  statusFilterOf,
 } from '../models/api.models';
 
 /** Message key and icon of each severity (color is never the only cue). */
@@ -24,7 +26,23 @@ export const STATUS_META: Record<FindingStatus, { label: MessageKey; icon: strin
   fixed: { label: 'status.fixed', icon: 'bi-check-circle-fill' },
   accepted: { label: 'status.accepted', icon: 'bi-shield-check' },
   false_positive: { label: 'status.false_positive', icon: 'bi-slash-circle' },
+  acknowledged: { label: 'status.acknowledged', icon: 'bi-envelope-open' },
 };
+
+/**
+ * Message key and icon of the status of one finding: an open ``info`` finding (an observation,
+ * not a risk) is shown as unread, until a person marks it as read (``acknowledged``).
+ */
+export function findingStatusMeta(
+  status: FindingStatus,
+  severity: Severity,
+): { label: MessageKey; icon: string } {
+  return STATUS_FILTER_META[statusFilterOf({ status, severity })];
+}
+
+/** Message key and icon of each status filter of the finding lists. */
+export const STATUS_FILTER_META: Record<FindingStatusFilter, { label: MessageKey; icon: string }> =
+  { ...STATUS_META, unread: { label: 'status.unread', icon: 'bi-envelope' } };
 
 /** Message key and icon of each review type. */
 export const REVIEW_TYPE_META: Record<ReviewType, { label: MessageKey; icon: string }> = {
