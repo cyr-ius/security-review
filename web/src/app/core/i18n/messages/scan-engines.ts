@@ -7,8 +7,14 @@ export const scanEngines = defineMessages({
       'The agents, pipelines, MCP servers, Controller servers and scan engines at work.',
     'scanEngines.title': 'Scan engines',
     'scanEngines.subtitle': 'Engines that run the rules in place of the Controller server.',
+    'scanEngines.fallbackLabel':
+      'The Controller server scans the code itself. Turns on the Fallback mode',
+    'scanEngines.fallbackLocked': 'Set by {variable}: change the variable instead.',
+    'scanEngines.fallbackOn':
+      'The Controller server now scans the code when no scan engine answers.',
+    'scanEngines.fallbackOff': 'The code scans are now refused when no scan engine answers.',
     'scanEngines.outageRefuse':
-      'No scan engine is online while the engines are on (SECREVIEW_SCAN_ENGINE_TOKEN): the code scans of the pipelines, of the agents (start_codebase_scan) and the delegated scan_code are refused (503). Start a scan engine, or set SECREVIEW_SCAN_ENGINE_FALLBACK=local so that the Controller server scans them itself.',
+      'No scan engine is online while the variable SECREVIEW_SCAN_ENGINE_TOKEN is set. The engines are required.\nThe code scans of the pipelines and of the agents cannot run on the Controller server, because the No fallback (503) mode is on.\nStart a scan engine, or let the Controller server run them itself (SECREVIEW_SCAN_ENGINE_FALLBACK=local, or in the Scan engines section: turn on the fallback).',
     'scanEngines.outageLocal':
       'No scan engine is online while the engines are on (SECREVIEW_SCAN_ENGINE_TOKEN): the Controller server runs the code scans itself (SECREVIEW_SCAN_ENGINE_FALLBACK=local). Start a scan engine to take this load off it.',
     'scanEngines.enabled':
@@ -106,8 +112,15 @@ export const scanEngines = defineMessages({
       'Les agents, pipelines, serveurs MCP, serveurs Controller et moteurs de scan à l’œuvre.',
     'scanEngines.title': 'Moteurs de scan',
     'scanEngines.subtitle': 'Moteurs qui exécutent les règles à la place du serveur Controller.',
+    'scanEngines.fallbackLabel':
+      'Le serveur Controller scanne le code lui-même. Active le mode Repli',
+    'scanEngines.fallbackLocked': 'Défini par {variable} : modifiez plutôt la variable.',
+    'scanEngines.fallbackOn':
+      'Le serveur Controller scanne désormais le code quand aucun moteur de scan ne répond.',
+    'scanEngines.fallbackOff':
+      'Les scans de code sont désormais refusés quand aucun moteur de scan ne répond.',
     'scanEngines.outageRefuse':
-      "Aucun moteur de scan n'est en ligne alors que les moteurs sont activés (SECREVIEW_SCAN_ENGINE_TOKEN) : les scans de code des pipelines, des agents (start_codebase_scan) et le scan_code délégué sont refusés (503). Démarrez un moteur de scan, ou définissez SECREVIEW_SCAN_ENGINE_FALLBACK=local pour que le serveur Controller les exécute lui-même.",
+      "Aucun moteur de scan n'est en ligne alors que la variable SECREVIEW_SCAN_ENGINE_TOKEN est valorisée. Les moteurs sont obligatoires.\nLes scans de code des pipelines et des agents ne peuvent pas s'exécuter sur le serveur Controller, car le mode Sans repli (503) est activé.\nDémarrez un moteur de scan, ou laissez le serveur Controller les exécuter lui-même (SECREVIEW_SCAN_ENGINE_FALLBACK=local, ou dans la section Moteurs de scan : activer le repli).",
     'scanEngines.outageLocal':
       "Aucun moteur de scan n'est en ligne alors que les moteurs sont activés (SECREVIEW_SCAN_ENGINE_TOKEN) : le serveur Controller exécute lui-même les scans de code (SECREVIEW_SCAN_ENGINE_FALLBACK=local). Démarrez un moteur de scan pour le décharger.",
     'scanEngines.enabled':
@@ -204,8 +217,15 @@ export const scanEngines = defineMessages({
       'Los agentes, pipelines, servidores MCP, servidores Controller y motores de escaneo en funcionamiento.',
     'scanEngines.title': 'Motores de escaneo',
     'scanEngines.subtitle': 'Motores que ejecutan las reglas en lugar del servidor Controller.',
+    'scanEngines.fallbackLabel':
+      'El servidor Controller escanea el código él mismo. Activa el modo Respaldo',
+    'scanEngines.fallbackLocked': 'Definido por {variable}: cambie la variable en su lugar.',
+    'scanEngines.fallbackOn':
+      'El servidor Controller escanea ahora el código cuando ningún motor de escaneo responde.',
+    'scanEngines.fallbackOff':
+      'Los escaneos de código se rechazan ahora cuando ningún motor de escaneo responde.',
     'scanEngines.outageRefuse':
-      'Ningún motor de escaneo está en línea mientras los motores están activados (SECREVIEW_SCAN_ENGINE_TOKEN): los escaneos de código de los pipelines, de los agentes (start_codebase_scan) y el scan_code delegado se rechazan (503). Inicie un motor de escaneo o defina SECREVIEW_SCAN_ENGINE_FALLBACK=local para que el servidor Controller los ejecute él mismo.',
+      'Ningún motor de escaneo está en línea mientras la variable SECREVIEW_SCAN_ENGINE_TOKEN está definida. Los motores son obligatorios.\nLos escaneos de código de los pipelines y de los agentes no pueden ejecutarse en el servidor Controller, porque el modo Sin respaldo (503) está activado.\nInicie un motor de escaneo o deje que el servidor Controller los ejecute él mismo (SECREVIEW_SCAN_ENGINE_FALLBACK=local, o en la sección Motores de escaneo: activar el respaldo).',
     'scanEngines.outageLocal':
       'Ningún motor de escaneo está en línea mientras los motores están activados (SECREVIEW_SCAN_ENGINE_TOKEN): el servidor Controller ejecuta él mismo los escaneos de código (SECREVIEW_SCAN_ENGINE_FALLBACK=local). Inicie un motor de escaneo para descargarlo.',
     'scanEngines.enabled':

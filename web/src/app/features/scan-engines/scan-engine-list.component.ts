@@ -35,6 +35,22 @@ const REFRESH_MS = 2_000;
     TranslatePipe,
   ],
   templateUrl: './scan-engine-list.component.html',
+  // The alert of the outage keeps the line breaks of its message; the warning next to the
+  // fallback switch blinks when the code scans start being refused, with reduced motion too,
+  // for 5 seconds only (WCAG 2.2.2: no control is needed to stop it), then stays visible
+  styles: `
+    .pre-line {
+      white-space: pre-line;
+    }
+    .blink {
+      animation: blink 1s steps(2, start) 5;
+    }
+    @keyframes blink {
+      to {
+        visibility: hidden;
+      }
+    }
+  `,
 })
 export class ScanEngineListComponent {
   private readonly api = inject(ApiService);
@@ -137,6 +153,27 @@ export class ScanEngineListComponent {
     } finally {
       this.busy.set(false);
       this.settings.reload();
+    }
+  }
+
+  /** Switch the fallback: on, the Controller server scans the files no engine scanned. */
+  async setFallback(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const fallback = input.checked ? 'local' : 'refuse';
+    this.busy.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      this.engineList.set(await firstValueFrom(this.api.setScanEngineFallback(fallback)));
+      this.message.set(
+        fallback === 'local' ? msg('scanEngines.fallbackOn') : msg('scanEngines.fallbackOff'),
+      );
+    } catch (error: unknown) {
+      // The switch shows the stored state again
+      input.checked = !input.checked;
+      this.error.set(describeError(error));
+    } finally {
+      this.busy.set(false);
     }
   }
 

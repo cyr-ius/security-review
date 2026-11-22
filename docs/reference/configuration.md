@@ -212,7 +212,7 @@ Variables read by the engines themselves: see [Scan engines (`security-review-sc
 | `SECREVIEW_SCAN_ENGINE_TOKEN` | — | Controller server and engines: shared secret (at least 32 characters), required on both sides. Set on the Controller server, it turns the [scan engines](../advanced/architecture/scan-engine.md) on: they enroll with their own address and the code scans go to the active ones; unset: the Controller server scans itself |
 | `SECREVIEW_SCAN_ENGINE_NETWORKS` | private and loopback networks | Controller server: networks (comma-separated CIDRs) where the engines may [advertise their address](../advanced/architecture/scan-engine.md#how-the-scans-reach-the-engines), an IP address only |
 | `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Controller server: time limit of a scan by an engine (1 to 7200) |
-| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Controller server: when no engine answers, `refuse` the scan (`503` with `Retry-After`) or scan `local`ly |
+| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Controller server: when no engine answers, `refuse` the scan (`503` with `Retry-After`) or scan `local`ly; unset, set on the [**Activity**](../usage/activity.md#scan-engines) page |
 | `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES` | `15` | Controller server: validity of the OAuth access token of an [enrolled engine](../advanced/architecture/scan-engine.md#enrollment-and-access-tokens) (1 to 1440) |
 | `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` | `7` | Controller server: an enrolled engine not seen for this many days is deleted (1 to 365) |
 

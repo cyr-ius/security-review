@@ -17,8 +17,9 @@ the **Activity** entry of the menu shows a warning badge, on every page:
 
 - **red**, fallback `refuse` (default): the code scans of the pipelines, of the agents
   (`start_codebase_scan`) and the delegated `scan_code` are refused (503); the agents fall back to
-  the rules of the MCP server, without OpenGrep. Start a scan engine, or set
-  `SECREVIEW_SCAN_ENGINE_FALLBACK=local`;
+  the rules of the MCP server, without OpenGrep. Start a scan engine, or turn on the fallback
+  (switch of the [Scan engines](#scan-engines) section, marked by a yellow triangle that blinks
+  for 5 seconds);
 - **yellow**, fallback `local`: the Controller server runs the code scans itself.
 
 To be alerted outside the web interface, watch the `unavailable` outcome of
@@ -115,6 +116,12 @@ address.
 The section lists the [scan engines](../advanced/architecture/scan-engine.md) enrolled with the
 Controller server: name, version, state (active while its heartbeat is recent), URL, free slots,
 enrollment date and last activity, never a secret.
+
+While the engines are on, the **The Controller server scans the code itself. Turns on the Fallback mode** switch sets the fallback: off (default), the code
+scans are refused (`503`) when no engine answers, so that the Controller server stays unloaded;
+on, it scans them itself. Each change is recorded in the [audit log](audit-metrics.md)
+(`scan_engine_fallback.changed`). When `SECREVIEW_SCAN_ENGINE_FALLBACK` is set, it wins and the
+switch is locked.
 
 **Revoke** cuts an engine at once: it receives no more scans, and enrolls again only when it
 restarts. An engine that stops normally leaves by itself: there is nothing to revoke. Details:

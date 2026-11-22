@@ -40,6 +40,7 @@ exists exactly when the change was committed.
 | `user.logout` | A web user logs out with **Log out** (address) |
 | `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
 | `controller_url.changed` | The public URL of the Controller server, whose web interface is given to the agents without a token, is changed on the **General** page, or copied from `SECREVIEW_PUBLIC_URL` by the Controller server at start (actor `environment`); `null`: stored value deleted |
+| `scan_engine_fallback.changed` | The fallback of the [scan engines](architecture/scan-engine.md) (`refuse` or `local`) is changed on the **Activity** page (`fallback`) |
 | `mcp_scan_delegation.changed` | The [delegation of `scan_code`](../review/analysis/opengrep.md#fragment-scans-scan_code) to the Controller server address is turned on or off on the **Activity** page, or turned off by a change of that address (`enabled`) |
 | `osv_download.changed` | The [OSV download](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) is turned on or off, or its interval changed, on the **OSV database** page (`enabled`, `interval_hours`) |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |

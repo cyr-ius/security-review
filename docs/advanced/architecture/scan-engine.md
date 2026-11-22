@@ -86,7 +86,7 @@ An engine refuses to start without the secret or without `SECREVIEW_CONTROLLER_U
 | `SECREVIEW_SCAN_ENGINE_TOKEN` | — | both | Shared secret, at least 32 characters: the scans sent to the engines, and their enrollment. Set on the Controller server, it turns the engines on; unset: the Controller server scans itself |
 | `SECREVIEW_SCAN_ENGINE_NETWORKS` | private and loopback networks | Controller server | Networks (CIDR) where the engines may advertise their address: an IP address in one of them, never a host name |
 | `SECREVIEW_SCAN_ENGINE_TIMEOUT_SECONDS` | `660` | Controller server | Time limit of a scan by an engine, above `SECREVIEW_OPENGREP_TIMEOUT_SECONDS` of the engines |
-| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Controller server | When no engine answers: `refuse` the scan, or scan `local`ly |
+| `SECREVIEW_SCAN_ENGINE_FALLBACK` | `refuse` | Controller server | When no engine answers: `refuse` the scan, or scan `local`ly; unset, set on the [**Activity**](../../usage/activity.md#scan-engines) page |
 | `SECREVIEW_SCAN_ENGINE_ACCESS_TOKEN_MINUTES` | `15` | Controller server | Validity of the OAuth access token of an engine (1 to 1440) |
 | `SECREVIEW_SCAN_ENGINE_RETENTION_DAYS` | `7` | Controller server | An engine not seen for this many days is deleted (1 to 365) |
 | `SECREVIEW_CONTROLLER_URL` | — | Scan engine | Internal address of the Controller server, where the engine enrolls and reads the rules (required) |

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ...engines import protocol as engine_protocol
 
@@ -118,6 +118,8 @@ class ScanEngineList(BaseModel):
     # When no engine scanned the files: refuse the scan (503) or scan on the controller
     # (SECREVIEW_SCAN_ENGINE_FALLBACK)
     fallback: Literal["refuse", "local"]
+    # SECREVIEW_SCAN_ENGINE_FALLBACK is set: it wins, the fallback cannot be changed here
+    fallback_locked: bool = False
     # Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS)
     networks: list[str]
     access_token_minutes: int
@@ -127,3 +129,12 @@ class ScanEngineList(BaseModel):
     # through them
     mcp_servers: list[ServerInstancePublic]
     engines: list[ScanEnginePublic]
+
+
+class ScanEngineFallbackUpdate(BaseModel):
+    """Body of PUT /scan-engines/fallback: what the controller does when no scan engine scanned
+    the files. Refused (422) while SECREVIEW_SCAN_ENGINE_FALLBACK is set."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fallback: Literal["refuse", "local"]

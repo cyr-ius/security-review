@@ -90,6 +90,11 @@ OSV_UPDATE_INTERVAL = "osv_update_interval_hours"
 # Bounds of the interval set in the web interface: one hour to one year
 MIN_OSV_INTERVAL_HOURS = 1
 MAX_OSV_INTERVAL_HOURS = 8760
+# Key of what the controller does when no scan engine scanned the files ("refuse" or "local"),
+# also the name of its Settings field (see set_scan_engine_fallback);
+# SECREVIEW_SCAN_ENGINE_FALLBACK wins
+SCAN_ENGINE_FALLBACK = "scan_engine_fallback"
+SCAN_ENGINE_FALLBACKS = ("refuse", "local")
 # Keys of the syslog settings of the audit log, also the names of their Settings fields
 SYSLOG_ADDRESS = "audit_syslog_address"
 SYSLOG_FACILITY = "audit_syslog_facility"
@@ -361,6 +366,49 @@ def _record_scan_delegation(
         MCP_SCAN_DELEGATION,
         details=details,
     )
+
+
+# ── Fallback of the scan engines ─────────────────────────────────────────────
+
+
+def scan_engine_fallback(settings: Settings | None = None) -> str:
+    """What the controller does when no scan engine scanned the files: ``refuse`` (503) or
+    ``local`` (it scans them itself). SECREVIEW_SCAN_ENGINE_FALLBACK when set, else the value
+    stored in the web interface, else ``refuse``."""
+    settings = settings or get_settings()
+    if env_set(settings, SCAN_ENGINE_FALLBACK):
+        return settings.scan_engine_fallback
+    with session_scope() as session:
+        row = session.get(AppSetting, SCAN_ENGINE_FALLBACK)
+        return row.value if row is not None else settings.scan_engine_fallback
+
+
+def set_scan_engine_fallback(value: str, actor: str, settings: Settings | None = None) -> None:
+    """Store the fallback of the scan engines and record the change in the audit log (nothing
+    when it does not change).
+
+    Raises:
+        ValueError: If the value is neither ``refuse`` nor ``local``, or if
+            SECREVIEW_SCAN_ENGINE_FALLBACK is set.
+    """
+    settings = settings or get_settings()
+    _check_not_env(settings, SCAN_ENGINE_FALLBACK, "SECREVIEW_SCAN_ENGINE_FALLBACK")
+    if value not in SCAN_ENGINE_FALLBACKS:
+        raise ValueError("The fallback of the scan engines is refuse or local")
+    with session_scope() as session:
+        row = session.get(AppSetting, SCAN_ENGINE_FALLBACK)
+        current = row.value if row is not None else settings.scan_engine_fallback
+        if current == value:
+            return
+        _apply(session, {SCAN_ENGINE_FALLBACK: value}, actor)
+        audit.record(
+            session,
+            audit.AuditAction.SCAN_ENGINE_FALLBACK_CHANGED,
+            actor,
+            "setting",
+            SCAN_ENGINE_FALLBACK,
+            details={"fallback": value},
+        )
 
 
 # ── OAuth login of the MCP clients ───────────────────────────────────────────

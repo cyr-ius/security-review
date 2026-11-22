@@ -400,6 +400,7 @@ export type AuditAction =
   | 'audit_syslog.changed'
   | 'controller_url.changed'
   | 'mcp_scan_delegation.changed'
+  | 'scan_engine_fallback.changed'
   | 'osv_download.changed'
   | 'finding.exported'
   | 'connector.target_changed'
@@ -456,6 +457,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'audit_syslog.changed',
   'controller_url.changed',
   'mcp_scan_delegation.changed',
+  'scan_engine_fallback.changed',
   'osv_download.changed',
   'finding.exported',
   'connector.target_changed',
@@ -1449,6 +1451,8 @@ export interface ScanEngineList {
   enabled: boolean;
   /** When no engine scanned the files: refuse the scan (503) or scan on the Controller server. */
   fallback: 'refuse' | 'local';
+  /** SECREVIEW_SCAN_ENGINE_FALLBACK is set: it wins, the fallback cannot be changed here. */
+  fallback_locked: boolean;
   /** Networks where the engines may advertise their address (SECREVIEW_SCAN_ENGINE_NETWORKS). */
   networks: string[];
   access_token_minutes: number;

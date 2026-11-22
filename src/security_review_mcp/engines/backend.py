@@ -4,9 +4,10 @@ Without SECREVIEW_SCAN_ENGINE_TOKEN (default) the controller scans itself (engin
 it, the scan engines enroll with the controller, each one with its own URL, and the files go to
 an active engine, the one with the most free OpenGrep slots first (engines.remote); an engine
 busy or unreachable is replaced by the next one. When no engine scanned the files, the scan is
-refused (SECREVIEW_SCAN_ENGINE_FALLBACK=refuse, default: 503 with Retry-After, the controller
-stays unloaded) or run here (``local``). Busy engines are never replaced by a local scan: they
-are alive and ask the clients to come back later.
+refused (``refuse``, default: 503 with Retry-After, the controller stays unloaded) or run here
+(``local``): SECREVIEW_SCAN_ENGINE_FALLBACK, else the value set on the Activity page. Busy
+engines are never replaced by a local scan: they are alive and ask the clients to come back
+later.
 """
 
 import logging
@@ -85,7 +86,10 @@ def scan(sources: Sequence[Source], fragment: bool = False) -> dict:
     if busy:
         ENGINE_REQUESTS["busy"] += 1
         raise remote.ScanEngineBusyError("The scan engines are busy with other scans; retry later")
-    if settings.scan_engine_fallback != "local":
+    # Imported here: app_settings is shared by both processes, only the controller gets here
+    from .. import app_settings
+
+    if app_settings.scan_engine_fallback(settings) != "local":
         ENGINE_REQUESTS["unavailable"] += 1
         raise remote.ScanEngineUnavailableError(remote.UNAVAILABLE)
     ENGINE_REQUESTS["fallback"] += 1

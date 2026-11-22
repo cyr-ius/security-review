@@ -513,6 +513,12 @@ export class ApiService {
     return this.http.get<ScanEngineList>(`${API_URL}/scan-engines`);
   }
 
+  /** What the Controller server does when no scan engine scanned the files (settings.manage);
+   * refused while SECREVIEW_SCAN_ENGINE_FALLBACK is set. */
+  setScanEngineFallback(fallback: ScanEngineList['fallback']): Observable<ScanEngineList> {
+    return this.http.put<ScanEngineList>(`${API_URL}/scan-engines/fallback`, { fallback });
+  }
+
   /** Revoke an enrolled scan engine: its access token stops working at once. */
   revokeScanEngine(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/scan-engines/${encodeURIComponent(id)}`);

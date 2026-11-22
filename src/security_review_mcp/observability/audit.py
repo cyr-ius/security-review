@@ -90,6 +90,9 @@ class AuditAction(StrEnum):
     # scan_code of the MCP server delegated to the controller URL, turned on or off in the web
     # interface (see app_settings.set_mcp_scan_delegation)
     MCP_SCAN_DELEGATION_CHANGED = "mcp_scan_delegation.changed"
+    # Fallback of the scan engines (refuse or local) changed on the Activity page (see
+    # app_settings.set_scan_engine_fallback)
+    SCAN_ENGINE_FALLBACK_CHANGED = "scan_engine_fallback.changed"
     # OSV download of the controller turned on or off, or its interval changed, in the web
     # interface (see app_settings.set_osv_download)
     OSV_DOWNLOAD_CHANGED = "osv_download.changed"

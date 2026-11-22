@@ -19,8 +19,9 @@ pages :
 
 - **rouge**, repli `refuse` (par défaut) : les scans de code des pipelines, des agents
   (`start_codebase_scan`) et le `scan_code` délégué sont refusés (503) ; les agents se rabattent
-  sur les règles du serveur MCP, sans OpenGrep. Démarrez un moteur de scan, ou définissez
-  `SECREVIEW_SCAN_ENGINE_FALLBACK=local` ;
+  sur les règles du serveur MCP, sans OpenGrep. Démarrez un moteur de scan, ou activez le repli
+  (interrupteur de la section [Moteurs de scan](#moteurs-de-scan), signalé par un triangle jaune
+  qui clignote pendant 5 secondes) ;
 - **jaune**, repli `local` : le serveur Controller exécute lui-même les scans de code.
 
 Pour être alerté hors de l'interface web, surveillez le résultat `unavailable` de
@@ -123,6 +124,12 @@ serveur Controller connue.
 La section liste les [moteurs de scan](../advanced/architecture/scan-engine.md) enrôlés auprès du
 serveur Controller : nom, version, état (actif tant que son battement de cœur est récent), URL,
 créneaux libres, date d'enrôlement et dernière activité, jamais un secret.
+
+Tant que les moteurs sont activés, l'interrupteur **Le serveur Controller scanne le code lui-même. Active le mode Repli** règle le repli : désactivé (par
+défaut), les scans de code sont refusés (`503`) quand aucun moteur ne répond, pour que le serveur
+Controller ne soit pas chargé ; activé, il les exécute lui-même. Chaque changement est enregistré
+dans le [journal d'audit](audit-metrics.md) (`scan_engine_fallback.changed`). Quand
+`SECREVIEW_SCAN_ENGINE_FALLBACK` est définie, elle l'emporte et l'interrupteur est verrouillé.
 
 **Révoquer** coupe un moteur aussitôt : il ne reçoit plus de scans, et ne s'enrôle de nouveau
 qu'à son redémarrage. Un moteur qui s'arrête normalement part de lui-même : rien à révoquer.
