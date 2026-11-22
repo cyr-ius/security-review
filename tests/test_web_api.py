@@ -2873,6 +2873,9 @@ def test_development_standard_lifecycle(client, caplog):
     assert [item["slug"] for item in listed] == ["angular"]
     assert "content" not in listed[0]
     assert client.get("/api/v1/standards/angular").json()["content"].startswith("- Standalone")
+    found = client.get("/api/v1/standards?search=standalone").json()["standards"]
+    assert [item["slug"] for item in found] == ["angular"]
+    assert client.get("/api/v1/standards?search=signals").json()["standards"] == []
 
     changed = STANDARD | {"content": "- Signals for state.", "enabled": False}
     updated = client.put("/api/v1/standards/angular", json=changed)

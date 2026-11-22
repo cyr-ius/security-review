@@ -89,7 +89,8 @@ projet : tout client autorisé sur `/mcp` les lit.
 ## Gestion (interface web et API REST)
 
 La page **Normes** de l'interface web liste les normes avec leurs technologies et motifs de
-fichiers, et permet de rechercher et de lire chacune, avec son rendu Markdown (permission
+fichiers, et permet de les rechercher, contenu compris, et de lire chacune, avec son rendu
+Markdown (permission
 `standards.read`). Les utilisateurs avec `standards.manage` les créent, les modifient, les
 désactivent ou les suppriment. Le champ du contenu s'ouvre en plein écran, à côté de son aperçu
 Markdown. Les assistants IA, eux, reçoivent les normes actives par le serveur MCP (prompt et

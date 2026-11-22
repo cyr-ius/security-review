@@ -182,13 +182,17 @@ async def delete_checklist_item(
 
 
 @router.get("/standards", tags=["standards"])
-async def list_standards(identity: StandardsReader) -> StandardCatalog:
+async def list_standards(
+    identity: StandardsReader,
+    search: Annotated[str | None, Query(max_length=200)] = None,
+) -> StandardCatalog:
     """List the development standards (without content), disabled ones included.
 
+    ``search`` keeps the standards whose slug, title, description or content contains it.
     Needs ``standards.read`` (implied by ``standards.manage``); the MCP tools serve the enabled
     standards to the assistants.
     """
-    listed = await run_in_threadpool(standards.list_standards, True)
+    listed = await run_in_threadpool(standards.list_standards, True, search)
     return StandardCatalog.model_validate({"standards": listed})
 
 

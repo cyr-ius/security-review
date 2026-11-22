@@ -89,7 +89,8 @@ client allowed on `/mcp` reads them.
 ## Management (web interface and REST API)
 
 The **Standards** page of the web interface lists the standards with their technologies and
-file patterns, and lets you search and read each one, rendered as Markdown (permission
+file patterns, and lets you search them, their content included, and read each one, rendered as
+Markdown (permission
 `standards.read`). The users with `standards.manage` create, edit, disable or delete them. The
 content field opens in full screen next to its Markdown preview. The AI assistants get the
 active standards through the MCP server (prompt and tools above), whatever the web role of the

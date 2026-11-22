@@ -307,8 +307,11 @@ export class ApiService {
     );
   }
 
-  devStandards(): Observable<DevStandardCatalog> {
-    return this.http.get<DevStandardCatalog>(`${API_URL}/standards`);
+  /** The standards (without content); ``search`` also reads their content on the server. */
+  devStandards(search?: string): Observable<DevStandardCatalog> {
+    return this.http.get<DevStandardCatalog>(`${API_URL}/standards`, {
+      params: search ? { search } : {},
+    });
   }
 
   devStandard(slug: string): Observable<DevStandard> {
