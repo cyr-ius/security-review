@@ -1,5 +1,31 @@
 # Changelog
 
+## [13.1.0](https://github.com/cyr-ius/security-review/compare/v13.0.0...v13.1.0) (2026-11-22)
+
+
+### Features
+
+* **mcp:** signaler à l'agent les findings ouverts à corriger ([8f40561](https://github.com/cyr-ius/security-review/commit/8f40561de81022ad4596690c566911ff07d804ee))
+* numéros R/F et recherche par #identifiant ([a4b64a1](https://github.com/cyr-ius/security-review/commit/a4b64a13e810940b8ae3beb2f43e6cb83e781ca4))
+* ouvrir un finding parmi les findings de son projet ([9001546](https://github.com/cyr-ius/security-review/commit/9001546c71baa7e779ab6abe294581c1151fe497))
+* **projects:** demander une revue complète du code à l'agent MCP ([feb2301](https://github.com/cyr-ius/security-review/commit/feb2301e11c610dda69de88f39e7d16d8a9ee530))
+* rechercher dans le contenu des normes ([57a06e9](https://github.com/cyr-ius/security-review/commit/57a06e960d8884e3c087f91592c6a9795cc8fb58))
+* rechercher les findings par auteur en texte libre ([09229d7](https://github.com/cyr-ius/security-review/commit/09229d7fa5ebddcd81747a552bebec6b8d3ce835))
+* **ui:** enregistrer la revue complète du code sans bouton ([008ebf9](https://github.com/cyr-ius/security-review/commit/008ebf9363d5759f494aed5a5e61f164db53ffe5))
+* **ui:** suggérer les utilisateurs à ajouter comme membres d'un projet ([b41b6cb](https://github.com/cyr-ius/security-review/commit/b41b6cb8fc6571a127a45595a70d4a13ceaa53dc))
+
+
+### Bug Fixes
+
+* **ui:** aligner le bandeau Membres sur les autres cartes du projet ([a43e29a](https://github.com/cyr-ius/security-review/commit/a43e29a27df85b6583ffedcdc98d1942a708a65e))
+* **ui:** enregistrer les listes des paramètres généraux sans bouton ([3625dbd](https://github.com/cyr-ius/security-review/commit/3625dbde46e1dbc5bd3896f21b5d1ad6d0182498))
+* **ui:** fil d'Ariane des rapports d'un projet ([1021fc7](https://github.com/cyr-ius/security-review/commit/1021fc7f60d52a067df0296f39bb2738573583a0))
+* **ui:** harmoniser les cartes des pages d'administration ([ef196b9](https://github.com/cyr-ius/security-review/commit/ef196b9c2062bbf96cff7d395b495cb03c846012))
+* **ui:** harmoniser les en-têtes, cartes et textes de l'interface ([b10f805](https://github.com/cyr-ius/security-review/commit/b10f8050fe735a786c7c32f717df76526f574c3c))
+* **ui:** ouvrir les infos non lues depuis le tableau des projets ([92a152f](https://github.com/cyr-ius/security-review/commit/92a152f9df064a0d5dbca9581b69374103a316ff))
+* **ui:** remonter la carte Membres et réduire le badge de revue complète ([7b40fa4](https://github.com/cyr-ius/security-review/commit/7b40fa46033f8bb4f464f524cb669aba458f5860))
+* **ui:** supprimer l'ascenseur horizontal de la page d'un projet ([cf7efb8](https://github.com/cyr-ius/security-review/commit/cf7efb8d1da5a2abda71d23fd7fb9033b6983ee0))
+
 ## [13.0.0](https://github.com/cyr-ius/security-review/compare/v12.7.0...v13.0.0) (2026-11-22)
 
 
