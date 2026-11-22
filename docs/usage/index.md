@@ -68,14 +68,14 @@ A page is missing? You do not hold its permission: ask an administrator (see
 
 | Page | What for |
 |---|---|
-| **Projects** | Every project with its open findings by severity: a tile opens the open findings of that severity in every project, a count of the table those of the project, the number of reports its reports. The starting point: open a project, **Review open findings** of every project, approve the **Pending projects** requested by the agents |
+| **Projects** | Every project with its open findings by severity: a tile opens the open findings of that severity in every project, a count of the table those of the project, the number of reports its reports. The starting point: open a project, approve the **Pending projects** requested by the agents |
 | **Project** | Open findings by severity (a tile opens those of the project), trend, most frequent CWEs as a labeled pie, worst and oldest open findings (the [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) folded in one row), SARIF export, **All reports** of the project |
 
 **Review**: **Findings** and **Risk acceptances** for the users holding `reports.read` (on the projects they read); **Reports** for every user (on the projects they read), opened from the search field (`#report:*`) or **All reports** of a project
 
 | Page | What for |
 |---|---|
-| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, or `#report:<number>` for the findings of one report, as in the global search) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
+| **Findings** (**Findings to review**) | Every open finding of a project or of every project, once each, worst first: this is where you triage. The search field (title, rule, CWE, file path, description, project, branch, `#report:<number>` for the findings of one report, as in the global search, or `#<number>` for one finding, as the findings listed on the page of a project link to it) narrows the list; the status, severity and review type filters accept several values; **With a proposal only** keeps the findings an agent proposed a status for. The [advisories of one vulnerable dependency](../review/analysis/dependencies.md#reading-the-result) are folded in one card, whose box selects them all for a bulk decision |
 | **Risk acceptances** | The accepted risks, with their expiry date, filtered by state and severity (several values each) |
 | **Reports**, **Report** | Every saved review, filtered by one or several projects and risk levels, and its detail: summary, [review coverage](../reference/prompts-tools.md#review-coverage), related reports of a codebase review, scanned files of a [code](../review/analysis/code-scan.md) or [dependency](../review/analysis/dependencies.md) scan, findings (searched by text, filtered by severity and status, the advisories of one vulnerable dependency grouped), Markdown and SARIF download |
 

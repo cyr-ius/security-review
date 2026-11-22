@@ -202,7 +202,7 @@
 <app-project-codebase-review [project]="project()" />
 
 <div class="card mb-4">
-  <div class="card-header d-flex flex-wrap align-items-center gap-2">
+  <div class="card-header d-flex flex-wrap align-items-baseline gap-2">
     <span class="fw-semibold"
       ><i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i
       >{{ 'project.openFindings' | t }}</span
@@ -231,7 +231,6 @@
               <th scope="col">{{ 'project.colSeverity' | t }}</th>
               <th scope="col">{{ 'project.colFinding' | t }}</th>
               <th scope="col">{{ 'project.colLocation' | t }}</th>
-              <th scope="col">{{ 'project.colReport' | t }}</th>
               <th scope="col">{{ 'reportTable.date' | t }}</th>
               <th scope="col" class="text-center">{{ 'project.colProposal' | t }}</th>
             </tr>
@@ -241,7 +240,7 @@
               @if (entry.kind === 'package') {
                 @let group = entry.group;
                 @let expanded = entry.expanded;
-                <tr class="package-row">
+                <tr class="package-row clickable-row" (click)="onGroupRowClick(group.key, $event)">
                   <td class="text-nowrap">
                     <button
                       type="button"
@@ -273,11 +272,6 @@
                     }
                   </td>
                   <td class="text-nowrap">
-                    @if (sameReport(group); as reportId) {
-                      <a [routerLink]="['/reports', reportId]">#{{ reportId }}</a>
-                    }
-                  </td>
-                  <td class="text-nowrap">
                     {{ group.findings[0].report_created_at | date: 'dd/MM/yyyy' }}
                   </td>
                   <td class="text-center small text-body-secondary">
@@ -290,11 +284,15 @@
                 </tr>
               } @else {
                 @let finding = entry.finding;
-                <tr [class.package-member]="entry.member">
+                <tr
+                  class="clickable-row"
+                  [class.package-member]="entry.member"
+                  (click)="onFindingRowClick(finding.id, $event)"
+                >
                   <td class="text-nowrap">
                     <a
-                      [routerLink]="['/reports', finding.report_id]"
-                      [fragment]="'finding-' + finding.id"
+                      [routerLink]="['/projects', project(), 'findings']"
+                      [queryParams]="{ search: '#' + finding.id }"
                       [attr.aria-label]="'project.openFinding' | t: { id: finding.id }"
                       >#{{ finding.id }}</a
                     >
@@ -319,9 +317,6 @@
                       >
                     }
                   </td>
-                  <td class="text-nowrap">
-                    <a [routerLink]="['/reports', finding.report_id]">#{{ finding.report_id }}</a>
-                  </td>
                   <td class="text-nowrap">{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</td>
                   <td class="text-center">
                     @if (finding.proposed_status; as proposed) {
@@ -329,8 +324,8 @@
                         'project.proposalPending' | t: { status: statusMeta[proposed].label | t };
                       <a
                         class="proposal-pending"
-                        [routerLink]="['/reports', finding.report_id]"
-                        [fragment]="'finding-' + finding.id"
+                        [routerLink]="['/projects', project(), 'findings']"
+                        [queryParams]="{ search: '#' + finding.id }"
                         [attr.aria-label]="hint"
                         [title]="hint"
                         ><i class="bi bi-robot" aria-hidden="true"></i

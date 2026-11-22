@@ -258,6 +258,10 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert services.list_project_findings("shop", search="main")["total"] == 1
     assert services.list_project_findings("shop", search="%")["total"] == 0
     assert services.list_project_findings("shop", search="APP/DB")["total"] == 2  # file path
+    # "#<id>" names one finding (the link of a finding to the findings of its project)
+    by_id = services.list_project_findings("shop", search=f" #{high['id']} ")
+    assert [f["id"] for f in by_id["findings"]] == [high["id"]]
+    assert services.list_project_findings("other", search=f"#{high['id']}")["total"] == 0
     # One report, and the findings with a proposal of an agent
     by_report = services.list_project_findings(None, report_id=first["report_id"])
     assert [f["id"] for f in by_report["findings"]] == [high["id"]]

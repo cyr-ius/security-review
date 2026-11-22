@@ -1,6 +1,7 @@
 """Projects, their findings, risk acceptances and comments."""
 
 import logging
+import re
 from collections.abc import Collection, Iterable
 from datetime import datetime
 
@@ -189,6 +190,10 @@ def _status_filter(value: FindingStatusFilter | str, now: datetime) -> ColumnEle
     return _status_is(FindingStatus(value.value), now)
 
 
+# A search "#12" names one finding by its id (at most 18 digits: within a 64-bit integer)
+_FINDING_ID = re.compile(r"#(\d{1,18})")
+
+
 def list_project_findings(
     project: str | None,
     status: FindingStatusFilter | Collection[FindingStatusFilter] | None = FindingStatusFilter.OPEN,
@@ -213,7 +218,8 @@ def list_project_findings(
     None lists every project;
     ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
     ``search`` keeps the findings whose title, rule, CWE, file, description, project or branch
-    contains it (case-insensitive, first 200 characters). ``report_id`` keeps the findings of
+    contains it (case-insensitive, first 200 characters); ``#12`` keeps the finding 12 (the link
+    of a finding to the findings of its project). ``report_id`` keeps the findings of
     that report; ``proposed`` keeps the findings carrying a status proposed by an agent.
     """
     settings = get_settings()
@@ -234,7 +240,9 @@ def list_project_findings(
         filters.append(Finding.report_id == report_id)
     if proposed:
         filters.append(col(Finding.proposed_status).is_not(None))
-    if search and search.strip():
+    if search and (by_id := _FINDING_ID.fullmatch(search.strip())):
+        filters.append(Finding.id == int(by_id.group(1)))
+    elif search and search.strip():
         pattern = _contains_pattern(search.strip())
         searched = [
             Finding.title,

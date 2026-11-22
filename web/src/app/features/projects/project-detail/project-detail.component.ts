@@ -1,7 +1,7 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { DIRECTION_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { MessageKey } from '../../../core/i18n/messages';
@@ -64,6 +64,7 @@ const TOP_OPEN_FINDINGS = 20;
 })
 export class ProjectDetailComponent {
   private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
   /** Gives the members of the project to a holder of users.manage. */
   readonly auth = inject(AuthService);
 
@@ -130,10 +131,27 @@ export class ProjectDetailComponent {
     });
   }
 
-  /** Report of every finding of a group, when they come from a single one. */
-  sameReport(group: PackageGroup<ProjectFinding>): number | null {
-    const id = group.findings[0].report_id;
-    return group.findings.every((f) => f.report_id === id) ? id : null;
+  /**
+   * A click on a row opens its finding among the findings of the project, as its number does
+   * (the number stays the link for the keyboard); a link or button of the row keeps its own.
+   */
+  onFindingRowClick(findingId: number, event: MouseEvent): void {
+    if (!this.clickedControl(event)) {
+      void this.router.navigate(['/projects', this.project(), 'findings'], {
+        queryParams: { search: `#${findingId}` },
+      });
+    }
+  }
+
+  /** A click on the row of a package unfolds or folds it, as its arrow does. */
+  onGroupRowClick(key: string, event: MouseEvent): void {
+    if (!this.clickedControl(event)) {
+      this.toggleGroup(key);
+    }
+  }
+
+  private clickedControl(event: MouseEvent): boolean {
+    return !!(event.target as HTMLElement).closest('a, button, input, label');
   }
 
   readonly direction = computed(() => {
