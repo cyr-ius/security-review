@@ -546,21 +546,29 @@ async def test_agent_tracking_counts_every_request_by_family(monkeypatch):
 
 async def test_request_project_tells_the_agent_when_a_codebase_review_is_due():
     """A codebase review asked by a person reaches the agent as a fixed reminder of
-    request_project, never as a condition of the review."""
+    request_project, never as a condition of the review, and of save_security_report, for an
+    agent that skipped request_project."""
     services.save_report("shop-api", "Review", [])
+    report = {"project": "shop-api", "summary": "Review", "findings": []}
     async with Client(mcp) as client:
         before = json.loads(
             text_of(await client.call_tool("request_project", {"project": "shop-api"}))
         )
+        saved_before = json.loads(text_of(await client.call_tool("save_security_report", report)))
         access_control.set_codebase_review("shop-api", True, None, "user:alice")
         after = json.loads(
             text_of(await client.call_tool("request_project", {"project": "shop-api"}))
         )
+        saved_after = json.loads(text_of(await client.call_tool("save_security_report", report)))
 
     assert "codebase_review" not in before
+    assert "codebase_review" not in saved_before
     assert after["status"] == "accessible"
     assert after["codebase_review"]["reasons"] == ["requested"]
     assert "codebase-review" in after["codebase_review"]["next_steps"]
+    # A report that is not a codebase review leaves the request pending
+    assert saved_after["report_id"] > saved_before["report_id"]
+    assert saved_after["codebase_review"]["reasons"] == ["requested"]
 
 
 async def test_request_project_tells_the_agent_about_open_findings_to_fix():

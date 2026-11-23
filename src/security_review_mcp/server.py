@@ -899,7 +899,8 @@ def save_security_report(
     evidence and recommendation of a finding) is limited to SECREVIEW_MAX_CONTENT_CHARS.
     Returns the report id, the overall risk level, the finding counts and the review
     coverage: checklist items of the domains you used that got no result (not_covered) and
-    warnings about unknown ids, which are not stored.
+    warnings about unknown ids, which are not stored. ``codebase_review`` tells when a review
+    of the whole repository is still due after this report (as with request_project).
     """
     allowed = _caller_write_projects(ctx)
     if allowed is not None and project not in allowed:
@@ -908,7 +909,7 @@ def save_security_report(
             f"This token can only save reports for {reachable}; call request_project to "
             "create or request the project"
         )
-    return services.save_report(
+    saved = services.save_report(
         project=project,
         summary=summary,
         findings=findings,
@@ -928,6 +929,8 @@ def save_security_report(
         review_group=review_group,
         files_reviewed=files_reviewed,
     )
+    # An agent that skipped request_project still learns that a codebase review is due
+    return _with_codebase_review(saved)
 
 
 @mcp.tool(annotations=READ_ONLY)

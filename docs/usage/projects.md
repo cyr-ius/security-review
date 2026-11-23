@@ -117,7 +117,7 @@ asks it of itself nor withdraws it. The card, above the open findings, is folded
 latest full review, the next periodic one and a flag while a request is pending; unfold it to see why
 a review is due and to change the settings. The **Projects** page shows a clock icon next to the project; its tooltip explains it.
 
-At the start of its next review, `request_project` tells the agent, which offers the developer
+At the start of its next review, `request_project` tells the agent (and so does `save_security_report`, for an agent that skipped `request_project`), which offers the developer
 the `codebase-review` prompt once its task is done. Only a full review that went through the
 Controller server meets the request: a `codebase-review` report linked (`review_group`) to the
 code scan of [`start_codebase_scan`](../review/analysis/code-scan.md), run after the request (a report that reuses the `review_group` of an older review does not count). It is a reminder: the
