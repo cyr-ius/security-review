@@ -31,6 +31,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import yaml
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
@@ -42,10 +43,6 @@ from ..storage.models import DefaultSeed, OpenGrepRule, utcnow
 
 logger = logging.getLogger(__name__)
 RULE_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{2,79}$")
-# Blanks limited to the current line: \s would also match newlines, in quadratic time (ReDoS)
-YAML_RULE_ID = re.compile(
-    r"(?m)^[ \t]*-[ \t]*id:[ \t]*['\"]?([a-zA-Z0-9][a-zA-Z0-9._-]{2,79})['\"]?[ \t]*$"
-)
 MAX_RULE_CHARS = 262_144
 # Rules installed at most: the bound of the manifest the scan engines download (MAX_ENGINE_RULES)
 MAX_RULES = 5000
@@ -59,12 +56,38 @@ SEED_KIND = "opengrep"
 LEGACY_MANIFEST_NAME = ".secreview-default-rules.json"
 
 
+class _StrictLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # type: ignore[misc]
+    """Safe YAML loader that refuses a key repeated in a mapping: PyYAML keeps the last value
+    where OpenGrep may keep the first, so the id checked would not be the id installed."""
+
+    def construct_mapping(self, node, deep=False):  # noqa: ANN001, ANN201 (PyYAML API)
+        keys = [self.construct_object(key, deep=True) for key, _ in node.value]
+        if any(not isinstance(key, str) for key in keys) or len(set(keys)) != len(keys):
+            raise yaml.constructor.ConstructorError(
+                None, None, "repeated or non-text key", node.start_mark
+            )
+        return super().construct_mapping(node, deep=deep)
+
+
 def check_rule_file(rule_id: str, content: str) -> None:
-    """Require one rule whose id matches the managed file name."""
+    """Require one rule whose id matches the managed file name.
+
+    The YAML is parsed, not searched line by line: a second rule whose id is not its first key,
+    a rule in flow style or an id line inside a block scalar cannot get past the check.
+    """
     if len(content) > MAX_RULE_CHARS or not content.strip():
         raise ValueError("The YAML rule is empty or exceeds the 256 KiB limit")
-    identifiers = YAML_RULE_ID.findall(content)
-    if len(identifiers) != 1 or identifiers[0] != rule_id:
+    try:
+        data = yaml.load(content, Loader=_StrictLoader)  # noqa: S506 (safe loader)
+    except (yaml.YAMLError, RecursionError) as exc:
+        raise ValueError(f"The YAML rule cannot be read: {str(exc)[:200]}") from exc
+    rules = data.get("rules") if isinstance(data, dict) and set(data) == {"rules"} else None
+    if (
+        not isinstance(rules, list)
+        or len(rules) != 1
+        or not isinstance(rules[0], dict)
+        or rules[0].get("id") != rule_id
+    ):
         raise ValueError("Each file must contain one rule and its YAML id must match the file id")
 
 
