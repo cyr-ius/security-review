@@ -1,7 +1,7 @@
 # Web interface (Angular)
 
 The Angular 22 application (signals, zoneless, Bootstrap 5) is in `web/`. Its build is written
-into `src/security_review_mcp/webui/`, from where the Controller server serves it on `/ui/` and the
+into `src/security_review/webui/`, from where the Controller server serves it on `/ui/` and the
 wheel embeds it.
 
 ```bash

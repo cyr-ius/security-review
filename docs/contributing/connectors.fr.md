@@ -4,7 +4,7 @@ Un connecteur tiers est un paquet Python que le serveur Controller charge pour e
 vers un autre système. Cette page s'adresse à ses développeurs ; pour installer et autoriser un
 connecteur, voir [Connecteurs tiers](../usage/connectors/third-party.md).
 
-Un connecteur est une sous-classe de `Connector` (module `security_review_mcp.connectors.api`,
+Un connecteur est une sous-classe de `Connector` (module `security_review.connectors.api`,
 version `API_VERSION = 2`). L'exemple complet
 [`examples/connector`](https://github.com/cyr-ius/security-review/tree/master/examples/connector)
 est un paquet à copier : il transforme chaque finding en risque d'un registre Acme.
@@ -12,7 +12,7 @@ est un paquet à copier : il transforme chaque finding en risque d'un registre A
 ## Exemple
 
 ```python
-from security_review_mcp.connectors.api import (
+from security_review.connectors.api import (
     Connection,
     Connector,
     ConnectorError,
@@ -60,7 +60,7 @@ class AcmeConnector(Connector):
 
 ```toml
 # pyproject.toml of the package
-[project.entry-points."security_review_mcp.connectors"]
+[project.entry-points."security_review.connectors"]
 acme = "acme_connector:AcmeConnector"
 ```
 

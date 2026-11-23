@@ -50,7 +50,7 @@
               "src/styles.css"
             ],
             "outputPath": {
-              "base": "../src/security_review_mcp/webui",
+              "base": "../src/security_review/webui",
               "browser": ""
             },
             "baseHref": "/ui/",

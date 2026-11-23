@@ -9,13 +9,13 @@ from alembic import command
 from sqlalchemy import Engine
 from sqlmodel import SQLModel, StaticPool, create_engine
 
-from security_review_mcp.auth import access_control, web_users
-from security_review_mcp.auth.access_control import Permission
-from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.reports.services import update_finding_status
-from security_review_mcp.rules import registry, rule_store
-from security_review_mcp.storage.database import alembic_config, set_engine
-from security_review_mcp.storage.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
+from security_review.auth import access_control, web_users
+from security_review.auth.access_control import Permission
+from security_review.config import Settings, get_settings
+from security_review.reports.services import update_finding_status
+from security_review.rules import registry, rule_store
+from security_review.storage.database import alembic_config, set_engine
+from security_review.storage.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 
 # The tests ignore the configuration of the machine running them: the developer's .env file and
 # the SECREVIEW_* variables of the shell (devcontainer database, Swagger...). A test that needs
@@ -78,7 +78,7 @@ def database(seeded_template):
 def outdated_schema(database):
     """Mark the test database as one revision behind the latest (``db upgrade`` has work to
     do, ``db status`` reports it)."""
-    from security_review_mcp.storage.database import head_revision
+    from security_review.storage.database import head_revision
 
     with database.begin() as connection:
         command.stamp(alembic_config(connection), "0038")
@@ -168,7 +168,7 @@ def drop_local_tools():
     yield
     from mcp.server.mcpserver.exceptions import ToolError
 
-    from security_review_mcp.server import mcp
+    from security_review.server import mcp
 
     with contextlib.suppress(ToolError):
         mcp.remove_tool("decide_finding_status")
@@ -222,15 +222,15 @@ ROLE_PERMISSIONS = {
 
 def role_id(name: str) -> int:
     """Id of the role ``name``."""
-    from security_review_mcp.auth import access_control
+    from security_review.auth import access_control
 
     return {item["name"]: item["id"] for item in access_control.list_roles()}[name]
 
 
 def known_projects(*names: str) -> None:
     """Make the projects ``names`` known (as a first report would)."""
-    from security_review_mcp.storage.database import session_scope
-    from security_review_mcp.storage.projects import ensure_project
+    from security_review.storage.database import session_scope
+    from security_review.storage.projects import ensure_project
 
     with session_scope() as session:
         for name in names:
@@ -251,7 +251,7 @@ def _access(role: str | None) -> tuple[list[int], list[str]]:
 def map_claim(claim: str, role: str | None = None, projects: list[str] | None = None) -> None:
     """Add an OIDC mapping: the value ``claim`` of the roles claim gives ``role`` (see _access)
     on every project, or on ``projects`` (a project not known yet is created)."""
-    from security_review_mcp.auth import access_control
+    from security_review.auth import access_control
 
     current = [
         (
@@ -285,9 +285,9 @@ def make_user(
     A local user created by an administrator must change its password at its first login; it
     is created as if it had already done it, unless ``must_change``.
     """
-    from security_review_mcp.auth import web_users
-    from security_review_mcp.storage.database import session_scope
-    from security_review_mcp.storage.models import WebUser
+    from security_review.auth import web_users
+    from security_review.storage.database import session_scope
+    from security_review.storage.models import WebUser
 
     roles, permissions = _access(role)
     roles += role_ids or []

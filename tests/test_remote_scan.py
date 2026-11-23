@@ -4,7 +4,7 @@ import http.client
 
 import pytest
 
-from security_review_mcp.rules import remote_scan
+from security_review.rules import remote_scan
 
 
 class _TruncatedAnswer:

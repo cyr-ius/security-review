@@ -1,0 +1,246 @@
+"""Routes of the project tokens (``tokens.manage``).
+
+A token never grants more than its creator holds: every change is checked against the
+projects the caller reads and, for an api token, the permissions of its role.
+"""
+
+import logging
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import Path as APIPath
+from fastapi.concurrency import run_in_threadpool
+
+from ..auth import access_control, token_store
+from ..http_server import Role
+from ..reports import services
+from .auth_routes import LOGIN_HEADERS
+from .deps import (
+    Identity,
+    Permission,
+    TokensManager,
+    actor_of,
+    permission_scope,
+    unprocessable,
+)
+from .schemas import (
+    ProjectToken,
+    ProjectTokenCreate,
+    ProjectTokenProjects,
+    ProjectTokenRotation,
+    ProjectTokenSecret,
+    TokenRoleChoice,
+)
+
+logger = logging.getLogger("security_review.web")
+
+router = APIRouter(tags=["tokens"])
+
+TokenIdPath = Annotated[str, APIPath(min_length=1, max_length=64)]
+
+
+def _not_found_or_unprocessable(exc: ValueError) -> HTTPException:
+    """404 for an unknown token, 422 for any other refusal."""
+    if "not found" in str(exc):
+        return HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
+    return unprocessable(exc)
+
+
+async def _check_known_projects(projects: list[str] | None) -> None:
+    """Refuse a token for a project that has no report yet (None: every project)."""
+    if projects is None:
+        return
+    known = {item["project"] for item in await run_in_threadpool(services.list_projects)}
+    if not set(projects) <= known:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+
+
+def _describe_projects(projects: list[str] | None) -> str:
+    """Projects of a token for the logs."""
+    return "every project" if projects is None else ", ".join(projects)
+
+
+def _check_delegation(
+    identity: Identity, projects: list[str] | None, permissions: list[str] | None = None
+) -> None:
+    """Refuse (403) a token that would reach projects the caller cannot read itself, or hold a
+    permission of its role (``permissions``, api token) the caller does not hold on them: a
+    token never grants more than its creator holds."""
+    for permission in dict.fromkeys([Permission.REPORTS_READ, *(permissions or [])]):
+        reached = permission_scope(identity, Permission(permission))
+        if reached is not None and (projects is None or not set(projects) <= set(reached)):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"A token cannot hold '{permission}' where you do not hold it",
+            )
+
+
+# Tokens that save reports on their projects (MCP agent, pipeline scans): their creator must
+# hold reports.write there
+WRITING_ROLES = frozenset({Role.MCP, Role.CI})
+
+
+def _writes(role: str) -> list[str]:
+    """``reports.write`` for a token that saves reports, nothing otherwise."""
+    return [Permission.REPORTS_WRITE] if role in WRITING_ROLES else []
+
+
+async def _role_permissions(role_id: int | None) -> list[str]:
+    """Permissions of the role of an api token (none for another token); 404 when unknown."""
+    if role_id is None:
+        return []
+    try:
+        permissions, _, _ = await run_in_threadpool(access_control.role_token_scope, role_id, None)
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    return permissions
+
+
+def _reaches(identity: Identity, projects: list[str] | None) -> bool:
+    """True when the caller reads every project of a token or request (None: every project)."""
+    reached = permission_scope(identity, Permission.REPORTS_READ)
+    return reached is None or (projects is not None and set(projects) <= set(reached))
+
+
+async def _check_token_delegation(
+    identity: Identity, token_id: str, projects: list[str] | None, keep: bool = False
+) -> None:
+    """Delegation check of a change to a stored token (see _check_delegation): with its new
+    ``projects``, or with its current ones when ``keep``. An unknown token is left to the call
+    that follows (404)."""
+    tokens = await run_in_threadpool(token_store.list_tokens)
+    token = next((item for item in tokens if item["id"] == token_id), None)
+    if token is not None:
+        permissions = await _role_permissions(token.get("access_role_id"))
+        permissions += token.get("project_permissions") or []
+        permissions += _writes(token["role"])
+        _check_delegation(identity, token["projects"] if keep else projects, permissions)
+
+
+# ── Project tokens ───────────────────────────────────────────────────────────
+
+
+@router.get("/project-tokens/roles")
+async def project_token_roles(identity: TokensManager) -> list[TokenRoleChoice]:
+    """The roles an api token may hold, with their permissions."""
+    return await run_in_threadpool(access_control.list_token_roles)
+
+
+@router.get("/project-tokens")
+async def project_tokens(identity: TokensManager) -> list[ProjectToken]:
+    """List project-token metadata without returning hashes or token values; only the tokens
+    whose projects the caller reads."""
+    tokens = await run_in_threadpool(token_store.list_project_tokens)
+    return [token for token in tokens if _reaches(identity, token["projects"])]
+
+
+@router.post("/project-tokens", status_code=status.HTTP_201_CREATED)
+async def create_project_token(
+    body: ProjectTokenCreate, identity: TokensManager, response: Response
+) -> ProjectTokenSecret:
+    """Create a token for existing projects (or every project, ``projects`` null) and return
+    its secret exactly once. An ``api`` token holds the permissions of ``access_role_id`` and
+    its per-project permissions on its projects: the caller must hold each of them on the
+    projects of the token, and ``reports.write`` there for an ``mcp`` or ``ci`` token."""
+    permissions = await _role_permissions(body.access_role_id)
+    _check_delegation(
+        identity, body.projects, [*permissions, *body.project_permissions, *_writes(body.role)]
+    )
+    await _check_known_projects(body.projects)
+    try:
+        created = await run_in_threadpool(
+            token_store.create_project_token,
+            body.label,
+            body.projects,
+            body.role,
+            body.expires_in_days,
+            actor_of(identity),
+            body.access_role_id,
+            body.project_permissions,
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info(
+        "Project token %s (%s) created for %s by %s",
+        body.label,
+        body.role,
+        _describe_projects(created["projects"]),
+        identity.client,
+    )
+    # The secret is shown once: never cached
+    response.headers.update(LOGIN_HEADERS)
+    return created
+
+
+@router.put("/project-tokens/{token_id}/projects")
+async def update_project_token_projects(
+    token_id: TokenIdPath, body: ProjectTokenProjects, identity: TokensManager
+) -> ProjectToken:
+    """Change the projects of a token (``projects`` null: every project); its secret stays.
+
+    The caller must reach the current projects of the token as well as the new ones.
+    """
+    await _check_token_delegation(identity, token_id, None, keep=True)
+    await _check_token_delegation(identity, token_id, body.projects)
+    await _check_known_projects(body.projects)
+    try:
+        updated = await run_in_threadpool(
+            token_store.set_token_projects, token_id, body.projects, actor_of(identity)
+        )
+    except ValueError as exc:
+        raise _not_found_or_unprocessable(exc) from exc
+    logger.info(
+        "Projects of token %s set to %s by %s",
+        updated["label"],
+        _describe_projects(updated["projects"]),
+        identity.client,
+    )
+    return updated
+
+
+@router.delete("/project-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project_token(token_id: TokenIdPath, identity: TokensManager) -> Response:
+    """Revoke a project token: the next request presenting it is rejected."""
+    await _check_token_delegation(identity, token_id, None, keep=True)
+    try:
+        await run_in_threadpool(token_store.revoke_project_token, token_id, actor_of(identity))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info("Project token %s revoked by %s", token_id, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/project-tokens/{token_id}/rotate")
+async def rotate_project_token(
+    token_id: TokenIdPath,
+    identity: TokensManager,
+    response: Response,
+    body: ProjectTokenRotation | None = None,
+) -> ProjectTokenSecret:
+    """Replace the secret of a project token and return the new one exactly once.
+
+    The previous secret keeps working for ``grace_hours`` (0: it stops at once). The caller
+    receives the new secret: it must reach every project of the token itself.
+    """
+    await _check_token_delegation(identity, token_id, None, keep=True)
+    rotation = body or ProjectTokenRotation()
+    try:
+        rotated = await run_in_threadpool(
+            lambda: token_store.rotate_token(
+                token_id,
+                rotation.grace_hours,
+                rotation.expires_in_days,
+                actor_of(identity),
+                project_token=True,
+            )
+        )
+    except ValueError as exc:
+        raise _not_found_or_unprocessable(exc) from exc
+    logger.info(
+        "Project token %s rotated by %s (grace %d h)",
+        rotated["label"],
+        identity.client,
+        rotation.grace_hours,
+    )
+    response.headers.update(LOGIN_HEADERS)
+    return rotated

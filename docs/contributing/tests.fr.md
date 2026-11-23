@@ -75,7 +75,7 @@ En CI, `tests.yml` lance la suite sur Python 3.14 et 3.15 (voir
 ## Règles OpenGrep par défaut
 
 Les [règles OpenGrep par défaut](../review/analysis/opengrep.md#regles-par-defaut) sont des
-fichiers YAML dans `src/security_review_mcp/rules/opengrep/<langage>/`, une règle par fichier
+fichiers YAML dans `src/security_review/rules/opengrep/<langage>/`, une règle par fichier
 nommé d'après son identifiant (`secreview.<langage>.<contrôle>`). Leurs cas sont des fichiers
 source dans `tests/opengrep_rules/<langage>/`, exclus de ruff : un commentaire `ruleid:` indique
 que la ligne de code suivante doit correspondre à la règle, un commentaire `ok:` qu'elle ne le

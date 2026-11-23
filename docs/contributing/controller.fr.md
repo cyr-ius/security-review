@@ -67,7 +67,7 @@ stdout. Documentez toute commande ou option dans la
 ## Migrations du schéma
 
 Toute modification d'un modèle de table (`models.py`) s'accompagne d'une révision Alembic dans
-`src/security_review_mcp/storage/migrations/versions/`. Le test
+`src/security_review/storage/migrations/versions/`. Le test
 `test_upgrade_creates_the_schema_of_the_models` (`tests/test_database.py`) échoue tant que les
 migrations ne produisent pas exactement le schéma des modèles. Pour générer un brouillon de
 révision à relire :
@@ -75,7 +75,7 @@ révision à relire :
 ```bash
 uv run python - <<'PY'
 from alembic import command
-from security_review_mcp.storage import database
+from security_review.storage import database
 with database.get_engine().begin() as connection:
     command.revision(
         database.alembic_config(connection), "describe the change", autogenerate=True, rev_id="0033"

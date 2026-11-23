@@ -5,12 +5,12 @@ from datetime import datetime, timedelta
 import pytest
 from sqlmodel import select
 
-from security_review_mcp.auth import access_control
-from security_review_mcp.observability import audit
-from security_review_mcp.reports import codebase_review, services
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import Project, ReviewType
-from security_review_mcp.storage.projects import ensure_project
+from security_review.auth import access_control
+from security_review.observability import audit
+from security_review.reports import codebase_review, services
+from security_review.storage.database import session_scope
+from security_review.storage.models import Project, ReviewType
+from security_review.storage.projects import ensure_project
 
 GROUP = "0123456789abcdef0123456789abcdef"
 

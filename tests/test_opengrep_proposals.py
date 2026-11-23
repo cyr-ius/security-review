@@ -2,9 +2,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from security_review_mcp.config import get_settings
-from security_review_mcp.observability import audit
-from security_review_mcp.rules import opengrep_proposals, opengrep_rule_store
+from security_review.config import get_settings
+from security_review.observability import audit
+from security_review.rules import opengrep_proposals, opengrep_rule_store
 
 RULE_ID = "acme.python.unsafe-template"
 RULE = f"""rules:

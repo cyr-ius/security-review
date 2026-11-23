@@ -10,13 +10,13 @@ from conftest import make_user
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import app_settings, http_server, web_api
-from security_review_mcp.auth import oauth_server, oidc, token_store, web_users
-from security_review_mcp.config import Settings, check_mcp_url, get_settings
-from security_review_mcp.http_server import Role, hash_token
-from security_review_mcp.observability import audit
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import OAuthGrant, as_utc
+from security_review import app_settings, http_server, web_api
+from security_review.auth import oauth_server, oidc, token_store, web_users
+from security_review.config import Settings, check_mcp_url, get_settings
+from security_review.http_server import Role, hash_token
+from security_review.observability import audit
+from security_review.storage.database import session_scope
+from security_review.storage.models import OAuthGrant, as_utc
 
 CONTROLLER = "http://127.0.0.1"
 MCP_URL = "http://127.0.0.1:8000/mcp"

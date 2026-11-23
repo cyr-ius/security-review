@@ -4,7 +4,7 @@ A third-party connector is a Python package that the Controller server loads to 
 another system. This page is for its developers; to install and allow a connector, see
 [Third-party connectors](../usage/connectors/third-party.md).
 
-A connector is a subclass of `Connector` (module `security_review_mcp.connectors.api`, version
+A connector is a subclass of `Connector` (module `security_review.connectors.api`, version
 `API_VERSION = 2`). The complete example
 [`examples/connector`](https://github.com/cyr-ius/security-review/tree/master/examples/connector)
 is a package to copy: it turns each finding into a risk of an Acme register.
@@ -12,7 +12,7 @@ is a package to copy: it turns each finding into a risk of an Acme register.
 ## Example
 
 ```python
-from security_review_mcp.connectors.api import (
+from security_review.connectors.api import (
     Connection,
     Connector,
     ConnectorError,
@@ -60,7 +60,7 @@ class AcmeConnector(Connector):
 
 ```toml
 # pyproject.toml of the package
-[project.entry-points."security_review_mcp.connectors"]
+[project.entry-points."security_review.connectors"]
 acme = "acme_connector:AcmeConnector"
 ```
 

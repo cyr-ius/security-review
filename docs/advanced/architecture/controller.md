@@ -176,7 +176,7 @@ security-review-controller user reset-password admin
 ```
 
 ```
-WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
+WARNING security_review.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
 ```
 
 Handle this password as a secret and log in with `admin`. The interface then **requires a new
@@ -265,8 +265,8 @@ apply to every client of the proxy: list the proxy in
 client is read from `X-Forwarded-For`. Every login and every failure is logged, without the password:
 
 ```
-INFO security_review_mcp.web: Web login of alice (role triager) from 10.0.0.12
-WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
+INFO security_review.web: Web login of alice (role triager) from 10.0.0.12
+WARNING security_review.web: Failed web login of alice from 10.0.0.12
 ```
 
 ## Settings stored in the database

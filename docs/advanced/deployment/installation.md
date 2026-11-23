@@ -18,7 +18,7 @@ The [web interface](../../usage/index.md) is an Angular application to build (No
 22.22.3+ or 24.15+, required by Angular 22); without it, the Controller server only serves the REST API:
 
 ```bash
-cd web && npm ci && npm run build   # writes into src/security_review_mcp/webui/
+cd web && npm ci && npm run build   # writes into src/security_review/webui/
 ```
 
 ## Local mode without uvx

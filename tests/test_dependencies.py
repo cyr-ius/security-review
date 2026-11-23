@@ -5,8 +5,8 @@ import re
 
 import pytest
 
-from security_review_mcp.deps import dependencies
-from security_review_mcp.deps.dependencies import parse_dependency_file
+from security_review.deps import dependencies
+from security_review.deps.dependencies import parse_dependency_file
 
 
 def versions(parsed) -> dict[str, str | None]:

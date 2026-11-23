@@ -1,0 +1,271 @@
+"""Pipeline routes (``/api/v1/ci``, ci tokens, see ci_client): gate, SARIF, trend and scans.
+
+Scoped to the projects of the token; a ci token reaches nothing else. The gate, SARIF and trend
+only read. The scans (``/scan/code``, ``/scan/deps``) receive the content of the files of a
+pipeline, scan it with the rules or the advisory database of the controller and, with ``save``,
+store the result as a report: they need a ``ci`` or ``admin`` token (see deps.scan_identity),
+a personal one saving only on the projects of ``reports.write`` of its user, and their body is
+bounded by http_server.BodyLimit (see body_limit) before it is parsed. A scan ticket of the MCP
+tool start_codebase_scan (see auth.scan_tickets) reaches them too, as a ``ci`` token of its
+project, once each.
+"""
+
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
+
+from ..auth import scan_tickets
+from ..deps import depscan
+from ..engines.opengrep import OpenGrepBusyError, OpenGrepError
+from ..reports import services, trends
+from ..rules import codescan
+from ..storage import server_instances
+from ..storage.models import Severity
+from .deps import (
+    PipelineIdentity,
+    ScanIdentity,
+    TokenOwner,
+    WriteProjects,
+    check_report_scope,
+    ensure_write_scope,
+    pipeline_identity,
+    scoped_project,
+    unprocessable,
+)
+from .report_routes import ProjectQuery, TrendDays, project_trend, sarif_response
+from .schemas import (
+    CodeScanRequest,
+    CodeScanResult,
+    DependencyScanRequest,
+    DependencyScanResult,
+    GateResult,
+    Granularity,
+    Trend,
+)
+
+logger = logging.getLogger("security_review.web")
+
+router = APIRouter(prefix="/api/v1/ci", tags=["ci"], dependencies=[Depends(pipeline_identity)])
+
+
+@router.get("/gate")
+async def ci_gate(
+    project: ProjectQuery,
+    identity: PipelineIdentity,
+    fail_on: Severity = Severity.HIGH,
+    report_id: Annotated[int | None, Query(ge=1)] = None,
+) -> GateResult:
+    """Security gate of a project: ``passed`` is false while open findings reach ``fail_on``.
+
+    ``report_id`` judges one report of the project only.
+    """
+    project = scoped_project(identity, project)
+    if report_id is not None:
+        await check_report_scope(identity, report_id)
+    try:
+        return await run_in_threadpool(services.evaluate_gate, project, fail_on, report_id)
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+
+
+@router.get("/sarif", response_class=Response)
+async def ci_sarif(
+    project: ProjectQuery, identity: PipelineIdentity, include_resolved: bool = False
+) -> Response:
+    """Findings of a project as SARIF 2.1.0 (open ones only by default)."""
+    project = scoped_project(identity, project)
+    name, items = await run_in_threadpool(services.collect_sarif_items, None, project)
+    return sarif_response(name, items, include_resolved, "project.sarif")
+
+
+@router.get(
+    "/trend",
+    response_model=Trend,
+    responses={200: {"content": {"text/markdown": {}}}},
+)
+async def ci_trend(
+    project: ProjectQuery,
+    identity: PipelineIdentity,
+    days: TrendDays = 90,
+    granularity: Granularity = "week",
+    output: Annotated[Literal["json", "markdown"], Query(alias="format")] = "json",
+) -> Response:
+    """Evolution of the security posture of a project, as JSON or Markdown."""
+    result = await project_trend(scoped_project(identity, project), days, granularity)
+    if output == "markdown":
+        return PlainTextResponse(
+            trends.render_trend_markdown(result), media_type="text/markdown; charset=utf-8"
+        )
+    return JSONResponse(Trend.model_validate(result).model_dump(mode="json"))
+
+
+# ── Scans (security-review-ci scan-code and scan-deps) ───────────────────────
+
+
+@asynccontextmanager
+async def _ticket_use(request: Request, kind: scan_tickets.Kind) -> AsyncIterator[None]:
+    """Use the scan ticket of the request, if any, for one scan of this ``kind``: 401 when it
+    was already used for it; given back when the scan fails (the client may retry)."""
+    ticket_id = _ticket_id(request)
+    if ticket_id is None:
+        yield
+        return
+    if not await run_in_threadpool(scan_tickets.consume, ticket_id, kind):
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "This scan ticket was already used or has expired: ask the agent for a new one",
+        )
+    try:
+        yield
+    except BaseException:
+        await run_in_threadpool(scan_tickets.release, ticket_id, kind)
+        raise
+
+
+def _verdict(blocking: int, request: CodeScanRequest | DependencyScanRequest) -> dict:
+    """Verdict fields of a scan answer."""
+    return {"fail_on": request.fail_on, "blocked": blocking > 0, "blocking_findings": blocking}
+
+
+def _ticket_id(request: Request) -> str | None:
+    """Id of the scan ticket that authenticated the request (start_codebase_scan), if any: the
+    review group of the report it saves."""
+    return (request.scope.get("state") or {}).get("auth_ticket_id")
+
+
+def _code_scan(
+    request: CodeScanRequest, client: str, owner: str | None, group: str | None = None
+) -> dict:
+    """Scan the files of a code scan request, store the report with ``save`` (authored by the
+    ``owner`` of a personal token, else by the declared author)."""
+    result = codescan.scan_files(
+        [codescan.SourceFile(f.path, f.content) for f in request.files],
+        [(s.file, s.reason) for s in request.skipped],
+        request.listing,
+        request.root,
+        request.excluded,
+        request.unsupported,
+    )
+    fields = {
+        "repository": request.repository,
+        "branch": request.branch,
+        "commit_sha": request.commit_sha,
+    }
+    saved = None
+    if request.save:
+        saved = codescan.save(
+            result,
+            request.project,
+            author=owner or request.author,
+            submitted_by=client,
+            review_group=group,
+            **fields,
+        )
+    log = codescan.to_sarif(result, request.project, saved, **fields) if request.sarif else None
+    blocking = codescan.blocking_count(result, request.fail_on)
+    return result | _verdict(blocking, request) | {"saved_report": saved, "sarif": log}
+
+
+def _dependency_scan(
+    request: DependencyScanRequest, client: str, owner: str | None, group: str | None = None
+) -> dict:
+    """Scan the files of a dependency scan request, store the report with ``save`` (authored by
+    the ``owner`` of a personal token, else by the declared author)."""
+    results = depscan.scan_files(
+        [(f.path, f.content) for f in request.files], request.require_database
+    )
+    saved = None
+    if request.save:
+        saved = depscan.save(
+            results,
+            request.project,
+            repository=request.repository,
+            branch=request.branch,
+            commit_sha=request.commit_sha,
+            author=owner or request.author,
+            submitted_by=client,
+            review_group=group,
+        )
+    blocking = depscan.blocking_count(results, request.fail_on)
+    slim = [{k: v for k, v in r.items() if k != "components"} for r in results]
+    return _verdict(blocking, request) | {"saved_report": saved, "files": slim}
+
+
+@router.post("/scan/code")
+async def ci_code_scan(
+    request: CodeScanRequest,
+    identity: ScanIdentity,
+    owner: TokenOwner,
+    writable: WriteProjects,
+    http_request: Request,
+) -> CodeScanResult:
+    """Pattern-scan the files of a codebase sent by ``security-review-ci scan-code``.
+
+    The matches are leads to verify. With ``save``, they are stored as a ``code-scan`` report of
+    the project (the most severe ones, up to SECREVIEW_MAX_FINDINGS_PER_REPORT); ``sarif`` also
+    returns them as a SARIF 2.1.0 log. Files above SECREVIEW_MAX_SCAN_FILE_CHARS are skipped.
+    """
+    project = scoped_project(identity, request.project)
+    if request.save:
+        ensure_write_scope(writable, project)
+    try:
+        async with _ticket_use(http_request, "code"):
+            with server_instances.track("pipeline"):
+                result = await run_in_threadpool(
+                    _code_scan, request, identity.client, owner, _ticket_id(http_request)
+                )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    except OpenGrepError as exc:
+        # Generic messages, never the output of OpenGrep; a busy engine can be retried
+        headers = {"Retry-After": "60"} if isinstance(exc, OpenGrepBusyError) else None
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc), headers) from exc
+    logger.info(
+        "Code scan of %r by %s: %d file(s), %d match(es), report %s",
+        project,
+        identity.client,
+        result["files_scanned"],
+        result["matches_count"],
+        result["saved_report"]["report_id"] if result["saved_report"] else "not saved",
+    )
+    return CodeScanResult.model_validate(result)
+
+
+@router.post("/scan/deps")
+async def ci_dependency_scan(
+    request: DependencyScanRequest,
+    identity: ScanIdentity,
+    owner: TokenOwner,
+    writable: WriteProjects,
+    http_request: Request,
+) -> DependencyScanResult:
+    """Scan the manifests and lockfiles sent by ``security-review-ci scan-deps``.
+
+    Vulnerable versions are found with the advisory database of the controller, hygiene issues
+    without it. With ``save``, they are stored as a ``dependency-scan`` report of the project;
+    ``require_database`` refuses the scan (422) when the vulnerability check cannot run.
+    """
+    project = scoped_project(identity, request.project)
+    if request.save:
+        ensure_write_scope(writable, project)
+    try:
+        async with _ticket_use(http_request, "deps"):
+            with server_instances.track("pipeline"):
+                result = await run_in_threadpool(
+                    _dependency_scan, request, identity.client, owner, _ticket_id(http_request)
+                )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info(
+        "Dependency scan of %r by %s: %d file(s), report %s",
+        project,
+        identity.client,
+        len(result["files"]),
+        result["saved_report"]["report_id"] if result["saved_report"] else "not saved",
+    )
+    return DependencyScanResult.model_validate(result)

@@ -6,12 +6,12 @@ import pytest
 from conftest import make_user
 from sqlmodel import Session, select
 
-from security_review_mcp.auth import token_store
-from security_review_mcp.config import get_settings
-from security_review_mcp.http_server import Role, TokenInfo, hash_token
-from security_review_mcp.observability import audit
-from security_review_mcp.storage import database as database_module
-from security_review_mcp.storage.models import ApiToken, ApiTokenProject
+from security_review.auth import token_store
+from security_review.config import get_settings
+from security_review.http_server import Role, TokenInfo, hash_token
+from security_review.observability import audit
+from security_review.storage import database as database_module
+from security_review.storage.models import ApiToken, ApiTokenProject
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -444,7 +444,7 @@ def test_an_api_token_needs_a_role_or_an_owner(database):
 
 
 def test_a_role_api_token_without_its_role_authenticates_nothing(database):
-    from security_review_mcp.auth import access_control
+    from security_review.auth import access_control
 
     role = access_control.create_role("Auditor", ["audit.read"])
     created = token_store.create_project_token("audit", None, Role.API, access_role_id=role["id"])
@@ -479,7 +479,7 @@ def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
     """The projects are read at each request: a project granted or removed applies at once."""
     from conftest import known_projects
 
-    from security_review_mcp.auth import web_users
+    from security_review.auth import web_users
 
     user = make_user("alice", "Correct horse battery 9", "reader", ["shop-api"])
     created = token_store.create_personal_token(user["id"], "agent", role=role)
@@ -505,7 +505,7 @@ def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
 
 
 def test_a_personal_mcp_token_reaches_a_project_its_user_creates():
-    from security_review_mcp.auth import access_control
+    from security_review.auth import access_control
 
     access_control.create_role("Creator", ["projects.create"])
     user = make_user("carol", "Correct horse battery 9", "Creator")
@@ -528,7 +528,7 @@ def test_a_personal_mcp_token_keeps_the_projects_of_its_user():
 
 
 def test_a_personal_mcp_token_stops_with_its_user():
-    from security_review_mcp.auth import web_users
+    from security_review.auth import web_users
 
     user = make_user("alice", "Correct horse battery 9", "reader", ["shop-api"])
     created = token_store.create_personal_token(user["id"], "agent", role="mcp")

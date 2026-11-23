@@ -40,7 +40,7 @@ WORKDIR /web/web
 COPY web/package.json web/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
-# The build writes into ../src/security_review_mcp/webui (see web/angular.json)
+# The build writes into ../src/security_review/webui (see web/angular.json)
 COPY web/ ./
 RUN npm run build
 
@@ -67,7 +67,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Then the project itself (README.md is required by the setuptools build)
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
-COPY --from=web /web/src/security_review_mcp/webui ./src/security_review_mcp/webui
+COPY --from=web /web/src/security_review/webui ./src/security_review/webui
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable --extra postgres
 
@@ -144,7 +144,7 @@ EXPOSE 8000
 
 # /healthz of the HTTP MCP server or of the controller (always healthy in stdio: no port)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD ["python", "-m", "security_review_mcp.healthcheck"]
+    CMD ["python", "-m", "security_review.healthcheck"]
 
 # `mcp` (default): MCP server, in streamable HTTP or in stdio (SECREVIEW_TRANSPORT);
 # `controller`: Controller server or one of its commands (db, token, user, rules...). Other

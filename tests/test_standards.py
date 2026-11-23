@@ -4,8 +4,8 @@ import tomllib
 
 import pytest
 
-from security_review_mcp import standards
-from security_review_mcp.reports.services import NotFoundError
+from security_review import standards
+from security_review.reports.services import NotFoundError
 
 
 def make(slug: str = "python", **kwargs) -> dict:

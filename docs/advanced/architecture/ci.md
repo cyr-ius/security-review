@@ -17,7 +17,7 @@ uses the Python standard library (Python 3.14), and is published alone on PyPI a
 | Workstation without Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), then `uv tool install security-review-ci`: uv downloads a Python when none is installed |
 | Build agent or workstation with Python ≥ 3.14 | `uv pip install security-review-ci` in the virtual environment of the job (`--system` without one) |
 | Workstation or agent without PyPI, from the Controller server | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …`: the [client of the Controller server](#from-the-controller-server), at its version |
-| Agent without access to PyPI | Copy the single file `security_review_mcp/ci_client.py` (or the `security_review_ci` wheel attached to the GitHub release) and run it with `python3 ci_client.py` |
+| Agent without access to PyPI | Copy the single file `security_review/ci_client.py` (or the `security_review_ci` wheel attached to the GitHub release) and run it with `python3 ci_client.py` |
 | Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_CI_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
 
 The `security-review` package also installs `security-review-ci`: do not install both

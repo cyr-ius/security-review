@@ -1,0 +1,820 @@
+"""Saving, reading and pruning of the security reports."""
+
+import json
+import logging
+import re
+from collections import Counter
+from collections.abc import Callable, Collection
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any, Literal
+
+from sqlalchemy import ColumnElement, String, and_, case, cast, func, or_, update
+from sqlalchemy.orm import defer, selectinload
+from sqlmodel import Session, col, select
+
+from ...config import MAX_RETENTION_DAYS, get_settings
+from ...rules.scanner import sanitize_untrusted
+from ...storage.database import session_scope
+from ...storage.models import (
+    DISMISSED_STATUSES,
+    MAX_BRANCH_CHARS,
+    MAX_COMMIT_SHA_CHARS,
+    MAX_FILES_REVIEWED,
+    MAX_REPOSITORY_CHARS,
+    MAX_REVIEWER_CHARS,
+    MAX_SCANNED_PATH_CHARS,
+    SEVERITY_RANK,
+    ChecklistResult,
+    Finding,
+    FindingComment,
+    FindingCreate,
+    FindingStatus,
+    FindingStatusFilter,
+    RelatedReport,
+    ReviewType,
+    ScannedFile,
+    ScanTicket,
+    SecurityReport,
+    SecurityReportPublic,
+    Severity,
+    UnreviewedLead,
+    effective_status,
+    utcnow,
+)
+from ...storage.project_names import normalize_project
+from ...storage.projects import ensure_project
+from .. import coverage
+from ..sarif import issue_fingerprint
+from .core import (
+    NotFoundError,
+    _check_author,
+    _check_lengths,
+    _current,
+    _status_is,
+    _values,
+    compute_risk_level,
+)
+
+# Lists of files of a report (thousands of paths), loaded only with the report itself
+_DEFERRED_LISTS = (
+    defer(SecurityReport.scanned_files),  # type: ignore[arg-type]
+    defer(SecurityReport.files_reviewed),  # type: ignore[arg-type]
+    defer(SecurityReport.unreviewed_leads),  # type: ignore[arg-type]
+)
+# Files with unread leads listed in the answer to the agent (all are stored)
+MAX_UNREVIEWED_LISTED = 20
+# A review group is the id of a scan ticket (uuid4 hex, see auth.scan_tickets)
+REVIEW_GROUP_PATTERN = re.compile(r"[0-9a-f]{32}")
+
+logger = logging.getLogger("security_review.services")
+
+
+def _sanitize_finding(data: FindingCreate, limit: int) -> Finding:
+    """Build a Finding row, masking secrets and revealing hidden characters in free text.
+
+    A revealed character takes up to 9 characters: the text is cut again at ``limit``.
+    """
+    values = data.model_dump()
+    for field in ("description", "evidence", "recommendation"):
+        if values.get(field):
+            values[field] = sanitize_untrusted(values[field])[:limit]
+    if values["line_start"] and values["line_end"] and values["line_end"] < values["line_start"]:
+        values["line_end"] = values["line_start"]
+    return Finding(**values)
+
+
+def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: datetime) -> bool:
+    """Carry what people decided on an occurrence of an issue to its new occurrence.
+
+    A pending acceptance or false positive is carried with its reason, approver and expiry
+    date, as is a proposal of one of them and a severity raised above the one of the new
+    report. An acknowledged observation is carried while it is still ``info``. A fixed issue
+    that comes back is open, seen for the first time again. Return True when a decision was
+    carried.
+    """
+    status = effective_status(previous.status, previous.status_expires_at, now)
+    row.first_seen_at = None if status == FindingStatus.FIXED else first_seen
+    if previous.original_severity is not None and (
+        SEVERITY_RANK[previous.severity] > SEVERITY_RANK[row.severity]
+    ):
+        row.original_severity = row.severity
+        row.severity = previous.severity
+        row.severity_reason = previous.severity_reason
+        row.severity_changed_by = previous.severity_changed_by
+        row.severity_changed_at = previous.severity_changed_at
+    if previous.proposed_status in DISMISSED_STATUSES and status == FindingStatus.OPEN:
+        row.proposed_status = previous.proposed_status
+        row.proposed_reason = previous.proposed_reason
+        row.proposed_by = previous.proposed_by
+        row.proposed_at = previous.proposed_at
+    # An acknowledged observation stays read while it is still an observation
+    seen = status == FindingStatus.ACKNOWLEDGED and row.severity == Severity.INFO
+    if status not in DISMISSED_STATUSES and not seen:
+        return False
+    row.status = previous.status
+    row.status_changed_at = previous.status_changed_at
+    row.status_reason = previous.status_reason
+    row.status_approver = previous.status_approver
+    row.status_expires_at = previous.status_expires_at
+    return True
+
+
+def _keep_severity(previous: Finding, row: Finding) -> bool:
+    """Keep on the new occurrence of an issue the severity its previous report gave it, when a
+    reviewer reports it lower: an agent never lowers a finding below the gate by reporting it
+    again (a person accepts the risk instead). Return True when the severity was kept."""
+    reported = Severity(previous.original_severity or previous.severity)
+    if SEVERITY_RANK[reported] <= SEVERITY_RANK[row.severity]:
+        return False
+    row.severity = reported
+    return True
+
+
+def _match_occurrences(
+    session: Session, project: str, rows: list[Finding], now: datetime, from_scan: bool = False
+) -> tuple[list[tuple[Finding, Finding]], int, int, int]:
+    """Pair the findings of a new report with the current occurrences of the same issues.
+
+    A rule may match several lines of a file: occurrences of one fingerprint are paired in line
+    order when their number is unchanged (the code moved), else only on the same line, so that
+    a new occurrence never inherits the decision taken on another one. A current occurrence
+    left unpaired is replaced, without carry, by the first new one. Unless the report comes
+    ``from_scan``, a paired finding keeps the severity of its previous report when it is
+    reported lower (see _keep_severity). Return the (previous, new) pairs, the number of new
+    findings paired, of decisions carried and of severities kept.
+    """
+    reported: dict[str, list[Finding]] = {}
+    for row in rows:
+        row.fingerprint = issue_fingerprint(project, row)
+        reported.setdefault(row.fingerprint, []).append(row)
+    if not reported:
+        return [], 0, 0, 0
+    current: dict[str, list[tuple[Finding, datetime]]] = {}
+    for previous, created_at in session.exec(
+        select(Finding, SecurityReport.created_at)
+        .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+        .where(
+            SecurityReport.project == project,
+            col(Finding.fingerprint).in_(list(reported)),
+            _current(),
+        )
+        .order_by(col(Finding.line_start).is_(None), col(Finding.line_start), col(Finding.id))
+    ).all():
+        current.setdefault(str(previous.fingerprint), []).append((previous, created_at))
+
+    pairs: list[tuple[Finding, Finding]] = []
+    recurring = carried = kept = 0
+    for digest, previous_rows in current.items():
+        new_rows = sorted(
+            reported[digest], key=lambda row: (row.line_start is None, row.line_start or 0)
+        )
+        if len(new_rows) == len(previous_rows):
+            matched = dict(enumerate(new_rows))
+        else:
+            by_line = {row.line_start: row for row in reversed(new_rows) if row.line_start}
+            matched = {}
+            for index, (previous, _created_at) in enumerate(previous_rows):
+                row = by_line.pop(previous.line_start, None) if previous.line_start else None
+                if row is not None:
+                    matched[index] = row
+        for index, (previous, created_at) in enumerate(previous_rows):
+            row = matched.get(index)
+            if row is not None:
+                recurring += 1
+                if not from_scan:
+                    kept += _keep_severity(previous, row)
+                first_seen = previous.first_seen_at or created_at
+                carried += _carry_over(previous, first_seen, row, now)
+            pairs.append((previous, row or new_rows[0]))
+    return pairs, recurring, carried, kept
+
+
+def _supersede(session: Session, pairs: list[tuple[Finding, Finding]]) -> None:
+    """Point the replaced occurrences (and those they replaced) to the new ones and move
+    their comments, which are about the issue."""
+    for previous, row in pairs:
+        session.exec(
+            update(Finding)
+            .where(col(Finding.superseded_by) == previous.id)
+            .values(superseded_by=row.id)
+        )
+        session.exec(
+            update(FindingComment)
+            .where(col(FindingComment.finding_id) == previous.id)
+            .values(finding_id=row.id)
+        )
+        previous.superseded_by = row.id
+        session.add(previous)
+
+
+def _sanitize_scanned(item: ScannedFile) -> ScannedFile:
+    """Mask the secrets of a scanned file entry and cut its path to the column size."""
+    path = sanitize_untrusted(item.path)[:MAX_SCANNED_PATH_CHARS]
+    reason = sanitize_untrusted(item.reason)[:MAX_SCANNED_PATH_CHARS] if item.reason else None
+    return item.model_copy(update={"path": path, "reason": reason})
+
+
+def _known_group(session: Session, project: str, group: str, warnings: list[str]) -> str | None:
+    """Return the review group declared by an agent when a scan ticket or a report of
+    ``project`` has it, None with a warning otherwise (an agent cannot join another project's
+    reports, nor make up a group)."""
+    group = group.strip().lower()
+    known = REVIEW_GROUP_PATTERN.fullmatch(group) is not None and (
+        session.exec(
+            select(ScanTicket.id).where(ScanTicket.id == group, ScanTicket.project == project)
+        ).first()
+        is not None
+        or session.exec(
+            select(SecurityReport.id).where(
+                SecurityReport.review_group == group, SecurityReport.project == project
+            )
+        ).first()
+        is not None
+    )
+    if not known:
+        warnings.append(
+            "review_group is not the one given by start_codebase_scan for this project: "
+            "the report is saved without it"
+        )
+        return None
+    return group
+
+
+def _unreviewed_leads(
+    session: Session,
+    project: str,
+    group: str,
+    reviewed: list[str],
+    findings: list[FindingCreate],
+) -> list[UnreviewedLead] | None:
+    """The files with leads of the latest code scan of the review group that the review did
+    not read, or None when the group has no code scan."""
+    scan = session.exec(
+        select(SecurityReport.scanned_files)
+        .where(
+            SecurityReport.review_group == group,
+            SecurityReport.project == project,
+            SecurityReport.review_type == ReviewType.CODE_SCAN,
+        )
+        .order_by(col(SecurityReport.id).desc())
+    ).first()
+    if scan is None:
+        return None
+    scanned = [ScannedFile.model_validate(item) for item in json.loads(scan)]
+    return coverage.unreviewed_leads(scanned, reviewed, findings)
+
+
+def save_report(
+    project: str,
+    summary: str,
+    findings: list[FindingCreate],
+    repository: str | None = None,
+    branch: str | None = None,
+    commit_sha: str | None = None,
+    reviewer: str | None = None,
+    scope: str | None = None,
+    risk_level: Severity | None = None,
+    review_type: ReviewType | None = None,
+    author: str | None = None,
+    submitted_by: str | None = None,
+    checklist_results: list[ChecklistResult] | None = None,
+    scan_rules: list[str] | None = None,
+    from_scan: bool = False,
+    scanned_files: list[ScannedFile] | None = None,
+    review_group: str | None = None,
+    files_reviewed: list[str] | None = None,
+) -> dict:
+    """Persist a security report and its findings.
+
+    Args:
+        project: Project name (used to group reports).
+        summary: Executive summary.
+        findings: Findings to store (may be empty for a clean review).
+        repository: Repository URL or path.
+        branch: Reviewed branch.
+        commit_sha: Reviewed commit.
+        reviewer: Agent or person who performed the review.
+        scope: Description of what was reviewed.
+        risk_level: Optional override; it can only raise the computed risk.
+        review_type: Kind of review (the prompt used or the CLI scan).
+        author: Username of the developer: the user of a personal token, else declared by the
+            client (not authenticated).
+        submitted_by: Label of the token that saved the report (set by the server).
+        checklist_results: Checklist items walked through by the reviewer, with their
+            outcome; None for a report without declared coverage (CLI scans).
+        scan_rules: Rules that raised scan_code leads, confirmed or not.
+        from_scan: The findings come from the rules of a scan of the controller (codescan,
+            depscan), never from a reviewer: their severity may be lower than the previous
+            occurrence of an issue. A review keeps that severity instead; ``review_type`` is
+            declared by the client and does not tell them apart.
+        scanned_files: Files of a code or dependency scan of the controller (bounded by
+            SECREVIEW_MAX_SCAN_FILES); their paths are masked and cut like those of findings.
+        review_group: Id of the scan ticket of a codebase review (start_codebase_scan): set by
+            the controller for the scans saved with the ticket, declared by the agent for its
+            review. A declared group is kept only when a ticket or a report of the project has
+            it; otherwise it is dropped with a warning (the report is still saved).
+        files_reviewed: Files the agent declares it read (at most MAX_FILES_REVIEWED). With a
+            review group whose code scan is saved, the files with leads that it neither read
+            nor cited in a finding are stored as ``unreviewed_leads``.
+
+    Returns:
+        Identifier, risk level and finding counts of the stored report; with declared
+        coverage, also its counts, the uncovered checklist items and the warnings.
+
+    Raises:
+        ValueError: If the report contains too many findings, a field longer than its column
+            or a text longer than SECREVIEW_MAX_CONTENT_CHARS, an unknown review type or an
+            invalid author.
+    """
+    settings = get_settings()
+    review_type = ReviewType(review_type) if review_type else None
+    project = normalize_project(project)
+    summary = summary.strip()
+    if len(summary) < 3:
+        raise ValueError("summary must contain at least 3 characters")
+    if len(findings) > settings.max_findings_per_report:
+        raise ValueError(
+            f"Too many findings ({len(findings)}); the limit is {settings.max_findings_per_report}"
+        )
+    content = settings.max_content_chars
+    _check_lengths(
+        ("repository", repository, MAX_REPOSITORY_CHARS),
+        ("branch", branch, MAX_BRANCH_CHARS),
+        ("commit_sha", commit_sha, MAX_COMMIT_SHA_CHARS),
+        ("reviewer", reviewer, MAX_REVIEWER_CHARS),
+        ("summary", summary, content),
+        ("scope", scope, content),
+        *(
+            (f"findings[{index}].{name}", getattr(item, name), content)
+            for index, item in enumerate(findings)
+            for name in ("description", "evidence", "recommendation")
+        ),
+    )
+    author = _check_author(author)
+    if files_reviewed is not None and len(files_reviewed) > MAX_FILES_REVIEWED:
+        raise ValueError(
+            f"Too many files_reviewed ({len(files_reviewed)}); the limit is {MAX_FILES_REVIEWED}"
+        )
+    reviewed = list(
+        dict.fromkeys(
+            coverage.normalize_path(sanitize_untrusted(p))
+            for p in files_reviewed or []
+            if p.strip()
+        )
+    )
+    declared = None
+    if checklist_results is not None or scan_rules is not None:
+        declared = coverage.check(checklist_results or [], scan_rules or [], findings)
+
+    rows = [_sanitize_finding(item, content) for item in findings]
+    now = utcnow()
+
+    with session_scope() as session:
+        ensure_project(session, project, submitted_by)
+        warnings: list[str] = []
+        if review_group is not None and not from_scan:
+            review_group = _known_group(session, project, review_group, warnings)
+        missed = None
+        if review_group is not None and not from_scan:
+            missed = _unreviewed_leads(session, project, review_group, reviewed, findings)
+        pairs, recurring, carried, kept = _match_occurrences(session, project, rows, now, from_scan)
+        risk = compute_risk_level([row.severity for row in rows], risk_level)
+        report = SecurityReport(
+            project=project,
+            repository=repository,
+            branch=branch,
+            commit_sha=commit_sha,
+            reviewer=reviewer,
+            scope=scope,
+            review_type=review_type,
+            author=author,
+            submitted_by=submitted_by,
+            summary=sanitize_untrusted(summary)[:content],
+            risk_level=risk,
+            findings=rows,
+            created_at=now,
+            review_group=review_group,
+        )
+        for row in rows:
+            row.first_seen_at = row.first_seen_at or now
+        if declared is not None:
+            report.checklist_results = json.dumps([r.model_dump() for r in declared.checklist])
+            report.scan_rules = json.dumps(declared.scan_rules)
+        if scanned_files:
+            report.scanned_files = json.dumps(
+                [
+                    _sanitize_scanned(item).model_dump(exclude_defaults=True)
+                    for item in scanned_files
+                ]
+            )
+            report.scan_summary = coverage.summarize(scanned_files).model_dump_json()
+        report.files_reviewed = json.dumps(reviewed)
+        if missed:
+            report.unreviewed_leads = json.dumps([lead.model_dump() for lead in missed])
+        session.add(report)
+        session.flush()  # assigns ids before the commit
+        _supersede(session, pairs)
+        result = {
+            "report_id": report.id,
+            "project": report.project,
+            "review_type": review_type.value if review_type else None,
+            "author": author,
+            "risk_level": risk.value,
+            "findings_count": len(rows),
+            "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
+            "recurring_findings": recurring,
+            "carried_decisions": carried,
+            "kept_severities": kept,
+        }
+        if declared is not None:
+            result["coverage"] = {
+                "checklist_by_outcome": dict(Counter(r.outcome.value for r in declared.checklist)),
+                "not_covered": declared.not_covered,
+                "scan_rules": len(declared.scan_rules),
+                "files_reviewed": len(reviewed),
+            }
+            warnings = declared.warnings + warnings
+        if review_group is not None:
+            result["review_group"] = review_group
+        if missed is not None:
+            result["unreviewed_leads"] = {
+                "files": len(missed),
+                "first": [lead.path for lead in missed[:MAX_UNREVIEWED_LISTED]],
+            }
+            if missed:
+                warnings.append(
+                    f"{len(missed)} file(s) with leads of the code scan were neither read "
+                    "(files_reviewed) nor cited in a finding: their leads are not verified"
+                )
+        if declared is not None or warnings:
+            result["warnings"] = warnings
+    logger.info("Report saved: id=%s project=%s risk=%s", result["report_id"], project, risk)
+    return result
+
+
+def get_report(report_id: int) -> SecurityReportPublic:
+    """Return a report with its findings.
+
+    Raises:
+        NotFoundError: If the report does not exist.
+    """
+    with session_scope() as session:
+        report = session.exec(
+            select(SecurityReport)
+            .where(SecurityReport.id == report_id)
+            .options(selectinload(SecurityReport.findings))  # type: ignore[arg-type]
+        ).first()
+        if report is None:
+            raise NotFoundError(f"Report {report_id} not found")
+        public = SecurityReportPublic.model_validate(report, from_attributes=True)
+        if report.review_group:
+            related = session.exec(
+                select(SecurityReport)
+                .where(
+                    SecurityReport.review_group == report.review_group,
+                    SecurityReport.project == report.project,
+                    SecurityReport.id != report.id,
+                )
+                .options(*_DEFERRED_LISTS)
+                .order_by(col(SecurityReport.id))
+            ).all()
+            public.related_reports = [
+                RelatedReport.model_validate(r, from_attributes=True) for r in related
+            ]
+        return public
+
+
+# "#F12" / "#R7": a finding or a report by its number, as the web interface shows it (F12, R7);
+# "#F1*": the numbers starting with 1. The "#" tells them from words such as "F5" (at most 18
+# digits: within a 64-bit integer).
+_NUMBER_SEARCH = re.compile(r"#([FR])(\d{0,18})(\*?)", re.IGNORECASE)
+
+
+def _number_filter(word: str, letter: str, column: Any) -> ColumnElement[bool] | None:
+    """Filter of the word ``#<letter><n>`` (that number) or ``#<letter><n>*`` (numbers starting
+    with n); None for another word (searched as text)."""
+    found = _NUMBER_SEARCH.fullmatch(word)
+    if found is None or found.group(1).upper() != letter:
+        return None
+    digits, wildcard = found.group(2), found.group(3)
+    if wildcard:
+        # Digits only: nothing to escape in the LIKE pattern
+        return cast(col(column), String).like(f"{digits}%")
+    return col(column) == int(digits) if digits else None
+
+
+# "#PY-004", "#AI*": a rule (or checklist item) id, or the ids starting with the text before "*"
+# (letters first, then letters, digits and the separators of the rule ids; at most 60
+# characters). A digit or the "*" is required: "#include" or "#todo" stay text.
+_ID_SEARCH = re.compile(r"#([A-Za-z][A-Za-z0-9_.:-]{0,59})(\*?)")
+
+
+def _id_filter(word: str, column: Any) -> ColumnElement[bool] | None:
+    """Filter of the word ``#<id>`` (that id) or ``#<prefix>*`` (the ids starting with it),
+    case-insensitive; None for another word (searched as text)."""
+    found = _ID_SEARCH.fullmatch(word)
+    if found is None or not (found.group(2) or any(c.isdigit() for c in found.group(1))):
+        return None
+    name, wildcard = found.group(1).upper(), found.group(2)
+    if wildcard:
+        escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return func.upper(col(column)).like(f"{escaped}%", escape="\\")
+    return func.upper(col(column)) == name
+
+
+# "author:alice" / "author:ali*": the reports of that author, or of the authors starting so
+_AUTHOR_SEARCH = re.compile(r"author:(\S{1,200}?)(\*?)", re.IGNORECASE)
+
+
+def _author_filter(word: str) -> ColumnElement[bool] | None:
+    """Filter of the word ``author:<name>`` (that author, case-insensitive) or
+    ``author:<prefix>*`` (the authors starting so); None for another word. Only for a caller who
+    may see the authors: the others search the word as text, which tells nothing about them."""
+    found = _AUTHOR_SEARCH.fullmatch(word)
+    if found is None:
+        return None
+    name, wildcard = found.group(1).lower(), found.group(2)
+    if wildcard:
+        escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return func.lower(col(SecurityReport.author)).like(f"{escaped}%", escape="\\")
+    return func.lower(col(SecurityReport.author)) == name
+
+
+# "project:shop", "sev:high,critical" (or "severity:"), "status:accepted": the filters of the
+# global search, also read in the search of the lists (several values separated by commas)
+_FILTER_WORD = re.compile(r"(project|severity|sev|status):(\S{1,200})", re.IGNORECASE)
+
+
+def _filter_word(word: str) -> tuple[str, list[str]] | None:
+    """``project``, ``severity`` or ``status`` and the values of a filter word; None else."""
+    found = _FILTER_WORD.fullmatch(word)
+    if found is None:
+        return None
+    key = found.group(1).lower()
+    values = [value for value in found.group(2).lower().split(",") if value]
+    return ("severity" if key == "sev" else key), values
+
+
+def _known(values: list[str], known: type[StrEnum]) -> list[Any] | None:
+    """The values as members of ``known``; None when one is unknown (the word is then text)."""
+    members = {member.value: member for member in known}
+    return [members[value] for value in values] if all(v in members for v in values) else None
+
+
+def _typed_statuses(search: str | None) -> list[FindingStatusFilter]:
+    """The statuses typed in ``search`` (``status:accepted``), which replace the status filter."""
+    typed: list[FindingStatusFilter] = []
+    for word in (search or "")[:200].split():
+        found = _filter_word(word)
+        if found and found[0] == "status" and (statuses := _known(found[1], FindingStatusFilter)):
+            typed.extend(statuses)
+    return typed
+
+
+def _filter_of_word(word: str, severity_column: Any) -> ColumnElement[bool] | None:
+    """Filter of a word ``project:`` (exact, or the projects starting so with ``*``) or
+    ``severity:`` on ``severity_column``; None for another word or an unknown value."""
+    found = _filter_word(word)
+    if found is None or not found[1]:
+        return None
+    key, values = found
+    if key == "severity":
+        severities = _known(values, Severity)
+        return col(severity_column).in_(severities) if severities else None
+    if key == "project":
+        matches = []
+        for value in values:
+            if value.endswith("*"):
+                prefix = value[:-1].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                matches.append(col(SecurityReport.project).like(f"{prefix}%", escape="\\"))
+            else:
+                try:
+                    name = normalize_project(value)
+                except ValueError:
+                    return None  # not a project name ("project:.."): searched as text
+                matches.append(col(SecurityReport.project) == name)
+        return or_(*matches)
+    return None
+
+
+# "date:2026-11-22", "date:2026-11", "date:2026" (that day, month or year, UTC) and the bounds
+# "date:>…", "date:>=…", "date:<…", "date:<=…": the date of the report (of a finding: its report)
+_DATE_WORD = re.compile(r"date:(>=|<=|>|<)?(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?", re.IGNORECASE)
+
+
+def _date_filter(word: str, column: Any) -> ColumnElement[bool] | None:
+    """Filter of a word ``date:`` on ``column``; None for another word or an invalid date."""
+    found = _DATE_WORD.fullmatch(word)
+    if found is None:
+        return None
+    operator, year, month, day = found.groups()
+    try:
+        start = datetime(int(year), int(month or 1), int(day or 1), tzinfo=UTC)
+        if day:
+            end = start + timedelta(days=1)
+        elif month:
+            end = start.replace(year=start.year + start.month // 12, month=start.month % 12 + 1)
+        else:
+            end = start.replace(year=start.year + 1)
+    except ValueError:
+        return None
+    if operator == ">":
+        return col(column) >= end
+    if operator == ">=":
+        return col(column) >= start
+    if operator == "<":
+        return col(column) < start
+    if operator == "<=":
+        return col(column) < end
+    return and_(col(column) >= start, col(column) < end)
+
+
+def _split_search(
+    search: str, to_filter: Callable[[str], ColumnElement[bool] | None]
+) -> tuple[list[ColumnElement[bool]], str]:
+    """The filters of the words of ``search`` that ``to_filter`` reads (``xss #F12``,
+    ``scan code #GEN-007``, ``author:alice``) and the rest of the words, searched as text."""
+    filters: list[ColumnElement[bool]] = []
+    words: list[str] = []
+    for word in search[:200].split():
+        found = to_filter(word)
+        if found is None:
+            words.append(word)
+        else:
+            filters.append(found)
+    return filters, " ".join(words)
+
+
+def _contains_pattern(search: str) -> str:
+    """ILIKE pattern matching ``search`` anywhere (first 200 characters, wildcards escaped)."""
+    escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def list_reports(
+    project: str | Collection[str] | None = None,
+    risk_level: Severity | Collection[Severity] | None = None,
+    limit: int = 20,
+    offset: int = 0,
+    projects: Collection[str] | None = None,
+    review_type: ReviewType | Collection[ReviewType] | None = None,
+    author: str | None = None,
+    search: str | None = None,
+    sort_by: Literal[
+        "created_at",
+        "project",
+        "risk_level",
+        "review_type",
+        "branch",
+        "author",
+        "submitted_by",
+        "summary",
+    ] = "created_at",
+    sort_direction: Literal["asc", "desc"] = "desc",
+    with_author: bool = True,
+) -> list[dict]:
+    """List reports, newest first, with their number of open findings.
+
+    ``project``, ``risk_level`` and ``review_type`` take one value or several (any of them
+    matches); ``projects`` (the scope of a restricted caller) keeps only the reports of these
+    projects; ``author`` keeps only the reports declared for this developer username. Without
+    ``with_author``, the author is neither returned nor used to filter, search or sort (the
+    caller cannot guess it from the order of the results).
+    """
+    settings = get_settings()
+    limit = max(1, min(limit, settings.max_list_limit))
+    offset = max(0, offset)
+    if not with_author:
+        author = None
+        if sort_by == "author":
+            sort_by = "submitted_by"
+
+    with session_scope() as session:
+        # The lists of files are not listed: never load them here
+        statement = select(SecurityReport).options(*_DEFERRED_LISTS)
+        if names := [normalize_project(name) for name in _values(project) if name]:
+            statement = statement.where(col(SecurityReport.project).in_(names))
+        if projects is not None:
+            statement = statement.where(col(SecurityReport.project).in_(list(projects)))
+        if levels := _values(risk_level):
+            statement = statement.where(col(SecurityReport.risk_level).in_(levels))
+        if types := _values(review_type):
+            statement = statement.where(col(SecurityReport.review_type).in_(types))
+        if author:
+            statement = statement.where(SecurityReport.author == author)
+
+        def report_word(word: str) -> ColumnElement[bool] | None:
+            by_number = _number_filter(word, "R", SecurityReport.id)
+            if by_number is None and with_author:
+                by_number = _author_filter(word)
+            if by_number is None:
+                by_number = _filter_of_word(word, SecurityReport.risk_level)
+            if by_number is None:
+                by_number = _date_filter(word, SecurityReport.created_at)
+            return by_number
+
+        by_number, text = _split_search(search or "", report_word)
+        if by_number:
+            statement = statement.where(*by_number)
+        if text:
+            pattern = _contains_pattern(text)
+            searched = [
+                SecurityReport.project,
+                SecurityReport.branch,
+                SecurityReport.commit_sha,
+                SecurityReport.reviewer,
+                SecurityReport.submitted_by,
+                SecurityReport.summary,
+            ]
+            if with_author:
+                searched.append(SecurityReport.author)
+            statement = statement.where(
+                or_(*(col(column).ilike(pattern, escape="\\") for column in searched))
+            )
+        sort_columns = {
+            "created_at": col(SecurityReport.created_at),
+            "project": col(SecurityReport.project),
+            "risk_level": col(SecurityReport.risk_level),
+            "review_type": col(SecurityReport.review_type),
+            "branch": col(SecurityReport.branch),
+            "author": col(SecurityReport.author),
+            "submitted_by": col(SecurityReport.submitted_by),
+            "summary": col(SecurityReport.summary),
+        }
+        sort_column = sort_columns[sort_by]
+        primary_order = sort_column.asc() if sort_direction == "asc" else sort_column.desc()
+        statement = statement.order_by(primary_order, col(SecurityReport.id).desc())
+        statement = statement.offset(offset).limit(limit)
+        reports = session.exec(statement).all()
+        ids = [r.id for r in reports if r.id is not None]
+
+        # One query for all the counters (avoids N+1)
+        counts: dict[int, dict[str, int]] = {i: {"total": 0, "open": 0} for i in ids}
+        if ids:
+            is_open = case((and_(_status_is(FindingStatus.OPEN), _current()), 1), else_=0)
+            rows = session.exec(
+                select(Finding.report_id, func.count(), func.sum(is_open))
+                .where(col(Finding.report_id).in_(ids))
+                .group_by(Finding.report_id)  # type: ignore[arg-type]
+            ).all()
+            for report_id, number, open_number in rows:
+                counts[report_id]["total"] = number
+                counts[report_id]["open"] = open_number or 0
+
+        return [
+            {
+                "report_id": r.id,
+                "project": r.project,
+                "branch": r.branch,
+                "commit_sha": r.commit_sha,
+                "review_type": r.review_type,
+                "risk_level": r.risk_level.value,
+                "reviewer": r.reviewer,
+                "author": r.author if with_author else None,
+                "submitted_by": r.submitted_by,
+                "created_at": r.created_at.isoformat(),
+                "findings_total": counts[r.id]["total"],
+                "findings_open": counts[r.id]["open"],
+                "summary": r.summary[:200],
+            }
+            for r in reports
+        ]
+
+
+def prune_empty_reports(retention_days: int | None = None) -> dict:
+    """Delete the reports without any finding created more than ``retention_days`` days ago.
+
+    The latest report of each project is kept, so a project never disappears. Defaults to
+    SECREVIEW_EMPTY_REPORT_RETENTION_DAYS; 0 disables the purge.
+
+    Raises:
+        ValueError: If ``retention_days`` is negative or above MAX_RETENTION_DAYS.
+    """
+    days = get_settings().empty_report_retention_days if retention_days is None else retention_days
+    if not 0 <= days <= MAX_RETENTION_DAYS:
+        raise ValueError(f"retention_days must be between 0 and {MAX_RETENTION_DAYS}")
+    if days == 0:
+        return {"retention_days": 0, "deleted": 0}
+    cutoff = utcnow() - timedelta(days=days)
+
+    with session_scope() as session:
+        latest = (
+            select(func.max(SecurityReport.id))
+            .group_by(SecurityReport.project)  # type: ignore[arg-type]
+            .scalar_subquery()
+        )
+        with_findings = select(Finding.report_id).distinct().scalar_subquery()
+        reports = session.exec(
+            select(SecurityReport).where(
+                col(SecurityReport.created_at) < cutoff,
+                col(SecurityReport.id).not_in(with_findings),
+                col(SecurityReport.id).not_in(latest),
+            )
+        ).all()
+        for report in reports:
+            session.delete(report)
+        deleted = len(reports)
+    if deleted:
+        logger.info("Deleted %d reports without findings older than %d days", deleted, days)
+    return {"retention_days": days, "deleted": deleted}

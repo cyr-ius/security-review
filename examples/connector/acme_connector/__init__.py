@@ -14,7 +14,7 @@ SECREVIEW_ACME_API_KEY.
 
 from collections.abc import Mapping
 
-from security_review_mcp.connectors.api import (
+from security_review.connectors.api import (
     Connection,
     Connector,
     ConnectorError,

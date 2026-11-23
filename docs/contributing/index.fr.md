@@ -30,7 +30,7 @@ Dans VS Code (`.vscode/`) :
 
 | Tâche de `tasks.json` | Commande |
 |---|---|
-| **Build security_review_mcp** | `uv sync --extra dev --extra docs --extra postgres` |
+| **Build security_review** | `uv sync --extra dev --extra docs --extra postgres` |
 | **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
 | **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le serveur Controller, ou `ng serve` avec `/api` redirigé vers le port 8080 (arrêté avec le débogueur par **Web UI: stop dev server**) |
@@ -76,7 +76,7 @@ Le build compile aussi l'[interface web](../usage/index.md) (étape Node.js) ;
 elle est servie sur `/ui/` par le serveur Controller.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
-`HEALTHCHECK` (`python -m security_review_mcp.healthcheck`, toutes les 30 secondes) interroge
+`HEALTHCHECK` (`python -m security_review.healthcheck`, toutes les 30 secondes) interroge
 `/healthz` du serveur MCP HTTP ou du serveur Controller sur l'interface de bouclage, en HTTPS quand le
 TLS est activé (en ne faisant confiance qu'au certificat du conteneur) ; en stdio, rien n'écoute
 et le conteneur reste sain, et avec le TLS mutuel (`SECREVIEW_TLS_CLIENT_CA`) il n'interroge
@@ -99,7 +99,7 @@ revue sont dans [Vérifications, revues et publication](checks-and-releases.md).
 ## Structure du code
 
 ```
-src/security_review_mcp/
+src/security_review/
 ├── server.py      # prompts, outils, ressources, point d'entrée du serveur MCP
 ├── prompts.py     # construction des prompts
 ├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
@@ -179,7 +179,7 @@ src/security_review_mcp/
     ├── deps.py        # identité de l'appelant, permissions, portée projet
     └── *_routes.py    # un routeur par domaine (auth, account, report, ci, rule, token, admin, access)
 tests/             # pytest (scanner, services, client MCP de bout en bout)
-web/               # application Angular (compilée dans src/security_review_mcp/webui/)
+web/               # application Angular (compilée dans src/security_review/webui/)
 ```
 
 Le serveur MCP n'importe jamais les modules du serveur Controller qui ouvrent des connexions sortantes

@@ -13,13 +13,13 @@ from conftest import known_projects, make_user, map_claim
 from cryptography.hazmat.primitives.asymmetric import rsa
 from starlette.testclient import TestClient
 
-from security_review_mcp import http_server, server, web_api
-from security_review_mcp.auth import access_control, oidc, token_store, web_users
-from security_review_mcp.auth.access_control import Permission
-from security_review_mcp.config import Settings
-from security_review_mcp.http_server import Role
-from security_review_mcp.observability import audit
-from security_review_mcp.reports import services
+from security_review import http_server, server, web_api
+from security_review.auth import access_control, oidc, token_store, web_users
+from security_review.auth.access_control import Permission
+from security_review.config import Settings
+from security_review.http_server import Role
+from security_review.observability import audit
+from security_review.reports import services
 
 ISSUER = "https://idp.example.com/realms/acme"
 CLIENT_ID = "secreview"
@@ -185,7 +185,7 @@ def test_invalid_session_settings_are_refused(values, message):
 def test_without_a_secret_key_a_random_secret_is_drawn_at_each_start(tmp_path, monkeypatch, caplog):
     monkeypatch.chdir(tmp_path)
     settings = make_settings(secret_key=None)
-    with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
+    with caplog.at_level(logging.WARNING, logger="security_review.oidc"):
         token = oidc.session_signer(settings).issue_session("alice", None, 1, 1)
     # Another start (or replica) does not accept the session, and nothing is written to disk
     assert oidc.session_signer(settings).decode_session(token) is None
@@ -359,7 +359,7 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
     logs = "\n".join(
         record.getMessage()
         for record in caplog.records
-        if record.name.startswith("security_review_mcp")
+        if record.name.startswith("security_review")
     )
     (event,) = audit.list_events(action="user.login")["events"]
     assert (event["actor"], event["details"]["method"]) == ("user:oidc:alice", "oidc")

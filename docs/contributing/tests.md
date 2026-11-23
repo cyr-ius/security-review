@@ -75,7 +75,7 @@ In CI, `tests.yml` runs the suite on Python 3.14 and 3.15 (see
 ## Default OpenGrep rules
 
 The [default OpenGrep rules](../review/analysis/opengrep.md#default-rules) are YAML files in
-`src/security_review_mcp/rules/opengrep/<language>/`, one rule per file named after its id
+`src/security_review/rules/opengrep/<language>/`, one rule per file named after its id
 (`secreview.<language>.<check>`). Their cases are source files in
 `tests/opengrep_rules/<language>/`, excluded from ruff: a `ruleid:` comment says that the next
 code line must match the rule, an `ok:` comment that it must not (the safe equivalent).

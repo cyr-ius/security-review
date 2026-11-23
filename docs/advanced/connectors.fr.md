@@ -163,7 +163,7 @@ n'exécutent aucune commande rapide. Le lien vers le rapport est le seul lien ac
 ## Connecteurs tiers
 
 Un connecteur publié par un paquet Python (point d'entrée du groupe
-`security_review_mcp.connectors`) s'installe à côté du serveur Controller, puis s'**autorise** par le nom
+`security_review.connectors`) s'installe à côté du serveur Controller, puis s'**autorise** par le nom
 de son point d'entrée : installer un paquet ne suffit pas.
 
 ```bash

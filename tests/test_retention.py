@@ -2,9 +2,9 @@
 
 import logging
 
-from security_review_mcp.observability import audit
-from security_review_mcp.reports import services
-from security_review_mcp.storage import retention
+from security_review.observability import audit
+from security_review.reports import services
+from security_review.storage import retention
 
 
 def test_pruner_purges_at_start_then_stops(monkeypatch):
@@ -27,7 +27,7 @@ def test_pruner_logs_an_error_without_stopping(monkeypatch, caplog):
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(services, "prune_empty_reports", broken)
-    with caplog.at_level(logging.ERROR, logger="security_review_mcp"):
+    with caplog.at_level(logging.ERROR, logger="security_review"):
         retention.ReportPruner(30).prune_once()
 
     assert "Purge of the reports without findings failed" in caplog.text
@@ -61,7 +61,7 @@ def test_a_failed_audit_purge_is_logged(monkeypatch, caplog):
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(audit, "prune_events", broken)
-    with caplog.at_level(logging.ERROR, logger="security_review_mcp"):
+    with caplog.at_level(logging.ERROR, logger="security_review"):
         retention.ReportPruner(0, audit_retention_days=30).prune_once()
 
     assert "Purge of the audit events failed" in caplog.text
