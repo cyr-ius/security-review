@@ -1,0 +1,834 @@
+"""Application settings loaded from environment variables."""
+
+import ipaddress
+import logging
+import os
+import re
+import sys
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal, Self
+from urllib.parse import urlsplit
+
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
+# spaces, hyphens, underscores and parentheses only, so that it cannot carry instructions.
+REPORT_LANGUAGE_MAX_CHARS = 40
+
+# Upper bound of the retention of the reports without findings (100 years)
+MAX_RETENTION_DAYS = 36_500
+# Upper bound of SECREVIEW_AUDIT_MAX_EVENTS
+MAX_AUDIT_EVENTS = 100_000_000
+
+
+def check_report_language(value: str) -> str:
+    """Return the stripped report language, or raise ValueError if it is not a plain name."""
+    language = value.strip()
+    if len(language) > REPORT_LANGUAGE_MAX_CHARS:
+        raise ValueError(f"report language too long (max {REPORT_LANGUAGE_MAX_CHARS} chars)")
+    if not all(c.isalpha() or c in " -_()" for c in language):
+        raise ValueError(
+            "report language must be a language name or code, for example French, fr or pt-BR"
+        )
+    return language
+
+
+# Severities from the most to the least severe, as accepted by SECREVIEW_FIX_MIN_SEVERITY
+FIX_SEVERITIES = ("critical", "high", "medium", "low", "info")
+
+
+def check_fix_min_severity(value: str) -> str:
+    """Return the lowest severity the agent must fix (lower case), "" for none, or raise
+    ValueError if it is not a severity."""
+    severity = value.strip().lower()
+    if severity and severity not in FIX_SEVERITIES:
+        raise ValueError(f"fix severity must be one of: {', '.join(FIX_SEVERITIES)}")
+    return severity
+
+
+# Bound of the public URL of the controller (SECREVIEW_PUBLIC_URL or web interface)
+CONTROLLER_URL_MAX_CHARS = 500
+# Shortest secret shared by the controller and the scan engines (SECREVIEW_SCAN_ENGINE_TOKEN)
+MIN_SCAN_ENGINE_TOKEN_CHARS = 32
+# Path of the web interface under the controller URL (http_server.UI_PREFIX)
+WEB_UI_PATH = "/ui"
+
+
+def check_controller_url(value: str | None) -> str | None:
+    """Return the public root URL of the controller without trailing slash; None when empty.
+
+    The address of its web interface (``/ui``) is shown to unauthenticated clients: an http(s)
+    URL, without credentials, query nor fragment.
+
+    Raises:
+        ValueError: If the value is not such a URL, or ends with the path of the interface.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
+        raise ValueError(
+            f"SECREVIEW_PUBLIC_URL must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars"
+        )
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("SECREVIEW_PUBLIC_URL must be an http(s) URL")
+    if parts.username or parts.password:
+        raise ValueError("SECREVIEW_PUBLIC_URL must not contain credentials")
+    if parts.query or parts.fragment:
+        raise ValueError("SECREVIEW_PUBLIC_URL must not contain a query or a fragment")
+    value = value.rstrip("/")
+    if value.endswith(WEB_UI_PATH):
+        raise ValueError(
+            f"SECREVIEW_PUBLIC_URL is the root URL of the controller, without {WEB_UI_PATH}"
+        )
+    return value
+
+
+# Schemes a custom redirect URI of an OAuth client may never use
+FORBIDDEN_REDIRECT_SCHEMES = frozenset({"http", "https", "javascript", "data", "file", "vbscript"})
+_SCHEME = re.compile(r"[a-z][a-z0-9+.-]{0,31}")
+_HOST = re.compile(r"[a-z0-9]([a-z0-9-]{0,62}\.)*[a-z0-9-]{1,63}")
+
+
+def check_mcp_url(value: str | None) -> str | None:
+    """Return the public URL of the MCP endpoint without trailing slash; None when empty.
+
+    Raises:
+        ValueError: If the value is not an http(s) URL without credentials, query nor fragment.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    # Copied into the WWW-Authenticate challenge of the MCP server: ASCII, no quote
+    if (
+        len(value) > CONTROLLER_URL_MAX_CHARS
+        or not value.isprintable()
+        or not value.isascii()
+        or any(char in value for char in '"\\ ')
+    ):
+        raise ValueError(
+            f"SECREVIEW_MCP_URL must be an ASCII URL of at most {CONTROLLER_URL_MAX_CHARS} chars, "
+            "without quote, backslash nor space (punycode for a non-ASCII host)"
+        )
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("SECREVIEW_MCP_URL must be an http(s) URL")
+    if parts.username or parts.password or parts.query or parts.fragment:
+        raise ValueError("SECREVIEW_MCP_URL must not contain credentials, a query or a fragment")
+    return value.rstrip("/")
+
+
+def check_scan_controller_url(
+    value: str | None, variable: str = "SECREVIEW_SCANCODE_DELEGATED"
+) -> str | None:
+    """Return the root URL of the controller that scan_code delegates to, without trailing
+    slash; None when empty. ``variable`` names the setting in the error messages.
+
+    Raises:
+        ValueError: If the value is not an http(s) URL without credentials, path, query nor
+            fragment.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
+        raise ValueError(f"{variable} must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars")
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError(f"{variable} must be true, false or an http(s) URL")
+    if parts.username or parts.password or parts.query or parts.fragment:
+        raise ValueError(f"{variable} must not contain credentials, a query or a fragment")
+    if parts.path.strip("/"):
+        raise ValueError(f"{variable} is the root URL of the controller, without a path")
+    return value.rstrip("/")
+
+
+def check_scan_engine_url(
+    value: str | None, variable: str = "SECREVIEW_SCAN_ENGINE_ADVERTISE_URL"
+) -> str | None:
+    """Return the root URL of a scan engine without trailing slash; None when empty.
+    ``variable`` names the setting in the error messages.
+
+    Raises:
+        ValueError: If the value is not an http(s) URL without credentials, path, query nor
+            fragment.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
+        raise ValueError(f"{variable} must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars")
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError(f"{variable} must be an http(s) URL")
+    if parts.username or parts.password or parts.query or parts.fragment or parts.path.strip("/"):
+        raise ValueError(
+            f"{variable} is the root URL of a scan engine, without credentials, path, query nor "
+            "fragment"
+        )
+    return value.rstrip("/")
+
+
+# Networks the scan engines may advertise their address in (SECREVIEW_SCAN_ENGINE_NETWORKS):
+# private and loopback addresses, where a Kubernetes pod or a Compose container lives
+DEFAULT_SCAN_ENGINE_NETWORKS = (
+    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,fc00::/7,::1/128"
+)
+
+
+def scan_engine_networks(
+    value: str,
+) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """Networks of SECREVIEW_SCAN_ENGINE_NETWORKS.
+
+    Raises:
+        ValueError: If an entry is not an IP network, or the list is empty.
+    """
+    networks = []
+    for entry in (item.strip() for item in value.split(",")):
+        if not entry:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(entry, strict=False))
+        except ValueError:
+            raise ValueError(
+                f"SECREVIEW_SCAN_ENGINE_NETWORKS: '{entry[:50]}' is not an IP network"
+            ) from None
+    if not networks:
+        raise ValueError("SECREVIEW_SCAN_ENGINE_NETWORKS needs at least one network")
+    return networks
+
+
+def check_scan_delegation(value: str | None) -> str | None:
+    """Return SECREVIEW_SCANCODE_DELEGATED normalized: "true", "false", the root URL of the
+    controller as seen by the MCP server, or None when empty (unset).
+
+    Raises:
+        ValueError: If the value is neither a boolean nor such a URL.
+    """
+    value = (value or "").strip()
+    if value.lower() in ("true", "false"):
+        return value.lower()
+    return check_scan_controller_url(value)
+
+
+def redirect_schemes(value: str) -> list[str]:
+    """Custom URI schemes of SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES, lowercase.
+
+    Raises:
+        ValueError: If an entry is not a URI scheme, or a scheme reserved to the web.
+    """
+    schemes = [entry.strip().lower() for entry in value.split(",") if entry.strip()]
+    for scheme in schemes:
+        if not _SCHEME.fullmatch(scheme) or scheme in FORBIDDEN_REDIRECT_SCHEMES:
+            raise ValueError(
+                f"SECREVIEW_MCP_OAUTH_REDIRECT_SCHEMES: '{scheme}' is not an allowed URI scheme"
+            )
+    return schemes
+
+
+def redirect_hosts(value: str) -> list[str]:
+    """Hosts of SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS, lowercase.
+
+    Raises:
+        ValueError: If an entry is not a host name.
+    """
+    hosts = [entry.strip().lower() for entry in value.split(",") if entry.strip()]
+    for host in hosts:
+        if not _HOST.fullmatch(host):
+            raise ValueError(f"SECREVIEW_MCP_OAUTH_REDIRECT_HOSTS: '{host}' is not a host name")
+    return hosts
+
+
+def web_ui_url(controller_url: str | None) -> str | None:
+    """Address of the web interface of the controller at ``controller_url``, None if unknown."""
+    return f"{controller_url}{WEB_UI_PATH}" if controller_url else None
+
+
+def default_database_url() -> SecretStr:
+    """SQLite file of the user: ``$XDG_DATA_HOME/security-review-mcp/security_reports.db``.
+
+    ``XDG_DATA_HOME`` defaults to ``~/.local/share`` (a relative value is ignored, as the XDG
+    specification requires). Without a home directory (container run with an arbitrary user),
+    the file is ``./security_reports.db``, as in version 1.0.
+    """
+    data_home = os.environ.get("XDG_DATA_HOME", "")
+    try:
+        base = Path(data_home) if Path(data_home).is_absolute() else Path.home() / ".local/share"
+    except RuntimeError:
+        return SecretStr("sqlite:///./security_reports.db")
+    return SecretStr(f"sqlite:///{base / 'security-review-mcp' / 'security_reports.db'}")
+
+
+# Short names of the MCP transports (SECREVIEW_TRANSPORT)
+TRANSPORT_ALIASES = {"http": "streamable-http"}
+
+
+class Settings(BaseSettings):
+    """Server settings (prefix: SECREVIEW_)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="SECREVIEW_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # SQLite by default (zero setup), in the user data directory: the same file whatever the
+    # directory the host starts the server from (see default_database_url).
+    # PostgreSQL: postgresql+psycopg2://user:pass@host:5432/db  # secreview:ignore GEN-007
+    # A secret (it may hold a password): never shown in a repr nor in a log
+    database_url: SecretStr = Field(default_factory=default_database_url)
+    database_echo: bool = False
+    # Migrate the schema (Alembic) when the controller, the stdio MCP server or a CLI command
+    # starts. Set it to false when a dedicated job runs `security-review-controller db upgrade`
+    # (Kubernetes): they then only check the schema. The HTTP MCP server never migrates.
+    db_auto_upgrade: bool = True
+
+    # MCP server transport: "streamable-http" (shared server, the default, alias "http") or
+    # "stdio" (local host such as VS Code, which starts `serve --transport stdio`), whatever the
+    # case. host and port are used by the HTTP MCP server and by the controller.
+    transport: str = "streamable-http"
+    host: str = "127.0.0.1"
+    port: int = 8000
+
+    # Bearer authentication of the HTTP MCP server and of the controller. Tokens are stored in
+    # the database (SHA-256 digests only) and managed with `security-review-controller token`.
+    # Controller only: on its first start, while no web user exists, the controller creates the
+    # local administrator admin_username (admin role on every project) with a random
+    # password that nobody knows: an operator sets one with `security-review-controller user
+    # reset-password <admin_username>`, which prints it once, and the user changes it at its
+    # first login.
+    admin_username: str = "admin"
+
+    # HTTP MCP server only: accept requests without a token while no token is stored. Off by
+    # default: an exposed server stays closed (fail closed) until a first token exists; a server
+    # listening on a loopback address is open in that case anyway. Never enable it on a server
+    # reachable from the network.
+    allow_unauthenticated: bool = False
+
+    # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
+    # with secret_key (at least 32 characters, shared by the replicas) and valid
+    # session_hours (1 to 24). Unset, a random secret is drawn at each start: sessions then
+    # end at restart and are not shared between replicas.
+    secret_key: SecretStr | None = None
+    session_hours: int = 8
+
+    # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
+    # restricted MCP server, without any tool, whose prompts tell the user to create a personal
+    # MCP token in the web interface. With a token, the request_project tool creates a new
+    # project for a user holding projects.create, or requests it: the project stays pending
+    # until a user holding projects.create approves it (Projects screen or `project approve`),
+    # which gives the requesting user access to it; a request nobody approved within
+    # project_enrollment_ttl_days is deleted. The welcome server only answers while the public URL
+    # of the controller is known (it tells where to create the token); otherwise, and while the
+    # OAuth login is on, a client without a token gets a 401.
+    project_enrollment_ttl_days: int = Field(default=7, ge=1, le=365)
+    # Removed: SECREVIEW_ENROLLMENT, read only to log a warning (the enrollment server now
+    # follows the public URL of the controller and project requests are always on)
+    enrollment: bool | None = None
+    # Public root URL of the controller (SECREVIEW_PUBLIC_URL), e.g. https://secreview.example.com.
+    # The MCP server gives the address of its web interface (/ui) to the clients without a valid
+    # token (enrollment, 401), so that the user knows where to sign in and create a personal MCP
+    # token; the connectors link their records to the reports with it. Read by the controller
+    # only, which stores it in the database at start, where the MCP server reads it (the MCP
+    # server ignores this variable); unset, an administrator may set it in the web interface.
+    # Unset and not stored: no link. Settings(secreview_public_url=...) sets it (the alias only,
+    # as for the proxy).
+    controller_url: str | None = Field(default=None, validation_alias="secreview_public_url")
+    # Former name of SECREVIEW_PUBLIC_URL, read when that is not set (the controller logs a
+    # warning; see _legacy_controller_url). SECREVIEW_CONTROLLER_URL now only gives the
+    # controller to security-review-ci; None once SECREVIEW_PUBLIC_URL is set.
+    legacy_controller_url: str | None = Field(
+        default=None, validation_alias="secreview_controller_url"
+    )
+    # Controller only: OAuth 2.1 login of the MCP clients (authorization code flow with PKCE,
+    # dynamic client registration), served by the controller at the root of
+    # SECREVIEW_PUBLIC_URL, its issuer. An MCP client without a token then gets a 401 that
+    # starts the login in the browser instead of the enrollment server, and receives tokens that
+    # act as a personal MCP token of the user who approved the client. Needs mcp_url and the
+    # controller URL (variable or web interface); without mcp_url the login is only suspended
+    # (see app_settings.effective_settings). The controller stores mcp_url in the database
+    # at start, where the MCP server reads it (it needs no variable). Disabled by default. Unset,
+    # an administrator may turn it on and set mcp_url in the web interface (MCP clients page).
+    mcp_oauth_enabled: bool = False
+    # Public URL of the MCP endpoint, e.g. https://mcp.example.com/mcp: the resource the OAuth
+    # tokens are issued for (RFC 8707), announced by the MCP server (RFC 9728)
+    mcp_url: str | None = None
+    # Controller only: validity of an OAuth access token (minutes) and of its refresh token
+    # (days, at most SECREVIEW_TOKEN_MAX_DAYS when that is set). Each refresh issues a new pair.
+    mcp_oauth_access_minutes: int = Field(default=60, ge=5, le=1440)
+    mcp_oauth_refresh_days: int = Field(default=30, ge=1, le=365)
+    # Controller only: OAuth clients registered at once (dynamic registration is public); a client
+    # nobody approved is deleted after a day
+    mcp_oauth_max_clients: int = Field(default=1000, ge=1, le=100_000)
+    # Controller only: where an OAuth client may send the browser back, besides the loopback
+    # interface (http or https on 127.0.0.1, localhost, ::1): hosts reached over https (e.g.
+    # vscode.dev,claude.ai) and custom URI schemes (e.g. cursor,vscode), comma separated. Empty:
+    # the loopback interface only, so that a link to /authorize cannot send the code of a user
+    # to a site of an attacker.
+    mcp_oauth_redirect_hosts: str = ""
+    mcp_oauth_redirect_schemes: str = ""
+
+    # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.
+    # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
+    tls_certfile: str | None = None
+    tls_keyfile: str | None = None
+    tls_keyfile_password: SecretStr | None = None
+    tls_client_ca: str | None = None
+
+    # Reverse proxies (comma-separated IP addresses or CIDR ranges, "*" for any) whose
+    # X-Forwarded-For and X-Forwarded-Proto headers give the client address, used by the login
+    # throttling, the enrollment limits and the logs (HTTP MCP server and controller). Unset:
+    # uvicorn's default (FORWARDED_ALLOW_IPS variable, else 127.0.0.1). Behind an Ingress, set
+    # the address range of the proxy, or every client shares the address of the proxy.
+    forwarded_allow_ips: str | None = None
+
+    # Controller only: requests to the REST API per client address and per window of
+    # rate_limit_window_seconds, counted in the database (shared by every worker and replica).
+    # The login routes (/api/v1/auth/) have their own, stricter, limit. Over the limit: 429.
+    rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
+    rate_limit_max_requests: int = Field(default=600, ge=1)
+    rate_limit_auth_max_requests: int = Field(default=30, ge=1)
+
+    # Controller: REST API on /api/v1 and, with web_ui, the Angular application on /ui.
+    # web_ui_dir overrides the directory of the built application (default: bundled files).
+    web_ui: bool = True
+    web_ui_dir: str | None = None
+    # Controller: Swagger documentation of the REST API (/api/docs) and its OpenAPI schema
+    # (/api/openapi.json), disabled by default. Its files come with the web interface build:
+    # nothing is loaded from the Internet.
+    swagger_enabled: bool = False
+    # Controller: public download of the pipeline client (/api/ci-client/), so that developers
+    # install security-review-ci from their controller with uv --find-links, without PyPI;
+    # enabled by default, false hides it (the page tells the version of the controller).
+    ci_client_download_enabled: bool = True
+
+    # Controller only: OpenID Connect login to the web interface (authorization code + PKCE),
+    # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,
+    # registered at the provider. oidc_client_secret is empty for a public client. The values of
+    # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
+    # OIDC mappings of the web interface (see access_control): each mapping of a value gives
+    # the user a role, on every project or on projects. oidc_admin_groups lists comma-separated
+    # values of the claim that hold the admin role: such a value gets a mapping (admin on every
+    # project) at the first login of a user who holds it. A login opens the OIDC web user
+    # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
+    # (when its roles give it a permission), otherwise an administrator creates it first.
+    # Sessions use secret_key and session_hours. oidc_cafile replaces the system CA bundle
+    # for the provider. Every oidc_* setting but oidc_cafile can also be set in the web
+    # interface; a variable that is set takes precedence (see app_settings).
+    oidc_enabled: bool = False
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: SecretStr | None = None
+    oidc_redirect_uri: str = ""
+    oidc_scope: str = "openid profile email"
+    oidc_roles_claim: str = "groups"
+    oidc_admin_groups: str = ""
+    oidc_username_claim: str = "preferred_username"
+    oidc_auto_create_users: bool = False
+    oidc_display_name: str = "OIDC"
+    oidc_cafile: str | None = None
+    # Controller only: with OIDC enabled, refuse the password login of the local web users (the
+    # login page then only offers the identity provider). A variable only, never changed in the
+    # web interface: unsetting it is the way back when the provider is unavailable.
+    oidc_only: bool = False
+
+    # Controller only: HTTP proxy of its outgoing connections (OSV download, OIDC identity
+    # provider), from the standard variables, without the SECREVIEW_ prefix (lowercase names
+    # accepted): HTTPS_PROXY, else HTTP_PROXY, http://[user:password@]host:port (host:port
+    # means http://host:port), and NO_PROXY, the comma-separated hosts reached without it (a
+    # domain also covers its subdomains, an IP address the URLs whose host is that address, *
+    # every host; the loopback interface is always direct). Each one not set can be set in the
+    # web interface (Paramètres, see app_settings); when set, it takes precedence there.
+    # An empty variable counts as unset. Settings(https_proxy=...) sets the proxy (the aliases
+    # only: populating by name would read SECREVIEW_PROXY again).
+    proxy: str | None = Field(
+        default=None, validation_alias=AliasChoices("https_proxy", "http_proxy")
+    )
+    no_proxy: str | None = Field(default=None, validation_alias=AliasChoices("no_proxy"))
+
+    # Controller only: download the OSV exports (all.zip of each ecosystem) from osv_url and
+    # import them every osv_update_interval_hours. Disabled by default (the MCP server never
+    # connects anywhere). osv_cafile is a CA bundle used instead of the system one (mirror or
+    # TLS-inspecting proxy).
+    osv_auto_update: bool = False
+    osv_update_interval_hours: int = 24
+    osv_url: str = "https://osv-vulnerabilities.storage.googleapis.com"
+    osv_ecosystems: str = "PyPI,npm,Maven,Go,crates.io,NuGet"
+    osv_cafile: str | None = None
+    osv_max_download_mb: int = 1024
+
+    # Language of the review reports (reply and free-text fields of save_security_report), for
+    # example "French". Empty: the agent chooses. The `report_language` argument of the review
+    # prompts overrides it. Severities, categories, statuses and rule ids stay in English.
+    # When the variable is not set, an administrator can choose it in the web interface.
+    report_language: str = ""
+    # Lowest severity of the findings the agent must fix in the code after a review (critical,
+    # high, medium, low or info): the review prompts, get_review_checklist and scan_code tell it.
+    # Empty: no instruction, the agent fixes only what the user asks. The `fix_min_severity`
+    # argument of the review prompts overrides it. When the variable is not set, an administrator
+    # can choose it in the web interface.
+    fix_min_severity: str = ""
+
+    # Controller only: delete the reports without any finding (clean reviews) older than
+    # empty_report_retention_days, checked at start then every day. The latest report of each
+    # project is always kept. 0 disables the purge.
+    empty_report_retention_days: int = Field(default=90, ge=0, le=MAX_RETENTION_DAYS)
+
+    # Longest validity, in days, of a triage decision "accepted" or "false_positive": its expiry
+    # date may not be later. Once expired, the finding counts as open again (gate, posture).
+    max_dismissal_days: int = Field(default=365, ge=1, le=MAX_RETENTION_DAYS)
+    # Controller only: a person may accept a risk without an expiry date ("No expiry" in the web
+    # interface); the acceptance then lasts until someone reopens the finding. False: every
+    # acceptance needs an expiry date. A false positive never needs one.
+    permanent_acceptance_enabled: bool = True
+    # Controller only: lowest severity whose risk acceptance needs a reason and an expiry date
+    # (see permanent_acceptance_enabled). A less severe finding is accepted by a plain
+    # validation, which closes it with no reason and no expiry date. Empty: every acceptance
+    # needs them.
+    risk_acceptance_min_severity: Literal["critical", "high", "medium", "low", "info"] | None = (
+        "medium"
+    )
+
+    # Longest validity, in days, of a bearer token created or rotated (CLI, web interface,
+    # enrollment), which is also its default validity. 0: tokens never expire unless an expiry is
+    # asked for at creation or rotation.
+    token_max_days: int = Field(default=0, ge=0, le=MAX_RETENTION_DAYS)
+    # Controller only: personal tokens a web user may hold of each kind (REST API and MCP),
+    # created in My account. Revoke one to create another.
+    personal_tokens_per_user: int = Field(default=1, ge=1, le=10)
+    # Controller only: a web user may create a personal MCP token in My account. false (MCP
+    # clients logged in with OAuth, see mcp_oauth_enabled): none is offered nor created, and
+    # the controller revokes those left at start. Personal CI and REST API tokens stay.
+    personal_mcp_tokens: bool = True
+    # Whole application (controller and MCP server): the web users may connect their own MCP
+    # agent or security-review-ci, with a personal mcp or ci token or the OAuth login of the MCP
+    # clients. false: none is created nor approved, and the personal mcp and ci tokens and the
+    # OAuth grants already given are refused at authentication (kept: true allows them again).
+    # The controller stores it in the database, where the MCP server reads it too.
+    personal_tokens_enabled: bool = True
+
+    # Controller only: delete the audit events older than audit_retention_days, checked at start
+    # then every day. 0 keeps them forever.
+    audit_retention_days: int = Field(default=365, ge=0, le=MAX_RETENTION_DAYS)
+    # Controller only: also keep at most audit_max_events events (the oldest are deleted by the
+    # same daily purge). 0: no limit.
+    audit_max_events: int = Field(default=0, ge=0, le=MAX_AUDIT_EVENTS)
+    # Controller only: send each audit event, as JSON, to a syslog server: udp://host:port,
+    # tcp://host:port, tls://host:port (RFC 5425, port 6514 by default) or unix:///dev/log.
+    # Disabled by default. The controller forwards the events of every process (MCP server and
+    # CLI included) from the database, each event once even with several replicas. Not proxied.
+    # Each one not set can be set on the Audit log page of the web interface; when set, it takes
+    # precedence there. An empty address variable counts as unset. audit_syslog_cafile (a
+    # variable only) replaces the system CA bundle to verify the certificate of a tls:// server.
+    audit_syslog_address: str | None = None
+    audit_syslog_facility: str = "local0"
+    audit_syslog_cafile: str | None = None
+
+    # Controller only: Prometheus metrics on /metrics, reached with a token of role "metrics" or
+    # "admin". false: /metrics answers 404.
+    metrics_enabled: bool = True
+
+    # Controller only: the About page searches GitHub for a newer release (latest release of
+    # the repository, HTTPS, through the outgoing proxy, cached 6 hours). Disabled by default: an
+    # outgoing connection.
+    update_check_enabled: bool = False
+
+    # Controller only: send findings to external systems through connectors (see connectors):
+    # tickets in Jira and ServiceNow, plus the third-party connectors (Python entry points of the
+    # group security_review.connectors) whose names connectors_plugins lists, comma
+    # separated (a connector installed but not listed is never loaded). By hand from the web
+    # interface, or automatically for the projects given a severity threshold. Outgoing
+    # connections (HTTPS only, through the outgoing proxy): every connector is off until an
+    # administrator switches it on in the web interface (Connectors screen). connectors_enabled
+    # is the lock of the operator: false, nothing is sent and the switches are locked off.
+    # connectors_interval_seconds is the period of the automatic sending; connectors_cafile
+    # replaces the system CA bundle (internal certificate authority). The connection of each
+    # system is read from its own variables, SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or
+    # set in the web interface.
+    connectors_enabled: bool = True
+    connectors_interval_seconds: int = Field(default=300, ge=30, le=86_400)
+    connectors_cafile: str | None = None
+    connectors_plugins: str = ""
+
+    log_level: str = "INFO"
+
+    # Hard limits to protect the server and the database
+    max_content_chars: int = 200_000
+    max_findings_per_report: int = 500
+    max_dependency_chars: int = 1_000_000
+    max_list_limit: int = 100
+    # MCP server only: size of the body of a request of an authenticated MCP client (413 above);
+    # a client without a token, sent to the enrollment server, gets a fixed bound of 64 KiB
+    max_mcp_request_mb: int = Field(default=16, ge=1, le=1024)
+    # Controller only: bounds of the scans sent by security-review-ci (POST /api/v1/ci/scan/...):
+    # size of the request body (413 above), files per request, and size of one scanned source
+    # file (a larger one is reported as skipped)
+    max_scan_request_mb: int = Field(default=64, ge=1, le=1024)
+    max_scan_files: int = Field(default=10_000, ge=1)
+    max_scan_file_chars: int = Field(default=1_048_576, ge=1)
+
+    # Controller only: OpenGrep engine for whole-codebase scans, disabled by default (a PyPI
+    # installation has no OpenGrep executable) and enabled by the "-opengrep" Docker image that
+    # ships it; skipped while no rule is installed. Rules are managed separately from the
+    # built-in TOML rules and are never downloaded implicitly.
+    opengrep_enabled: bool = False
+    opengrep_binary: str = "/usr/local/bin/opengrep"
+    # Working directory where the controller and the scan engines copy the OpenGrep rules of the
+    # database for OpenGrep (a cache, never shared); the rule files that the previous versions
+    # kept there are imported once into the database
+    opengrep_rules_dir: str = "/var/lib/secreview/rules/opengrep"
+    opengrep_timeout_seconds: int = Field(default=600, ge=1, le=7200)
+    # Scans run at the same time (503 beyond), cores and memory (MiB, 0: no limit) of one scan
+    opengrep_max_concurrent_scans: int = Field(default=1, ge=1, le=64)
+    # Fragments of scan_code delegated by the MCP server (SECREVIEW_MCP_SCAN_CONTROLLER_URL) scanned
+    # with OpenGrep at the same time, in their own slots (503 beyond: the MCP server then scans
+    # with its rules); 0: the fragments are scanned with the rules only
+    opengrep_max_concurrent_fragment_scans: int = Field(default=1, ge=0, le=64)
+    opengrep_jobs: int = Field(default=2, ge=1, le=256)
+    opengrep_max_memory_mb: int = Field(default=2048, ge=0)
+    # Follow taint through the functions of a same file (--taint-intrafile of OpenGrep):
+    # fewer false positives when a helper returns a constant, more findings when it passes the
+    # request value on. Disable it for an older OpenGrep executable that lacks the option.
+    opengrep_taint_intrafile: bool = True
+    # MCP server: OpenGrep rules proposed by agents (propose_opengrep_rule) and waiting for a
+    # person at the same time; a new proposal is refused beyond
+    opengrep_max_pending_proposals: int = Field(default=100, ge=1, le=10_000)
+    # Controller only: delegation of scan_code of the HTTP MCP server to the controller, so that
+    # the agents get the matches of its rules and OpenGrep rules (POST /api/v1/scan/content).
+    # "true": to the public URL (SECREVIEW_PUBLIC_URL); a root URL (e.g. http://controller:8080
+    # inside Compose): to that address, as seen by the MCP server; "false": off. The controller
+    # stores it in the database at start, where the MCP server reads it at each scan (it needs no
+    # variable); set, the web interface cannot change it. The MCP server relays the bearer token
+    # of the caller, without redirect nor proxy; without a caller token (stdio) or when the
+    # controller cannot answer, scan_code scans with its own rules. Unset (default): an
+    # administrator may turn it on in the web interface (General), to the public URL.
+    scancode_delegated: str | None = None
+    # Deprecated (MCP server): former way to delegate scan_code, still read with a warning; it
+    # wins over the delegation stored by the controller. Use SECREVIEW_SCANCODE_DELEGATED.
+    mcp_scan_controller_url: str | None = None
+    # Time limit of a delegated scan, OpenGrep included (seconds)
+    mcp_scan_timeout_seconds: int = Field(default=120, ge=1, le=7200)
+    # Controller only: validity of the single-use ticket of a codebase scan (MCP tool
+    # start_codebase_scan, sent by the delegation of scan_code), with which security-review-ci
+    # sends the files of the workstation to the code and dependency scans of one project
+    scan_ticket_ttl_seconds: int = Field(default=600, ge=60, le=3600)
+    # Controller only: networks where the enrolled scan engines may advertise their address
+    # (comma-separated CIDRs; the address must be an IP in one of them): the controller sends the
+    # files of the code scans there only. Default: private and loopback addresses.
+    scan_engine_networks: str = DEFAULT_SCAN_ENGINE_NETWORKS
+    # Scan engine only: root URL where the controller reaches this engine, given at its
+    # enrollment, an IP address (e.g. http://10.42.0.17:8000, the pod IP on Kubernetes). Unset:
+    # the IP address of the host name of the engine and its listening port.
+    scan_engine_advertise_url: str | None = None
+    # Controller and scan engines: shared secret of the engines (at least 32 characters). Set on
+    # the controller, it turns the scan engines on: they enroll with it, and the code scans and
+    # scan_code fragments go to the enrolled engines (the SECREVIEW_OPENGREP_* settings then
+    # apply to the engines); the controller sends it as a bearer token with each scan
+    scan_engine_token: SecretStr | None = None
+    # Controller only: time limit of a scan by an engine, above SECREVIEW_OPENGREP_TIMEOUT_SECONDS
+    # of the engines (seconds)
+    scan_engine_timeout_seconds: int = Field(default=660, ge=1, le=7200)
+    # Controller only: when no engine answers, "refuse" the scan (503 with Retry-After: the
+    # controller stays unloaded) or scan "local"ly with the rules and OpenGrep of the controller.
+    # A busy engine (all its OpenGrep slots taken) is never replaced by a local scan.
+    scan_engine_fallback: Literal["refuse", "local"] = "refuse"
+    # Controller only: validity of the OAuth access token of an enrolled scan engine (minutes);
+    # the engine renews it before it expires (client_credentials, see auth.engine_clients)
+    scan_engine_access_token_minutes: int = Field(default=15, ge=1, le=1440)
+    # Controller only: an enrolled scan engine not seen for this many days is deleted (a replica
+    # gone without leaving: a live engine renews its access token, which counts as seen)
+    scan_engine_retention_days: int = Field(default=7, ge=1, le=365)
+
+    @field_validator(
+        "proxy",
+        "no_proxy",
+        "audit_syslog_address",
+        "audit_syslog_cafile",
+        "controller_url",
+        "legacy_controller_url",
+        "connectors_cafile",
+        "mcp_url",
+    )
+    @classmethod
+    def _empty_is_unset(cls, value: str | None) -> str | None:
+        """An empty variable means no value (an empty stored proxy means a direct connection)."""
+        return value.strip() or None if value is not None else None
+
+    @field_validator("connectors_enabled", mode="before")
+    @classmethod
+    def _empty_lock_is_open(cls, value: object) -> object:
+        """An empty variable leaves the switches of the web interface in charge."""
+        if isinstance(value, str) and not value.strip():
+            return True
+        return value
+
+    @field_validator("risk_acceptance_min_severity", mode="before")
+    @classmethod
+    def _empty_severity_is_unset(cls, value: object) -> object:
+        """An empty variable means no threshold: every acceptance needs a reason and a date."""
+        if isinstance(value, str):
+            return value.strip().lower() or None
+        return value
+
+    @field_validator("proxy")
+    @classmethod
+    def _default_proxy_scheme(cls, value: str | None) -> str | None:
+        """Read a proxy given as host:port, as curl does, as http://host:port."""
+        if value and "://" not in value:
+            return f"http://{value}"
+        return value
+
+    @field_validator("controller_url")
+    @classmethod
+    def _check_controller_url(cls, value: str | None) -> str | None:
+        """Accept an http(s) URL without credentials: it is shown to unauthenticated clients.
+        Empty counts as unset (Compose passes ${SECREVIEW_PUBLIC_URL:-} when .env lacks it)."""
+        return check_controller_url(value)
+
+    @model_validator(mode="after")
+    def _legacy_controller_url(self) -> Self:
+        """Read SECREVIEW_CONTROLLER_URL, the former name, when SECREVIEW_PUBLIC_URL is not set."""
+        if self.controller_url is not None:
+            self.legacy_controller_url = None
+        elif self.legacy_controller_url is not None:
+            self.legacy_controller_url = check_controller_url(self.legacy_controller_url)
+            self.controller_url = self.legacy_controller_url
+        return self
+
+    @field_validator("mcp_url")
+    @classmethod
+    def _check_mcp_url(cls, value: str | None) -> str | None:
+        """Accept an http(s) URL without credentials, query nor fragment."""
+        return check_mcp_url(value)
+
+    @field_validator("mcp_scan_controller_url")
+    @classmethod
+    def _check_scan_controller_url(cls, value: str | None) -> str | None:
+        """Accept the root http(s) URL of the controller; empty counts as unset."""
+        return check_scan_controller_url(value, "SECREVIEW_MCP_SCAN_CONTROLLER_URL")
+
+    @field_validator("scancode_delegated")
+    @classmethod
+    def _check_scancode_delegated(cls, value: str | None) -> str | None:
+        """Accept true, false or the root http(s) URL of the controller; empty counts as unset."""
+        return check_scan_delegation(value)
+
+    @field_validator("scan_engine_advertise_url")
+    @classmethod
+    def _check_scan_engine_advertise_url(cls, value: str | None) -> str | None:
+        """Accept the root http(s) URL of this engine; empty counts as unset."""
+        return check_scan_engine_url(value)
+
+    @field_validator("scan_engine_networks")
+    @classmethod
+    def _check_scan_engine_networks(cls, value: str) -> str:
+        """Accept a comma-separated list of IP networks."""
+        return ",".join(str(network) for network in scan_engine_networks(value))
+
+    @field_validator("scan_engine_token")
+    @classmethod
+    def _check_scan_engine_token(cls, value: SecretStr | None) -> SecretStr | None:
+        """Refuse a short secret; empty counts as unset."""
+        if value is None or not value.get_secret_value().strip():
+            return None
+        if len(value.get_secret_value().strip()) < MIN_SCAN_ENGINE_TOKEN_CHARS:
+            raise ValueError(
+                f"SECREVIEW_SCAN_ENGINE_TOKEN must have at least {MIN_SCAN_ENGINE_TOKEN_CHARS} "
+                "characters (e.g. openssl rand -hex 32)"
+            )
+        return SecretStr(value.get_secret_value().strip())
+
+    @field_validator("mcp_oauth_redirect_hosts")
+    @classmethod
+    def _check_redirect_hosts(cls, value: str) -> str:
+        """Accept a comma-separated list of host names."""
+        return ",".join(redirect_hosts(value))
+
+    @field_validator("mcp_oauth_redirect_schemes")
+    @classmethod
+    def _check_redirect_schemes(cls, value: str) -> str:
+        """Accept a comma-separated list of custom URI schemes."""
+        return ",".join(redirect_schemes(value))
+
+    @field_validator("forwarded_allow_ips")
+    @classmethod
+    def _check_forwarded_allow_ips(cls, value: str | None) -> str | None:
+        """Accept "*" or a list of IP addresses and CIDR ranges; an empty value means unset."""
+        if value is None or not value.strip():
+            return None
+        entries = [entry.strip() for entry in value.split(",") if entry.strip()]
+        if entries != ["*"]:
+            for entry in entries:
+                try:
+                    ipaddress.ip_network(entry, strict=False)
+                except ValueError:
+                    raise ValueError(
+                        f"forwarded_allow_ips: not an IP address or CIDR range: {entry!r}"
+                    ) from None
+        return ",".join(entries)
+
+    @field_validator("transport")
+    @classmethod
+    def _check_transport(cls, value: str) -> str:
+        """Accept streamable-http (or http) and stdio, whatever the case."""
+        transport = value.strip().lower()
+        transport = TRANSPORT_ALIASES.get(transport, transport)
+        if transport not in ("streamable-http", "stdio"):
+            raise ValueError(f"transport: expected streamable-http, http or stdio, got {value!r}")
+        return transport
+
+    @field_validator("report_language")
+    @classmethod
+    def _check_report_language(cls, value: str) -> str:
+        """Reject a report language that is not a plain language name or code."""
+        return check_report_language(value)
+
+    @field_validator("fix_min_severity")
+    @classmethod
+    def _check_fix_min_severity(cls, value: str) -> str:
+        """Reject a fix severity that is not a severity."""
+        return check_fix_min_severity(value)
+
+
+def secret_value(secret: SecretStr | None) -> str | None:
+    """Clear value of a secret setting (None when unset)."""
+    return None if secret is None else secret.get_secret_value()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return the cached settings instance."""
+    return Settings()
+
+
+# Characters that end a line for a log reader (str.splitlines), written as escapes
+_LINE_BREAKS = str.maketrans(
+    {
+        char: char.encode("unicode_escape").decode("ascii")
+        for char in "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"
+    }
+)
+
+
+class LineSafeFormatter(logging.Formatter):
+    """Keep each log message on one line: request data cannot forge log entries (CWE-117).
+
+    Only the message is escaped: a traceback keeps its lines.
+    """
+
+    def formatMessage(self, record: logging.LogRecord) -> str:  # noqa: N802 (logging API)
+        return super().formatMessage(record).translate(_LINE_BREAKS)
+
+
+def configure_logging(level: str) -> None:
+    """Send the logs to stderr: stdout is reserved for the MCP protocol with stdio."""
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(LineSafeFormatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    logging.basicConfig(level=level.upper(), handlers=[handler])

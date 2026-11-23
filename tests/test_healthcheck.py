@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from security_review_mcp import healthcheck, http_server
-from security_review_mcp.config import Settings
+from security_review import healthcheck, http_server
+from security_review.config import Settings
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -83,10 +83,10 @@ def test_the_health_path_is_the_one_served_by_both_processes():
             "http://127.0.0.1:8000/healthz",
         ),
         (
-            ["python", "-m", "security_review_mcp.controller", "serve"],
+            ["python", "-m", "security_review.controller", "serve"],
             "http://127.0.0.1:8000/healthz",
         ),
-        (["python", "-m", "security_review_mcp", "serve"], "http://127.0.0.1:8000/healthz"),
+        (["python", "-m", "security_review", "serve"], "http://127.0.0.1:8000/healthz"),
         (
             ["security-review-controller", "serve", "--host", "0.0.0.0"],
             "http://127.0.0.1:8000/healthz",
@@ -174,7 +174,7 @@ def test_the_image_declares_the_health_check():
 
     healthcheck_instruction = re.search(r"^HEALTHCHECK [^\n]*\\\n\s+CMD (.*)$", dockerfile, re.M)
     assert healthcheck_instruction is not None
-    assert '"-m", "security_review_mcp.healthcheck"' in healthcheck_instruction.group(1)
+    assert '"-m", "security_review.healthcheck"' in healthcheck_instruction.group(1)
 
 
 def test_the_image_listens_on_every_interface_and_compose_chooses_the_exposure():

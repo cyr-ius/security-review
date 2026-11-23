@@ -2,9 +2,9 @@
 
 import pytest
 
-from security_review_mcp import prompts
-from security_review_mcp.rules import registry, rule_store
-from security_review_mcp.rules.rules_loader import default_content, parse_pack
+from security_review import prompts
+from security_review.rules import registry, rule_store
+from security_review.rules.rules_loader import default_content, parse_pack
 
 VALID_PACK = """
 disabled_rules = ["PY-008"]
@@ -149,7 +149,7 @@ def test_unreadable_database_falls_back_to_the_default_rules(database):
 def test_unseeded_database_falls_back_to_the_default_rules(database):
     from sqlmodel import Session, delete
 
-    from security_review_mcp.storage.models import CustomCheckItem, CustomRule, DefaultSeed
+    from security_review.storage.models import CustomCheckItem, CustomRule, DefaultSeed
 
     with Session(database) as session:  # tables created, defaults never seeded
         for model in (CustomRule, CustomCheckItem, DefaultSeed):

@@ -4,11 +4,11 @@ single sign-on and syslog."""
 import pytest
 from sqlmodel import select
 
-from security_review_mcp import app_settings
-from security_review_mcp.config import Settings, secret_value
-from security_review_mcp.observability import audit
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import AppSetting
+from security_review import app_settings
+from security_review.config import Settings, secret_value
+from security_review.observability import audit
+from security_review.storage.database import session_scope
+from security_review.storage.models import AppSetting
 
 PROXY = "http://alice:s3cr3t@proxy.internal:3128"
 

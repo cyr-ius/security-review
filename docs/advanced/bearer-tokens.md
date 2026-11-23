@@ -147,7 +147,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 Every status change is logged with the label of the token or of the account:
 
 ```
-INFO security_review_mcp.web: Finding 42 set to fixed by ops-script
+INFO security_review.web: Finding 42 set to fixed by ops-script
 ```
 
 and written to the [audit log](audit-log.md) (`GET /api/v1/audit`, `audit.read`

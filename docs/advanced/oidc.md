@@ -145,11 +145,11 @@ can be neither deleted nor lose it. Preferably keep a local administrator: if th
 provider becomes unreachable, it remains the only access, besides the CLI.
 
 ```
-INFO security_review_mcp.web: OIDC web user alice created at its first login
-INFO security_review_mcp.web: OIDC login of oidc:alice through 1 mapped claim(s)
-WARNING security_review_mcp.web: OIDC login of oidc:bob refused: no web user bob
-INFO security_review_mcp.web: Web user carol (oidc) deleted by admin
-WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user carol was deleted
+INFO security_review.web: OIDC web user alice created at its first login
+INFO security_review.web: OIDC login of oidc:alice through 1 mapped claim(s)
+WARNING security_review.web: OIDC login of oidc:bob refused: no web user bob
+INFO security_review.web: Web user carol (oidc) deleted by admin
+WARNING security_review.web: OIDC login of oidc:carol refused: web user carol was deleted
 ```
 
 ## OIDC mappings

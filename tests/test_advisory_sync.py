@@ -10,11 +10,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from test_advisories import osv
 
-from security_review_mcp import app_settings, cli
-from security_review_mcp.config import Settings
-from security_review_mcp.deps import advisories, advisory_sync
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import AdvisoryUpdate
+from security_review import app_settings, cli
+from security_review.config import Settings
+from security_review.deps import advisories, advisory_sync
+from security_review.storage.database import session_scope
+from security_review.storage.models import AdvisoryUpdate
 
 PROXY = "http://alice:s3cr3t@proxy.internal:3128"
 
@@ -187,7 +187,7 @@ def test_update_downloads_and_imports_each_ecosystem(opener, caplog):
     }
     settings = make_settings(osv_ecosystems="PyPI,npm", https_proxy=PROXY)
 
-    with caplog.at_level("INFO", logger="security_review_mcp"):
+    with caplog.at_level("INFO", logger="security_review"):
         result = advisory_sync.update_advisories(settings)
 
     assert result["ecosystems"]["PyPI"]["imported"] == 2
@@ -289,7 +289,7 @@ def test_updater_survives_an_unexpected_error(monkeypatch, caplog):
 
     monkeypatch.setattr(advisory_sync, "update_advisories", broken_update)
 
-    with caplog.at_level("ERROR", logger="security_review_mcp"):
+    with caplog.at_level("ERROR", logger="security_review"):
         updater.run()
 
     assert "next attempt in 1 hour" in caplog.text

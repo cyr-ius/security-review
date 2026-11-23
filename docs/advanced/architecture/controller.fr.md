@@ -181,7 +181,7 @@ security-review-controller user reset-password admin
 ```
 
 ```
-WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
+WARNING security_review.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
 ```
 
 Traitez ce mot de passe comme un secret et connectez-vous avec `admin`. L'interface **exige alors
@@ -276,8 +276,8 @@ soit lue dans `X-Forwarded-For`. Chaque connexion et chaque échec
 sont journalisés, sans le mot de passe :
 
 ```
-INFO security_review_mcp.web: Web login of alice (role triager) from 10.0.0.12
-WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
+INFO security_review.web: Web login of alice (role triager) from 10.0.0.12
+WARNING security_review.web: Failed web login of alice from 10.0.0.12
 ```
 
 ## Réglages enregistrés en base

@@ -16,10 +16,10 @@ from pydantic import SecretStr
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import app_settings, cli, http_server, web_api
-from security_review_mcp.auth import engine_clients, token_store
-from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.engines import (
+from security_review import app_settings, cli, http_server, web_api
+from security_review.auth import engine_clients, token_store
+from security_review.config import Settings, get_settings
+from security_review.engines import (
     backend,
     controller_client,
     opengrep,
@@ -28,18 +28,18 @@ from security_review_mcp.engines import (
     rule_sync,
     worker,
 )
-from security_review_mcp.engines.protocol import (
+from security_review.engines.protocol import (
     ENGINE_ENROLL_PATH,
     ENGINE_TOKEN_PATH,
     EngineHeartbeat,
 )
-from security_review_mcp.http_server import Role
-from security_review_mcp.observability.audit import AuditAction
-from security_review_mcp.rules import codescan, opengrep_rule_store, registry
-from security_review_mcp.rules.codescan import SourceFile
-from security_review_mcp.storage import server_instances
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import AuditEvent, ServerKind, utcnow
+from security_review.http_server import Role
+from security_review.observability.audit import AuditAction
+from security_review.rules import codescan, opengrep_rule_store, registry
+from security_review.rules.codescan import SourceFile
+from security_review.storage import server_instances
+from security_review.storage.database import session_scope
+from security_review.storage.models import AuditEvent, ServerKind, utcnow
 
 TOKEN = "engine-secret-for-tests-0123456789abcdef"
 URL = "http://10.0.0.5:8000"
@@ -329,17 +329,17 @@ def test_the_scans_go_to_the_freest_active_engine_and_skip_a_busy_one(engines, m
 def test_the_engine_loads_none_of_the_controller_modules():
     # A fresh interpreter: the other tests import these modules in this one
     modules = (
-        "security_review_mcp.controller",
-        "security_review_mcp.web_api",
-        "security_review_mcp.connectors",
-        "security_review_mcp.auth.oidc",
-        "security_review_mcp.deps.advisory_sync",
-        "security_review_mcp.engines.remote",
-        "security_review_mcp.engines.enrollment",
-        "security_review_mcp.auth.engine_clients",
+        "security_review.controller",
+        "security_review.web_api",
+        "security_review.connectors",
+        "security_review.auth.oidc",
+        "security_review.deps.advisory_sync",
+        "security_review.engines.remote",
+        "security_review.engines.enrollment",
+        "security_review.auth.engine_clients",
     )
     code = (
-        "import sys, security_review_mcp.engines.worker\n"
+        "import sys, security_review.engines.worker\n"
         f"print([m for m in {modules!r} if m in sys.modules])"
     )
     result = subprocess.run(

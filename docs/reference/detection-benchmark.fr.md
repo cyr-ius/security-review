@@ -171,7 +171,7 @@ construit son XSS dans un fichier et l'affiche depuis un autre.
 ## Méthode
 
 1. Scanner le code du benchmark avec les règles OpenGrep par défaut du langage
-   (`opengrep scan --json --taint-intrafile --config src/security_review_mcp/rules/opengrep/<language> <benchmark>`),
+   (`opengrep scan --json --taint-intrafile --config src/security_review/rules/opengrep/<language> <benchmark>`),
    et chaque fichier de test avec les règles intégrées (`scanner.scan_content_detailed`).
 2. Un cas de test est **signalé** quand un finding sur son fichier porte la CWE de sa catégorie,
    ou une CWE fille (338 pour 330, 95 pour 94, 77 pour 78, 80 pour 79, 326 pour 327, 916 pour

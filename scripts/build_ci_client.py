@@ -1,6 +1,6 @@
 """Write the project of the standalone ``security-review-ci`` distribution.
 
-The pipeline client (``src/security_review_mcp/ci_client.py``) only uses the standard library,
+The pipeline client (``src/security_review/ci_client.py``) only uses the standard library,
 so it is also published alone on PyPI, without the dependencies of the server: a developer
 installs it with ``uv tool install security-review-ci`` (uv downloads a Python when none is
 installed). The module is copied as ``security_review_ci.py``; the version and the Python
@@ -91,7 +91,7 @@ def write_project(dest: Path, root: Path = ROOT) -> Path:
     (dest / "pyproject.toml").write_text(PYPROJECT.format(**values), encoding="utf-8")
     (dest / "README.md").write_text(README.format(**values), encoding="utf-8")
     shutil.copyfile(root / "LICENSE", dest / "LICENSE")
-    shutil.copyfile(root / "src" / "security_review_mcp" / "ci_client.py", dest / f"{MODULE}.py")
+    shutil.copyfile(root / "src" / "security_review" / "ci_client.py", dest / f"{MODULE}.py")
     return dest
 
 

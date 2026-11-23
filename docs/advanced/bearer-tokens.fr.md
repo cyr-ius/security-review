@@ -153,7 +153,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 Chaque changement de statut est journalisé avec le label du jeton ou du compte :
 
 ```
-INFO security_review_mcp.web: Finding 42 set to fixed by ops-script
+INFO security_review.web: Finding 42 set to fixed by ops-script
 ```
 
 et écrit dans le [journal d'audit](audit-log.md) (`GET /api/v1/audit`, permission

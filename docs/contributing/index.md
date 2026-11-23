@@ -30,7 +30,7 @@ In VS Code (`.vscode/`):
 
 | `tasks.json` task | Command |
 |---|---|
-| **Build security_review_mcp** | `uv sync --extra dev --extra docs --extra postgres` |
+| **Build security_review** | `uv sync --extra dev --extra docs --extra postgres` |
 | **Database upgrade** | `uv run security-review-controller db upgrade` (after **Build**) |
 | **Tests** / **Lint** | `pytest`, then ruff and `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Angular build served by the Controller server, or `ng serve` with `/api` forwarded to port 8080 (stopped with the debugger by **Web UI: stop dev server**) |
@@ -77,7 +77,7 @@ Controller server serves it on `/ui/`.
 
 The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
 database is in the `/var/lib/secreview` volume. Its `HEALTHCHECK`
-(`python -m security_review_mcp.healthcheck`, every 30 seconds) requests `/healthz` of the HTTP
+(`python -m security_review.healthcheck`, every 30 seconds) requests `/healthz` of the HTTP
 MCP server or of the Controller server on the loopback interface, over HTTPS when TLS is enabled
 (trusting only the certificate of the container); in stdio, nothing listens and the container
 stays healthy, and with mutual TLS (`SECREVIEW_TLS_CLIENT_CA`) it is not requested: rely on the
@@ -99,7 +99,7 @@ The test method is in [Tests](tests.md); the checks to run and the review proced
 ## Code layout
 
 ```
-src/security_review_mcp/
+src/security_review/
 ├── server.py      # prompts, tools, resources, entry point of the MCP server
 ├── prompts.py     # construction of the prompts
 ├── standards.py   # development standards: storage, lookup by technology / file, rendering
@@ -179,7 +179,7 @@ src/security_review_mcp/
     ├── deps.py        # identity of the caller, permissions, project scope
     └── *_routes.py    # one router per domain (auth, account, report, ci, rule, token, admin, access)
 tests/             # pytest (scanner, services, end-to-end MCP client)
-web/               # Angular application (built into src/security_review_mcp/webui/)
+web/               # Angular application (built into src/security_review/webui/)
 ```
 
 The MCP server never imports the modules of the Controller server that open outgoing connections or

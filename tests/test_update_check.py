@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from security_review_mcp import __version__, update_check
-from security_review_mcp.config import Settings
+from security_review import __version__, update_check
+from security_review.config import Settings
 
 
 def test_current_version_is_the_version_of_pyproject():

@@ -14,13 +14,13 @@ import pytest
 from starlette.testclient import TestClient
 from test_advisories import osv
 
-from security_review_mcp import ci_client, http_server, web_api
-from security_review_mcp.auth import token_store
-from security_review_mcp.config import get_settings
-from security_review_mcp.deps import advisories
-from security_review_mcp.http_server import Role
-from security_review_mcp.reports import services
-from security_review_mcp.storage.models import FindingCreate, Severity
+from security_review import ci_client, http_server, web_api
+from security_review.auth import token_store
+from security_review.config import get_settings
+from security_review.deps import advisories
+from security_review.http_server import Role
+from security_review.reports import services
+from security_review.storage.models import FindingCreate, Severity
 
 URL = "http://127.0.0.1"
 MODULE = Path(ci_client.__file__)
@@ -219,7 +219,7 @@ def test_severities_match_the_server():
 
 def test_client_loads_no_database_driver_nor_sqlmodel():
     code = (
-        "import sys; sys.path.insert(0, sys.argv[1]); import security_review_mcp.ci_client; "
+        "import sys; sys.path.insert(0, sys.argv[1]); import security_review.ci_client; "
         "heavy = {'sqlmodel', 'sqlalchemy', 'psycopg2', 'pydantic', 'mcp', 'fastapi', 'httpx'}; "
         "print(sorted(name for name in sys.modules if name.split('.')[0] in heavy))"
     )
@@ -664,7 +664,7 @@ def test_scan_deps_finds_the_dependency_files_of_a_directory(
 
 def test_dependency_file_names_are_those_of_the_controller():
     # The client imports nothing from the package: its copy must follow deps/dependencies.py
-    from security_review_mcp.deps import dependencies
+    from security_review.deps import dependencies
 
     assert set(dependencies._PARSERS) == ci_client.DEPENDENCY_FILE_NAMES
     assert dependencies._MSBUILD_PROJECTS == ci_client.DEPENDENCY_PROJECT_SUFFIXES
@@ -753,8 +753,8 @@ def test_guard_refuses_hidden_text_and_asks_for_injected_text(agent, monkeypatch
 
 def test_guard_rules_are_those_of_the_package():
     # The client imports nothing from the package: its copy must follow default_rules.toml
-    from security_review_mcp.rules import scanner
-    from security_review_mcp.rules.rules_loader import default_content
+    from security_review.rules import scanner
+    from security_review.rules.rules_loader import default_content
 
     rules = [r for r in default_content().rules if r.id.startswith("AI-")]
     assert [(r.id, r.title, r.pattern.pattern) for r in rules] == list(ci_client.GUARD_RULES)

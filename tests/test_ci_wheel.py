@@ -9,11 +9,11 @@ import sys
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import ci_client, http_server, web_api
-from security_review_mcp.auth import token_store
-from security_review_mcp.clients import ci_wheel
-from security_review_mcp.config import get_settings
-from security_review_mcp.http_server import Role
+from security_review import ci_client, http_server, web_api
+from security_review.auth import token_store
+from security_review.clients import ci_wheel
+from security_review.config import get_settings
+from security_review.http_server import Role
 
 PAGE = "/api/ci-client/"
 

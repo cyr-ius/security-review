@@ -4,12 +4,12 @@ import pytest
 from conftest import known_projects, make_user, map_claim
 from sqlmodel import select
 
-from security_review_mcp.auth import access_control, web_users
-from security_review_mcp.auth.access_control import Permission
-from security_review_mcp.http_server import Role
-from security_review_mcp.observability import audit
-from security_review_mcp.reports.services import NotFoundError
-from security_review_mcp.storage.database import session_scope
+from security_review.auth import access_control, web_users
+from security_review.auth.access_control import Permission
+from security_review.http_server import Role
+from security_review.observability import audit
+from security_review.reports.services import NotFoundError
+from security_review.storage.database import session_scope
 
 PASSWORD = "Correct horse battery 9"
 
@@ -393,8 +393,8 @@ def test_a_created_project_is_reviewed_by_its_creator_only():
 
 def test_creating_a_project_never_opens_an_existing_one():
     """projects.create would otherwise let its holder read the reports of any project."""
-    from security_review_mcp.auth import token_store
-    from security_review_mcp.reports import services
+    from security_review.auth import token_store
+    from security_review.reports import services
 
     carol = creator()
     services.save_report("shop", "Review", [])
@@ -431,10 +431,10 @@ def test_project_creation_checks_the_name_and_the_user():
 def test_deleting_a_project_removes_everything_that_refers_to_it():
     from sqlmodel import select
 
-    from security_review_mcp.auth import token_store
-    from security_review_mcp.connectors import registry, set_target
-    from security_review_mcp.reports import services
-    from security_review_mcp.storage.models import (
+    from security_review.auth import token_store
+    from security_review.connectors import registry, set_target
+    from security_review.reports import services
+    from security_review.storage.models import (
         ConnectorTarget,
         ExportState,
         FindingComment,
@@ -503,11 +503,11 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
 
 
 def test_renaming_a_project_moves_every_reference_and_keeps_the_triage():
-    from security_review_mcp.auth import token_store
-    from security_review_mcp.connectors import registry, set_target
-    from security_review_mcp.reports import services
-    from security_review_mcp.reports.sarif import issue_fingerprint
-    from security_review_mcp.storage.models import (
+    from security_review.auth import token_store
+    from security_review.connectors import registry, set_target
+    from security_review.reports import services
+    from security_review.reports.sarif import issue_fingerprint
+    from security_review.storage.models import (
         ConnectorTarget,
         ExportState,
         Finding,
@@ -595,7 +595,7 @@ def test_renaming_a_project_moves_every_reference_and_keeps_the_triage():
 def test_a_requested_project_waits_for_an_approval_that_gives_its_user_access():
     """A user without projects.create requests a project: it waits, its approval creates it
     with that user as its member, and the answer never tells whether the project existed."""
-    from security_review_mcp.reports import services
+    from security_review.reports import services
 
     alice = web_users.create_user("alice", PASSWORD)
     services.save_report("shop", "Review", [])
@@ -642,7 +642,7 @@ def test_a_requested_project_waits_for_an_approval_that_gives_its_user_access():
 
 def test_a_creator_gets_a_new_requested_project_at_once():
     """projects.create creates a new project on request, never opens an existing one."""
-    from security_review_mcp.reports import services
+    from security_review.reports import services
 
     carol = creator()
     services.save_report("shop", "Review", [])
@@ -662,7 +662,7 @@ def test_a_user_asks_to_join_an_existing_project():
     """An existing project is requested like a new one, once per user, and its approval gives
     the user its review; a reader without reports.write asks too, nothing is recorded for a user
     who already reviews it."""
-    from security_review_mcp.reports import services
+    from security_review.reports import services
 
     alice = web_users.create_user("alice", PASSWORD)
     dave = web_users.create_user("dave", PASSWORD)
@@ -698,9 +698,9 @@ def test_a_user_asks_to_join_an_existing_project():
 def test_enrollments_are_bounded_and_expire(monkeypatch):
     from datetime import timedelta
 
-    from security_review_mcp.config import get_settings
-    from security_review_mcp.reports import services
-    from security_review_mcp.storage.models import ProjectEnrollment, utcnow
+    from security_review.config import get_settings
+    from security_review.reports import services
+    from security_review.storage.models import ProjectEnrollment, utcnow
 
     monkeypatch.setattr(access_control.projects, "MAX_PENDING_PROJECTS", 2)
     monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 3)
@@ -743,7 +743,7 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
 def test_an_autojoin_holder_joins_an_existing_project_unless_it_is_blocked(monkeypatch):
     """projects.autojoin joins a known project at once as a reader, never creates one, and
     waits for an approval as the others do on a project whose autojoin is blocked."""
-    from security_review_mcp.reports import services
+    from security_review.reports import services
 
     monkeypatch.setattr(access_control.projects, "MAX_ENROLLMENTS_PER_REQUESTER", 10)
     role = access_control.create_role("Joiner", [Permission.PROJECTS_AUTOJOIN])
@@ -911,6 +911,6 @@ def test_access_changes_are_audited():
 
 def _settings(**values):
     """Settings that ignore the developer's .env file."""
-    from security_review_mcp.config import Settings
+    from security_review.config import Settings
 
     return Settings(_env_file=None, **values)

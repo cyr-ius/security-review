@@ -164,7 +164,7 @@ is still missed: DVWA builds its XSS in one file and prints it from another.
 ## Method
 
 1. Scan the source of the benchmark with the default OpenGrep rules of the language
-   (`opengrep scan --json --taint-intrafile --config src/security_review_mcp/rules/opengrep/<language> <benchmark>`),
+   (`opengrep scan --json --taint-intrafile --config src/security_review/rules/opengrep/<language> <benchmark>`),
    and each test file with the built-in rules (`scanner.scan_content_detailed`).
 2. A test case is **flagged** when a finding on its file has the CWE of its category, or a child
    CWE (338 for 330, 95 for 94, 77 for 78, 80 for 79, 326 for 327, 916 for 328).

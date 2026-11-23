@@ -6,12 +6,12 @@ import pytest
 from conftest import ADMIN_GRANTS, TRIAGER_GRANTS, known_projects, make_user, map_claim
 from sqlmodel import Session, select
 
-from security_review_mcp import cli
-from security_review_mcp.auth import access_control, oidc, web_users
-from security_review_mcp.config import Settings
-from security_review_mcp.http_server import Role
-from security_review_mcp.reports.services import NotFoundError
-from security_review_mcp.storage.models import WebUser
+from security_review import cli
+from security_review.auth import access_control, oidc, web_users
+from security_review.config import Settings
+from security_review.http_server import Role
+from security_review.reports.services import NotFoundError
+from security_review.storage.models import WebUser
 
 PASSWORD = "Correct horse battery 9"
 SECRET = "s" * 40

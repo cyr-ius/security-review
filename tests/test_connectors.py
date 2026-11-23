@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from security_review_mcp.config import Settings
-from security_review_mcp.connectors import (
+from security_review.config import Settings
+from security_review.connectors import (
     ConnectorError,
     connections,
     core,
@@ -22,15 +22,15 @@ from security_review_mcp.connectors import (
     set_target,
     transport,
 )
-from security_review_mcp.connectors.api import (
+from security_review.connectors.api import (
     Connection,
     Connector,
     ConnectorField,
     ExportedFinding,
 )
-from security_review_mcp.observability import audit
-from security_review_mcp.reports import services
-from security_review_mcp.storage.models import ExportState, FindingCreate, Severity
+from security_review.observability import audit
+from security_review.reports import services
+from security_review.storage.models import ExportState, FindingCreate, Severity
 
 JIRA_TOKEN = "jira-test-token-not-real"
 SN_PASSWORD = "servicenow-test-password"

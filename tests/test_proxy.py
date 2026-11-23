@@ -4,8 +4,8 @@ import urllib.request
 
 import pytest
 
-from security_review_mcp import proxy
-from security_review_mcp.config import Settings
+from security_review import proxy
+from security_review.config import Settings
 
 PROXY = "http://alice:s3cr3t@proxy.internal:3128"
 
