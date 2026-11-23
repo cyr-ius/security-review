@@ -521,15 +521,33 @@ def _id_filter(word: str, column: Any) -> ColumnElement[bool] | None:
     return func.upper(col(column)) == name
 
 
+# "author:alice" / "author:ali*": the reports of that author, or of the authors starting so
+_AUTHOR_SEARCH = re.compile(r"author:(\S{1,200}?)(\*?)", re.IGNORECASE)
+
+
+def _author_filter(word: str) -> ColumnElement[bool] | None:
+    """Filter of the word ``author:<name>`` (that author, case-insensitive) or
+    ``author:<prefix>*`` (the authors starting so); None for another word. Only for a caller who
+    may see the authors: the others search the word as text, which tells nothing about them."""
+    found = _AUTHOR_SEARCH.fullmatch(word)
+    if found is None:
+        return None
+    name, wildcard = found.group(1).lower(), found.group(2)
+    if wildcard:
+        escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return func.lower(col(SecurityReport.author)).like(f"{escaped}%", escape="\\")
+    return func.lower(col(SecurityReport.author)) == name
+
+
 def _split_search(
     search: str, to_filter: Callable[[str], ColumnElement[bool] | None]
 ) -> tuple[list[ColumnElement[bool]], str]:
-    """The filters of the ``#…`` words of ``search`` that ``to_filter`` reads (``xss #F12``,
-    ``scan code #GEN-007``) and the rest of the words, searched as text."""
+    """The filters of the words of ``search`` that ``to_filter`` reads (``xss #F12``,
+    ``scan code #GEN-007``, ``author:alice``) and the rest of the words, searched as text."""
     filters: list[ColumnElement[bool]] = []
     words: list[str] = []
     for word in search[:200].split():
-        found = to_filter(word) if word.startswith("#") else None
+        found = to_filter(word)
         if found is None:
             words.append(word)
         else:
@@ -594,9 +612,14 @@ def list_reports(
             statement = statement.where(col(SecurityReport.review_type).in_(types))
         if author:
             statement = statement.where(SecurityReport.author == author)
-        by_number, text = _split_search(
-            search or "", lambda word: _number_filter(word, "R", SecurityReport.id)
-        )
+
+        def report_word(word: str) -> ColumnElement[bool] | None:
+            by_number = _number_filter(word, "R", SecurityReport.id)
+            if by_number is None and with_author:
+                return _author_filter(word)
+            return by_number
+
+        by_number, text = _split_search(search or "", report_word)
         if by_number:
             statement = statement.where(*by_number)
         if text:

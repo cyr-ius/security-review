@@ -38,7 +38,13 @@ from .core import (
     _values,
     compute_risk_level,
 )
-from .persistence import _contains_pattern, _id_filter, _number_filter, _split_search
+from .persistence import (
+    _author_filter,
+    _contains_pattern,
+    _id_filter,
+    _number_filter,
+    _split_search,
+)
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -238,8 +244,9 @@ def list_project_findings(
     and with the text (``scan code #GEN-007``). With ``#F12``, the status is not filtered: a
     link to a finding shows it whatever its status. The text is also searched in the token label
     of the report, and in its author with ``with_author`` (a caller who may see it), as for the
-    reports. ``report_id`` keeps the findings of
-    that report; ``proposed`` keeps the findings carrying a status proposed by an agent.
+    reports; ``author:alice`` (or ``author:ali*``) then keeps the findings of that author.
+    ``report_id`` keeps the findings of that report; ``proposed`` keeps the findings carrying a
+    status proposed by an agent.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
@@ -262,7 +269,14 @@ def list_project_findings(
         filters.append(Finding.report_id == report_id)
     if proposed:
         filters.append(col(Finding.proposed_status).is_not(None))
-    by_id, text = _split_search(search or "", _search_word)
+
+    def search_word(word: str) -> ColumnElement[bool] | None:
+        found = _search_word(word)
+        if found is None and with_author:
+            return _author_filter(word)
+        return found
+
+    by_id, text = _split_search(search or "", search_word)
     filters.extend(by_id)
     if text:
         pattern = _contains_pattern(text)

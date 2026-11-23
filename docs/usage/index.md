@@ -40,6 +40,7 @@ A page is missing? You do not hold its permission: ask an administrator (see
     | `#report:text`, `xss #F*` | Search only the reports, or only the findings |
     | `#R*`, `#F*`, `*` (or `#report:*`, `#finding:*`) | List every report, every finding, or offer both |
     | `sql project:shop` | Only in project `shop` |
+    | `author:alice`, `xss author:ali*` | Only the reports and findings of that author, or of the authors starting with `ali` (for a manager of the users or tokens; for anyone else, searched as text) |
     | `severity:high,critical` (or `sev:`) | Only these severities (risk level of the reports) |
     | `status:accepted` | Findings with this status (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) instead of every status (without it, the search finds the findings whatever their status) |
     | `rule:PY-004`, `cwe:89` | Searched as text |

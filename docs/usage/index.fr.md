@@ -42,6 +42,7 @@ Une page manque ? Vous n'avez pas sa permission : demandez-la à un administrate
     | `#report:texte`, `xss #F*` | Rechercher uniquement dans les rapports, ou dans les findings |
     | `#R*`, `#F*`, `*` (ou `#report:*`, `#finding:*`) | Lister tous les rapports, tous les findings, ou proposer les deux |
     | `sql project:shop` | Uniquement dans le projet `shop` |
+    | `author:alice`, `xss author:ali*` | Uniquement les rapports et findings de cet auteur, ou des auteurs commençant par `ali` (pour qui gère les utilisateurs ou les jetons ; pour les autres, recherché comme du texte) |
     | `severity:high,critical` (ou `sev:`) | Uniquement ces sévérités (niveau de risque des rapports) |
     | `status:accepted` | Les findings de ce statut (`open`, `unread`, `fixed`, `accepted`, `false_positive`, `acknowledged`) au lieu de tous (sans lui, la recherche trouve les findings quel que soit leur statut) |
     | `rule:PY-004`, `cwe:89` | Recherchés comme du texte |

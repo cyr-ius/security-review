@@ -48,7 +48,8 @@ export const layout = defineMessages({
     'layout.searchHelpRule': 'rule, checklist item or findings of this id',
     'layout.searchHelpPrefix': 'starting with 1 or AI; #F* and #R*: everything',
     'layout.searchHelpCombine': 'words within a report, a rule (#GEN-007) or a finding',
-    'layout.searchHelpFilters': 'filters: project, severity (several separated by commas)',
+    'layout.searchHelpFilters':
+      'filters: project, severity (several separated by commas), author:alice',
     'layout.searchHelpStatus': 'status of the findings: open, fixed, accepted, false_positive…',
     'layout.searchFindings': 'Search the findings for “{text}”',
     'layout.searchRules': 'Search the rules for “{text}”',
@@ -116,7 +117,8 @@ export const layout = defineMessages({
     'layout.searchHelpRule': "la règle, l'élément de checklist ou les findings de cet identifiant",
     'layout.searchHelpPrefix': 'ce qui commence par 1 ou AI ; #F* et #R* : tout',
     'layout.searchHelpCombine': 'des mots dans un rapport, une règle (#GEN-007) ou un finding',
-    'layout.searchHelpFilters': 'filtres : projet, sévérité (plusieurs séparées par des virgules)',
+    'layout.searchHelpFilters':
+      'filtres : projet, sévérité (plusieurs séparées par des virgules), author:alice',
     'layout.searchHelpStatus': 'statut des findings : open, fixed, accepted, false_positive…',
     'layout.searchFindings': 'Rechercher « {text} » dans les findings',
     'layout.searchRules': 'Rechercher « {text} » dans les règles',
@@ -186,7 +188,8 @@ export const layout = defineMessages({
       'regla, elemento de lista de control o hallazgos de este identificador',
     'layout.searchHelpPrefix': 'lo que empieza por 1 o AI; #F* y #R*: todo',
     'layout.searchHelpCombine': 'palabras en un informe, una regla (#GEN-007) o un hallazgo',
-    'layout.searchHelpFilters': 'filtros: proyecto, severidad (varias separadas por comas)',
+    'layout.searchHelpFilters':
+      'filtros: proyecto, severidad (varias separadas por comas), author:alice',
     'layout.searchHelpStatus': 'estado de los hallazgos: open, fixed, accepted, false_positive…',
     'layout.searchFindings': 'Buscar «{text}» en los hallazgos',
     'layout.searchRules': 'Buscar «{text}» en las reglas',

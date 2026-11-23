@@ -70,6 +70,9 @@ function expand(word: string): string {
   return `#${short[1].toUpperCase() === 'R' ? 'report' : 'finding'}:${short[2]}`;
 }
 
+/** ``author:alice`` / ``author:ali*``: the reports and findings of that author (server side). */
+const AUTHOR = /^author:\S+$/i;
+
 /** ``#F1*`` / ``#R2*``: the findings or the reports whose number starts with 1 or 2. */
 const NUMBER_PREFIX = /^#([RF])\d{1,15}\*$/i;
 
@@ -125,6 +128,12 @@ function parse(raw: string): ParsedSearch {
       // "scan code #GEN-007", "xss #F12": the server reads the word, with the text
       words.push(typed.toUpperCase());
       findingsOnly = true;
+      plain = false;
+      continue;
+    }
+    if (AUTHOR.test(typed)) {
+      // "author:alice": a filter of the reports and the findings, read by the server
+      words.push(typed);
       plain = false;
       continue;
     }
