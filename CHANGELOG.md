@@ -1,5 +1,35 @@
 # Changelog
 
+## [14.0.0](https://github.com/cyr-ius/security-review/compare/v13.2.0...v14.0.0) (2026-11-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* le module Python s'appelle security_review (imports, python -m security_review...), le groupe d'entry points des connecteurs tiers devient security_review.connectors et les loggers security_review.*.
+
+### Features
+
+* auditer le changement des écosystèmes OSV ([aa7849a](https://github.com/cyr-ius/security-review/commit/aa7849a6d0f8e51a7f264b751f5c0a5d5470fcfa))
+
+
+### Bug Fixes
+
+* analyser le YAML des règles OpenGrep proposées ([0478b09](https://github.com/cyr-ius/security-review/commit/0478b09f12b5a34045c5a43c2c41a2e3834b13b1))
+* invalider le ticket de scan avec son grant OAuth ([ba7b073](https://github.com/cyr-ius/security-review/commit/ba7b07313cccd0a527677dad1dfbc90492211930))
+* refuser les caractères de contrôle dans les libellés de jeton et les identifiants de règles ([c90445e](https://github.com/cyr-ius/security-review/commit/c90445e2d28adfbe7af8ea072e0bb3027b0a28c6))
+* refuser par défaut les permissions protégées dans les services d'accès ([f85eded](https://github.com/cyr-ius/security-review/commit/f85eded391f9110b5b47c8493a17d24a8020dd28))
+
+
+### Documentation
+
+* exclure les définitions de règles des scans complets ([3ce02c4](https://github.com/cyr-ius/security-review/commit/3ce02c441c716ce1c6248c4fcb2fd3f12205b163))
+* fixer les délais de correction des avis sur les dépendances ([7da7bfe](https://github.com/cyr-ius/security-review/commit/7da7bfe172ec61e12da9eb9c4e0b5b153157fd93))
+
+
+### Code Refactoring
+
+* renommer le paquet security_review_mcp en security_review ([5ddb2bd](https://github.com/cyr-ius/security-review/commit/5ddb2bd48f5453455c1a7a7db57544261b892a95))
+
 ## [13.2.0](https://github.com/cyr-ius/security-review/compare/v13.1.0...v13.2.0) (2026-11-23)
 
 
