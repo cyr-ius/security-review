@@ -63,6 +63,12 @@ rapport enregistré avec `save_security_report` (projet `security-review-mcp`). 
 `propose_finding_status`, qu'une personne valide dans l'interface web. La procédure complète
 est dans `AGENTS.md`.
 
+Un avis public sur une dépendance est corrigé et publié sous 7 jours s'il est `critical` et
+sous 30 jours s'il est `high`, sinon dans la prochaine version courante. Si ce n'est pas
+possible, une personne accepte le risque dans l'interface web, avec un motif et une date
+d'expiration courte ; une fois celle-ci passée, le finding bloque le gate et aucune version
+n'est publiée. La politique est dans `SECURITY.md`.
+
 Le hook `scan-deps` lance le `security-review-ci` du serveur Controller désigné par
 `SECREVIEW_CONTROLLER_URL` ([client du serveur Controller](../advanced/commit-hooks.md)), et est
 sauté tant qu'elle n'est pas définie. Avec un jeton `ci` personnel dans
