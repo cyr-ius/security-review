@@ -589,7 +589,11 @@ def _filter_of_word(word: str, severity_column: Any) -> ColumnElement[bool] | No
                 prefix = value[:-1].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                 matches.append(col(SecurityReport.project).like(f"{prefix}%", escape="\\"))
             else:
-                matches.append(col(SecurityReport.project) == normalize_project(value))
+                try:
+                    name = normalize_project(value)
+                except ValueError:
+                    return None  # not a project name ("project:.."): searched as text
+                matches.append(col(SecurityReport.project) == name)
         return or_(*matches)
     return None
 

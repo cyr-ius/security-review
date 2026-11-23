@@ -199,6 +199,7 @@ def test_list_reports_filters_and_counts():
     assert services.list_reports(search=f"report b #R{first_id}") == []
     assert [r["project"] for r in services.list_reports(search="sev:critical")] == ["a"]
     assert [r["project"] for r in services.list_reports(search="project:b")] == ["b"]
+    assert services.list_reports(search="project:..") == []
 
 
 def test_search_by_date_of_the_report():
@@ -329,6 +330,8 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     accepted = services.list_project_findings("shop", search="status:accepted")  # replaces "open"
     assert [f["id"] for f in accepted["findings"]] == [low.id]
     assert services.list_project_findings("shop", search="sev:urgent")["total"] == 0  # text
+    # Not a project name: searched as text, not an error
+    assert services.list_project_findings(None, search="project:..")["total"] == 0
     # Words and "#…" combine: the text in the findings of that rule, that number...
     assert services.list_project_findings("shop", search="rce #PY-004")["total"] == 1
     assert services.list_project_findings("shop", search="weak #PY-004")["total"] == 0
