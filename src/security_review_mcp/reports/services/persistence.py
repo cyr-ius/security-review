@@ -5,7 +5,7 @@ import logging
 import re
 from collections import Counter
 from collections.abc import Callable, Collection
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -594,6 +594,38 @@ def _filter_of_word(word: str, severity_column: Any) -> ColumnElement[bool] | No
     return None
 
 
+# "date:2026-11-22", "date:2026-11", "date:2026" (that day, month or year, UTC) and the bounds
+# "date:>…", "date:>=…", "date:<…", "date:<=…": the date of the report (of a finding: its report)
+_DATE_WORD = re.compile(r"date:(>=|<=|>|<)?(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?", re.IGNORECASE)
+
+
+def _date_filter(word: str, column: Any) -> ColumnElement[bool] | None:
+    """Filter of a word ``date:`` on ``column``; None for another word or an invalid date."""
+    found = _DATE_WORD.fullmatch(word)
+    if found is None:
+        return None
+    operator, year, month, day = found.groups()
+    try:
+        start = datetime(int(year), int(month or 1), int(day or 1), tzinfo=UTC)
+        if day:
+            end = start + timedelta(days=1)
+        elif month:
+            end = start.replace(year=start.year + start.month // 12, month=start.month % 12 + 1)
+        else:
+            end = start.replace(year=start.year + 1)
+    except ValueError:
+        return None
+    if operator == ">":
+        return col(column) >= end
+    if operator == ">=":
+        return col(column) >= start
+    if operator == "<":
+        return col(column) < start
+    if operator == "<=":
+        return col(column) < end
+    return and_(col(column) >= start, col(column) < end)
+
+
 def _split_search(
     search: str, to_filter: Callable[[str], ColumnElement[bool] | None]
 ) -> tuple[list[ColumnElement[bool]], str]:
@@ -674,6 +706,8 @@ def list_reports(
                 by_number = _author_filter(word)
             if by_number is None:
                 by_number = _filter_of_word(word, SecurityReport.risk_level)
+            if by_number is None:
+                by_number = _date_filter(word, SecurityReport.created_at)
             return by_number
 
         by_number, text = _split_search(search or "", report_word)

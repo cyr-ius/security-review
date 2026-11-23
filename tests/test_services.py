@@ -201,6 +201,32 @@ def test_list_reports_filters_and_counts():
     assert [r["project"] for r in services.list_reports(search="project:b")] == ["b"]
 
 
+def test_search_by_date_of_the_report():
+    # Two issues: the same one reported again would only be listed once (the latest)
+    old = services.save_report("dated", "old", [make_finding(title="Old issue")])
+    services.save_report("dated", "new", [make_finding(title="New issue")])
+    with session_scope() as session:
+        report = session.get(SecurityReport, old["report_id"])
+        report.created_at = datetime(2025, 12, 31, 23, 0, tzinfo=UTC)
+        session.add(report)
+
+    def summaries(search: str) -> list[str]:
+        return [r["summary"] for r in services.list_reports(project="dated", search=search)]
+
+    # A day, a month (December closes at the new year), a year, and the bounds
+    assert summaries("date:2025-12-31") == ["old"]
+    assert summaries("date:2025-12") == ["old"]
+    assert summaries(f"date:{datetime.now(UTC).year}") == ["new"]
+    assert summaries("date:>2025-12") == ["new"]
+    assert summaries("date:>=2025-12-31") == ["new", "old"]
+    assert summaries("date:<2026") == ["old"]
+    assert summaries("date:<=2025-12") == ["old"]
+    assert summaries("date:2025-13") == []  # invalid: searched as text
+    # The findings follow the date of their report
+    dated = services.list_project_findings("dated", search="date:2025")
+    assert [f["report_id"] for f in dated["findings"]] == [old["report_id"]]
+
+
 def test_update_finding_status_and_posture(triage):
     saved = services.save_report(
         "shop", "summary", [make_finding(Severity.CRITICAL), make_finding(Severity.LOW)]

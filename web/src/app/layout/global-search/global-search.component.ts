@@ -72,6 +72,7 @@ const SYNTAX: readonly { example: string; label: MessageKey }[] = [
   { example: 'xss #R12', label: 'layout.searchHelpCombine' },
   { example: 'project:shop sev:high', label: 'layout.searchHelpFilters' },
   { example: 'status:accepted', label: 'layout.searchHelpStatus' },
+  { example: 'date:>=2026-11-01', label: 'layout.searchHelpDate' },
 ];
 
 /**

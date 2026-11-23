@@ -41,6 +41,7 @@ from .core import (
 from .persistence import (
     _author_filter,
     _contains_pattern,
+    _date_filter,
     _filter_of_word,
     _filter_word,
     _id_filter,
@@ -249,7 +250,8 @@ def list_project_findings(
     of the report, and in its author with ``with_author`` (a caller who may see it), as for the
     reports; ``author:alice`` (or ``author:ali*``) then keeps the findings of that author.
     ``project:shop``, ``sev:high,critical`` and ``status:accepted`` typed in ``search`` filter
-    too, the typed statuses replacing ``status``.
+    too, the typed statuses replacing ``status``; ``date:2026-11``, ``date:>=2026-11-01`` keep
+    the findings of the reports of that period (UTC).
     ``report_id`` keeps the findings of that report; ``proposed`` keeps the findings carrying a
     status proposed by an agent.
     """
@@ -282,6 +284,8 @@ def list_project_findings(
             found = _author_filter(word)
         if found is None:
             found = _filter_of_word(word, Finding.severity)
+        if found is None:
+            found = _date_filter(word, SecurityReport.created_at)
         if found is None and (typed := _filter_word(word)) and typed[0] == "status":
             # Applied above as the status filter, when its values are known
             found = true() if _typed_statuses(word) else None

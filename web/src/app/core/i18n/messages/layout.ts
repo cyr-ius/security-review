@@ -51,6 +51,7 @@ export const layout = defineMessages({
     'layout.searchHelpFilters':
       'filters: project, severity (several separated by commas), author:alice',
     'layout.searchHelpStatus': 'status of the findings: open, fixed, accepted, false_positive…',
+    'layout.searchHelpDate': 'date of the report: day, month (2026-11) or year, with >, >=, <, <=',
     'layout.searchFindings': 'Search the findings for “{text}”',
     'layout.searchRules': 'Search the rules for “{text}”',
     'layout.searchChecklists': 'Search the checklists for “{text}”',
@@ -120,6 +121,7 @@ export const layout = defineMessages({
     'layout.searchHelpFilters':
       'filtres : projet, sévérité (plusieurs séparées par des virgules), author:alice',
     'layout.searchHelpStatus': 'statut des findings : open, fixed, accepted, false_positive…',
+    'layout.searchHelpDate': 'date du rapport : jour, mois (2026-11) ou année, avec >, >=, <, <=',
     'layout.searchFindings': 'Rechercher « {text} » dans les findings',
     'layout.searchRules': 'Rechercher « {text} » dans les règles',
     'layout.searchChecklists': 'Rechercher « {text} » dans les checklists',
@@ -191,6 +193,7 @@ export const layout = defineMessages({
     'layout.searchHelpFilters':
       'filtros: proyecto, severidad (varias separadas por comas), author:alice',
     'layout.searchHelpStatus': 'estado de los hallazgos: open, fixed, accepted, false_positive…',
+    'layout.searchHelpDate': 'fecha del informe: día, mes (2026-11) o año, con >, >=, <, <=',
     'layout.searchFindings': 'Buscar «{text}» en los hallazgos',
     'layout.searchRules': 'Buscar «{text}» en las reglas',
     'layout.searchChecklists': 'Buscar «{text}» en las listas de control',
