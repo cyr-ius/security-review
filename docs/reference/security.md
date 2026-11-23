@@ -74,7 +74,9 @@
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-log.md)).
 - **Application logs**: each message stays on one line, its line breaks written as escapes
   (`\n`, `\r`...): a value sent by a client, such as a token label or a user name, cannot forge
-  a log entry. Only a traceback keeps its lines.
+  a log entry. Only a traceback keeps its lines. A token label, written in every log line of
+  the token, is refused when it holds a control character (escape sequence, invisible
+  character).
 - **Metrics**: `/metrics` exists on the Controller server only (the MCP server keeps `/mcp`
   and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token

@@ -111,6 +111,8 @@ def test_without_pack_there_is_no_company_section():
         ('id = "A-1"\ntitle = "t"\nseverity = "low"', "missing pattern"),
         (f'id = "A-1"\ntitle = "{"t" * 301}"\nseverity = "low"\npattern = "x"', "longer than"),
         (f'id = "A-{"1" * 60}"\ntitle = "t"\nseverity = "low"\npattern = "x"', "invalid id"),
+        # `$` alone would accept a final line break
+        ('id = "A-1\\n"\ntitle = "t"\nseverity = "low"\npattern = "x"', "invalid id"),
     ],
 )
 def test_invalid_rules_are_reported(entry, fragment):
@@ -123,6 +125,8 @@ def test_checklist_domain_accepts_only_the_star_as_a_symbol():
     item = 'id = "A-1"\ntitle = "t"\nwhat_to_look_for = "w"'
     assert "*" in parse_pack(f'[[checklist]]\ndomain = "*"\n{item}\n', "p.toml").checklist
     result = parse_pack(f'[[checklist]]\ndomain = "py*"\n{item}\n', "p.toml")
+    assert result.checklist == {} and "invalid domain" in result.errors[0]
+    result = parse_pack(f'[[checklist]]\ndomain = "python\\n"\n{item}\n', "p.toml")
     assert result.checklist == {} and "invalid domain" in result.errors[0]
 
 

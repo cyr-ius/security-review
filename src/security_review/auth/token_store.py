@@ -489,14 +489,18 @@ def _delete_token(session: Session, row: ApiToken) -> None:
 
 
 def _clean_label(label: str) -> str:
-    """Strip a token label and check its length.
+    """Strip a token label and check its length and characters.
 
     ``:`` is refused: it separates the user from the label of a personal token
     (``<username>:<label>``), so that no other token passes for one in the logs and the audit.
+    A control character is refused too: the label is written in every log line of the token,
+    where an escape sequence would hide or rewrite what a terminal shows.
     """
     label = label.strip()
     if not 1 <= len(label) <= MAX_LABEL_CHARS:
         raise ValueError(f"Token label must contain between 1 and {MAX_LABEL_CHARS} characters")
+    if not label.isprintable():
+        raise ValueError("Token label must contain only printable characters")
     if ":" in label:
         raise ValueError("Token label must not contain ':' (it names the user of a personal token)")
     return label

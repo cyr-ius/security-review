@@ -44,9 +44,9 @@ MAX_PATTERN_CHARS = 500
 MAX_ID_CHARS = 50
 MAX_TITLE_CHARS = 300
 MAX_TEXT_CHARS = 5000
-_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$")
-_CWE_RE = re.compile(r"^CWE-\d+$")
-_DOMAIN_RE = re.compile(r"^[a-z][a-z0-9_-]{0,30}$")
+_ID_RE = re.compile(r"[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+")
+_CWE_RE = re.compile(r"CWE-\d+")
+_DOMAIN_RE = re.compile(r"[a-z][a-z0-9_-]{0,30}")
 # Checklist domain of the items that apply to every language (like ``languages = ["*"]``)
 ALL_LANGUAGES_DOMAIN = "*"
 # Heuristic for catastrophic backtracking: a quantified group that itself contains a quantifier
@@ -65,7 +65,7 @@ class LoadResult:
 
 def validate_id(value: str) -> str:
     """Return a rule or checklist item id, or raise ValueError when it is malformed."""
-    if len(value) > MAX_ID_CHARS or not _ID_RE.match(value):
+    if len(value) > MAX_ID_CHARS or not _ID_RE.fullmatch(value):
         raise ValueError(f"invalid id '{value[:MAX_ID_CHARS]}' (expected e.g. ACME-001)")
     return value
 
@@ -73,7 +73,7 @@ def validate_id(value: str) -> str:
 def _cwe(entry: dict) -> str:
     """Return the normalized optional CWE of an entry."""
     cwe = str(entry.get("cwe", "")).strip().upper()
-    if cwe and not _CWE_RE.match(cwe):
+    if cwe and not _CWE_RE.fullmatch(cwe):
         raise ValueError(f"invalid cwe '{cwe[:20]}' (expected CWE-123)")
     return cwe
 
@@ -139,7 +139,7 @@ def parse_rule(entry: dict) -> Rule:
 def parse_check_item(entry: dict) -> tuple[str, CheckItem]:
     """Validate one checklist entry and return ``(domain, item)``."""
     domain = str(entry.get("domain", "")).lower()
-    if domain != ALL_LANGUAGES_DOMAIN and not _DOMAIN_RE.match(domain):
+    if domain != ALL_LANGUAGES_DOMAIN and not _DOMAIN_RE.fullmatch(domain):
         raise ValueError(
             f"invalid domain '{domain[:31]}' (\"*\", or lowercase letters, digits, - and _)"
         )

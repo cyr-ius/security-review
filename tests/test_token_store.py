@@ -568,3 +568,10 @@ def test_only_a_personal_token_has_a_colon_in_its_label():
         token_store.create_token("alice:swagger", Role.MCP)
     with pytest.raises(ValueError, match="must not contain ':'"):
         token_store.create_project_token("alice:swagger", None, Role.MCP)
+
+
+@pytest.mark.parametrize("label", ["ci\x1b[2J", "ci\nfake", "ci\u202eevil"])
+def test_a_token_label_has_only_printable_characters(label):
+    """The label is in every log line of the token: no escape sequence or line break."""
+    with pytest.raises(ValueError, match="only printable characters"):
+        token_store.create_token(label, Role.MCP)
