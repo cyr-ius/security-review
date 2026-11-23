@@ -158,7 +158,7 @@ add a link nor, in GitLab, run a quick action. The link to the report is the onl
 ## Third-party connectors
 
 A connector published by a Python package (entry point of the group
-`security_review_mcp.connectors`) is installed next to the Controller server, then **allowed** by its
+`security_review.connectors`) is installed next to the Controller server, then **allowed** by its
 entry point name: installing a package is not enough.
 
 ```bash

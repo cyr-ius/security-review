@@ -2,9 +2,9 @@
 
 import pytest
 
-from security_review_mcp import prompts
-from security_review_mcp.rules import registry, rule_store
-from security_review_mcp.rules.rules_loader import default_content, parse_pack
+from security_review import prompts
+from security_review.rules import registry, rule_store
+from security_review.rules.rules_loader import default_content, parse_pack
 
 VALID_PACK = """
 disabled_rules = ["PY-008"]
@@ -111,6 +111,8 @@ def test_without_pack_there_is_no_company_section():
         ('id = "A-1"\ntitle = "t"\nseverity = "low"', "missing pattern"),
         (f'id = "A-1"\ntitle = "{"t" * 301}"\nseverity = "low"\npattern = "x"', "longer than"),
         (f'id = "A-{"1" * 60}"\ntitle = "t"\nseverity = "low"\npattern = "x"', "invalid id"),
+        # `$` alone would accept a final line break
+        ('id = "A-1\\n"\ntitle = "t"\nseverity = "low"\npattern = "x"', "invalid id"),
     ],
 )
 def test_invalid_rules_are_reported(entry, fragment):
@@ -123,6 +125,8 @@ def test_checklist_domain_accepts_only_the_star_as_a_symbol():
     item = 'id = "A-1"\ntitle = "t"\nwhat_to_look_for = "w"'
     assert "*" in parse_pack(f'[[checklist]]\ndomain = "*"\n{item}\n', "p.toml").checklist
     result = parse_pack(f'[[checklist]]\ndomain = "py*"\n{item}\n', "p.toml")
+    assert result.checklist == {} and "invalid domain" in result.errors[0]
+    result = parse_pack(f'[[checklist]]\ndomain = "python\\n"\n{item}\n', "p.toml")
     assert result.checklist == {} and "invalid domain" in result.errors[0]
 
 
@@ -149,7 +153,7 @@ def test_unreadable_database_falls_back_to_the_default_rules(database):
 def test_unseeded_database_falls_back_to_the_default_rules(database):
     from sqlmodel import Session, delete
 
-    from security_review_mcp.storage.models import CustomCheckItem, CustomRule, DefaultSeed
+    from security_review.storage.models import CustomCheckItem, CustomRule, DefaultSeed
 
     with Session(database) as session:  # tables created, defaults never seeded
         for model in (CustomRule, CustomCheckItem, DefaultSeed):

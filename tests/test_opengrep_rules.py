@@ -8,8 +8,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from security_review_mcp import cli
-from security_review_mcp.rules import opengrep_rule_store
+from security_review import cli
+from security_review.rules import opengrep_rule_store
 
 CASES_DIR = Path(__file__).parent / "opengrep_rules"
 

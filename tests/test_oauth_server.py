@@ -10,13 +10,13 @@ from conftest import make_user
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import app_settings, http_server, web_api
-from security_review_mcp.auth import oauth_server, oidc, token_store, web_users
-from security_review_mcp.config import Settings, check_mcp_url, get_settings
-from security_review_mcp.http_server import Role, hash_token
-from security_review_mcp.observability import audit
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import OAuthGrant, as_utc
+from security_review import app_settings, http_server, web_api
+from security_review.auth import oauth_server, oidc, token_store, web_users
+from security_review.config import Settings, check_mcp_url, get_settings
+from security_review.http_server import Role, hash_token
+from security_review.observability import audit
+from security_review.storage.database import session_scope
+from security_review.storage.models import OAuthGrant, as_utc
 
 CONTROLLER = "http://127.0.0.1"
 MCP_URL = "http://127.0.0.1:8000/mcp"
@@ -432,3 +432,30 @@ def test_a_tokens_manager_lists_revokes_and_deletes_every_client(controller):
     assert controller.delete(f"/api/v1/oauth/clients/{client_id}", headers=admin).status_code == 204
     assert token_store.DatabaseTokenStore().lookup(hash_token(access)) is None
     assert controller.get("/api/v1/oauth/clients", headers=admin).json()["clients"] == []
+
+
+def test_a_scan_ticket_follows_the_oauth_grant_that_asked_for_it(controller, monkeypatch):
+    make_user("rev", PASSWORD, "reviewer", ["shop"])
+    login = controller.post("/api/v1/auth/login", json={"username": "rev", "password": PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['session']}"}
+    access = log_in(controller, register(controller).json()["client_id"], headers)
+    bearer = {"Authorization": f"Bearer {access}"}
+    tickets = []
+    for _ in range(2):
+        issued = controller.post("/api/v1/scan/tickets", json={"project": "shop"}, headers=bearer)
+        assert issued.status_code == 201, issued.text
+        tickets.append(hash_token(issued.json()["ticket"]))
+    store = token_store.DatabaseTokenStore()
+    assert store.lookup(tickets[0]) is not None
+
+    # The OAuth login turned off suspends the tickets of its grants, as their tokens
+    monkeypatch.setattr(get_settings(), "mcp_oauth_enabled", False)
+    app_settings.sync_mcp_oauth(get_settings())
+    assert store.lookup(tickets[0]) is None
+    monkeypatch.setattr(get_settings(), "mcp_oauth_enabled", True)
+    app_settings.sync_mcp_oauth(get_settings())
+    assert store.lookup(tickets[0]) is not None
+    # Revoking the grant invalidates the tickets it asked for
+    grant = controller.get("/api/v1/me/oauth-grants", headers=headers).json()[0]["id"]
+    assert controller.delete(f"/api/v1/me/oauth-grants/{grant}", headers=headers).status_code == 204
+    assert [store.lookup(digest) for digest in tickets] == [None, None]

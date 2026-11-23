@@ -19,6 +19,7 @@ dependencies = [
     "tomlkit>=0.13",
     "alembic>=1.13",
     "pyjwt[crypto]>=2.15.1",
+    "pyyaml>=6.0.2",
 ]
 
 [project.urls]
@@ -37,16 +38,16 @@ docs = [
 ]
 
 [project.scripts]
-security-review-mcp = "security_review_mcp.server:main"
-security-review-controller = "security_review_mcp.controller:main"
-security-review-ci = "security_review_mcp.ci_client:main"
-security-review-scan-engine = "security_review_mcp.engines.worker:main"
+security-review-mcp = "security_review.server:main"
+security-review-controller = "security_review.controller:main"
+security-review-ci = "security_review.ci_client:main"
+security-review-scan-engine = "security_review.engines.worker:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-security_review_mcp = ["rules/default_rules.toml", "rules/opengrep/*/*.yaml", "favicon.svg", "storage/migrations/script.py.mako", "webui/*", "webui/**/*"]
+security_review = ["rules/default_rules.toml", "rules/opengrep/*/*.yaml", "favicon.svg", "storage/migrations/script.py.mako", "webui/*", "webui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

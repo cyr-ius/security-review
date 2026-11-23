@@ -13,12 +13,12 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import app_settings, cli, http_server, server
-from security_review_mcp.auth import access_control, token_store, web_users
-from security_review_mcp.config import Settings, default_database_url, get_settings
-from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
-from security_review_mcp.storage import database
-from security_review_mcp.storage.models import ApiToken
+from security_review import app_settings, cli, http_server, server
+from security_review.auth import access_control, token_store, web_users
+from security_review.config import Settings, default_database_url, get_settings
+from security_review.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
+from security_review.storage import database
+from security_review.storage.models import ApiToken
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -706,7 +706,7 @@ def test_serve_warns_about_an_unsafe_exposure(
     if has_token:
         token_store.create_token("ci", Role.MCP)
 
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
+    with caplog.at_level("WARNING", logger="security_review"):
         http_server.serve(Starlette(), host, 8000, STORE, tls, allow_open=allow_open)
 
     assert len(captured_run) == 1
@@ -717,7 +717,7 @@ def test_serve_warns_about_an_unsafe_exposure(
 
 @pytest.mark.parametrize("forwarded_allow_ips", [None, "*"])
 def test_serve_trusted_proxies(caplog, captured_run, forwarded_allow_ips):
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
+    with caplog.at_level("WARNING", logger="security_review"):
         http_server.serve(
             Starlette(), "0.0.0.0", 8000, STORE, None, forwarded_allow_ips=forwarded_allow_ips
         )

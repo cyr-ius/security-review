@@ -9,10 +9,10 @@ from conftest import ADMIN_GRANTS
 from sqlalchemy import inspect
 from sqlmodel import SQLModel, StaticPool, create_engine
 
-from security_review_mcp import config
-from security_review_mcp.auth import web_users
-from security_review_mcp.rules import rule_store
-from security_review_mcp.storage import database
+from security_review import config
+from security_review.auth import web_users
+from security_review.rules import rule_store
+from security_review.storage import database
 
 
 @pytest.fixture
@@ -460,7 +460,7 @@ def test_old_dismissals_expire_after_a_grace_period(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.reports import services
+    from security_review.reports import services
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0009")
@@ -599,7 +599,7 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.observability import audit
+    from security_review.observability import audit
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0020")
@@ -660,7 +660,7 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
 
 
 def test_a_new_database_gets_only_the_built_in_roles(empty_engine):
-    from security_review_mcp.auth import access_control
+    from security_review.auth import access_control
 
     database.upgrade_db()
 
@@ -844,7 +844,7 @@ def test_stored_findings_get_their_occurrences(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.reports import services
+    from security_review.reports import services
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0030")
@@ -886,7 +886,7 @@ def test_the_dependency_findings_of_a_review_and_a_scan_are_merged(empty_engine)
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.reports import services
+    from security_review.reports import services
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0040")
@@ -1054,8 +1054,8 @@ def test_the_groups_become_roles_of_the_users_without_changing_their_rights(empt
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp.auth import access_control
-    from security_review_mcp.observability import audit
+    from security_review.auth import access_control
+    from security_review.observability import audit
 
     with empty_engine.begin() as connection:
         config = database.alembic_config(connection)

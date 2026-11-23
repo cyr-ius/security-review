@@ -10,20 +10,20 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import __version__, app_settings, server
-from security_review_mcp.auth import access_control, token_store
-from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.observability import audit
-from security_review_mcp.prompts import fenced, fix_severity_block
-from security_review_mcp.reports import services
-from security_review_mcp.server import (
+from security_review import __version__, app_settings, server
+from security_review.auth import access_control, token_store
+from security_review.config import Settings, get_settings
+from security_review.observability import audit
+from security_review.prompts import fenced, fix_severity_block
+from security_review.reports import services
+from security_review.server import (
     EnrollmentWebUrl,
     enrollment_mcp,
     mcp,
     set_enrollment_web_url,
 )
-from security_review_mcp.storage import server_instances
-from security_review_mcp.storage.models import (
+from security_review.storage import server_instances
+from security_review.storage.models import (
     FindingCreate,
     FindingStatus,
     ReviewType,
@@ -282,8 +282,8 @@ async def test_save_report_checks_and_stores_the_review_coverage():
             "OPENGREP:acme.python.ghost",
         ],
     }
-    from security_review_mcp.storage.database import session_scope
-    from security_review_mcp.storage.models import OpenGrepRule
+    from security_review.storage.database import session_scope
+    from security_review.storage.models import OpenGrepRule
 
     with session_scope() as session:
         session.add(OpenGrepRule(id="acme.python.Demo-rule", content="rules: []", digest="0" * 64))
@@ -933,8 +933,8 @@ def http_app():
     """The HTTP app (MCP endpoint only) with its lifespan running."""
     from starlette.testclient import TestClient
 
-    from security_review_mcp import http_server
-    from security_review_mcp.auth import token_store
+    from security_review import http_server
+    from security_review.auth import token_store
 
     app = http_server.build_mcp_app(mcp, "127.0.0.1", token_store.DatabaseTokenStore())
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
@@ -947,8 +947,8 @@ def enrolling_app():
     address of the web interface is known."""
     from starlette.testclient import TestClient
 
-    from security_review_mcp import http_server
-    from security_review_mcp.auth import token_store
+    from security_review import http_server
+    from security_review.auth import token_store
 
     token_store.create_token("ops", "admin")
     app = http_server.build_mcp_app(
@@ -977,7 +977,7 @@ def finding_id_of(report: dict) -> int:
 
 
 def test_project_token_cannot_reach_other_projects(http_app, two_projects):
-    from security_review_mcp.auth import token_store
+    from security_review.auth import token_store
 
     token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
     shop, billing = two_projects["shop-api"], two_projects["billing"]
@@ -1044,7 +1044,7 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
 
 
 def test_unrestricted_token_reaches_every_project(http_app, two_projects):
-    from security_review_mcp.auth import token_store
+    from security_review.auth import token_store
 
     client = McpOverHttp(http_app, token_store.create_token("ci", "mcp")["token"])
 
@@ -1075,7 +1075,7 @@ def test_a_personal_token_writes_only_where_its_user_holds_reports_write(http_ap
     its token: reports.write is needed, not reports.read."""
     from conftest import make_user
 
-    from security_review_mcp.storage.database import session_scope
+    from security_review.storage.database import session_scope
 
     user = make_user("bob", "Correct horse battery 9", "reader", ["shop-api"])
     reader = McpOverHttp(
@@ -1107,7 +1107,7 @@ def test_a_personal_token_writes_only_where_its_user_holds_reports_write(http_ap
 def personal_token(username: str, permissions: list[str] | None = None) -> str:
     """A personal mcp token of a new web user that holds ``permissions``: those on the whole
     controller by a role, the per-project ones on every project."""
-    from security_review_mcp.auth import web_users
+    from security_review.auth import web_users
 
     site = [name for name in permissions or [] if name not in access_control.SCOPED_PERMISSIONS]
     scoped = [name for name in permissions or [] if name in access_control.SCOPED_PERMISSIONS]
@@ -1282,7 +1282,7 @@ def test_wrong_token_is_rejected_without_enrollment(http_app):
 
 def seed_standards():
     """Store two development standards, one of them disabled."""
-    from security_review_mcp import standards
+    from security_review import standards
 
     standards.create_standard(
         {
@@ -1377,27 +1377,27 @@ async def test_development_standards_prompt():
 
 # Modules of the controller that open outgoing connections or serve its web routes
 CONTROLLER_MODULES = (
-    "security_review_mcp.controller",
-    "security_review_mcp.deps.advisory_sync",
-    "security_review_mcp.auth.oidc",
-    "security_review_mcp.auth.oauth_server",
-    "security_review_mcp.observability.audit_syslog",
-    "security_review_mcp.connectors",
-    "security_review_mcp.update_check",
-    "security_review_mcp.web_api",
-    "security_review_mcp.engines.remote",
-    "security_review_mcp.engines.worker",
-    "security_review_mcp.engines.enrollment",
-    "security_review_mcp.engines.controller_client",
-    "security_review_mcp.engines.rule_sync",
-    "security_review_mcp.auth.engine_clients",
+    "security_review.controller",
+    "security_review.deps.advisory_sync",
+    "security_review.auth.oidc",
+    "security_review.auth.oauth_server",
+    "security_review.observability.audit_syslog",
+    "security_review.connectors",
+    "security_review.update_check",
+    "security_review.web_api",
+    "security_review.engines.remote",
+    "security_review.engines.worker",
+    "security_review.engines.enrollment",
+    "security_review.engines.controller_client",
+    "security_review.engines.rule_sync",
+    "security_review.auth.engine_clients",
 )
 
 
 def test_mcp_server_does_not_load_the_controller_modules():
     # A fresh interpreter: the other tests import these modules in this one
     code = (
-        "import sys, security_review_mcp.server\n"
+        "import sys, security_review.server\n"
         f"print([m for m in {CONTROLLER_MODULES!r} if m in sys.modules])"
     )
     result = subprocess.run(

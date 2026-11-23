@@ -60,7 +60,7 @@ Le processus MCP tourne à côté du code du développeur, souvent en stdio : un
 bug bloquant.
 
 - **stdout est réservé au protocole MCP** : aucun `print`, journaux sur stderr via
-  `logging.getLogger("security_review_mcp")`.
+  `logging.getLogger("security_review")`.
 - **Aucun accès disque à partir d'un chemin du client** : les outils travaillent sur le contenu
   reçu.
 - **Aucun appel réseau sortant** : la base de vulnérabilités est importée par le serveur Controller.
@@ -77,7 +77,7 @@ bug bloquant.
 
 ## Règles de scan
 
-Les règles et checklists par défaut sont dans `src/security_review_mcp/rules/default_rules.toml`,
+Les règles et checklists par défaut sont dans `src/security_review/rules/default_rules.toml`,
 jamais dans le code Python. Elles sont copiées en base au premier lancement, et une règle
 ajoutée ou corrigée dans ce fichier atteint les bases existantes au démarrage suivant, sauf si
 un administrateur l'a modifiée.

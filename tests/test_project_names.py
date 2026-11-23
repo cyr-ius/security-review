@@ -2,7 +2,7 @@
 
 import pytest
 
-from security_review_mcp.storage.project_names import (
+from security_review.storage.project_names import (
     MAX_PROJECT_CHARS,
     MAX_RAW_PROJECT_CHARS,
     normalize_project,

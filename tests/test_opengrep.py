@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.engines import local, opengrep
-from security_review_mcp.rules import codescan, opengrep_rule_store
-from security_review_mcp.rules.codescan import SourceFile
-from security_review_mcp.storage.models import Severity
+from security_review.config import Settings, get_settings
+from security_review.engines import local, opengrep
+from security_review.rules import codescan, opengrep_rule_store
+from security_review.rules.codescan import SourceFile
+from security_review.storage.models import Severity
 
 
 def test_engine_disabled_by_default_runs_only_once_rules_are_installed(tmp_path, monkeypatch):

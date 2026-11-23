@@ -2,7 +2,7 @@
 
 import pytest
 
-from security_review_mcp.rules.scanner import normalize_language, redact_secrets, scan_content
+from security_review.rules.scanner import normalize_language, redact_secrets, scan_content
 
 
 def rule_ids(content: str, language: str) -> set[str]:

@@ -6,12 +6,12 @@ import pytest
 from conftest import ADMIN_GRANTS, TRIAGER_GRANTS, known_projects, make_user, map_claim
 from sqlmodel import Session, select
 
-from security_review_mcp import cli
-from security_review_mcp.auth import access_control, oidc, web_users
-from security_review_mcp.config import Settings
-from security_review_mcp.http_server import Role
-from security_review_mcp.reports.services import NotFoundError
-from security_review_mcp.storage.models import WebUser
+from security_review import cli
+from security_review.auth import access_control, oidc, web_users
+from security_review.config import Settings
+from security_review.http_server import Role
+from security_review.reports.services import NotFoundError
+from security_review.storage.models import WebUser
 
 PASSWORD = "Correct horse battery 9"
 SECRET = "s" * 40
@@ -165,17 +165,19 @@ def test_last_administrator_is_kept(auth_source):
     readers = [("shop-api", ["reports.read"])]
 
     with pytest.raises(ValueError, match="last holder of users.manage"):
-        web_users.delete_user(admin["id"])
+        web_users.delete_user(admin["id"], administrator=True)
     with pytest.raises(ValueError, match="keep the users.manage"):
-        web_users.update_user(admin["id"], [], readers)
+        web_users.update_user(admin["id"], [], readers, administrator=True)
     # A refused deletion revokes no OIDC identity
     assert web_users.list_revoked_users() == []
 
     other = make_user("root", PASSWORD, "admin")
-    demoted = web_users.update_user(admin["id"], [], readers, all_projects_permissions=[])
+    demoted = web_users.update_user(
+        admin["id"], [], readers, all_projects_permissions=[], administrator=True
+    )
     assert demoted["permissions"] == {"reports.read": ["shop-api"]}
     with pytest.raises(ValueError, match="last holder of users.manage"):
-        web_users.delete_user(other["id"])
+        web_users.delete_user(other["id"], administrator=True)
 
 
 def test_unknown_users_raise_not_found():
@@ -223,7 +225,7 @@ def test_bootstrap_admin_is_created_once_while_no_user_exists():
     assert web_users.ensure_bootstrap_admin() is False
     # Its random password is never handed out: the operator sets one with the CLI
     admin = web_users.find_user("admin")
-    password = web_users.set_password(admin["id"])["password"]
+    password = web_users.set_password(admin["id"], administrator=True)["password"]
     user = web_users.authenticate("admin", password)
     assert (user["permissions"], user["created_by"]) == (ADMIN_GRANTS, "bootstrap")
     assert [role["name"] for role in user["roles"]] == ["admin"]
@@ -395,7 +397,7 @@ def test_sso_login_maps_the_admin_groups_of_the_settings():
     ]
     # A mapping changed by an administrator is left as it is
     make_user("root", PASSWORD, "admin")
-    access_control.set_oidc_mappings([("sec-admins", [], ["reports.read"], [])])
+    access_control.set_oidc_mappings([("sec-admins", [], ["reports.read"], [])], administrator=True)
     login(signer, identity("alice", "sub-1", "sec-admins"), **settings)
     assert web_users.find_user("alice")["permissions"] == {"reports.read": None}
 
@@ -628,15 +630,15 @@ def test_last_administrator_by_its_oidc_claim_is_kept():
     root = make_user("root", PASSWORD, "admin")
 
     # Demoting the local admin keeps an administrator (alice, by its OIDC claim)
-    web_users.update_user(root["id"], [])
+    web_users.update_user(root["id"], [], administrator=True)
     with pytest.raises(ValueError, match="last holder of users.manage"):
-        web_users.delete_user(alice["id"])
+        web_users.delete_user(alice["id"], administrator=True)
     # The roles given by hand may change: the OIDC claim keeps it administrator
-    updated = web_users.update_user(alice["id"], [])
+    updated = web_users.update_user(alice["id"], [], administrator=True)
     assert updated["permissions"]["users.manage"] is None
     # Neither the mappings nor a login without the claim remove the last administrator
     with pytest.raises(ValueError, match="keep the users.manage"):
-        access_control.set_oidc_mappings([])
+        access_control.set_oidc_mappings([], administrator=True)
     login(signer, identity("alice", "sub-1"))
     assert web_users.find_user("alice")["permissions"]["users.manage"] is None
 
@@ -754,7 +756,7 @@ def test_session_of_a_deleted_user_never_opens_a_recreated_account():
         recreated = make_user(username, PASSWORD, "admin")
         assert recreated["id"] == alice["id"]
         assert verifier.verify_session(session) is None
-        web_users.delete_user(recreated["id"])
+        web_users.delete_user(recreated["id"], administrator=True)
 
 
 def test_the_theme_of_a_user_is_checked_and_kept():

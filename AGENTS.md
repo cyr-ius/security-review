@@ -145,12 +145,12 @@ l'utiliser.
 | Normes de développement par technologie (prompt `development-standards`, page « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
 
-Tous les modules sont dans `src/security_review_mcp/` : à la racine, les points d'entrée et
+Tous les modules sont dans `src/security_review/` : à la racine, les points d'entrée et
 les briques communes (`config`, `http_server`, `proxy`...) ; ailleurs, un sous-paquet par
 domaine (`storage/`, `reports/`, `rules/`, `deps/`, `auth/`, `observability/`, `clients/`,
 `connectors/`, `web_api/`). Un nouveau module va dans le sous-paquet de son domaine, pas à la
 racine. L'application Angular (`web/`) est compilée par `npm run build` dans
-`src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
+`src/security_review/webui/` (ignoré par git). La logique métier va dans les modules
 (`reports/services/`, `rules/scanner.py`...) ; `server.py` et `cli.py` restent des couches
 minces qui valident les entrées et appellent ces modules.
 
@@ -198,7 +198,7 @@ cas de conflit, il prévaut.
 C'est un outil de sécurité : un écart ici est un bug bloquant.
 
 - **stdout est réservé au protocole MCP** en stdio : aucun `print` dans le serveur, journaux sur
-  stderr via `logging.getLogger("security_review_mcp")`. Seule la CLI écrit sur stdout.
+  stderr via `logging.getLogger("security_review")`. Seule la CLI écrit sur stdout.
 - **Les outils MCP ne lisent jamais le disque** à partir d'un chemin fourni par le client : ils
   travaillent sur le contenu transmis. L'accès fichiers est réservé à la CLI (opérateur), qui ne
   suit pas les liens symboliques.
@@ -295,7 +295,7 @@ l'interdisent. Identifiant `secreview.<langage>.<contrôle>`, au plus 51 caract�
 d'un finding, `OPENGREP:` compris, est tronqué à 60), CWE et OWASP dans `metadata`. Chaque règle a
 au moins un cas `ruleid:` et un cas `ok:` dans `tests/opengrep_rules/<langage>/`.
 
-Les règles et checklists par défaut sont dans `src/security_review_mcp/rules/default_rules.toml`,
+Les règles et checklists par défaut sont dans `src/security_review/rules/default_rules.toml`,
 jamais dans le code Python. Elles sont copiées en base au premier lancement
 (`rule_store.seed_defaults`, appelé par `init_db`). Une règle ajoutée ou corrigée dans ce
 fichier atteint les bases existantes au démarrage suivant, sauf si un administrateur l'a modifiée.
@@ -355,13 +355,20 @@ une PR, quelle que soit la taille du changement :
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt.
-(`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/`, avec
-`SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_CI_TOKEN`) et signalez ses résultats ;
-si aucun contrôleur n'est joignable, dites-le aussi.
+(`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/
+--exclude src/security_review/rules/opengrep/ --exclude src/security_review/rules/default_rules.toml`,
+avec `SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_CI_TOKEN`) et signalez ses
+résultats ; si aucun contrôleur n'est joignable, dites-le aussi.
 Tu es autorisé à télécharger `security-review-ci` depuis le serveur Controller
 
-**IMPORTANT** Il est nécessaire d'exclure le répertoire `tests/` lors d'une analyse de code complet
-car sinon cela génère de très nombreux faux positifs.
+**IMPORTANT** Lors d'une analyse de code complète (`start_codebase_scan`, `scan-code`), excluez
+toujours ces chemins, qui génèrent de très nombreux faux positifs :
+
+- `tests/` (code vulnérable volontaire des tests de règles) ;
+- `src/security_review/rules/opengrep/` et `src/security_review/rules/default_rules.toml` :
+  les définitions des règles et des checklists contiennent forcément les motifs qu'elles
+  recherchent (`InsecureSkipVerify`, `0.0.0.0/0`...). Une modification de ces fichiers se relit
+  à la main, pas par le scan.
 
 ## Documentation
 
@@ -423,7 +430,7 @@ essentielles.
   (« MCP server for AI-assisted security code review ») ; il s'appelle
   `secreview` quand il faut un nom court technique (labels, répertoires, `User-Agent`). Les noms
   des commandes (`security-review-mcp`, `security-review-controller`, `security-review-ci`), du
-  paquet Python `security_review_mcp`, de l'image `security-review` et du projet Compose ne
+  paquet Python `security_review`, de l'image `security-review` et du projet Compose ne
   changent pas, ni les identifiants dont dépendent des données existantes (répertoire de la base
   SQLite locale, nom de l'outil SARIF, projet `security-review-mcp` des rapports).
 - Une vue de l'interface web s'appelle une **page** (**page** en anglais, **página** en espagnol),

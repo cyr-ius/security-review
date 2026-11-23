@@ -13,7 +13,7 @@ jobs:
       contents: write
       pull-requests: write
       actions: write
-    uses: cyr-ius/.github/.github/workflows/web-release-please.yml@v1
+    uses: cyr-ius/.github/.github/workflows/web-release-please.yml@a4c5049c6abc0775db573cd541c36ade58ed50e6 # v1
     with:
       publish-args: -f target=pypi
     secrets:

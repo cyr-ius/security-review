@@ -65,7 +65,7 @@ command or option in the [command line reference](../reference/cli.md).
 ## Schema migrations
 
 Every change of a table model (`models.py`) comes with an Alembic revision in
-`src/security_review_mcp/storage/migrations/versions/`. The
+`src/security_review/storage/migrations/versions/`. The
 `test_upgrade_creates_the_schema_of_the_models` test (`tests/test_database.py`) fails as long
 as the migrations do not produce exactly the schema of the models. To generate a draft
 revision to review:
@@ -73,7 +73,7 @@ revision to review:
 ```bash
 uv run python - <<'PY'
 from alembic import command
-from security_review_mcp.storage import database
+from security_review.storage import database
 with database.get_engine().begin() as connection:
     command.revision(
         database.alembic_config(connection), "describe the change", autogenerate=True, rev_id="0033"

@@ -7,17 +7,17 @@ import pytest
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import __version__, app_settings, cli, controller, http_server, web_api
-from security_review_mcp.auth import access_control, token_store, web_users
-from security_review_mcp.auth.rate_limit import RateLimitMiddleware
-from security_review_mcp.config import Settings
-from security_review_mcp.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
-from security_review_mcp.observability import audit
-from security_review_mcp.reports import services
-from security_review_mcp.rules import opengrep_rule_store
-from security_review_mcp.storage import database
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import SecurityReport, utcnow
+from security_review import __version__, app_settings, cli, controller, http_server, web_api
+from security_review.auth import access_control, token_store, web_users
+from security_review.auth.rate_limit import RateLimitMiddleware
+from security_review.config import Settings
+from security_review.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
+from security_review.observability import audit
+from security_review.reports import services
+from security_review.rules import opengrep_rule_store
+from security_review.storage import database
+from security_review.storage.database import session_scope
+from security_review.storage.models import SecurityReport, utcnow
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -122,7 +122,7 @@ def ui_dir(tmp_path, monkeypatch):
 
 
 def test_serve_migrates_and_serves_the_web_interface(settings, captured_run, ui_dir, caplog):
-    with caplog.at_level("INFO", logger="security_review_mcp"):
+    with caplog.at_level("INFO", logger="security_review"):
         controller.main(["serve", "--host", "0.0.0.0", "--port", "9000"])
 
     assert f"Controller server {__version__} listening on 0.0.0.0:9000" in caplog.text
@@ -156,7 +156,7 @@ def test_serve_does_not_serve_mcp_nor_the_public_enrollment(settings, captured_r
 def test_serve_creates_the_admin_once_without_logging_any_password(
     settings, caplog, capsys, captured_run, ui_dir
 ):
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
+    with caplog.at_level("WARNING", logger="security_review"):
         controller.main(["serve"])
         (message,) = [r.message for r in caplog.records if "administrator" in r.message]
         caplog.clear()

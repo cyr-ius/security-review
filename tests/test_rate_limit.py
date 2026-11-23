@@ -9,10 +9,10 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import http_server
-from security_review_mcp.auth import rate_limit, token_store
-from security_review_mcp.config import Settings
-from security_review_mcp.storage.models import RateLimitCounter
+from security_review import http_server
+from security_review.auth import rate_limit, token_store
+from security_review.config import Settings
+from security_review.storage.models import RateLimitCounter
 
 
 class Clock:

@@ -2,9 +2,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from security_review_mcp.config import get_settings
-from security_review_mcp.observability import audit
-from security_review_mcp.rules import opengrep_proposals, opengrep_rule_store
+from security_review.config import get_settings
+from security_review.observability import audit
+from security_review.rules import opengrep_proposals, opengrep_rule_store
 
 RULE_ID = "acme.python.unsafe-template"
 RULE = f"""rules:
@@ -125,6 +125,20 @@ def test_a_rule_already_installed_or_proposed_is_refused(rules_dir):
         (RULE_ID, RULE + "    # password: hunter2hunter2\n", "secret"),
         (RULE_ID, RULE.replace("Template", "Temp\u200blate"), "invisible"),
         (RULE_ID, RULE + RULE.split("\n", 1)[1].replace(RULE_ID, "acme.other"), "one rule"),
+        # Parsed, not searched by line: a second rule whose id is not its first key, a rule in
+        # flow style, an id line in a block scalar, a repeated id key (OpenGrep may keep either)
+        (RULE_ID, RULE + "  - languages: [python]\n    id: secreview.python.x\n", "one rule"),
+        (RULE_ID, RULE + "  - {id: secreview.python.x, languages: [python]}\n", "one rule"),
+        (
+            RULE_ID,
+            RULE.replace(f"- id: {RULE_ID}", "- severity: ERROR\n    id: secreview.python.x")
+            .replace("    severity: ERROR\n    metadata", "    metadata")
+            .replace(
+                "message: Template rendered from user input", f"message: |\n      - id: {RULE_ID}"
+            ),
+            "one rule",
+        ),
+        (RULE_ID, RULE.replace(f"id: {RULE_ID}", f"id: {RULE_ID}\n    id: secreview.x"), "read"),
     ],
 )
 def test_an_agent_cannot_propose_an_unsafe_rule(rule_id, content, error):

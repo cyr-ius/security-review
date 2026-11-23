@@ -15,11 +15,11 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from sqlmodel import Session, select
 
-from security_review_mcp.auth import token_store
-from security_review_mcp.auth.token_store import Role
-from security_review_mcp.config import Settings
-from security_review_mcp.observability import audit_syslog
-from security_review_mcp.storage.models import AppSetting, AuditEvent
+from security_review.auth import token_store
+from security_review.auth.token_store import Role
+from security_review.config import Settings
+from security_review.observability import audit_syslog
+from security_review.storage.models import AppSetting, AuditEvent
 
 
 def make_settings(**values) -> Settings:

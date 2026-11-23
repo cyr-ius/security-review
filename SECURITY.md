@@ -30,6 +30,25 @@ Never include a real token, password or private key: use test values.
   otherwise.
 - Please keep the vulnerability private until the advisory is published.
 
+## Vulnerable dependencies
+
+Dependabot checks the Python, npm and GitHub Actions dependencies every week, and the project
+reviews its own dependencies with `scan_dependencies`. When a public advisory affects a
+dependency of a released version, the maintainers of the repository are responsible for it,
+counted from the day the advisory or its Dependabot alert is published:
+
+| Severity | Maximum delay to fix and release |
+|---|---|
+| critical | 7 days |
+| high | 30 days |
+| medium, low | next regular release |
+
+When no fixed version exists, or the fix cannot be released within this delay, the finding is
+not left open silently: a person decides a risk acceptance in the web interface, with a reason
+and a short expiry date (at most the delay above), and a mitigation when one exists. When the
+delay or the acceptance expires, the finding counts as open again and blocks the gate: no
+version is released until it is fixed or a new decision is recorded.
+
 ## Scope
 
 In scope: the Python package (MCP server, controller, CLI, `security-review-ci`), the web

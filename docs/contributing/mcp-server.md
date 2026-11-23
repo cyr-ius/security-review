@@ -60,7 +60,7 @@ The MCP process runs next to the code of the developer, often in stdio: a deviat
 blocking bug.
 
 - **stdout belongs to the MCP protocol**: no `print`, logs on stderr through
-  `logging.getLogger("security_review_mcp")`.
+  `logging.getLogger("security_review")`.
 - **No disk access from a client path**: the tools work on the content they receive.
 - **No outgoing network call**: the vulnerability database is imported by the Controller server.
 - **No module of the Controller server is loaded**, not even indirectly (`controller`,
@@ -76,7 +76,7 @@ blocking bug.
 
 ## Scan rules
 
-The default rules and checklists are in `src/security_review_mcp/rules/default_rules.toml`,
+The default rules and checklists are in `src/security_review/rules/default_rules.toml`,
 never in the Python code. They are copied into the database at first start, and a rule added or
 fixed there reaches the existing databases at the next start, unless an administrator changed
 it.

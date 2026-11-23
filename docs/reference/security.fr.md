@@ -80,7 +80,9 @@
 - **Journaux applicatifs** : chaque message tient sur une ligne, ses sauts de ligne écrits en
   séquences d'échappement (`\n`, `\r`...) : une valeur envoyée par un client, comme le libellé
   d'un jeton ou un nom d'utilisateur, ne peut pas forger une entrée. Seule une trace d'exception
-  (traceback) garde ses lignes.
+  (traceback) garde ses lignes. Le libellé d'un jeton, écrit dans chaque ligne de journal du
+  jeton, est refusé s'il contient un caractère de contrôle (séquence d'échappement, caractère
+  invisible).
 - **Métriques** : `/metrics` n'existe que sur le serveur Controller (le serveur MCP garde `/mcp`
   et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
   n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un
@@ -342,8 +344,9 @@
   fois chacun** (seulement le scan demandé avec `scope` `code` ou `deps` ; un scan qui échoue
   avant d'enregistrer quoi que ce soit le rend), jusqu'à son
   expiration (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes par défaut), avec les droits du
-  jeton ou de l'utilisateur qui l'a demandé, relus à chaque usage (un jeton révoqué, ou un
-  utilisateur qui a perdu `reports.write`, l'invalide). Le ticket passe par le contexte du
+  jeton ou de l'utilisateur qui l'a demandé, relus à chaque usage (un jeton révoqué, un client OAuth révoqué ou la connexion OAuth
+  désactivée pour un ticket demandé avec un jeton d'accès OAuth, ou un utilisateur qui a perdu
+  `reports.write`, l'invalide). Le ticket passe par le contexte du
   modèle, qui le recopie dans la commande, et le donne à `security-review-ci` sur l'entrée
   standard, jamais en argument. Chaque émission est auditée (`scan_ticket.issued`). Voir
   [scan lancé par l'agent](../review/analysis/code-scan.md#scan-lance-par-lagent-start_codebase_scan).

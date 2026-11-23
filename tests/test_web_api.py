@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
-from security_review_mcp import (
+from security_review import (
     __version__,
     app_settings,
     http_server,
@@ -22,16 +22,16 @@ from security_review_mcp import (
     update_check,
     web_api,
 )
-from security_review_mcp.auth import access_control, oidc, token_store, web_users
-from security_review_mcp.config import get_settings
-from security_review_mcp.connectors import transport
-from security_review_mcp.deps import advisory_sync
-from security_review_mcp.http_server import Role
-from security_review_mcp.observability import audit
-from security_review_mcp.reports import services
-from security_review_mcp.rules import opengrep_proposals, registry, rule_store
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import (
+from security_review.auth import access_control, oidc, token_store, web_users
+from security_review.config import get_settings
+from security_review.connectors import transport
+from security_review.deps import advisory_sync
+from security_review.http_server import Role
+from security_review.observability import audit
+from security_review.reports import services
+from security_review.rules import opengrep_proposals, registry, rule_store
+from security_review.storage.database import session_scope
+from security_review.storage.models import (
     ApiToken,
     Finding,
     FindingCreate,
@@ -39,8 +39,8 @@ from security_review_mcp.storage.models import (
     ReviewType,
     Severity,
 )
-from security_review_mcp.web_api import report_routes
-from security_review_mcp.web_api.body_limit import MAX_BODY_BYTES
+from security_review.web_api import report_routes
+from security_review.web_api.body_limit import MAX_BODY_BYTES
 
 # Bearer value of each role, set by the ``secured`` fixture: the raw secret of a token for the
 # token roles, a session of a web user (with that role) for reader and triager
@@ -1020,7 +1020,7 @@ def test_a_new_token_secret_is_never_cached(secured, reports):
 
 
 def test_roles_are_managed_with_users_manage(secured, web_sessions, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     url = "/api/v1/roles"
     body = {"name": "Auditor", "description": "Reads the log", "permissions": ["audit.read"]}
     for role in ("reader", "triager"):
@@ -1071,7 +1071,7 @@ def test_invalid_roles_are_refused(secured, body):
 def test_project_members_and_oidc_mappings_are_managed_with_users_manage(
     secured, web_sessions, caplog
 ):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     admin = auth("admin")
     for url in ("/api/v1/oidc/mappings", "/api/v1/access/projects"):
         assert secured.get(url, headers=auth("triager")).status_code == 403
@@ -1333,7 +1333,7 @@ def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, re
 
 def test_sso_settings_need_users_manage(accounts):
     make_user("root", USER_PASSWORD, "admin")
-    keeper = access_control.create_role("Settings keeper", ["settings.manage"])
+    keeper = access_control.create_role("Settings keeper", ["settings.manage"], administrator=True)
     make_user("sam", USER_PASSWORD, role_ids=[keeper["id"]])
     headers = session_headers(accounts, "sam")
 
@@ -1352,8 +1352,8 @@ def test_sso_settings_need_users_manage(accounts):
 
 def test_only_an_administrator_gives_or_takes_away_a_protected_permission(accounts):
     root = make_user("root", USER_PASSWORD, "admin")
-    managers = access_control.create_role("Users manager", ["users.manage"])
-    keepers = access_control.create_role("Settings keeper", ["settings.manage"])
+    managers = access_control.create_role("Users manager", ["users.manage"], administrator=True)
+    keepers = access_control.create_role("Settings keeper", ["settings.manage"], administrator=True)
     auditors = access_control.create_role("Auditor", ["audit.read"])
     make_user("dele", USER_PASSWORD, role_ids=[managers["id"]])
     bob = make_user("bob", USER_PASSWORD)
@@ -1792,7 +1792,9 @@ def test_a_requested_project_waits_for_an_approval_on_the_projects_screen(secure
 
 
 def test_a_users_manager_blocks_the_autojoin_of_a_project_it_reads(secured, reports):
-    manager = access_control.create_role("Manager", [access_control.Permission.USERS_MANAGE])
+    manager = access_control.create_role(
+        "Manager", [access_control.Permission.USERS_MANAGE], administrator=True
+    )
     creator = access_control.create_role("Creator", [access_control.Permission.PROJECTS_CREATE])
     make_user("carol", USER_PASSWORD, "reader", ["shop-api"], role_ids=[manager["id"]])
     make_user("cody", USER_PASSWORD, "reader", ["shop-api"], role_ids=[creator["id"]])
@@ -2053,7 +2055,7 @@ def test_report_language_with_instructions_is_refused(client):
 
 
 def test_admin_sets_the_proxy_and_never_gets_the_password_back(client, caplog):
-    with caplog.at_level("INFO", logger="security_review_mcp"):
+    with caplog.at_level("INFO", logger="security_review"):
         response = client.put(
             "/api/v1/settings/proxy",
             json={"url": "http://alice:s3cr3t@proxy.internal:3128", "no_proxy": "osv.internal"},
@@ -2528,7 +2530,7 @@ def test_risk_acceptances_and_their_append_only_comments(secured, web_sessions, 
 
 
 def test_password_login_opens_a_session(accounts, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
 
     response = login(accounts, "alice")
@@ -2595,9 +2597,9 @@ def test_sessions_follow_the_stored_user(accounts):
     headers = session_headers(accounts, "alice")
 
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 403
-    web_users.update_user(alice["id"], [role_id("admin")])
+    web_users.update_user(alice["id"], [role_id("admin")], administrator=True)
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 200
-    web_users.update_user(alice["id"], [], all_projects_permissions=[])
+    web_users.update_user(alice["id"], [], all_projects_permissions=[], administrator=True)
     # Without any permission, the session stops
     assert accounts.get("/api/v1/me", headers=headers).status_code == 401
     web_users.delete_user(alice["id"])
@@ -2619,7 +2621,7 @@ def test_rules_and_standards_can_be_read_without_managing_them(accounts):
 
 
 def test_users_are_managed_by_administrators(accounts, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     make_user("root", USER_PASSWORD, "admin")
     make_user("reader", USER_PASSWORD, "reader")
     admin, reader = session_headers(accounts, "root"), session_headers(accounts, "reader")
@@ -2693,7 +2695,7 @@ def test_the_former_groups_of_a_user_are_refused(accounts):
 
 
 def test_sso_users_are_managed_by_administrators(accounts, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     make_user("root", USER_PASSWORD, "admin")
     admin = session_headers(accounts, "root")
     body = {"username": "carol@example.com", "auth_source": "oidc"}
@@ -2887,7 +2889,7 @@ STANDARD = {
 
 
 def test_development_standard_lifecycle(client, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     created = client.post("/api/v1/standards", json=STANDARD)
     assert created.status_code == 201
     assert created.json()["updated_by"] == "test-admin"
@@ -2960,7 +2962,7 @@ def test_development_standards_are_read_and_written_by_admins_only(secured, web_
 
 
 def test_standards_pack_export_and_import(client, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     client.post("/api/v1/standards", json=STANDARD)
     exported = client.get("/api/v1/packs/standards")
     assert exported.status_code == 200
@@ -3031,7 +3033,7 @@ OIDC_SETTINGS = {
 
 
 def test_sso_set_in_the_web_interface_enables_the_login_at_once(client, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    caplog.set_level(logging.INFO, logger="security_review.web")
     assert client.get("/api/v1/auth/config").json()["oidc"] is False
     assert client.get("/api/v1/auth/oidc/login").status_code == 404
 
@@ -3520,7 +3522,7 @@ def test_scan_limits_on_files(secured, ci_token, monkeypatch):
 
 def test_scan_logs_cannot_be_forged_with_the_project_name(secured, caplog):
     body = code_scan_body("shop\nINFO forged line")
-    with caplog.at_level(logging.INFO, logger="security_review_mcp.web"):
+    with caplog.at_level(logging.INFO, logger="security_review.web"):
         response = secured.post("/api/v1/ci/scan/code", json=body, headers=auth("admin"))
 
     assert response.status_code == 200

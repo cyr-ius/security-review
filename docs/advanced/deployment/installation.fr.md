@@ -18,7 +18,7 @@ L'[interface web](../../usage/index.md) est une application Angular à compiler
 (Node.js 22.22.3+ ou 24.15+, requis par Angular 22) ; sans elle, le serveur Controller ne sert que l'API REST :
 
 ```bash
-cd web && npm ci && npm run build   # écrit dans src/security_review_mcp/webui/
+cd web && npm ci && npm run build   # écrit dans src/security_review/webui/
 ```
 
 ## Mode local sans uvx

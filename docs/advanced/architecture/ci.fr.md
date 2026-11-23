@@ -17,7 +17,7 @@ sur PyPI sous le nom `security-review-ci`, à la version du serveur, sans ses d�
 | Poste sans Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), puis `uv tool install security-review-ci` : uv télécharge un Python quand aucun n'est installé |
 | Agent de build ou poste avec Python ≥ 3.14 | `uv pip install security-review-ci` dans l'environnement virtuel du job (`--system` sans environnement) |
 | Poste ou agent sans PyPI, depuis le serveur Controller | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …` : le [client du serveur Controller](#depuis-le-serveur-controller), à sa version |
-| Agent sans accès à PyPI | Copiez le seul fichier `security_review_mcp/ci_client.py` (ou le wheel `security_review_ci` joint à la release GitHub) et lancez-le avec `python3 ci_client.py` |
+| Agent sans accès à PyPI | Copiez le seul fichier `security_review/ci_client.py` (ou le wheel `security_review_ci` joint à la release GitHub) et lancez-le avec `python3 ci_client.py` |
 | Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_CI_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
 
 Le paquet `security-review` installe aussi `security-review-ci` : n'installez pas les deux

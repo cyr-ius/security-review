@@ -226,7 +226,8 @@ may recur, the agent can propose an OpenGrep rule with the MCP tool `propose_ope
 `ok:` cases). **The rule is not installed**: the MCP server only stores the proposal in the
 database, and the review prompts tell the agent to propose a rule only after saving the report.
 
-- The rule must hold exactly one rule whose `id` is the proposed identifier; the `secreview.`
+- The rule must hold exactly one rule whose `id` is the proposed identifier (the YAML is
+  parsed: a second rule, a rule in flow style or a repeated key is refused); the `secreview.`
   prefix is kept for the default rules. A rule that looks like it holds a secret, or with
   invisible characters, is refused. The reason is masked and bounded like the reason of a
   status proposal.

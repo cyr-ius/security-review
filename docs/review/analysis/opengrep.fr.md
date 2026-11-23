@@ -235,7 +235,8 @@ du code de test (cas `ruleid:` et `ok:`). **La règle n'est pas installée** : l
 enregistre seulement la proposition en base, et les prompts de revue demandent à l'agent de ne
 proposer une règle qu'après avoir enregistré le rapport.
 
-- Le fichier doit contenir exactement une règle dont l'`id` est l'identifiant proposé ; le
+- Le fichier doit contenir exactement une règle dont l'`id` est l'identifiant proposé (le YAML
+  est analysé : une seconde règle, une règle en style flow ou une clé répétée est refusée) ; le
   préfixe `secreview.` est réservé aux règles par défaut. Une règle qui semble contenir un
   secret, ou des caractères invisibles, est refusée. Le motif est masqué et borné comme celui
   d'une proposition de statut.

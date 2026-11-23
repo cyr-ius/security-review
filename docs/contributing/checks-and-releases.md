@@ -62,6 +62,12 @@ connected, each change is reviewed before it is declared done or a pull request 
 are fixed or justified with `propose_finding_status`, which a person approves in the web
 interface. The full procedure is in `AGENTS.md`.
 
+A public advisory on a dependency is fixed and released within 7 days when it is `critical`
+and 30 days when it is `high`, otherwise in the next regular release. When that is not
+possible, a person accepts the risk in the web interface with a reason and a short expiry date;
+once it expires, the finding blocks the gate and no version is released. The policy is in
+`SECURITY.md`.
+
 The `scan-deps` hook runs the `security-review-ci` of the Controller server given by
 `SECREVIEW_CONTROLLER_URL` ([client from the Controller server](../advanced/commit-hooks.md)),
 and is skipped while it is not set. With a personal `ci` token in `SECREVIEW_CI_TOKEN`,

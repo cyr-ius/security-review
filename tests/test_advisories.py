@@ -6,11 +6,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from security_review_mcp.deps import advisories
-from security_review_mcp.deps.advisories import Query
-from security_review_mcp.deps.versions import compare_versions, sort_versions
-from security_review_mcp.storage.database import session_scope
-from security_review_mcp.storage.models import Advisory
+from security_review.deps import advisories
+from security_review.deps.advisories import Query
+from security_review.deps.versions import compare_versions, sort_versions
+from security_review.storage.database import session_scope
+from security_review.storage.models import Advisory
 
 
 def osv(

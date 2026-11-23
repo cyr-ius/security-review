@@ -74,7 +74,9 @@
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-log.md)).
 - **Application logs**: each message stays on one line, its line breaks written as escapes
   (`\n`, `\r`...): a value sent by a client, such as a token label or a user name, cannot forge
-  a log entry. Only a traceback keeps its lines.
+  a log entry. Only a traceback keeps its lines. A token label, written in every log line of
+  the token, is refused when it holds a control character (escape sequence, invisible
+  character).
 - **Metrics**: `/metrics` exists on the Controller server only (the MCP server keeps `/mcp`
   and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token
@@ -322,7 +324,8 @@
   asked for with `scope` `code` or `deps`; a scan that fails before storing anything gives it
   back), until it expires
   (`SECREVIEW_SCAN_TICKET_TTL_SECONDS`, 10 minutes by default), with the rights of the token or
-  user that asked for it read again at each use (a revoked token, or a user who lost
+  user that asked for it read again at each use (a revoked token, a revoked OAuth client or
+  the OAuth login turned off for a ticket asked with an OAuth access token, or a user who lost
   `reports.write`, invalidates it). The ticket passes through the context of the model, which
   copies it into the command, and gives it to `security-review-ci` on stdin, never as an
   argument. Every issue is audited (`scan_ticket.issued`). See
