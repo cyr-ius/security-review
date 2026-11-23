@@ -559,12 +559,28 @@ def test_report_author_is_hidden_from_a_caller_who_manages_neither_users_nor_tok
     assert "laptop-42" in markdown.text
     found = web_sessions.get("/api/v1/findings", params={"search": "alice"}, headers=reader)
     assert found.json()["total"] == 0
+    by_author = {"search": "author:alice@example.com"}  # searched as text: nothing found
+    assert web_sessions.get("/api/v1/reports", params=by_author, headers=reader).json() == []
+    found = web_sessions.get("/api/v1/findings", params=by_author, headers=reader)
+    assert found.json()["total"] == 0
     # A token manager sees it, and finds the reports and the findings by their author
     admin = auth("admin")
     searched = web_sessions.get("/api/v1/reports", params={"search": "alice"}, headers=admin)
     assert [r["author"] for r in searched.json()] == ["alice@example.com"]
     found = web_sessions.get("/api/v1/findings", params={"search": "alice"}, headers=admin)
     assert found.json()["total"] == 1
+    # "author:" filters on the author, exact (any case) or by its start
+    for search, reports, findings in (
+        ("author:ALICE@example.com", 1, 1),
+        ("author:ali*", 1, 1),
+        ("author:bob", 1, 0),
+        ("author:ali", 0, 0),
+    ):
+        params = {"search": search}
+        listed = web_sessions.get("/api/v1/reports", params=params, headers=admin).json()
+        assert len(listed) == reports, search
+        found = web_sessions.get("/api/v1/findings", params=params, headers=admin).json()
+        assert found["total"] == findings, search
 
 
 def test_update_finding_status(client, reports):

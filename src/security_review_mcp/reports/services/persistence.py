@@ -5,7 +5,8 @@ import logging
 import re
 from collections import Counter
 from collections.abc import Callable, Collection
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any, Literal
 
 from sqlalchemy import ColumnElement, String, and_, case, cast, func, or_, update
@@ -29,6 +30,7 @@ from ...storage.models import (
     FindingComment,
     FindingCreate,
     FindingStatus,
+    FindingStatusFilter,
     RelatedReport,
     ReviewType,
     ScannedFile,
@@ -521,15 +523,122 @@ def _id_filter(word: str, column: Any) -> ColumnElement[bool] | None:
     return func.upper(col(column)) == name
 
 
+# "author:alice" / "author:ali*": the reports of that author, or of the authors starting so
+_AUTHOR_SEARCH = re.compile(r"author:(\S{1,200}?)(\*?)", re.IGNORECASE)
+
+
+def _author_filter(word: str) -> ColumnElement[bool] | None:
+    """Filter of the word ``author:<name>`` (that author, case-insensitive) or
+    ``author:<prefix>*`` (the authors starting so); None for another word. Only for a caller who
+    may see the authors: the others search the word as text, which tells nothing about them."""
+    found = _AUTHOR_SEARCH.fullmatch(word)
+    if found is None:
+        return None
+    name, wildcard = found.group(1).lower(), found.group(2)
+    if wildcard:
+        escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return func.lower(col(SecurityReport.author)).like(f"{escaped}%", escape="\\")
+    return func.lower(col(SecurityReport.author)) == name
+
+
+# "project:shop", "sev:high,critical" (or "severity:"), "status:accepted": the filters of the
+# global search, also read in the search of the lists (several values separated by commas)
+_FILTER_WORD = re.compile(r"(project|severity|sev|status):(\S{1,200})", re.IGNORECASE)
+
+
+def _filter_word(word: str) -> tuple[str, list[str]] | None:
+    """``project``, ``severity`` or ``status`` and the values of a filter word; None else."""
+    found = _FILTER_WORD.fullmatch(word)
+    if found is None:
+        return None
+    key = found.group(1).lower()
+    values = [value for value in found.group(2).lower().split(",") if value]
+    return ("severity" if key == "sev" else key), values
+
+
+def _known(values: list[str], known: type[StrEnum]) -> list[Any] | None:
+    """The values as members of ``known``; None when one is unknown (the word is then text)."""
+    members = {member.value: member for member in known}
+    return [members[value] for value in values] if all(v in members for v in values) else None
+
+
+def _typed_statuses(search: str | None) -> list[FindingStatusFilter]:
+    """The statuses typed in ``search`` (``status:accepted``), which replace the status filter."""
+    typed: list[FindingStatusFilter] = []
+    for word in (search or "")[:200].split():
+        found = _filter_word(word)
+        if found and found[0] == "status" and (statuses := _known(found[1], FindingStatusFilter)):
+            typed.extend(statuses)
+    return typed
+
+
+def _filter_of_word(word: str, severity_column: Any) -> ColumnElement[bool] | None:
+    """Filter of a word ``project:`` (exact, or the projects starting so with ``*``) or
+    ``severity:`` on ``severity_column``; None for another word or an unknown value."""
+    found = _filter_word(word)
+    if found is None or not found[1]:
+        return None
+    key, values = found
+    if key == "severity":
+        severities = _known(values, Severity)
+        return col(severity_column).in_(severities) if severities else None
+    if key == "project":
+        matches = []
+        for value in values:
+            if value.endswith("*"):
+                prefix = value[:-1].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                matches.append(col(SecurityReport.project).like(f"{prefix}%", escape="\\"))
+            else:
+                try:
+                    name = normalize_project(value)
+                except ValueError:
+                    return None  # not a project name ("project:.."): searched as text
+                matches.append(col(SecurityReport.project) == name)
+        return or_(*matches)
+    return None
+
+
+# "date:2026-11-22", "date:2026-11", "date:2026" (that day, month or year, UTC) and the bounds
+# "date:>…", "date:>=…", "date:<…", "date:<=…": the date of the report (of a finding: its report)
+_DATE_WORD = re.compile(r"date:(>=|<=|>|<)?(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?", re.IGNORECASE)
+
+
+def _date_filter(word: str, column: Any) -> ColumnElement[bool] | None:
+    """Filter of a word ``date:`` on ``column``; None for another word or an invalid date."""
+    found = _DATE_WORD.fullmatch(word)
+    if found is None:
+        return None
+    operator, year, month, day = found.groups()
+    try:
+        start = datetime(int(year), int(month or 1), int(day or 1), tzinfo=UTC)
+        if day:
+            end = start + timedelta(days=1)
+        elif month:
+            end = start.replace(year=start.year + start.month // 12, month=start.month % 12 + 1)
+        else:
+            end = start.replace(year=start.year + 1)
+    except ValueError:
+        return None
+    if operator == ">":
+        return col(column) >= end
+    if operator == ">=":
+        return col(column) >= start
+    if operator == "<":
+        return col(column) < start
+    if operator == "<=":
+        return col(column) < end
+    return and_(col(column) >= start, col(column) < end)
+
+
 def _split_search(
     search: str, to_filter: Callable[[str], ColumnElement[bool] | None]
 ) -> tuple[list[ColumnElement[bool]], str]:
-    """The filters of the ``#…`` words of ``search`` that ``to_filter`` reads (``xss #F12``,
-    ``scan code #GEN-007``) and the rest of the words, searched as text."""
+    """The filters of the words of ``search`` that ``to_filter`` reads (``xss #F12``,
+    ``scan code #GEN-007``, ``author:alice``) and the rest of the words, searched as text."""
     filters: list[ColumnElement[bool]] = []
     words: list[str] = []
     for word in search[:200].split():
-        found = to_filter(word) if word.startswith("#") else None
+        found = to_filter(word)
         if found is None:
             words.append(word)
         else:
@@ -594,9 +703,18 @@ def list_reports(
             statement = statement.where(col(SecurityReport.review_type).in_(types))
         if author:
             statement = statement.where(SecurityReport.author == author)
-        by_number, text = _split_search(
-            search or "", lambda word: _number_filter(word, "R", SecurityReport.id)
-        )
+
+        def report_word(word: str) -> ColumnElement[bool] | None:
+            by_number = _number_filter(word, "R", SecurityReport.id)
+            if by_number is None and with_author:
+                by_number = _author_filter(word)
+            if by_number is None:
+                by_number = _filter_of_word(word, SecurityReport.risk_level)
+            if by_number is None:
+                by_number = _date_filter(word, SecurityReport.created_at)
+            return by_number
+
+        by_number, text = _split_search(search or "", report_word)
         if by_number:
             statement = statement.where(*by_number)
         if text:

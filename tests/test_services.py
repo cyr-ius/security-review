@@ -197,6 +197,35 @@ def test_list_reports_filters_and_counts():
     assert services.list_reports(search=f"#R{first_id}*")[0]["report_id"] == first_id
     assert [r["project"] for r in services.list_reports(search=f"report #R{first_id}")] == ["a"]
     assert services.list_reports(search=f"report b #R{first_id}") == []
+    assert [r["project"] for r in services.list_reports(search="sev:critical")] == ["a"]
+    assert [r["project"] for r in services.list_reports(search="project:b")] == ["b"]
+    assert services.list_reports(search="project:..") == []
+
+
+def test_search_by_date_of_the_report():
+    # Two issues: the same one reported again would only be listed once (the latest)
+    old = services.save_report("dated", "old", [make_finding(title="Old issue")])
+    services.save_report("dated", "new", [make_finding(title="New issue")])
+    with session_scope() as session:
+        report = session.get(SecurityReport, old["report_id"])
+        report.created_at = datetime(2025, 12, 31, 23, 0, tzinfo=UTC)
+        session.add(report)
+
+    def summaries(search: str) -> list[str]:
+        return [r["summary"] for r in services.list_reports(project="dated", search=search)]
+
+    # A day, a month (December closes at the new year), a year, and the bounds
+    assert summaries("date:2025-12-31") == ["old"]
+    assert summaries("date:2025-12") == ["old"]
+    assert summaries(f"date:{datetime.now(UTC).year}") == ["new"]
+    assert summaries("date:>2025-12") == ["new"]
+    assert summaries("date:>=2025-12-31") == ["new", "old"]
+    assert summaries("date:<2026") == ["old"]
+    assert summaries("date:<=2025-12") == ["old"]
+    assert summaries("date:2025-13") == []  # invalid: searched as text
+    # The findings follow the date of their report
+    dated = services.list_project_findings("dated", search="date:2025")
+    assert [f["report_id"] for f in dated["findings"]] == [old["report_id"]]
 
 
 def test_update_finding_status_and_posture(triage):
@@ -292,6 +321,17 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert services.list_project_findings("shop", search="#PY*")["total"] == 1
     assert services.list_project_findings("shop", search="#AI*")["total"] == 0
     assert services.list_project_findings("shop", search="#RC*")["total"] == 0  # not the title
+    # The filters of the global search, typed in the search of the list
+    assert [
+        f["title"]
+        for f in services.list_project_findings(None, search="project:sh* sev:critical")["findings"]
+    ] == ["RCE"]
+    assert services.list_project_findings(None, search="project:other")["total"] == 1
+    accepted = services.list_project_findings("shop", search="status:accepted")  # replaces "open"
+    assert [f["id"] for f in accepted["findings"]] == [low.id]
+    assert services.list_project_findings("shop", search="sev:urgent")["total"] == 0  # text
+    # Not a project name: searched as text, not an error
+    assert services.list_project_findings(None, search="project:..")["total"] == 0
     # Words and "#…" combine: the text in the findings of that rule, that number...
     assert services.list_project_findings("shop", search="rce #PY-004")["total"] == 1
     assert services.list_project_findings("shop", search="weak #PY-004")["total"] == 0

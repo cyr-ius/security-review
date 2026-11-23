@@ -123,7 +123,7 @@ tant qu'une demande est en attente ; dépliez-la pour voir pourquoi une revue es
 les réglages. La page **Projets** affiche une icône d'horloge à côté du projet ; son
 infobulle l'explique.
 
-Au début de sa revue suivante, `request_project` prévient l'agent, qui propose au développeur le
+Au début de sa revue suivante, `request_project` prévient l'agent (`save_security_report` aussi, pour un agent qui n'a pas appelé `request_project`), qui propose au développeur le
 prompt `codebase-review` une fois sa tâche terminée. Seule une revue complète passée par le
 serveur Controller satisfait la demande : un rapport `codebase-review` lié (`review_group`) au
 scan de code de [`start_codebase_scan`](../review/analysis/code-scan.md), lancé après la demande (un rapport qui réutilise le `review_group` d'une revue plus ancienne ne compte pas). C'est un rappel : le

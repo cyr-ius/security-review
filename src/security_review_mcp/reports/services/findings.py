@@ -5,7 +5,7 @@ import re
 from collections.abc import Collection, Iterable
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, and_, case, func, or_
+from sqlalchemy import ColumnElement, and_, case, func, or_, true
 from sqlmodel import col, select
 
 from ...config import get_settings
@@ -38,7 +38,17 @@ from .core import (
     _values,
     compute_risk_level,
 )
-from .persistence import _contains_pattern, _id_filter, _number_filter, _split_search
+from .persistence import (
+    _author_filter,
+    _contains_pattern,
+    _date_filter,
+    _filter_of_word,
+    _filter_word,
+    _id_filter,
+    _number_filter,
+    _split_search,
+    _typed_statuses,
+)
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -238,13 +248,18 @@ def list_project_findings(
     and with the text (``scan code #GEN-007``). With ``#F12``, the status is not filtered: a
     link to a finding shows it whatever its status. The text is also searched in the token label
     of the report, and in its author with ``with_author`` (a caller who may see it), as for the
-    reports. ``report_id`` keeps the findings of
-    that report; ``proposed`` keeps the findings carrying a status proposed by an agent.
+    reports; ``author:alice`` (or ``author:ali*``) then keeps the findings of that author.
+    ``project:shop``, ``sev:high,critical`` and ``status:accepted`` typed in ``search`` filter
+    too, the typed statuses replacing ``status``; ``date:2026-11``, ``date:>=2026-11-01`` keep
+    the findings of the reports of that period (UTC).
+    ``report_id`` keeps the findings of that report; ``proposed`` keeps the findings carrying a
+    status proposed by an agent.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
-    statuses = _values(status) or [FindingStatusFilter.OPEN]
+    # "status:accepted" typed in the search replaces the status filter (the page keeps "open")
+    statuses = _typed_statuses(search) or _values(status) or [FindingStatusFilter.OPEN]
     now = utcnow()
     filters = [_current()]
     # "#F12" names one finding: shown whatever its status (a link opens it there)
@@ -262,7 +277,21 @@ def list_project_findings(
         filters.append(Finding.report_id == report_id)
     if proposed:
         filters.append(col(Finding.proposed_status).is_not(None))
-    by_id, text = _split_search(search or "", _search_word)
+
+    def search_word(word: str) -> ColumnElement[bool] | None:
+        found = _search_word(word)
+        if found is None and with_author:
+            found = _author_filter(word)
+        if found is None:
+            found = _filter_of_word(word, Finding.severity)
+        if found is None:
+            found = _date_filter(word, SecurityReport.created_at)
+        if found is None and (typed := _filter_word(word)) and typed[0] == "status":
+            # Applied above as the status filter, when its values are known
+            found = true() if _typed_statuses(word) else None
+        return found
+
+    by_id, text = _split_search(search or "", search_word)
     filters.extend(by_id)
     if text:
         pattern = _contains_pattern(text)
