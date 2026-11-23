@@ -176,6 +176,12 @@ def test_osv_ecosystems_chosen_in_the_web_interface_apply_unless_the_variable_is
     app_settings.set_osv_ecosystems(["npm", "PYPI", "npm"], "admin", settings)
     assert app_settings.effective_settings(settings).osv_ecosystems == "npm,PyPI"
     assert app_settings.describe(settings)["osv"]["ecosystems"]["value"] == ["npm", "PyPI"]
+    # Removing an ecosystem stops the updates of its advisories: the change is audited
+    (event,) = audit.list_events(action="osv_ecosystems.changed")["events"]
+    assert (event["actor"], event["details"]) == (
+        "admin",
+        {"before": default.split(","), "after": ["npm", "PyPI"]},
+    )
     with pytest.raises(ValueError, match="unsupported ecosystem 'RubyGems'"):
         app_settings.set_osv_ecosystems(["RubyGems"], "admin", settings)
     with pytest.raises(ValueError, match="at least one ecosystem"):
@@ -189,6 +195,8 @@ def test_osv_ecosystems_chosen_in_the_web_interface_apply_unless_the_variable_is
         app_settings.set_osv_ecosystems(["Maven"], "admin", locked)
     app_settings.set_osv_ecosystems(None, "admin", locked)
     assert app_settings.effective_settings(settings).osv_ecosystems == default
+    # Refused changes leave no event; the removal is one
+    assert audit.list_events(action="osv_ecosystems.changed")["total"] == 2
 
 
 def effective_proxy(settings: Settings) -> tuple[str | None, str | None]:

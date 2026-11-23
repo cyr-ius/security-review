@@ -44,6 +44,7 @@ exists exactly when the change was committed.
 | `scan_engine_fallback.changed` | The fallback of the [scan engines](architecture/scan-engine.md) (`refuse` or `local`) is changed on the **Activity** page (`fallback`) |
 | `mcp_scan_delegation.changed` | The [delegation of `scan_code`](../review/analysis/opengrep.md#fragment-scans-scan_code) to the Controller server address is turned on or off on the **Activity** page, or turned off by a change of that address (`enabled`) |
 | `osv_download.changed` | The [OSV download](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) is turned on or off, or its interval changed, on the **OSV database** page (`enabled`, `interval_hours`) |
+| `osv_ecosystems.changed` | The ecosystems of the [OSV download](../review/analysis/dependencies.md#automatic-update-by-the-controller-server) are changed on the **OSV database** page, or their stored choice removed (`before`, `after`) |
 | `oauth.client_registered` | An MCP client registers itself for the [OAuth login](mcp-oauth.md) (actor `anonymous`, client name) |
 | `oauth.grant_approved` / `oauth.grant_denied` | A web user approves or denies an MCP client on the **Connect an MCP client** page |
 | `oauth.grant_revoked` | An OAuth grant is revoked: in **My account**, on the **MCP clients** page (one or all), by the client (`/revoke`), or with its user |

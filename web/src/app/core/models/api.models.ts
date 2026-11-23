@@ -412,6 +412,7 @@ export type AuditAction =
   | 'mcp_scan_delegation.changed'
   | 'scan_engine_fallback.changed'
   | 'osv_download.changed'
+  | 'osv_ecosystems.changed'
   | 'finding.exported'
   | 'connector.target_changed'
   | 'connector.changed'
@@ -470,6 +471,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'mcp_scan_delegation.changed',
   'scan_engine_fallback.changed',
   'osv_download.changed',
+  'osv_ecosystems.changed',
   'finding.exported',
   'connector.target_changed',
   'connector.changed',

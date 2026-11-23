@@ -680,6 +680,8 @@ def set_osv_ecosystems(
 ) -> None:
     """Store the ecosystems downloaded by the controller (applied at the next OSV update);
     None removes the stored value (SECREVIEW_OSV_ECOSYSTEMS, or its default, applies again).
+    The change is recorded in the audit log, in the same transaction: removing an ecosystem
+    stops the updates of its advisories.
 
     Raises:
         ValueError: If the list is empty, holds an unsupported ecosystem, or if
@@ -687,7 +689,7 @@ def set_osv_ecosystems(
     """
     settings = settings or get_settings()
     if values is None:
-        _write({OSV_ECOSYSTEMS: None}, updated_by)
+        _store_osv_ecosystems(None, updated_by, settings)
         return
     _check_not_env(settings, OSV_ECOSYSTEMS, "SECREVIEW_OSV_ECOSYSTEMS")
     canonical = []
@@ -699,7 +701,25 @@ def set_osv_ecosystems(
         canonical.append(ecosystem)
     if not canonical:
         raise ValueError("choose at least one ecosystem")
-    _write({OSV_ECOSYSTEMS: ",".join(dict.fromkeys(canonical))}, updated_by)
+    _store_osv_ecosystems(",".join(dict.fromkeys(canonical)), updated_by, settings)
+
+
+def _store_osv_ecosystems(value: str | None, actor: str, settings: Settings) -> None:
+    """Store the ecosystems (None removes them) and record the change in the audit log, with
+    the effective ecosystems before and after it."""
+    with session_scope() as session:
+        row = session.get(AppSetting, OSV_ECOSYSTEMS)
+        before = row.value if row is not None else settings.osv_ecosystems
+        _apply(session, {OSV_ECOSYSTEMS: value}, actor)
+        after = value if value is not None else settings.osv_ecosystems
+        audit.record(
+            session,
+            audit.AuditAction.OSV_ECOSYSTEMS_CHANGED,
+            actor,
+            "setting",
+            OSV_ECOSYSTEMS,
+            details={"before": before.split(","), "after": after.split(",")},
+        )
 
 
 def set_osv_download(

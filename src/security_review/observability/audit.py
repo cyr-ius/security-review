@@ -99,6 +99,9 @@ class AuditAction(StrEnum):
     # OSV download of the controller turned on or off, or its interval changed, in the web
     # interface (see app_settings.set_osv_download)
     OSV_DOWNLOAD_CHANGED = "osv_download.changed"
+    # Ecosystems of the OSV download chosen in the web interface, or the stored choice removed
+    # (see app_settings.set_osv_ecosystems): removing one stops the updates of its advisories
+    OSV_ECOSYSTEMS_CHANGED = "osv_ecosystems.changed"
     # Connectors (see connectors): a finding exported (record created or reused), the
     # destination of a project, the connection of a system
     FINDING_EXPORTED = "finding.exported"
