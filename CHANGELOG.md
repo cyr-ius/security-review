@@ -1,5 +1,20 @@
 # Changelog
 
+## [13.2.0](https://github.com/cyr-ius/security-review/compare/v13.1.0...v13.2.0) (2026-11-23)
+
+
+### Features
+
+* filtre author: dans les recherches ([3856fa1](https://github.com/cyr-ius/security-review/commit/3856fa1eb6e05dddd553a7cc33ff39ef4e95672b))
+* filtre date: dans les recherches ([10cee49](https://github.com/cyr-ius/security-review/commit/10cee4901f18eb53acfc140298f519850dd32541))
+* filtres project:, sev: et status: dans la recherche des listes ([83e8c20](https://github.com/cyr-ius/security-review/commit/83e8c20b67713f3e559661865253a325acd62cf8))
+
+
+### Bug Fixes
+
+* **mcp:** signaler la revue complète demandée dans la réponse de save_security_report ([dcf6119](https://github.com/cyr-ius/security-review/commit/dcf6119cd576594741cc2ea3f87dca0e7b9203c3))
+* valeur de projet invalide dans la recherche ([a53a2cc](https://github.com/cyr-ius/security-review/commit/a53a2cc547649205fc6cc7430e52a3bf7f611599))
+
 ## [13.1.0](https://github.com/cyr-ius/security-review/compare/v13.0.0...v13.1.0) (2026-11-22)
 
 
