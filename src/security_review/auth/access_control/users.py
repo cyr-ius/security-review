@@ -82,7 +82,7 @@ def set_user_roles(
     user_id: int,
     role_ids: Iterable[int],
     actor: str | None = None,
-    administrator: bool = True,
+    administrator: bool = False,
 ) -> None:
     """Replace the roles of a user.
 

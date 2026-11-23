@@ -355,6 +355,7 @@ def user_command(argv: list[str]) -> int:
                 "cli",
                 web_users.AUTH_OIDC if args.sso else web_users.AUTH_LOCAL,
                 all_projects_permissions=_split_permissions(args.all_projects),
+                administrator=True,
             )
         elif args.action == "list":
             result = web_users.list_users()
@@ -367,11 +368,14 @@ def user_command(argv: list[str]) -> int:
                     _projects(args.project),
                     "cli",
                     all_projects_permissions=_split_permissions(args.all_projects),
+                    administrator=True,
                 )
             elif args.action == "reset-password":
-                result = web_users.set_password(user_id, _read_password(args.password_stdin))
+                result = web_users.set_password(
+                    user_id, _read_password(args.password_stdin), administrator=True
+                )
             else:
-                result = web_users.delete_user(user_id, "cli")
+                result = web_users.delete_user(user_id, "cli", administrator=True)
     except (ValueError, NotFoundError) as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))

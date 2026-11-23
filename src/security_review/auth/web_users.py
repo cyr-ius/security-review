@@ -413,7 +413,7 @@ def create_user(
     auth_source: str = AUTH_LOCAL,
     actor: str | None = None,
     all_projects_permissions: Iterable[str] = (),
-    administrator: bool = True,
+    administrator: bool = False,
 ) -> dict[str, Any]:
     """Create a user with ``roles`` (ids), ``projects`` ((project, per-project permissions)
     pairs) and per-project permissions on every project; a local one without ``password`` gets
@@ -482,7 +482,7 @@ def update_user(
     projects: Iterable[tuple[str, Iterable[str]]] | None = None,
     updated_by: str | None = None,
     all_projects_permissions: Iterable[str] | None = None,
-    administrator: bool = True,
+    administrator: bool = False,
 ) -> dict[str, Any]:
     """Replace the roles, the projects ((project, per-project permissions) pairs) and the
     per-project permissions on every project an administrator gave to a user; applies to its
@@ -523,7 +523,7 @@ def set_password(
     user_id: int,
     password: str | None = None,
     must_change: bool = True,
-    administrator: bool = True,
+    administrator: bool = False,
 ) -> dict[str, Any]:
     """Replace the password of a local user and end its open sessions.
 
@@ -564,7 +564,8 @@ def change_own_password(user_id: int, current: str, new: str) -> dict[str, Any]:
         raise ValueError("The current password is wrong")
     if current == new:
         raise ValueError("The new password must differ from the current one")
-    return set_password(user_id, new, must_change=False)
+    # The user changes its own password (proven above): not a change of another account
+    return set_password(user_id, new, must_change=False, administrator=True)
 
 
 def get_preferences(user_id: int) -> dict[str, str]:
@@ -585,7 +586,7 @@ def set_theme(user_id: int, theme: str) -> dict[str, str]:
 
 
 def delete_user(
-    user_id: int, deleted_by: str | None = None, administrator: bool = True
+    user_id: int, deleted_by: str | None = None, administrator: bool = False
 ) -> dict[str, Any]:
     """Delete a user (its sessions stop at once); the last administrator is kept.
 
@@ -718,6 +719,7 @@ def ensure_bootstrap_admin(username: str = "admin") -> bool:
             [admin],
             created_by="bootstrap",
             all_projects_permissions=sorted(access_control.SCOPED_PERMISSIONS),
+            administrator=True,
         )
     except ValueError:
         # Another instance sharing the database created it first

@@ -1333,7 +1333,7 @@ def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, re
 
 def test_sso_settings_need_users_manage(accounts):
     make_user("root", USER_PASSWORD, "admin")
-    keeper = access_control.create_role("Settings keeper", ["settings.manage"])
+    keeper = access_control.create_role("Settings keeper", ["settings.manage"], administrator=True)
     make_user("sam", USER_PASSWORD, role_ids=[keeper["id"]])
     headers = session_headers(accounts, "sam")
 
@@ -1352,8 +1352,8 @@ def test_sso_settings_need_users_manage(accounts):
 
 def test_only_an_administrator_gives_or_takes_away_a_protected_permission(accounts):
     root = make_user("root", USER_PASSWORD, "admin")
-    managers = access_control.create_role("Users manager", ["users.manage"])
-    keepers = access_control.create_role("Settings keeper", ["settings.manage"])
+    managers = access_control.create_role("Users manager", ["users.manage"], administrator=True)
+    keepers = access_control.create_role("Settings keeper", ["settings.manage"], administrator=True)
     auditors = access_control.create_role("Auditor", ["audit.read"])
     make_user("dele", USER_PASSWORD, role_ids=[managers["id"]])
     bob = make_user("bob", USER_PASSWORD)
@@ -1792,7 +1792,9 @@ def test_a_requested_project_waits_for_an_approval_on_the_projects_screen(secure
 
 
 def test_a_users_manager_blocks_the_autojoin_of_a_project_it_reads(secured, reports):
-    manager = access_control.create_role("Manager", [access_control.Permission.USERS_MANAGE])
+    manager = access_control.create_role(
+        "Manager", [access_control.Permission.USERS_MANAGE], administrator=True
+    )
     creator = access_control.create_role("Creator", [access_control.Permission.PROJECTS_CREATE])
     make_user("carol", USER_PASSWORD, "reader", ["shop-api"], role_ids=[manager["id"]])
     make_user("cody", USER_PASSWORD, "reader", ["shop-api"], role_ids=[creator["id"]])
@@ -2595,9 +2597,9 @@ def test_sessions_follow_the_stored_user(accounts):
     headers = session_headers(accounts, "alice")
 
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 403
-    web_users.update_user(alice["id"], [role_id("admin")])
+    web_users.update_user(alice["id"], [role_id("admin")], administrator=True)
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 200
-    web_users.update_user(alice["id"], [], all_projects_permissions=[])
+    web_users.update_user(alice["id"], [], all_projects_permissions=[], administrator=True)
     # Without any permission, the session stops
     assert accounts.get("/api/v1/me", headers=headers).status_code == 401
     web_users.delete_user(alice["id"])

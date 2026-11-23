@@ -87,7 +87,7 @@ def set_oidc_mappings(
     ],
     actor: str | None = None,
     expected_version: str | None = None,
-    administrator: bool = True,
+    administrator: bool = False,
 ) -> list[dict[str, Any]]:
     """Replace the OIDC mappings: ``mappings`` holds (claim value, role ids, per-project
     permissions on every project, (project, per-project permissions) pairs). A project not known

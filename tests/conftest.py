@@ -265,7 +265,7 @@ def map_claim(claim: str, role: str | None = None, projects: list[str] | None = 
     roles, permissions = _access(role)
     every = permissions if projects is None else []
     given = [(name, permissions) for name in projects or []] if permissions else []
-    access_control.set_oidc_mappings([*current, (claim, roles, every, given)])
+    access_control.set_oidc_mappings([*current, (claim, roles, every, given)], administrator=True)
 
 
 def make_user(
@@ -303,6 +303,7 @@ def make_user(
         created_by,
         auth_source,
         all_projects_permissions=every,
+        administrator=True,
     )
     if not must_change and created["must_change_password"]:
         with session_scope() as session:

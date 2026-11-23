@@ -72,7 +72,7 @@ def create_role(
     permissions: Iterable[str],
     description: str | None = None,
     actor: str | None = None,
-    administrator: bool = True,
+    administrator: bool = False,
 ) -> dict[str, Any]:
     """Create a custom role; raise ValueError when invalid, duplicated or over the limit, and
     ProtectedAccessDenied when a caller that is not an ``administrator`` gives it a protected
@@ -114,7 +114,7 @@ def update_role(
     description: str | None = None,
     name: str | None = None,
     actor: str | None = None,
-    administrator: bool = True,
+    administrator: bool = False,
 ) -> dict[str, Any]:
     """Replace the name, description and permissions of a custom role (not a built-in role).
 
@@ -155,7 +155,7 @@ def update_role(
 
 
 def delete_role(
-    role_id: int, actor: str | None = None, administrator: bool = True
+    role_id: int, actor: str | None = None, administrator: bool = False
 ) -> dict[str, Any]:
     """Delete a custom role (the users and mappings that give it lose it); raise NotFoundError,
     ValueError, and ProtectedAccessDenied for a role with a protected permission when the caller

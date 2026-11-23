@@ -861,16 +861,16 @@ def test_giving_the_review_of_a_project_is_audited_once():
 
 def test_no_change_removes_the_last_holder_of_users_manage():
     root = make_user("root", PASSWORD, "admin")
-    managers = access_control.create_role("Managers", ["users.manage"])
+    managers = access_control.create_role("Managers", ["users.manage"], administrator=True)
 
     with pytest.raises(ValueError, match="keep the users.manage"):
-        web_users.update_user(root["id"], [])
+        web_users.update_user(root["id"], [], administrator=True)
     # Another holder through a custom role: the change is accepted
-    web_users.update_user(root["id"], [managers["id"]])
+    web_users.update_user(root["id"], [managers["id"]], administrator=True)
     with pytest.raises(ValueError, match="keep the users.manage"):
-        access_control.update_role(managers["id"], ["audit.read"])
+        access_control.update_role(managers["id"], ["audit.read"], administrator=True)
     with pytest.raises(ValueError, match="keep the users.manage"):
-        access_control.delete_role(managers["id"])
+        access_control.delete_role(managers["id"], administrator=True)
     assert [role["name"] for role in web_users.find_user("root")["roles"]] == ["Managers"]
 
 
@@ -914,3 +914,19 @@ def _settings(**values):
     from security_review.config import Settings
 
     return Settings(_env_file=None, **values)
+
+
+def test_a_protected_permission_is_refused_unless_the_caller_is_said_administrator():
+    """A caller that does not say it is an administrator (a route that forgets it) is refused:
+    the services fail closed. The CLI, run by the operator, passes administrator=True."""
+    admin = make_user("root", "Correct horse battery 9", "admin")
+    refused = [
+        lambda: access_control.create_role("Managers", ["users.manage"]),
+        lambda: web_users.update_user(admin["id"], []),
+        lambda: web_users.set_password(admin["id"]),
+        lambda: web_users.delete_user(admin["id"]),
+    ]
+    for call in refused:
+        with pytest.raises(access_control.ProtectedAccessDenied):
+            call()
+    assert access_control.create_role("Managers", ["users.manage"], administrator=True)["id"]
