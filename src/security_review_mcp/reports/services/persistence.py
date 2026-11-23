@@ -6,6 +6,7 @@ import re
 from collections import Counter
 from collections.abc import Callable, Collection
 from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import Any, Literal
 
 from sqlalchemy import ColumnElement, String, and_, case, cast, func, or_, update
@@ -29,6 +30,7 @@ from ...storage.models import (
     FindingComment,
     FindingCreate,
     FindingStatus,
+    FindingStatusFilter,
     RelatedReport,
     ReviewType,
     ScannedFile,
@@ -539,6 +541,59 @@ def _author_filter(word: str) -> ColumnElement[bool] | None:
     return func.lower(col(SecurityReport.author)) == name
 
 
+# "project:shop", "sev:high,critical" (or "severity:"), "status:accepted": the filters of the
+# global search, also read in the search of the lists (several values separated by commas)
+_FILTER_WORD = re.compile(r"(project|severity|sev|status):(\S{1,200})", re.IGNORECASE)
+
+
+def _filter_word(word: str) -> tuple[str, list[str]] | None:
+    """``project``, ``severity`` or ``status`` and the values of a filter word; None else."""
+    found = _FILTER_WORD.fullmatch(word)
+    if found is None:
+        return None
+    key = found.group(1).lower()
+    values = [value for value in found.group(2).lower().split(",") if value]
+    return ("severity" if key == "sev" else key), values
+
+
+def _known(values: list[str], known: type[StrEnum]) -> list[Any] | None:
+    """The values as members of ``known``; None when one is unknown (the word is then text)."""
+    members = {member.value: member for member in known}
+    return [members[value] for value in values] if all(v in members for v in values) else None
+
+
+def _typed_statuses(search: str | None) -> list[FindingStatusFilter]:
+    """The statuses typed in ``search`` (``status:accepted``), which replace the status filter."""
+    typed: list[FindingStatusFilter] = []
+    for word in (search or "")[:200].split():
+        found = _filter_word(word)
+        if found and found[0] == "status" and (statuses := _known(found[1], FindingStatusFilter)):
+            typed.extend(statuses)
+    return typed
+
+
+def _filter_of_word(word: str, severity_column: Any) -> ColumnElement[bool] | None:
+    """Filter of a word ``project:`` (exact, or the projects starting so with ``*``) or
+    ``severity:`` on ``severity_column``; None for another word or an unknown value."""
+    found = _filter_word(word)
+    if found is None or not found[1]:
+        return None
+    key, values = found
+    if key == "severity":
+        severities = _known(values, Severity)
+        return col(severity_column).in_(severities) if severities else None
+    if key == "project":
+        matches = []
+        for value in values:
+            if value.endswith("*"):
+                prefix = value[:-1].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                matches.append(col(SecurityReport.project).like(f"{prefix}%", escape="\\"))
+            else:
+                matches.append(col(SecurityReport.project) == normalize_project(value))
+        return or_(*matches)
+    return None
+
+
 def _split_search(
     search: str, to_filter: Callable[[str], ColumnElement[bool] | None]
 ) -> tuple[list[ColumnElement[bool]], str]:
@@ -616,7 +671,9 @@ def list_reports(
         def report_word(word: str) -> ColumnElement[bool] | None:
             by_number = _number_filter(word, "R", SecurityReport.id)
             if by_number is None and with_author:
-                return _author_filter(word)
+                by_number = _author_filter(word)
+            if by_number is None:
+                by_number = _filter_of_word(word, SecurityReport.risk_level)
             return by_number
 
         by_number, text = _split_search(search or "", report_word)

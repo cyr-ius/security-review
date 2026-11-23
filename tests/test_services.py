@@ -197,6 +197,8 @@ def test_list_reports_filters_and_counts():
     assert services.list_reports(search=f"#R{first_id}*")[0]["report_id"] == first_id
     assert [r["project"] for r in services.list_reports(search=f"report #R{first_id}")] == ["a"]
     assert services.list_reports(search=f"report b #R{first_id}") == []
+    assert [r["project"] for r in services.list_reports(search="sev:critical")] == ["a"]
+    assert [r["project"] for r in services.list_reports(search="project:b")] == ["b"]
 
 
 def test_update_finding_status_and_posture(triage):
@@ -292,6 +294,15 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert services.list_project_findings("shop", search="#PY*")["total"] == 1
     assert services.list_project_findings("shop", search="#AI*")["total"] == 0
     assert services.list_project_findings("shop", search="#RC*")["total"] == 0  # not the title
+    # The filters of the global search, typed in the search of the list
+    assert [
+        f["title"]
+        for f in services.list_project_findings(None, search="project:sh* sev:critical")["findings"]
+    ] == ["RCE"]
+    assert services.list_project_findings(None, search="project:other")["total"] == 1
+    accepted = services.list_project_findings("shop", search="status:accepted")  # replaces "open"
+    assert [f["id"] for f in accepted["findings"]] == [low.id]
+    assert services.list_project_findings("shop", search="sev:urgent")["total"] == 0  # text
     # Words and "#…" combine: the text in the findings of that rule, that number...
     assert services.list_project_findings("shop", search="rce #PY-004")["total"] == 1
     assert services.list_project_findings("shop", search="weak #PY-004")["total"] == 0
