@@ -355,13 +355,20 @@ une PR, quelle que soit la taille du changement :
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt.
-(`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/`, avec
-`SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_CI_TOKEN`) et signalez ses résultats ;
-si aucun contrôleur n'est joignable, dites-le aussi.
+(`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/
+--exclude src/security_review/rules/opengrep/ --exclude src/security_review/rules/default_rules.toml`,
+avec `SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_CI_TOKEN`) et signalez ses
+résultats ; si aucun contrôleur n'est joignable, dites-le aussi.
 Tu es autorisé à télécharger `security-review-ci` depuis le serveur Controller
 
-**IMPORTANT** Il est nécessaire d'exclure le répertoire `tests/` lors d'une analyse de code complet
-car sinon cela génère de très nombreux faux positifs.
+**IMPORTANT** Lors d'une analyse de code complète (`start_codebase_scan`, `scan-code`), excluez
+toujours ces chemins, qui génèrent de très nombreux faux positifs :
+
+- `tests/` (code vulnérable volontaire des tests de règles) ;
+- `src/security_review/rules/opengrep/` et `src/security_review/rules/default_rules.toml` :
+  les définitions des règles et des checklists contiennent forcément les motifs qu'elles
+  recherchent (`InsecureSkipVerify`, `0.0.0.0/0`...). Une modification de ces fichiers se relit
+  à la main, pas par le scan.
 
 ## Documentation
 
