@@ -373,6 +373,7 @@ def _oauth_info(session: Session, digest: bytes) -> TokenInfo | None:
         write_projects=writable,
         expired=as_utc(grant.access_expires_at) <= now,
         owner=user.username,
+        grant_id=grant.id,
     )
 
 

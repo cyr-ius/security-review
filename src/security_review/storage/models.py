@@ -624,7 +624,8 @@ class ScanTicket(SQLModel, table=True):
     It lets ``security-review-ci`` send the files of the workstation to the code scan and the
     dependency scan of one project, once each, until ``expires_at`` (SHA-256 digest only, see
     auth.scan_tickets). It holds the rights of the token that asked for it: those of its web user
-    (``user_id``) or of the token itself (``token_id``), read again at each use.
+    (``user_id``) or of the token itself (``token_id``), read again at each use. Asked for with an
+    OAuth access token, it also needs its grant (``grant_id``) to remain and be accepted.
     """
 
     id: str = Field(primary_key=True, max_length=64)
@@ -632,6 +633,7 @@ class ScanTicket(SQLModel, table=True):
     project: str = Field(max_length=200)
     user_id: int | None = Field(default=None, foreign_key="webuser.id", index=True)
     token_id: str | None = Field(default=None, max_length=64)
+    grant_id: str | None = Field(default=None, max_length=64)
     # Label of the token that asked for it, for the logs and the reports (submitted_by)
     issued_to: str = Field(max_length=200)
     created_at: datetime = Field(default_factory=utcnow)

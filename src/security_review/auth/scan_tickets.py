@@ -15,7 +15,8 @@ A ticket is a bearer credential with these limits:
   for one scan only (``scope``) is issued with the other one already used;
 - it acts as a ``ci`` token of its project, with the rights of the token that asked for it read
   again at each use: the web user of a personal token or of an OAuth grant must still write to
-  the project (``reports.write``), a token must still exist, be valid and reach the project;
+  the project (``reports.write``), a token must still exist, be valid and reach the project, an
+  OAuth grant must still exist and its tokens be accepted (OAuth login on, same MCP endpoint);
 - a caller may hold at most MAX_PENDING_PER_ISSUER tickets that are not expired; the expired ones
   are deleted when a new one is issued.
 
@@ -38,7 +39,7 @@ from ..http_server import MCP_ROLES, Role, TokenInfo, hash_token
 from ..observability import audit
 from ..observability.audit import AuditAction
 from ..storage.database import session_scope
-from ..storage.models import ApiToken, ScanTicket, WebUser, as_utc, utcnow
+from ..storage.models import ApiToken, OAuthGrant, ScanTicket, WebUser, as_utc, utcnow
 from ..storage.project_names import normalize_project
 
 # Prefix of a ticket, so that a leaked one is recognized (secret scanners, logs)
@@ -75,6 +76,7 @@ def issue(project: str, state: Mapping[str, Any], scope: Scope = "all") -> dict[
         raise ValueError(f"This token cannot save reports on project {project!r} (reports.write)")
     issued_to = str(state.get("auth_client") or "")[:200]
     token_id = state.get("auth_token_id")
+    grant_id = state.get("auth_grant_id")
     owner = state.get("auth_owner")
     now = utcnow()
     secret = PREFIX + secrets.token_urlsafe(32)
@@ -100,6 +102,7 @@ def issue(project: str, state: Mapping[str, Any], scope: Scope = "all") -> dict[
             project=project,
             user_id=user_id,
             token_id=token_id,
+            grant_id=grant_id,
             issued_to=issued_to,
             created_at=now,
             expires_at=now + timedelta(seconds=get_settings().scan_ticket_ttl_seconds),
@@ -137,6 +140,15 @@ def _token_reaches(session: Session, token_id: str, project: str) -> bool:
     return not info.expired and (info.projects is None or project in info.projects)
 
 
+def _grant_accepted(session: Session, grant_id: str) -> bool:
+    """True when the OAuth grant that asked for a ticket remains (not revoked) and its tokens are
+    accepted now (OAuth login on, issued for the stored MCP endpoint)."""
+    from .. import app_settings
+
+    grant = session.get(OAuthGrant, grant_id)
+    return grant is not None and app_settings.mcp_oauth_accepts(session, grant.resource)
+
+
 def _user_writes(session: Session, user_id: int, project: str) -> str | None:
     """Username of the web user who asked for a ticket when it may still read and write to
     ``project``, None otherwise (gone, password to change, grants unreadable)."""
@@ -167,6 +179,8 @@ def ticket_info(session: Session, digest: bytes) -> TokenInfo | None:
     if row.code_used_at is not None and row.deps_used_at is not None:
         return None
     if row.token_id is not None and not _token_reaches(session, row.token_id, row.project):
+        return None
+    if row.grant_id is not None and not _grant_accepted(session, row.grant_id):
         return None
     owner = None
     if row.user_id is not None:

@@ -178,6 +178,8 @@ class TokenInfo:
     must_change_password: bool = False
     # Id of a scan ticket (see auth.scan_tickets): it only reaches TICKET_PATHS, once each
     ticket_id: str | None = None
+    # Id of the OAuth grant of an OAuth access token (see auth.oauth_server), None otherwise
+    grant_id: str | None = None
 
 
 def write_scope(state: Mapping[str, Any]) -> frozenset[str] | None:
@@ -312,7 +314,7 @@ class BearerAuthMiddleware:
     Pure ASGI (no response buffering) so that streamed MCP responses are not affected.
     The label, role, projects and id of the accepted token are stored in ``scope["state"]``
     (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_write_projects``,
-    ``auth_token_id``, and ``auth_user_id``
+    ``auth_token_id``, ``auth_grant_id`` for an OAuth access token, and ``auth_user_id``
     and ``auth_source`` for the session of a web user).
 
     With ``web=False`` (MCP server) every path needs an MCP role, except ``public_paths``.
@@ -493,6 +495,7 @@ class BearerAuthMiddleware:
         state["auth_grants"] = info.grants
         state["auth_must_change_password"] = info.must_change_password
         state["auth_ticket_id"] = info.ticket_id
+        state["auth_grant_id"] = info.grant_id
         await self.app(scope, receive, send)
 
     async def oauth_resource(self) -> OAuthResource | None:
