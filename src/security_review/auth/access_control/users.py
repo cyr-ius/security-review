@@ -12,9 +12,11 @@ from ...storage import projects as project_store
 from ...storage.models import (
     AccessRole,
     Project,
+    UserOidcClaim,
     UserProject,
     UserRole,
     WebUser,
+    as_utc,
 )
 from . import core
 from .core import (
@@ -33,7 +35,8 @@ logger = logging.getLogger("security_review.web")
 
 def user_access(session: Session, user_id: int) -> dict[str, Any]:
     """Roles of a user, its per-project permissions on every project and its projects with their
-    permissions, and those of the mappings of its OIDC claims (``oidc``, read only)."""
+    permissions, and those of the mappings of its OIDC claims (``oidc``, read only, with
+    ``kept_since`` when a login kept the claim against the identity provider)."""
     user = session.get(WebUser, user_id)
     roles = session.exec(
         select(AccessRole)
@@ -48,6 +51,16 @@ def user_access(session: Session, user_id: int) -> dict[str, Any]:
         .order_by(col(Project.name))
     ).all()
     names = {row.id: row.name for row in session.exec(select(AccessRole)).all()}
+    # Claims kept although the identity provider no longer sends them (see sync_oidc_claims)
+    kept = {
+        row.claim: as_utc(row.kept_since).isoformat()
+        for row in session.exec(
+            select(UserOidcClaim).where(
+                UserOidcClaim.user_id == user_id, col(UserOidcClaim.kept_since).is_not(None)
+            )
+        ).all()
+        if row.kept_since is not None
+    }
     return {
         "roles": [{"role_id": role.id, "name": role.name} for role in roles],
         "all_projects_permissions": json.loads(user.all_projects_permissions) if user else [],
@@ -61,6 +74,7 @@ def user_access(session: Session, user_id: int) -> dict[str, Any]:
                 "roles": [names[item] for item in json.loads(mapping.role_ids) if item in names],
                 "all_projects_permissions": json.loads(mapping.all_projects_permissions),
                 "projects": json.loads(mapping.projects),
+                "kept_since": kept.get(mapping.claim),
             }
             for mapping in _claim_mappings(session, user_id)
         ],

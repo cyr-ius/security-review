@@ -1087,6 +1087,10 @@ class UserOidcClaim(SQLModel, table=True):
     user_id: int = Field(foreign_key="webuser.id", index=True)
     claim: str = Field(index=True, max_length=200)
     created_at: datetime = Field(default_factory=utcnow)
+    # Set when a login kept the claim although the identity provider no longer sent it, so as
+    # not to remove the last holder of users.manage: the first such login (shown in the web
+    # interface until the provider sends the claim again)
+    kept_since: datetime | None = None
 
 
 class RevokedSsoUser(SQLModel, table=True):

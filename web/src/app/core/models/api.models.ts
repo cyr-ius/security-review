@@ -304,6 +304,9 @@ export interface UserOidcAccess {
   roles: string[];
   all_projects_permissions: Permission[];
   projects: UserProjectItem[];
+  /** Set when a login kept the claim although the identity provider no longer sends it, so as
+   * not to remove the last holder of users.manage: since when (ISO 8601). */
+  kept_since: string | null;
 }
 
 /** A web user, local or OIDC; the password hash is never returned. */

@@ -640,7 +640,16 @@ def test_last_administrator_by_its_oidc_claim_is_kept():
     with pytest.raises(ValueError, match="keep the users.manage"):
         access_control.set_oidc_mappings([], administrator=True)
     login(signer, identity("alice", "sub-1"))
-    assert web_users.find_user("alice")["permissions"]["users.manage"] is None
+    kept = web_users.find_user("alice")
+    assert kept["permissions"]["users.manage"] is None
+    # The claim kept against the identity provider is shown, since its first such login
+    (claim,) = kept["oidc"]
+    assert claim["claim"] == "secreview-admins" and claim["kept_since"] is not None
+    login(signer, identity("alice", "sub-1"))
+    assert web_users.find_user("alice")["oidc"][0]["kept_since"] == claim["kept_since"]
+    # Sent again by the provider, the claim is no longer flagged
+    login(signer, identity("alice", "sub-1", "secreview-admins"))
+    assert web_users.find_user("alice")["oidc"][0]["kept_since"] is None
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────

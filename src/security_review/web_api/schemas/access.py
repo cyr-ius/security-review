@@ -33,6 +33,9 @@ class UserOidcAccess(BaseModel):
     roles: list[str]
     all_projects_permissions: list[access_control.Permission]
     projects: list[UserProjectItem]
+    # Set when a login kept the claim although the identity provider no longer sends it, so as
+    # not to remove the last holder of users.manage: since when (ISO 8601)
+    kept_since: str | None = None
 
 
 class WebUser(BaseModel):

@@ -170,7 +170,12 @@ account (see [Roles and permissions](../usage/access-control.md)).
   never creates a project. A deleted project is removed from the mappings; a mapping left giving nothing is deleted.
 - A login never removes the last holder of `users.manage`: the values of the claim that gave it
   are kept, with a warning in the logs and a `user.roles_changed` event. Removing such a mapping
-  in the interface is refused.
+  in the interface is refused. Such an account no longer follows its identity provider: the
+  **Users** page shows a **users.manage kept against the identity provider** alert, with the
+  account, the claim and the date of the first login that kept it, and a **kept against the IdP**
+  badge on the account (in the API, `kept_since` on the item of `oidc`). Give `users.manage` to
+  another account: the next login of this one then removes the claim and the alert. When you
+  remove an administrator from the group at the provider, check this page.
 
 | Setting | Effect |
 |---|---|

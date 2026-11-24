@@ -16,6 +16,7 @@ from ...storage.models import (
     AccessRole,
     OidcRoleMapping,
     UserOidcClaim,
+    utcnow,
 )
 from ..token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
 from .core import (
@@ -236,7 +237,9 @@ def sync_oidc_claims(
 
     A value of SECREVIEW_OIDC_ADMIN_GROUPS found in the claim is first mapped to ``admin``
     when it is not yet. A login never removes the last holder of ``users.manage``: the claims
-    that gave it to this user are then kept (and the change is logged and audited).
+    that gave it to this user are then kept (and the change is logged and audited), with the
+    time of the first login that kept them (``kept_since``, shown in the web interface), which
+    a login that sends the claim again clears.
     """
     values = {value for value in claim_values if 0 < len(value) <= MAX_CLAIM_CHARS}
     for name in sorted(parse_groups(settings.oidc_admin_groups) & values):
@@ -249,9 +252,15 @@ def sync_oidc_claims(
     current = session.exec(select(UserOidcClaim).where(UserOidcClaim.user_id == user_id)).all()
     kept = {row.claim for row in current}
     removed = [row.claim for row in current if row.claim not in wanted]
+    # A claim already kept against the identity provider keeps the time it was first kept
+    kept_since = {row.claim: row.kept_since for row in current if row.kept_since is not None}
     for row in current:
         if row.claim not in wanted:
             session.delete(row)
+        elif row.kept_since is not None:
+            # The identity provider sends the claim again
+            row.kept_since = None
+            session.add(row)
     session.flush()
     for claim in sorted(wanted - kept):
         session.add(UserOidcClaim(user_id=user_id, claim=claim))
@@ -265,8 +274,11 @@ def sync_oidc_claims(
             ).all()
             if manager_roles & set(json.loads(mapping.role_ids))
         )
+        now = utcnow()
         for claim in restored:
-            session.add(UserOidcClaim(user_id=user_id, claim=claim))
+            session.add(
+                UserOidcClaim(user_id=user_id, claim=claim, kept_since=kept_since.get(claim, now))
+            )
         session.flush()
         wanted |= set(restored)
         logger.warning(

@@ -8,6 +8,14 @@ export const users = defineMessages({
     'users.tabs': 'User management',
     'users.tabAccounts': 'Accounts',
     'users.tabSso': 'OIDC sign-in',
+    'users.keptTitle': 'users.manage kept against the identity provider',
+    'users.keptItem':
+      '{username} still holds the claim "{claim}" that its identity provider no longer sends, since {date}.',
+    'users.keptHelp':
+      'This account is the last holder of users.manage: its logins keep the claim so that nobody loses the administration. Give users.manage to another account; the next login of this one then removes the claim.',
+    'users.keptBadge': 'kept against the IdP',
+    'users.keptBadgeTitle':
+      'Holds users.manage by an OIDC claim its identity provider no longer sends',
     'users.mustChange': 'password to change',
     'users.help':
       'Only accounts can access the interface. What a user may do comes only from its roles (permissions on the whole Controller server) and its projects with their per-project permissions (reading, triage), and for an OIDC user from those of the OIDC mappings of its claim at its last login. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
@@ -81,6 +89,14 @@ export const users = defineMessages({
     'users.tabs': 'Gestion des utilisateurs',
     'users.tabAccounts': 'Comptes',
     'users.tabSso': 'Connexion OIDC',
+    'users.keptTitle': "users.manage conservé contre l'avis du fournisseur d'identité",
+    'users.keptItem':
+      "{username} garde le claim « {claim} » que son fournisseur d'identité n'envoie plus, depuis le {date}.",
+    'users.keptHelp':
+      "Ce compte est le dernier détenteur de users.manage : ses connexions gardent le claim pour que personne ne perde l'administration. Donnez users.manage à un autre compte ; la prochaine connexion de celui-ci retire alors le claim.",
+    'users.keptBadge': "conservé contre l'IdP",
+    'users.keptBadgeTitle':
+      "Détient users.manage par un claim OIDC que son fournisseur d'identité n'envoie plus",
     'users.mustChange': 'mot de passe à changer',
     'users.help':
       "Seuls les comptes ouvrent l'interface. Ce qu'un utilisateur peut faire vient uniquement de ses rôles (droits sur tout le serveur Controller) et de ses projets avec leurs droits par projet (lecture, triage), et pour un utilisateur OIDC de ceux des correspondances OIDC de son claim à sa dernière connexion. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
@@ -157,6 +173,14 @@ export const users = defineMessages({
     'users.tabs': 'Gestión de usuarios',
     'users.tabAccounts': 'Cuentas',
     'users.tabSso': 'Inicio de sesión OIDC',
+    'users.keptTitle': 'users.manage conservado en contra del proveedor de identidad',
+    'users.keptItem':
+      '{username} conserva el claim «{claim}» que su proveedor de identidad ya no envía, desde el {date}.',
+    'users.keptHelp':
+      'Esta cuenta es la última que tiene users.manage: sus inicios de sesión conservan el claim para que nadie pierda la administración. Dé users.manage a otra cuenta; el siguiente inicio de sesión de esta retira entonces el claim.',
+    'users.keptBadge': 'conservado contra el IdP',
+    'users.keptBadgeTitle':
+      'Tiene users.manage por un claim OIDC que su proveedor de identidad ya no envía',
     'users.mustChange': 'contraseña por cambiar',
     'users.help':
       'Solo estas cuentas abren la interfaz. Lo que un usuario puede hacer viene solo de sus roles (permisos sobre todo el servidor Controller) y de sus proyectos con sus permisos por proyecto (lectura, clasificación), y para un usuario OIDC de los de las correspondencias OIDC de su claim en su último inicio de sesión. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',

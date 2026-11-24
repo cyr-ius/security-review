@@ -248,6 +248,21 @@ export class UserListComponent implements RefreshableTab {
   /** What the OIDC mappings of the edited user give (its claim at its last login). */
   readonly oidcAccess = computed(() => this.editing()?.oidc ?? []);
 
+  /** OIDC claims kept although the identity provider no longer sends them, so as not to remove
+   * the last holder of users.manage: shown until the provider sends them again. */
+  readonly keptClaims = computed(() =>
+    (this.users.value() ?? []).flatMap((user) =>
+      user.oidc
+        .filter((item) => item.kept_since)
+        .map((item) => ({ username: user.username, claim: item.claim, since: item.kept_since })),
+    ),
+  );
+
+  /** True when the user holds an OIDC claim its identity provider no longer sends. */
+  hasKeptClaim(user: WebUser): boolean {
+    return user.oidc.some((item) => item.kept_since);
+  }
+
   readonly passwordInvalid = computed(
     () => this.formSource() === 'local' && this.userForm.password().invalid(),
   );

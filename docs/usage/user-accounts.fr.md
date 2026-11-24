@@ -51,6 +51,8 @@ Un compte OIDC n'a pas de mot de passe : il est géré par le fournisseur d'iden
 - **Un compte OIDC supprimé n'est pas recréé** à sa prochaine connexion, tant qu'un
   administrateur n'a pas cliqué sur **Autoriser à nouveau** dans **Utilisateurs**.
 - **Le dernier administrateur** (détenteur de `users.manage`) ne peut être ni supprimé ni perdre
-  cette permission.
+  cette permission. Un administrateur OIDC la garde même si son fournisseur d'identité ne la lui
+  donne plus : **Utilisateurs** affiche alors une alerte jusqu'à sa première connexion après qu'un autre
+  compte a reçu `users.manage` ([détails](../advanced/oidc.md#correspondances-oidc)).
 - **Un compte utilisateur ne connecte jamais un agent** : l'agent utilise un
   [jeton personnel](tokens.md#jetons-mcp-et-ci-personnels).

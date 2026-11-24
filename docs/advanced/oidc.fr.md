@@ -178,7 +178,13 @@ s'ajoutent aux rôles et projets donnés au compte (voir
   plus rien est supprimée.
 - Une connexion ne retire jamais le dernier détenteur de `users.manage` : les valeurs du claim qui
   la lui donnaient sont gardées, avec un avertissement dans les journaux et un événement
-  `user.roles_changed`. Supprimer une telle correspondance dans l'interface est refusé.
+  `user.roles_changed`. Supprimer une telle correspondance dans l'interface est refusé. Ce compte
+  ne suit alors plus son fournisseur d'identité : la page **Utilisateurs** affiche une alerte
+  **users.manage conservé contre l'avis du fournisseur d'identité**, avec le compte, le claim et
+  la date de la première connexion qui l'a gardé, et un badge **conservé contre l'IdP** sur le
+  compte (dans l'API, `kept_since` sur l'élément de `oidc`). Donnez `users.manage` à un autre
+  compte : la prochaine connexion de celui-ci retire alors le claim et l'alerte. Quand vous
+  retirez un administrateur du groupe chez le fournisseur, vérifiez cette page.
 
 | Réglage | Effet |
 |---|---|

@@ -47,5 +47,7 @@ An OIDC account has no password: it is managed by the identity provider.
 - **A deleted OIDC account is not created again** at its next login, until an administrator
   clicks **Allow again** in **Users**.
 - **The last administrator** (holder of `users.manage`) can be neither deleted nor lose that
-  permission.
+  permission. An OIDC one keeps it even when its identity provider no longer gives it: **Users**
+  then shows an alert until its first login after another account got `users.manage`
+  ([details](../advanced/oidc.md#oidc-mappings)).
 - **A user account never connects an agent**: the agent uses a [personal token](tokens.md#personal-mcp-and-ci-tokens).

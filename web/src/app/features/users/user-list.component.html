@@ -2,6 +2,30 @@
 
 <p class="text-body-secondary small">{{ 'users.help' | t }}</p>
 
+@if (keptClaims().length) {
+  <section class="alert alert-warning" role="alert" aria-labelledby="users-kept-title">
+    <h2 id="users-kept-title" class="h6">
+      <i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>{{ 'users.keptTitle' | t }}
+    </h2>
+    <ul class="mb-2">
+      @for (item of keptClaims(); track item.username + item.claim) {
+        <li>
+          {{
+            'users.keptItem'
+              | t
+                : {
+                    username: item.username,
+                    claim: item.claim,
+                    date: (item.since | date: 'dd/MM/yyyy HH:mm') ?? '',
+                  }
+          }}
+        </li>
+      }
+    </ul>
+    <p class="small mb-0">{{ 'users.keptHelp' | t }}</p>
+  </section>
+}
+
 @if (error(); as text) {
   <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
 }
@@ -224,6 +248,12 @@
                       <span class="badge text-bg-light border ms-1">{{
                         'users.neverLoggedIn' | t
                       }}</span>
+                    }
+                    @if (hasKeptClaim(user)) {
+                      <span class="badge text-bg-warning ms-1" [title]="'users.keptBadgeTitle' | t">
+                        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                        {{ 'users.keptBadge' | t }}
+                      </span>
                     }
                   } @else {
                     <span
