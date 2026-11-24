@@ -7,7 +7,8 @@ from the current and the previous fixed windows. Two uses:
 - ``LoginThrottle``: failed logins, a username locked for an address after a few failures, an
   address after more failures on any username;
 - ``RateLimitMiddleware``: requests to the REST API per client address, with a stricter limit
-  on the login routes.
+  on the login routes; on the routes only one kind of token reaches (the scan engines), only
+  the refused requests count.
 
 The keys are stored as SHA-256 digests: neither usernames nor addresses are kept in clear.
 """
@@ -24,7 +25,7 @@ from sqlalchemy import delete
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..storage.database import session_scope
 from ..storage.models import RateLimitCounter
@@ -188,7 +189,9 @@ class RateLimitMiddleware:
 
     Only ``/api/`` and the OAuth routes (``counted``) are counted (the files of the web
     interface are not); the login routes (``auth_prefix``, one or several prefixes) have their
-    own, stricter, limit.
+    own, stricter, limit. On the ``failures_prefix`` routes (those of the scan engines, which
+    only their access token reaches), only the refused requests (401, 403) count, against the
+    stricter limit: an authenticated engine is never limited, guessing its token still is.
     """
 
     def __init__(
@@ -200,6 +203,7 @@ class RateLimitMiddleware:
         auth_prefix: str | tuple[str, ...],
         clock: Callable[[], float] = time.time,
         counted: tuple[str, ...] = (),
+        failures_prefix: tuple[str, ...] = (),
     ) -> None:
         self.app = app
         self.max_requests = max_requests
@@ -209,6 +213,8 @@ class RateLimitMiddleware:
         self.counted = ("/api/", *counted)
         self.requests = RateLimit("api", window, clock)
         self.logins = RateLimit("auth", window, clock)
+        self.failures_prefix = failures_prefix
+        self.failures = RateLimit("refused", window, clock)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Count an API request of the client address, or refuse it."""
@@ -218,6 +224,9 @@ class RateLimitMiddleware:
             return
         client = scope.get("client")
         address = client[0] if client else "unknown"
+        if self.failures_prefix and path.startswith(self.failures_prefix):
+            await self._count_failures(scope, receive, send, address)
+            return
         if path.startswith(self.auth_prefix):
             limit, maximum = self.logins, self.max_auth_requests
         else:
@@ -227,6 +236,27 @@ class RateLimitMiddleware:
             await _too_many(send, self.window)
             return
         await self.app(scope, receive, send)
+
+    async def _count_failures(
+        self, scope: Scope, receive: Receive, send: Send, address: str
+    ) -> None:
+        """Serve a request of which only a refusal (401, 403) counts; refuse it (429) when the
+        address already reached the stricter limit with refused requests."""
+        if await run_in_threadpool(self.failures.count, address) >= self.max_auth_requests:
+            logger.warning("Too many refused requests from %s: refused", address)
+            await _too_many(send, self.window)
+            return
+        refused = False
+
+        async def watch(message: Message) -> None:
+            nonlocal refused
+            if message["type"] == "http.response.start" and message["status"] in (401, 403):
+                refused = True
+            await send(message)
+
+        await self.app(scope, receive, watch)
+        if refused:
+            await run_in_threadpool(self.failures.hit, address)
 
 
 async def _too_many(send: Send, retry_after: int) -> None:

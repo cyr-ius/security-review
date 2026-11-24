@@ -174,7 +174,9 @@ Before each scan, an engine brings its copy of the rules of the Controller serve
 The rules changed on the Controller server (web interface, CLI, approved OpenGrep proposals) thus
 reach the engines **at their next scan**. When the Controller server does not answer, the engine
 scans with the copy it has (and logs a warning), without asking again for 10 seconds; without any
-copy yet, it cannot scan and the Controller server treats it as unavailable (see below).
+copy yet, it cannot scan and the Controller server treats it as unavailable (see below). These
+requests are not subject to the [rate limit](../../reference/configuration.md#rate-limiting) of
+the REST API: only refused ones (an invalid access token) count.
 
 ## When an engine does not answer
 

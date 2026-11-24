@@ -261,7 +261,9 @@
   `401`. Failures are limited in the database, shared by every replica (5 per user name and
   address, 20 per address, over 15 minutes, then `429`), and so are the requests of an address
   to the REST API (`SECREVIEW_RATE_LIMIT_*`, counted before the token is checked, so that
-  guessing tokens is limited too; the counters store SHA-256 digests, never the addresses); behind a reverse proxy, the client address is only read from
+  guessing tokens is limited too; on the routes of the scan engines, `/api/v1/engine/`, which
+  only their access token reaches, only the refused requests count, against
+  `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS`, so that an authenticated engine is never limited; the counters store SHA-256 digests, never the addresses); behind a reverse proxy, the client address is only read from
   `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
   client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
   token signed with `SECREVIEW_SECRET_KEY`, like the OIDC one, but the account is **read

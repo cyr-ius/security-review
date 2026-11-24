@@ -280,7 +280,10 @@
   l'échec renvoie toujours le même `401`. Les échecs sont limités en base, partagés par toutes
   les réplicas (5 par identifiant et adresse, 20 par adresse, sur 15 minutes, puis `429`), comme
   les requêtes d'une adresse vers l'API REST (`SECREVIEW_RATE_LIMIT_*`, comptées avant le
-  contrôle du jeton, pour limiter aussi les essais de jetons ; les compteurs enregistrent des
+  contrôle du jeton, pour limiter aussi les essais de jetons ; sur les routes des moteurs de
+  scan, `/api/v1/engine/`, que seul leur jeton d'accès atteint, seules les requêtes refusées
+  comptent, contre `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS`, pour qu'un moteur authentifié ne
+  soit jamais limité ; les compteurs enregistrent des
   empreintes SHA-256, jamais les adresses) ; derrière un reverse proxy,
   l'adresse du client n'est lue dans `X-Forwarded-For` que pour les proxies listés dans
   `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les

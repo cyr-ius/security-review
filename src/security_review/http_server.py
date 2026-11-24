@@ -898,7 +898,8 @@ def build_controller_app(
 
     ``require_auth`` (OIDC enabled) asks for a login even while no token nor user is stored.
     With ``settings`` and SECREVIEW_RATE_LIMIT_ENABLED, the requests of each address are
-    limited before the token is checked, so that guessing tokens is limited too.
+    limited before the token is checked, so that guessing tokens is limited too; on
+    ENGINE_API_PREFIX, only the refused requests count (an enrolled engine is never limited).
     ``engine_routes`` (enrollment and access tokens of the scan engines, see
     engines.enrollment) bypass the tokens and the rate limit: they check the shared secret of
     the engines, or the credentials of each engine, themselves.
@@ -914,6 +915,8 @@ def build_controller_app(
             window=settings.rate_limit_window_seconds,
             auth_prefix=(AUTH_PREFIX, *OAUTH_LOGIN_PATHS),
             counted=OAUTH_PATHS,
+            # Only the access token of a scan engine reaches them (see role_allowed)
+            failures_prefix=(ENGINE_API_PREFIX,),
         )
     if engine_routes:
         app = PathDispatcher(app, engine_routes)

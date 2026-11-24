@@ -88,8 +88,8 @@ Lues par `security-review-controller` uniquement.
 |---|---|---|
 | `SECREVIEW_RATE_LIMIT_ENABLED` | `true` | Limiter les requêtes de chaque adresse cliente vers l'API REST (`429` au-delà) ; comptées en base, partagées par toutes les réplicas |
 | `SECREVIEW_RATE_LIMIT_WINDOW_SECONDS` | `60` | Fenêtre des limites, en secondes (1 à 3600) |
-| `SECREVIEW_RATE_LIMIT_MAX_REQUESTS` | `600` | Requêtes d'une adresse vers `/api/` par fenêtre |
-| `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS` | `30` | Requêtes d'une adresse vers les routes de connexion (`/api/v1/auth/`) par fenêtre |
+| `SECREVIEW_RATE_LIMIT_MAX_REQUESTS` | `600` | Requêtes d'une adresse vers `/api/` par fenêtre (les routes des moteurs de scan, `/api/v1/engine/`, ne sont pas comptées) |
+| `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS` | `30` | Requêtes d'une adresse vers les routes de connexion (`/api/v1/auth/`) par fenêtre ; aussi les requêtes refusées (`401`, `403`) d'une adresse vers `/api/v1/engine/`, au-delà desquelles toutes ses requêtes y reçoivent `429` : un moteur de scan authentifié n'est jamais limité |
 
 ### Connexion OIDC
 

@@ -87,8 +87,8 @@ Read by `security-review-controller` only.
 |---|---|---|
 | `SECREVIEW_RATE_LIMIT_ENABLED` | `true` | Limit the requests of each client address to the REST API (`429` over the limit); counted in the database, shared by every replica |
 | `SECREVIEW_RATE_LIMIT_WINDOW_SECONDS` | `60` | Window of the limits, in seconds (1 to 3600) |
-| `SECREVIEW_RATE_LIMIT_MAX_REQUESTS` | `600` | Requests of an address to `/api/` per window |
-| `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS` | `30` | Requests of an address to the login routes (`/api/v1/auth/`) per window |
+| `SECREVIEW_RATE_LIMIT_MAX_REQUESTS` | `600` | Requests of an address to `/api/` per window (the routes of the scan engines, `/api/v1/engine/`, are not counted) |
+| `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS` | `30` | Requests of an address to the login routes (`/api/v1/auth/`) per window; also the refused requests (`401`, `403`) of an address to `/api/v1/engine/`, after which all its requests there get `429`: an authenticated scan engine is never limited |
 
 ### OIDC login
 

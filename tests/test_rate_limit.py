@@ -220,6 +220,44 @@ def test_the_controller_limits_requests_before_checking_the_token():
     assert codes == [401, 401, 429]
 
 
+def test_only_refused_requests_count_on_the_routes_of_the_scan_engines(clock):
+    def refused(_request):
+        return PlainTextResponse("no", status_code=401)
+
+    app = Starlette(
+        routes=[Route("/api/v1/engine/rules", ok), Route("/api/v1/engine/denied", refused)]
+    )
+    middleware = rate_limit.RateLimitMiddleware(
+        app,
+        max_requests=1,
+        max_auth_requests=2,
+        window=60,
+        auth_prefix=http_server.AUTH_PREFIX,
+        clock=clock,
+        failures_prefix=(http_server.ENGINE_API_PREFIX,),
+    )
+    client = TestClient(middleware, base_url="http://127.0.0.1")
+
+    # An authenticated engine is never limited, even over max_requests
+    assert {client.get("/api/v1/engine/rules").status_code for _ in range(5)} == {200}
+    # Guessing its token is: two refusals, then 429 for every request of the address
+    codes = [client.get("/api/v1/engine/denied").status_code for _ in range(3)]
+    assert codes == [401, 401, 429]
+    assert client.get("/api/v1/engine/rules").status_code == 429
+
+
+def test_the_controller_counts_the_refused_tokens_of_the_engine_routes():
+    token_store.create_token("admin", "admin")
+    settings = Settings(_env_file=None, rate_limit_auth_max_requests=2)
+    app = http_server.build_controller_app(ok, token_store.DatabaseTokenStore(), settings=settings)
+    client = TestClient(app, base_url="http://127.0.0.1")
+    headers = {"Authorization": "Bearer wrong-token"}
+
+    codes = [client.get("/api/v1/engine/rules", headers=headers).status_code for _ in range(3)]
+
+    assert codes == [401, 401, 429]
+
+
 def test_the_limit_can_be_disabled():
     token_store.create_token("admin", "admin")
     settings = Settings(_env_file=None, rate_limit_enabled=False, rate_limit_max_requests=1)

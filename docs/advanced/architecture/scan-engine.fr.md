@@ -183,7 +183,9 @@ Les règles modifiées sur le serveur Controller (interface web, CLI, propositio
 approuvées) atteignent donc les moteurs **à leur scan suivant**. Quand le serveur Controller ne
 répond pas, le moteur scanne avec la copie dont il dispose (et journalise un avertissement), sans
 redemander pendant 10 secondes ; sans aucune copie, il ne peut pas scanner et le serveur Controller
-le considère comme indisponible (voir plus bas).
+le considère comme indisponible (voir plus bas). Ces requêtes ne sont pas soumises à la
+[limitation des requêtes](../../reference/configuration.md#limitation-des-requetes) de l'API REST : seules
+les requêtes refusées (jeton d'accès invalide) comptent.
 
 ## Quand un moteur ne répond pas
 
