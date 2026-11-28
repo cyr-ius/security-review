@@ -615,6 +615,11 @@ class Settings(BaseSettings):
     mcp_scan_controller_url: str | None = None
     # Time limit of a delegated scan, OpenGrep included (seconds)
     mcp_scan_timeout_seconds: int = Field(default=120, ge=1, le=7200)
+    # Delegated scan sent again while every OpenGrep fragment slot of the controller is taken
+    # (503 with Retry-After), at most this many times (0: scan with the own rules at once), after
+    # this wait in seconds (less when Retry-After asks for less)
+    mcp_scan_busy_retries: int = Field(default=2, ge=0, le=10)
+    mcp_scan_busy_wait_seconds: float = Field(default=3, ge=0, le=60)
     # Controller only: validity of the single-use ticket of a codebase scan (MCP tool
     # start_codebase_scan, sent by the delegation of scan_code), with which security-review-ci
     # sends the files of the workstation to the code and dependency scans of one project

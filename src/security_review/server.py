@@ -700,6 +700,8 @@ def scan_code(
                 content,
                 language,
                 settings.mcp_scan_timeout_seconds,
+                busy_retries=settings.mcp_scan_busy_retries,
+                busy_wait=settings.mcp_scan_busy_wait_seconds,
             )
         except remote_scan.RemoteScanError as exc:
             logger.warning("Delegated scan failed, scanning locally: %s", exc)

@@ -60,6 +60,8 @@ Read by `security-review-mcp` only.
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |
 | `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Deprecated: set [`SECREVIEW_SCANCODE_DELEGATED`](#web-interface-and-sessions) on the Controller server instead. Still read, with a warning: root URL of the Controller server to which `scan_code` delegates its scan; takes precedence over the delegation stored by the Controller server. The Controller server only answers while its own delegation is on (`SECREVIEW_SCANCODE_DELEGATED` or the web interface): without it, `scan_code` falls back to the rules of the MCP server |
 | `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` | `120` | Maximum duration of a delegated scan, OpenGrep included (1 to 7200); beyond, `scan_code` scans with the rules of the MCP server |
+| `SECREVIEW_MCP_SCAN_BUSY_RETRIES` | `2` | Times a delegated scan is sent again while every OpenGrep fragment slot of the Controller server is taken (`503` with `Retry-After`), 0 to 10; `0`: `scan_code` scans with the rules of the MCP server at once |
+| `SECREVIEW_MCP_SCAN_BUSY_WAIT_SECONDS` | `3` | Wait in seconds before each of these tries (0 to 60), shorter when `Retry-After` asks for less |
 
 ## Controller server
 

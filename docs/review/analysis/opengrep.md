@@ -41,7 +41,10 @@ deprecated: still read with a warning, it takes precedence.
   rest of the REST API.
 - Without a caller token (stdio, open server), or when the Controller server does not answer
   (unreachable, busy OpenGrep, `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` exceeded), `scan_code` scans with
-  the rules of the MCP server and gives the reason in `controller_error`.
+  the rules of the MCP server and gives the reason in `controller_error`. A busy OpenGrep (`503`
+  with `Retry-After`) is first retried: `SECREVIEW_MCP_SCAN_BUSY_RETRIES` times (2 by default),
+  `SECREVIEW_MCP_SCAN_BUSY_WAIT_SECONDS` apart (3 s), as a fragment scan frees its slot within
+  seconds; agents that call `scan_code` several times at once then get the OpenGrep rules too.
 - The call goes to the configured URL only, without proxy nor redirect, with a bounded answer; use an
   `https://` URL when the Controller server is not on the same private network.
 - The fragments have their own OpenGrep slots (`SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`):

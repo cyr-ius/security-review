@@ -478,7 +478,9 @@ async def test_scan_code_delegates_to_the_controller_with_the_token_of_its_calle
     heartbeat = server_instances.ServerHeartbeat(ServerKind.MCP, server._scan_code_delegated)
     monkeypatch.setattr(server, "_heartbeat", heartbeat)
 
-    def controller(url, authorization, text, language, timeout):
+    def controller(url, authorization, text, language, timeout, *, busy_retries, busy_wait):
+        # A busy controller is retried with the settings of the MCP server (remote_scan)
+        assert (busy_retries, busy_wait) == (2, 3)
         sent.append((url, authorization, language, heartbeat.activity()["processing_fragments"]))
         if len(sent) > 1:
             raise server.remote_scan.RemoteScanError("the controller answered HTTP 503")

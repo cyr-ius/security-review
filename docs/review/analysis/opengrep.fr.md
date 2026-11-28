@@ -43,7 +43,11 @@ variable du serveur MCP, est obsolète : encore lue avec un avertissement, elle 
   le reste de l'API REST.
 - Sans jeton d'appelant (stdio, serveur ouvert), ou quand le serveur Controller ne répond pas
   (injoignable, OpenGrep occupé, `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` dépassé), `scan_code` scanne avec
-  les règles du serveur MCP et en donne la raison dans `controller_error`.
+  les règles du serveur MCP et en donne la raison dans `controller_error`. Un OpenGrep occupé (`503`
+  avec `Retry-After`) est d'abord réessayé : `SECREVIEW_MCP_SCAN_BUSY_RETRIES` fois (2 par défaut),
+  à `SECREVIEW_MCP_SCAN_BUSY_WAIT_SECONDS` d'intervalle (3 s), car un scan de fragment libère son
+  créneau en quelques secondes ; des agents qui appellent `scan_code` plusieurs fois à la fois
+  obtiennent alors aussi les règles OpenGrep.
 - L'appel ne va qu'à l'URL configurée, sans proxy ni redirection, avec une réponse bornée ; utilisez
   une URL `https://` quand le serveur Controller n'est pas sur le même réseau privé.
 - Les fragments ont leurs propres créneaux OpenGrep (`SECREVIEW_OPENGREP_MAX_CONCURRENT_FRAGMENT_SCANS`) :

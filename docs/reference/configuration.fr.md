@@ -61,6 +61,8 @@ Lues par `security-review-mcp` uniquement.
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |
 | `SECREVIEW_MCP_SCAN_CONTROLLER_URL` | — | Obsolète : définissez plutôt [`SECREVIEW_SCANCODE_DELEGATED`](#interface-web-et-sessions) sur le serveur Controller. Encore lue, avec un avertissement : URL racine du serveur Controller à qui `scan_code` délègue son scan ; prioritaire sur la délégation enregistrée par le serveur Controller. Le serveur Controller ne répond que si sa propre délégation est activée (`SECREVIEW_SCANCODE_DELEGATED` ou l'interface web) : sinon, `scan_code` revient aux règles du serveur MCP |
 | `SECREVIEW_MCP_SCAN_TIMEOUT_SECONDS` | `120` | Durée maximale d'un scan délégué, OpenGrep compris (1 à 7200) ; au-delà, `scan_code` scanne avec les règles du serveur MCP |
+| `SECREVIEW_MCP_SCAN_BUSY_RETRIES` | `2` | Nombre de nouveaux envois d'un scan délégué tant que tous les créneaux OpenGrep des fragments du serveur Controller sont pris (`503` avec `Retry-After`), de 0 à 10 ; `0` : `scan_code` scanne aussitôt avec les règles du serveur MCP |
+| `SECREVIEW_MCP_SCAN_BUSY_WAIT_SECONDS` | `3` | Attente en secondes avant chacun de ces envois (0 à 60), plus courte quand `Retry-After` demande moins |
 
 ## Serveur Controller
 
